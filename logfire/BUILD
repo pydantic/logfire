@@ -1,4 +1,4 @@
-python_sources(dependencies=["src/packages/logfire:reqs"])
+python_sources(resolve=parametrize('default', 'logfire-package'))
 
 resource(
     name="py_typed",

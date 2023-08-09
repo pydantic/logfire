@@ -6,7 +6,11 @@ from time import sleep
 from google.protobuf.json_format import MessageToJson
 from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from opentelemetry.exporter.otlp.proto.http import Compression
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter, _expo, _logger
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+    _expo,
+    _logger,
+)
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 
