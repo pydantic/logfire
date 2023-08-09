@@ -9,7 +9,7 @@ from typing import Any, Literal, TypeVar
 from opentelemetry import trace
 from opentelemetry.sdk.trace import Resource, Span, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import Tracer, use_span
 from opentelemetry.util.types import AttributeValue
 from pydantic import TypeAdapter
 from pydantic_settings import BaseSettings
@@ -19,7 +19,8 @@ from logfire.exporters.http import HttpJsonSpanExporter
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
-IS_LOG_KEY = 'logfire.is_log'
+LOG_TYPE_KEY = 'logfire.log_type'
+LogTypeType = Literal['log', 'span_start', 'span_end']
 _F = TypeVar('_F', bound=Callable[..., Any])
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 
@@ -81,14 +82,17 @@ class Observe:
         tracer = self._get_context_tracer()
 
         s: Span
-        with tracer.start_as_current_span(span_name) as s:
-            if kwargs:
-                s.set_attributes(self._prepare_attributes(kwargs))
-                s.set_attributes({MSG_TEMPLATE_KEY: msg_template})
+        attrs: dict[str, AttributeValue] = {MSG_TEMPLATE_KEY: msg_template, LOG_TYPE_KEY: 'span_start'}
+        if kwargs:
+            attrs.update(self._prepare_attributes(kwargs))
+        with tracer.start_as_current_span(span_name, attributes=attrs) as s:
             s.add_event(msg)
             yield s
 
-    def instrument(self, tracer_name: str | None = None, span_name: str | None = None) -> Callable[[_F], _F]:
+    def instrument(
+        self, tracer_name: str | None = None, span_name: str | None = None, message: LiteralString | None = None
+    ) -> Callable[[_F], _F]:
+        # TODO ideally message kwargs would be taken from the function signature
         if tracer_name is None:
             tracer_name = sys._getframe(1).f_globals.get('__name__', self._config.service_name)
 
@@ -99,7 +103,13 @@ class Observe:
             if span_name is None:
                 span_name = f'{func.__module__}.{func.__name__}'
             self._self_log(f'Instrumenting {func} with: {tracer_name=}, {span_name=}')
-            return tracer.start_as_current_span(span_name)(func)
+            attrs = {LOG_TYPE_KEY: 'span_start'}
+            if message:
+                attrs[MSG_TEMPLATE_KEY] = message
+            span = tracer.start_span(span_name, attributes=attrs)
+            if message:
+                span.add_event(message)
+            return use_span(span, end_on_exit=True)(func)
 
         return decorator
 
@@ -112,7 +122,7 @@ class Observe:
         attributes = self._prepare_attributes(kwargs)
         attributes[LEVEL_KEY] = level
         attributes[MSG_TEMPLATE_KEY] = msg_template
-        attributes[IS_LOG_KEY] = True
+        attributes[LOG_TYPE_KEY] = 'log'
 
         span = tracer.start_span(
             name=msg,
