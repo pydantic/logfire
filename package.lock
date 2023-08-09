@@ -1229,7 +1229,7 @@
   ],
   "path_mappings": {},
   "pex_version": "2.1.137",
-  "pip_version": "20.3.4-patched",
+  "pip_version": "23.0.1",
   "prefer_older_binary": false,
   "requirements": [
     "black",
