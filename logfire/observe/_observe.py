@@ -76,15 +76,16 @@ class Observe:
 
     # Spans
     @contextmanager
-    def span(self, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[Span]:
+    def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[Span]:
         msg = msg_template.format(**kwargs)
         tracer = self._get_context_tracer()
 
         s: Span
-        with tracer.start_as_current_span(msg) as s:
+        with tracer.start_as_current_span(span_name) as s:
             if kwargs:
                 s.set_attributes(self._prepare_attributes(kwargs))
                 s.set_attributes({MSG_TEMPLATE_KEY: msg_template})
+            s.add_event(msg)
             yield s
 
     def instrument(self, tracer_name: str | None = None, span_name: str | None = None) -> Callable[[_F], _F]:
