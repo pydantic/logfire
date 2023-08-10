@@ -37,10 +37,9 @@ skip-string-normalization = true
 
 [tool.ruff]
 line-length = 120
-extend-select = ['Q', 'RUF100', 'C90', 'UP', 'I'] #, 'D', 'T']
+extend-select = ['Q', 'RUF100', 'C90', 'UP', 'I', 'D']  # add 'T' to disallow prints
 # E501 is handled by black
 extend-ignore = ['D105', 'D107', 'D205', 'D415', 'E501']
 flake8-quotes = { inline-quotes = 'single', multiline-quotes = 'double' }
 mccabe = { max-complexity = 14 }
 target-version = "py38"
-exclude = ['pydantic/v1', 'tests/mypy/outputs']

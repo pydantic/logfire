@@ -1,4 +1,5 @@
 import pytest
+
 from logfire import __version__
 from logfire.observe._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY
 
