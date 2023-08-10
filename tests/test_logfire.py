@@ -1,5 +1,4 @@
 import pytest
-
 from logfire import __version__
 from logfire.observe import span
 from logfire.observe._observe import MSG_TEMPLATE_KEY

@@ -1,4 +1,4 @@
-python_sources(resolve=parametrize('default', 'logfire-package'))
+python_sources()
 
 resource(
     name="py_typed",

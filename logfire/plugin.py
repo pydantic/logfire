@@ -1,7 +1,7 @@
 from typing import Any
 
-from pydantic.plugin import OnValidatePython as _OnValidatePython, Plugin
 from pydantic import ValidationError
+from pydantic.plugin import OnValidatePython as _OnValidatePython, Plugin
 from rich.console import Console
 
 console = Console()
