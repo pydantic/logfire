@@ -46,6 +46,10 @@ class _Telemetry:
         self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
         exporter = exporter or HttpJsonSpanExporter(endpoint=self._config.endpoint)
         self.processor = BatchSpanProcessor(exporter, max_export_batch_size=1)
+
+        # FIXME big hack - without this `set_exporter` actually just adds another exporter!
+        self.provider._active_span_processor._span_processors = ()
+
         self.provider.add_span_processor(self.processor)
         self.self_log(f'Configured span exporter with endpoint={self._config.endpoint!r}')
 
