@@ -7,9 +7,9 @@ from functools import cached_property
 from typing import Any, Literal, TypeVar
 
 from opentelemetry import trace
-from opentelemetry.sdk.trace import Resource, Span, TracerProvider
+from opentelemetry.sdk.trace import Resource, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
-from opentelemetry.trace import Tracer, use_span
+from opentelemetry.trace import Span, Tracer, use_span
 from opentelemetry.util.types import AttributeValue
 from pydantic import TypeAdapter
 from pydantic_settings import BaseSettings
@@ -45,7 +45,10 @@ class _Telemetry:
         self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
         self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
         exporter = exporter or HttpJsonSpanExporter(endpoint=self._config.endpoint)
-        self.processor = BatchSpanProcessor(exporter, max_export_batch_size=1)
+        # TODO may want to make some of the processor options configurable so
+        # that overhead vs latency tradeoff can be adjusted, for now set for
+        # minimum latency which will be nicest on small workloads
+        self.processor = BatchSpanProcessor(exporter, schedule_delay_millis=1)
 
         # FIXME big hack - without this `set_exporter` actually just adds another exporter!
         self.provider._active_span_processor._span_processors = ()
@@ -165,7 +168,7 @@ class Observe:
         finally:
             self._tracer.reset(token)
 
-    def _get_context_tracer(self):
+    def _get_context_tracer(self) -> Tracer:
         tracer = self._tracer.get()
         if tracer is None:
             # raise RuntimeError('No tracer set')
