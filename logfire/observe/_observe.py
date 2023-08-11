@@ -1,15 +1,17 @@
+import base64
 import sys
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from functools import cached_property
-from typing import Any, Literal, TypeVar
+from functools import cached_property, wraps
+from typing import Any, Literal, ParamSpec, TypedDict, TypeVar
 
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.common._internal import _encode_span_id
 from opentelemetry.sdk.trace import Resource, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
-from opentelemetry.trace import Span, Tracer, use_span
+from opentelemetry.trace import Span, Tracer
 from opentelemetry.util.types import AttributeValue
 from pydantic import TypeAdapter
 from pydantic_settings import BaseSettings
@@ -20,9 +22,11 @@ from logfire.exporters.http import HttpJsonSpanExporter
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
 LOG_TYPE_KEY = 'logfire.log_type'
-LogTypeType = Literal['log', 'span_start', 'span_end']
-_F = TypeVar('_F', bound=Callable[..., Any])
+START_PARENT_ID = 'logfire.start_parent_id'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
+
+_RETURN = TypeVar('_RETURN')
+_PARAMS = ParamSpec('_PARAMS')
 
 
 class ObserveConfig(BaseSettings):  # type: ignore
@@ -62,6 +66,11 @@ class _Telemetry:
             print(__msg)
 
 
+class LogFireSpan(TypedDict):
+    real_span: Span
+    start_span: Span
+
+
 class Observe:
     def __init__(self, config: ObserveConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
@@ -84,39 +93,54 @@ class Observe:
 
     # Spans
     @contextmanager
-    def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[Span]:
-        msg = msg_template.format(**kwargs)
+    def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
         tracer = self._get_context_tracer()
+        span_start = int(time.time() * 1e9)
 
-        s: Span
-        attrs: dict[str, AttributeValue] = {MSG_TEMPLATE_KEY: msg_template, LOG_TYPE_KEY: 'span_start'}
-        if kwargs:
-            attrs.update(self._prepare_attributes(kwargs))
-        with tracer.start_as_current_span(span_name, attributes=attrs) as s:
-            s.add_event(msg)
-            yield s
+        start_parent_id = self._start_parent_id()
+        attrs = {LOG_TYPE_KEY: 'real_span'}
+        real_span: Span
+        with tracer.start_as_current_span(span_name, attributes=attrs, start_time=span_start) as real_span:
+            start_span = self._span_start(tracer, start_parent_id, span_start, msg_template, kwargs)
+
+            yield {'real_span': real_span, 'start_span': start_span}
 
     def instrument(
-        self, tracer_name: str | None = None, span_name: str | None = None, message: LiteralString | None = None
-    ) -> Callable[[_F], _F]:
-        # TODO ideally message kwargs would be taken from the function signature
+        self,
+        tracer_name: str | None = None,
+        span_name: str | None = None,
+        msg_template: LiteralString | None = None,
+        inspect: bool = False,
+    ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
         if tracer_name is None:
+            # TODO we should use inspect here, not `sys._getframe`
             tracer_name = sys._getframe(1).f_globals.get('__name__', self._config.service_name)
 
+        # FIXME is this tracer really going to be the right one when the function comes to be called?
         tracer = self._get_tracer(tracer_name)  # type: ignore
 
-        def decorator(func: _F) -> _F:
+        def decorator(func: Callable[_PARAMS, _RETURN]) -> Callable[_PARAMS, _RETURN]:
             nonlocal span_name
             if span_name is None:
-                span_name = f'{func.__module__}.{func.__name__}'
+                span_name_ = f'{func.__module__}.{func.__name__}'
+            else:
+                span_name_ = span_name
             self._self_log(f'Instrumenting {func} with: {tracer_name=}, {span_name=}')
-            attrs = {LOG_TYPE_KEY: 'span_start'}
-            if message:
-                attrs[MSG_TEMPLATE_KEY] = message
-            span = tracer.start_span(span_name, attributes=attrs)
-            if message:
-                span.add_event(message)
-            return use_span(span, end_on_exit=True)(func)
+
+            if inspect:
+                raise NotImplementedError('TODO extract args and kwargs from the function signature to build kwargs')
+
+            @wraps(func)
+            def wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
+                span_start = int(time.time() * 1e9)
+
+                start_parent_id = self._start_parent_id()
+                attrs = {LOG_TYPE_KEY: 'real_span'}
+                with tracer.start_as_current_span(span_name_, attributes=attrs, start_time=span_start):
+                    self._span_start(tracer, start_parent_id, span_start, msg_template or span_name_, {})
+                    return func(*args, **kwargs)
+
+            return wrapper
 
         return decorator
 
@@ -167,6 +191,44 @@ class Observe:
             yield
         finally:
             self._tracer.reset(token)
+
+    @staticmethod
+    def _start_parent_id() -> str | None:
+        id_int = trace.get_current_span(None).get_span_context().span_id
+        if id_int == 0:
+            return None
+        else:
+            # this matches what OTel does internally to convert int span ids into strings
+            return base64.b64encode(_encode_span_id(id_int)).decode()
+
+    def _span_start(
+        self, tracer: Tracer, outer_parent_id: str | None, span_start: int, msg_template: str, kwargs: dict[str, Any]
+    ) -> Span:
+        """
+        Send a zero length span at the start of the main span to represent the span opening.
+
+        This is required since the span itself isn't sent until it's closed.
+        """
+        msg = msg_template.format(**kwargs)
+        start_attrs: dict[str, AttributeValue] = {
+            MSG_TEMPLATE_KEY: msg_template,
+            LOG_TYPE_KEY: 'start_span',
+        }
+        if outer_parent_id is not None:
+            start_attrs[START_PARENT_ID] = outer_parent_id
+        if kwargs:
+            start_attrs.update(self._prepare_attributes(kwargs))
+
+        start_span: Span = tracer.start_span(
+            name=msg,
+            start_time=span_start,
+            attributes=start_attrs,
+        )
+        start_span.end(span_start)
+        with trace.use_span(start_span):
+            pass
+
+        return start_span
 
     def _get_context_tracer(self) -> Tracer:
         tracer = self._tracer.get()

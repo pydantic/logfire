@@ -18,15 +18,14 @@ def test_span_with_kwargs(observe) -> None:
     with observe.span('test span', 'test {name} {number}', name='foo', number=3, extra='extra') as s:
         pass
 
-    assert s.name == 'test span'
-    assert s.parent is None
-    assert s.start_time < s.end_time
-    assert s.attributes['name'] == 'foo'
-    assert s.attributes['number'] == 3
-    assert s.attributes['extra'] == 'extra'
-    assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
-    assert len(s.events) == 1
-    assert s.events[0].name == 'test foo 3'
+    assert s['real_span'].name == 'test span'
+    assert s['real_span'].parent is None
+    assert s['real_span'].start_time < s['real_span'].end_time
+    assert len(s['real_span'].events) == 0
+    assert s['start_span'].attributes['name'] == 'foo'
+    assert s['start_span'].attributes['number'] == 3
+    assert s['start_span'].attributes['extra'] == 'extra'
+    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
 
 
 def test_span_with_parent(observe) -> None:
@@ -34,19 +33,17 @@ def test_span_with_parent(observe) -> None:
         with observe.span('test child span', '{type} span', type='child') as c:
             pass
 
-    assert p.name == 'test parent span'
-    assert p.parent is None
-    assert p.attributes['type'] == 'parent'
-    assert p.attributes[MSG_TEMPLATE_KEY] == '{type} span'
-    assert len(p.events) == 1
-    assert p.events[0].name == 'parent span'
+    assert p['real_span'].name == 'test parent span'
+    assert p['real_span'].parent is None
+    assert len(p['real_span'].events) == 0
+    assert p['start_span'].attributes['type'] == 'parent'
+    assert p['start_span'].attributes[MSG_TEMPLATE_KEY] == '{type} span'
 
-    assert c.name == 'test child span'
-    assert c.parent == p.context
-    assert c.attributes['type'] == 'child'
-    assert c.attributes[MSG_TEMPLATE_KEY] == '{type} span'
-    assert len(c.events) == 1
-    assert c.events[0].name == 'child span'
+    assert c['real_span'].name == 'test child span'
+    assert c['real_span'].parent == p['real_span'].context
+    assert len(c['real_span'].events) == 0
+    assert c['start_span'].attributes['type'] == 'child'
+    assert c['start_span'].attributes[MSG_TEMPLATE_KEY] == '{type} span'
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
