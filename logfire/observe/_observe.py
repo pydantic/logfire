@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import cached_property, wraps
-from typing import Any, Literal, ParamSpec, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.common._internal import _encode_span_id
@@ -23,6 +23,7 @@ from logfire.formatter import logfire_format
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
 LOG_TYPE_KEY = 'logfire.log_type'
+TAGS_KEY = 'logfire.tags'
 START_PARENT_ID = 'logfire.start_parent_id'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 
@@ -76,6 +77,7 @@ class Observe:
     def __init__(self, config: ObserveConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
         self._config: ObserveConfig = config or ObserveConfig()
+        self._tags: tuple[str, ...] = ()
 
     @cached_property
     def _telemetry(self) -> _Telemetry:
@@ -92,6 +94,20 @@ class Observe:
         assert self._telemetry
         self._telemetry.set_exporter(exporter)
 
+    # Tags
+    def tags(self, first_tag: str, /, *more_tags: str) -> 'TaggedObserve':
+        return TaggedObserve((first_tag,) + more_tags, self)
+
+    def _set_tags(self, tags: tuple[str, ...]):
+        self._tags = tags
+
+    def _get_tags(self) -> tuple[str, ...] | None:
+        if not self._tags:
+            return None
+        tags = self._tags
+        self._tags = ()
+        return tags
+
     # Spans
     @contextmanager
     def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
@@ -99,7 +115,9 @@ class Observe:
         span_start = int(time.time() * 1e9)
 
         start_parent_id = self._start_parent_id()
-        attrs = {LOG_TYPE_KEY: 'real_span'}
+        attrs: dict[str, AttributeValue] = {LOG_TYPE_KEY: 'real_span'}
+        if tags := self._get_tags():
+            attrs[TAGS_KEY] = tags
         real_span: Span
         with tracer.start_as_current_span(span_name, attributes=attrs, start_time=span_start) as real_span:
             start_span = self._span_start(tracer, start_parent_id, span_start, msg_template, kwargs)
@@ -136,7 +154,9 @@ class Observe:
                 span_start = int(time.time() * 1e9)
 
                 start_parent_id = self._start_parent_id()
-                attrs = {LOG_TYPE_KEY: 'real_span'}
+                attrs: dict[str, AttributeValue] = {LOG_TYPE_KEY: 'real_span'}
+                if tags := self._get_tags():
+                    attrs[TAGS_KEY] = tags
                 with tracer.start_as_current_span(span_name_, attributes=attrs, start_time=span_start):
                     self._span_start(tracer, start_parent_id, span_start, msg_template or span_name_, {})
                     return func(*args, **kwargs)
@@ -155,6 +175,8 @@ class Observe:
         attributes[LEVEL_KEY] = level
         attributes[MSG_TEMPLATE_KEY] = msg_template
         attributes[LOG_TYPE_KEY] = 'log'
+        if tags := self._get_tags():
+            attributes[TAGS_KEY] = tags
 
         span = tracer.start_span(
             name=msg,
@@ -277,6 +299,59 @@ class Observe:
 
     def _self_log(self, __msg: str) -> None:
         self._telemetry.self_log(__msg)
+
+
+class TaggedObserve:
+    """Proxy class to to make the observer.tags() syntax possible."""
+
+    def __init__(self, tags: tuple[str, ...], observe: Observe):
+        self._tags = tags
+        self._observe = observe
+
+    if TYPE_CHECKING:
+
+        @contextmanager
+        def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
+            pass
+
+        def instrument(
+            self,
+            tracer_name: str | None = None,
+            span_name: str | None = None,
+            msg_template: LiteralString | None = None,
+            inspect: bool = False,
+        ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+            pass
+
+        def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
+            pass
+
+        def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+        def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+        def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+        def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+        def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+        def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+            pass
+
+    else:
+
+        def __getattr__(self, item):
+            self._observe._set_tags(self._tags)
+            return getattr(self._observe, item)
+
+    def tags(self, first_tag: str, *args: str) -> 'TaggedObserve':
+        return TaggedObserve(self._tags + (first_tag,) + tuple(args), self._observe)
 
 
 _ANY_TYPE_ADAPTER = TypeAdapter(Any)

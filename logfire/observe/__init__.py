@@ -20,6 +20,8 @@ _instance = Observe()
 
 configure = _instance.configure
 
+tags = _instance.tags
+
 span = _instance.span
 instrument = _instance.instrument
 
