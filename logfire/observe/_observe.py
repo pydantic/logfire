@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings
 from typing_extensions import LiteralString
 
 from logfire.exporters.http import HttpJsonSpanExporter
+from logfire.formatter import logfire_format
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -146,7 +147,7 @@ class Observe:
 
     # Logging
     def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
-        msg = msg_template.format(**kwargs)
+        msg = logfire_format(msg_template, kwargs)
         tracer = self._get_context_tracer()
         start_end_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
@@ -209,7 +210,8 @@ class Observe:
 
         This is required since the span itself isn't sent until it's closed.
         """
-        msg = msg_template.format(**kwargs)
+
+        msg = logfire_format(msg_template, kwargs)
         start_attrs: dict[str, AttributeValue] = {
             MSG_TEMPLATE_KEY: msg_template,
             LOG_TYPE_KEY: 'start_span',
