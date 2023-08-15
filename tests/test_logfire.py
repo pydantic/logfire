@@ -1,6 +1,7 @@
 import pytest
 
 from logfire import __version__
+from logfire.observe import Observe
 from logfire.observe._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, TAGS_KEY
 
 
@@ -8,13 +9,13 @@ def test_logfire_version() -> None:
     assert __version__ is not None
 
 
-def test_span_without_kwargs(observe) -> None:
+def test_span_without_kwargs(observe: Observe) -> None:
     with pytest.raises(KeyError, match="'name'"):
         with observe.span('test span', 'test {name}'):
             pass
 
 
-def test_span_with_kwargs(observe) -> None:
+def test_span_with_kwargs(observe: Observe) -> None:
     with observe.span('test span', 'test {name=} {number}', name='foo', number=3, extra='extra') as s:
         pass
 
@@ -30,7 +31,7 @@ def test_span_with_kwargs(observe) -> None:
     assert TAGS_KEY not in s['real_span'].attributes
 
 
-def test_span_with_parent(observe) -> None:
+def test_span_with_parent(observe: Observe) -> None:
     with observe.span('test parent span', '{type} span', type='parent') as p:
         with observe.span('test child span', '{type} span', type='child') as c:
             pass
@@ -50,7 +51,7 @@ def test_span_with_parent(observe) -> None:
     assert TAGS_KEY not in c['real_span'].attributes
 
 
-def test_span_with_tags(observe) -> None:
+def test_span_with_tags(observe: Observe) -> None:
     with observe.tags('tag1', 'tag2').span(
         'test span', 'test {name} {number}', name='foo', number=3, extra='extra'
     ) as s:
@@ -68,7 +69,7 @@ def test_span_with_tags(observe) -> None:
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
-def test_log(observe, exporter, level):
+def test_log(observe: Observe, exporter, level):
     getattr(observe, level)('test {name} {number}', name='foo', number=2)
 
     observe._telemetry.provider.force_flush()
@@ -82,7 +83,7 @@ def test_log(observe, exporter, level):
     assert TAGS_KEY not in s.attributes
 
 
-def test_log_equals(observe, exporter) -> None:
+def test_log_equals(observe: Observe, exporter) -> None:
     observe.info('test message {foo=} {bar=}', foo='foo', bar=3)
 
     observe._telemetry.provider.force_flush()
@@ -96,7 +97,7 @@ def test_log_equals(observe, exporter) -> None:
     assert s.attributes[LOG_TYPE_KEY] == 'log'
 
 
-def test_log_with_tags(observe, exporter):
+def test_log_with_tags(observe: Observe, exporter):
     observe.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
     observe._telemetry.provider.force_flush()
@@ -109,7 +110,7 @@ def test_log_with_tags(observe, exporter):
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
 
-def test_log_with_multiple_tags(observe, exporter):
+def test_log_with_multiple_tags(observe: Observe, exporter):
     observe_with_2_tags = observe.tags('tag1').tags('tag2')
     observe_with_2_tags.info('test {name} {number}', name='foo', number=2)
     observe._telemetry.provider.force_flush()
@@ -121,3 +122,40 @@ def test_log_with_multiple_tags(observe, exporter):
     observe._telemetry.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
+
+
+def test_instrument(observe: Observe, exporter):
+    @observe.instrument('hello-world {a=}')
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    assert hello_world(123) == 'hello 123'
+
+    observe._telemetry.provider.force_flush()
+    s = exporter.exported_spans[0]
+
+    assert s.name == 'hello-world a=123'
+    assert dict(s.attributes) == {
+        'logfire.msg_template': 'hello-world {a=}',
+        'logfire.log_type': 'start_span',
+        'a': 123,
+    }
+
+    s = exporter.exported_spans[1]
+
+    assert s.name.endswith('.hello_world')
+    assert dict(s.attributes) == {'logfire.log_type': 'real_span'}
+
+
+def test_instrument_extract_false(observe: Observe, exporter):
+    @observe.instrument('hello-world', extract_args=False)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    assert hello_world(123) == 'hello 123'
+
+    observe._telemetry.provider.force_flush()
+    s = exporter.exported_spans[0]
+
+    assert s.name == 'hello-world'
+    assert dict(s.attributes) == {'logfire.msg_template': 'hello-world', 'logfire.log_type': 'start_span'}

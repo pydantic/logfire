@@ -1,10 +1,10 @@
 import base64
-import sys
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import cached_property, wraps
+from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
 from opentelemetry import trace
@@ -30,6 +30,7 @@ LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 
 _RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
+_POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
 
 
 class ObserveConfig(BaseSettings):
@@ -127,17 +128,15 @@ class Observe:
 
     def instrument(
         self,
-        tracer_name: str | None = None,
-        span_name: str | None = None,
         msg_template: LiteralString | None = None,
-        inspect: bool = False,
+        *,
+        span_name: str | None = None,
+        extract_args: bool | None = None,
     ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-        if tracer_name is None:
-            # TODO we should use inspect here, not `sys._getframe`
-            tracer_name = sys._getframe(1).f_globals.get('__name__', self._config.service_name)
+        tracer = self._get_context_tracer()
 
-        # FIXME is this tracer really going to be the right one when the function comes to be called?
-        tracer = self._get_tracer(tracer_name)  # type: ignore
+        if extract_args is None:
+            extract_args = bool(msg_template and '{' in msg_template)
 
         def decorator(func: Callable[_PARAMS, _RETURN]) -> Callable[_PARAMS, _RETURN]:
             nonlocal span_name
@@ -145,21 +144,28 @@ class Observe:
                 span_name_ = f'{func.__module__}.{func.__name__}'
             else:
                 span_name_ = span_name
-            self._self_log(f'Instrumenting {func} with: {tracer_name=}, {span_name=}')
+            self._self_log(f'Instrumenting {func=} {span_name=}')
 
-            if inspect:
-                raise NotImplementedError('TODO extract args and kwargs from the function signature to build kwargs')
+            if extract_args:
+                sig = inspect_signature(func)
+                pos_params = tuple(n for n, p in sig.parameters.items() if p.kind in _POSITIONAL_PARAMS)
 
             @wraps(func)
             def wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
                 span_start = int(time.time() * 1e9)
+
+                if extract_args:
+                    pos_args = {k: v for k, v in zip(pos_params, args)}
+                    kwarg_groups: tuple[dict[str, Any], ...] = pos_args, kwargs
+                else:
+                    kwarg_groups = ()
 
                 start_parent_id = self._start_parent_id()
                 attrs: dict[str, AttributeValue] = {LOG_TYPE_KEY: 'real_span'}
                 if tags := self._get_tags():
                     attrs[TAGS_KEY] = tags
                 with tracer.start_as_current_span(span_name_, attributes=attrs, start_time=span_start):
-                    self._span_start(tracer, start_parent_id, span_start, msg_template or span_name_, {})
+                    self._span_start(tracer, start_parent_id, span_start, msg_template or span_name_, *kwarg_groups)
                     return func(*args, **kwargs)
 
             return wrapper
@@ -226,21 +232,27 @@ class Observe:
             return base64.b64encode(_encode_span_id(id_int)).decode()
 
     def _span_start(
-        self, tracer: Tracer, outer_parent_id: str | None, span_start: int, msg_template: str, kwargs: dict[str, Any]
+        self,
+        tracer: Tracer,
+        outer_parent_id: str | None,
+        span_start: int,
+        msg_template: str,
+        *kwarg_groups: dict[str, Any],
     ) -> Span:
         """Send a zero length span at the start of the main span to represent the span opening.
 
         This is required since the span itself isn't sent until it's closed.
         """
-        msg = logfire_format(msg_template, kwargs)
+        msg = logfire_format(msg_template, *kwarg_groups)
         start_attrs: dict[str, AttributeValue] = {
             MSG_TEMPLATE_KEY: msg_template,
             LOG_TYPE_KEY: 'start_span',
         }
         if outer_parent_id is not None:
             start_attrs[START_PARENT_ID] = outer_parent_id
-        if kwargs:
-            start_attrs.update(self._prepare_attributes(kwargs))
+        for kw in kwarg_groups:
+            if kw:
+                start_attrs.update(self._prepare_attributes(kw))
 
         start_span: Span = tracer.start_span(
             name=msg,

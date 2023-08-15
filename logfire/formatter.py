@@ -115,5 +115,5 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any]) -> str:
-    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, (kwargs,)))
+def logfire_format(format_string: str, *kwarg_groups: dict[str, Any]) -> str:
+    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, kwarg_groups))
