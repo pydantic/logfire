@@ -36,7 +36,8 @@ if __name__ == '__main__':
     from time import sleep
 
     from opentelemetry import trace
-    from opentelemetry.sdk.trace import Resource, TracerProvider
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
     provider = TracerProvider(resource=Resource(attributes={'service.name': 'test'}))

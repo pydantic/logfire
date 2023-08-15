@@ -101,7 +101,7 @@ class ChunksFormatter(Formatter):
 
         return result
 
-    def get_value(self, key: str, _args: Any, kwargs_groups: Sequence[dict[str, Any]]):  # type: ignore[override]
+    def get_value(self, key: str, _args: Any, kwargs_groups: Sequence[dict[str, Any]]) -> Any:  # type: ignore[override]
         """
         We currently don't use positional arguments, hence ignoring args
         """

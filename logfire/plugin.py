@@ -7,7 +7,7 @@ from rich.console import Console
 console = Console()
 
 
-class OnValidatePython(_OnValidatePython):
+class OnValidatePython(_OnValidatePython):  # type: ignore[misc]
     def enter(
         self,
         input: Any,

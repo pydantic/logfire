@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.common._internal import _encode_span_id
-from opentelemetry.sdk.trace import Resource, TracerProvider
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import Span, Tracer
 from opentelemetry.util.types import AttributeValue
@@ -31,7 +32,7 @@ _RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
 
 
-class ObserveConfig(BaseSettings):  # type: ignore
+class ObserveConfig(BaseSettings):
     model_config = {'_env_prefix': 'PYDANTIC_OBSERVE_DEFAULT_'}  # type: ignore
 
     service_name: str = 'logfire'
@@ -98,7 +99,7 @@ class Observe:
     def tags(self, first_tag: str, /, *more_tags: str) -> 'TaggedObserve':
         return TaggedObserve((first_tag,) + more_tags, self)
 
-    def _set_tags(self, tags: tuple[str, ...]):
+    def _set_tags(self, tags: tuple[str, ...]) -> None:
         self._tags = tags
 
     def _get_tags(self) -> tuple[str, ...] | None:
@@ -227,12 +228,10 @@ class Observe:
     def _span_start(
         self, tracer: Tracer, outer_parent_id: str | None, span_start: int, msg_template: str, kwargs: dict[str, Any]
     ) -> Span:
-        """
-        Send a zero length span at the start of the main span to represent the span opening.
+        """Send a zero length span at the start of the main span to represent the span opening.
 
         This is required since the span itself isn't sent until it's closed.
         """
-
         msg = logfire_format(msg_template, kwargs)
         start_attrs: dict[str, AttributeValue] = {
             MSG_TEMPLATE_KEY: msg_template,
