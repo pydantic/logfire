@@ -7,6 +7,7 @@ from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
+import httpx
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.common._internal import _encode_span_id
 from opentelemetry.sdk.resources import Resource
@@ -14,12 +15,13 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import Span, Tracer
 from opentelemetry.util.types import AttributeValue
-from pydantic import TypeAdapter
-from pydantic_settings import BaseSettings
+from pydantic import Field, TypeAdapter
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
 from logfire.exporters.http import HttpJsonSpanExporter
 from logfire.formatter import logfire_format
+from logfire.secret import get_or_generate_secret
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -33,26 +35,47 @@ _PARAMS = ParamSpec('_PARAMS')
 _POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
 
 
-class ObserveConfig(BaseSettings):
-    model_config = {'_env_prefix': 'PYDANTIC_OBSERVE_DEFAULT_'}  # type: ignore
+class LogfireConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='LOGFIRE_')
 
+    api_root: str = 'http://localhost:4318'
+    web_root: str = 'http://localhost:3000'  # TODO: Load this value from the backend, or something like that
+    project_id: str = Field(default_factory=get_or_generate_secret)
     service_name: str = 'logfire'
-    endpoint: str = 'http://localhost:4318'
     verbose: bool = False
+
+    auto_initialize_project: bool = True
+
+    @property
+    def projects_endpoint(self) -> str:
+        return f'{self.api_root}/v1/projects/{self.project_id}'
+
+    @property
+    def traces_endpoint(self) -> str:
+        return f'{self.api_root}/v1/traces/{self.project_id}'
+
+    @property
+    def web_endpoint(self) -> str:
+        return f'{self.web_root}/logs/{self.project_id}'
 
 
 class _Telemetry:
-    def __init__(self, config: ObserveConfig):
+    def __init__(self, config: LogfireConfig):
         self._config = config
 
         self.service_name = service_name = config.service_name
         self.self_log(f'Configuring telemetry for {service_name!r}...')
-        self.set_exporter(HttpJsonSpanExporter(endpoint=config.endpoint))
+        self.set_exporter(HttpJsonSpanExporter(endpoint=config.traces_endpoint))
+
+        if config.auto_initialize_project:
+            httpx.post(config.projects_endpoint)
+
+        print(f'*** View logs at {config.web_endpoint} ***')
 
     def set_exporter(self, exporter: SpanExporter | None = None) -> None:
         self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
         self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
-        exporter = exporter or HttpJsonSpanExporter(endpoint=self._config.endpoint)
+        exporter = exporter or HttpJsonSpanExporter(endpoint=self._config.traces_endpoint)
         # TODO may want to make some of the processor options configurable so
         # that overhead vs latency tradeoff can be adjusted, for now set for
         # minimum latency which will be nicest on small workloads
@@ -62,7 +85,7 @@ class _Telemetry:
         self.provider._active_span_processor._span_processors = ()
 
         self.provider.add_span_processor(self.processor)
-        self.self_log(f'Configured span exporter with endpoint={self._config.endpoint!r}')
+        self.self_log(f'Configured span exporter with endpoint={self._config.traces_endpoint!r}')
 
     def self_log(self, __msg: str) -> None:
         # TODO: probably want to make this more configurable/etc.
@@ -76,18 +99,18 @@ class LogFireSpan(TypedDict):
 
 
 class Observe:
-    def __init__(self, config: ObserveConfig | None = None):
+    def __init__(self, config: LogfireConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
-        self._config: ObserveConfig = config or ObserveConfig()
+        self._config: LogfireConfig = config or LogfireConfig()
         self._tags: tuple[str, ...] = ()
 
     @cached_property
     def _telemetry(self) -> _Telemetry:
-        # Use the
+        # TODO: Don't allow modifying self._config once this has been initialized, or at least reset the cache
         return _Telemetry(self._config)
 
     # Configuration
-    def configure(self, config: ObserveConfig | None = None, exporter: SpanExporter | None = None) -> None:
+    def configure(self, config: LogfireConfig | None = None, exporter: SpanExporter | None = None) -> None:
         if config is not None:
             self._config = config
 

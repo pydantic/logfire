@@ -1,8 +1,8 @@
-from logfire.observe._observe import Observe, ObserveConfig
+from logfire.observe._observe import LogfireConfig, Observe
 
 __all__ = (
     'Observe',
-    'ObserveConfig',
+    'LogfireConfig',
     'configure',
     'span',
     'instrument',

@@ -4,7 +4,7 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from logfire.observe import Observe
+from logfire.observe import LogfireConfig, Observe
 
 
 class TestExporter(SpanExporter):
@@ -19,12 +19,17 @@ class TestExporter(SpanExporter):
 
 
 @pytest.fixture
+def config() -> LogfireConfig:
+    return LogfireConfig(auto_initialize_project=False)
+
+
+@pytest.fixture
 def exporter() -> TestExporter:
     return TestExporter()
 
 
 @pytest.fixture
-def observe(exporter: TestExporter) -> Observe:
+def observe(config: LogfireConfig, exporter: TestExporter) -> Observe:
     observe = Observe()
-    observe.configure(exporter=exporter)
+    observe.configure(config=config, exporter=exporter)
     return observe
