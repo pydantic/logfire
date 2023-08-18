@@ -1,31 +1,31 @@
 # NOTE: This file is being ignored.
 [project]
-name = 'logfire'
-description = 'Coming Soon'
-authors = [{ name = 'Samuel Colvin', email = 's@muelcolvin.com' }]
-license = 'MIT'
-readme = 'README.md'
+name = "logfire"
+description = "Coming Soon"
+authors = [{ name = "Pydantic Team", email = "hello@pydantic.dev" }]
+license = "MIT"
+readme = "README.md"
 classifiers = [
-    'Development Status :: 1 - Planning',
-    'Topic :: Internet',
-    'Typing :: Typed',
+    "Development Status :: 1 - Planning",
+    "Topic :: Internet",
+    "Typing :: Typed",
 ]
-requires-python = '>=3.8'
+requires-python = ">=3.8"
 dependencies = [
-    'opentelemetry-api>=1.19.0',
-    'opentelemetry-sdk>=1.19.0',
-    'opentelemetry-exporter-otlp>=1.19.0',
-    'opentelemetry-instrumentation-asgi>=0.40b0',
-    'rich>=13.4.2',
-    'protobuf>=4.23.4',
-    'pydantic>=2.1.1',
+    "opentelemetry-api>=1.19.0",
+    "opentelemetry-sdk>=1.19.0",
+    "opentelemetry-exporter-otlp>=1.19.0",
+    "opentelemetry-instrumentation-asgi>=0.40b0",
+    "rich>=13.4.2",
+    "protobuf>=4.23.4",
+    "pydantic>=2.1.1",
     "pydantic-settings>=2.0.2",
     "typing_extensions",
 ]
-dynamic = ['version']
+dynamic = ["version"]
 
 [project.entry-points."pydantic"]
-observer = 'logfire.plugin:plugin'
+observer = "logfire.plugin:plugin"
 
 [project.optional-dependencies]
 dev = ["black", "ruff", "mypy"]
@@ -33,14 +33,14 @@ dev = ["black", "ruff", "mypy"]
 [tool.black]
 color = true
 line-length = 120
-target-version = ['py310']
+target-version = ["py310"]
 skip-string-normalization = true
 
 [tool.ruff]
 line-length = 120
-extend-select = ['Q', 'RUF100', 'C90', 'UP', 'I', 'D']  # add 'T' to disallow prints
+extend-select = ["Q", "RUF100", "C90", "UP", "I", "D"]  # add "T" to disallow prints
 # E501 is handled by black
-extend-ignore = ['D105', 'D107', 'D205', 'D415', 'E501']
-flake8-quotes = { inline-quotes = 'single', multiline-quotes = 'double' }
+extend-ignore = ["D105", "D107", "D205", "D415", "E501"]
+flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
 mccabe = { max-complexity = 14 }
 target-version = "py38"
