@@ -165,10 +165,9 @@ def _encode_parent_id(parent: SpanContext | None) -> str | None:
 
 
 def _encode_attributes(attributes: Attributes) -> list[dict[str, Any]] | None:
-    if not attributes:
+    if attributes:
         return [dict(key=key, value=_encode_value(value)) for key, value in attributes.items()]
-    else:
-        return None
+    return None
 
 
 def _encode_events(
@@ -224,7 +223,7 @@ def _encode_value(value: Any) -> dict[str, Any]:
     elif isinstance(value, bytes):
         return {'bytesValue': value}
     elif isinstance(value, Sequence):
-        return {'arrayValue': [_encode_value(v) for v in value]}
+        return {'arrayValue': {'values': [_encode_value(v) for v in value]}}
     elif isinstance(value, Mapping):
         return {'kvlistValue': [{'key': str(key), 'value': _encode_value(value)} for key, value in value.items()]}
     else:
