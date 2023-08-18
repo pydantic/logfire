@@ -15,6 +15,7 @@ dependencies = [
     'opentelemetry-api>=1.19.0',
     'opentelemetry-sdk>=1.19.0',
     'opentelemetry-exporter-otlp>=1.19.0',
+    'opentelemetry-instrumentation-asgi>=0.40b0',
     'rich>=13.4.2',
     'protobuf>=4.23.4',
     'pydantic>=2.1.1',

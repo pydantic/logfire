@@ -14,9 +14,6 @@ class TestExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
         self.exported_spans = spans
 
-    def shutdown(self) -> None:
-        pass
-
 
 @pytest.fixture
 def config() -> LogfireConfig:
