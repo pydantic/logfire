@@ -1,9 +1,15 @@
-# NOTE: This file is being ignored.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "logfire/__init__.py"
+
 [project]
 name = "logfire"
 description = "Coming Soon"
 authors = [{ name = "Pydantic Team", email = "hello@pydantic.dev" }]
-license = "MIT"
+license = {file = "LICENSE"}
 readme = "README.md"
 classifiers = [
     "Development Status :: 1 - Planning",
@@ -20,27 +26,9 @@ dependencies = [
     "protobuf>=4.23.4",
     "pydantic>=2.1.1",
     "pydantic-settings>=2.0.2",
-    "typing_extensions",
+    "typing-extensions",
 ]
 dynamic = ["version"]
 
 [project.entry-points."pydantic"]
 observer = "logfire.plugin:plugin"
-
-[project.optional-dependencies]
-dev = ["black", "ruff", "mypy"]
-
-[tool.black]
-color = true
-line-length = 120
-target-version = ["py310"]
-skip-string-normalization = true
-
-[tool.ruff]
-line-length = 120
-extend-select = ["Q", "RUF100", "C90", "UP", "I", "D"]  # add "T" to disallow prints
-# E501 is handled by black
-extend-ignore = ["D105", "D107", "D205", "D415", "E501"]
-flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
-mccabe = { max-complexity = 14 }
-target-version = "py38"
