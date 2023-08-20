@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord
 
-from logfire.observe import log
+from logfire import log
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes

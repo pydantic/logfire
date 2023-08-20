@@ -3,7 +3,7 @@ from typing import Any
 from opentelemetry.instrumentation.asgi import collect_request_attributes
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from logfire.observe import Observe, _instance
+from logfire import Observe, _instance
 
 
 class LogfireFastAPIMiddleware:

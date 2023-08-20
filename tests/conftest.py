@@ -4,7 +4,7 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from logfire.observe import LogfireConfig, Observe
+from logfire import LogfireConfig, Observe
 
 
 class TestExporter(SpanExporter):

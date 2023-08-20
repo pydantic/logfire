@@ -1,8 +1,7 @@
 import pytest
 
-from logfire import __version__
-from logfire.observe import Observe
-from logfire.observe._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, TAGS_KEY
+from logfire import Observe, __version__
+from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, TAGS_KEY
 
 
 def test_logfire_version() -> None:
