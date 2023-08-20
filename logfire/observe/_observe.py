@@ -39,7 +39,9 @@ class LogfireConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='LOGFIRE_')
 
     api_root: str = 'http://localhost:4318'
-    web_root: str = 'http://localhost:3000'  # TODO: Load this value from the backend, or something like that
+    # TODO(Marcelo): Load this value from the backend, or something like that
+    # https://linear.app/pydantic/issue/PYD-240/
+    web_root: str = 'http://localhost:3000'
     project_id: str = Field(default_factory=get_or_generate_secret)
     service_name: str = 'logfire'
     verbose: bool = False
