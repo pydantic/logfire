@@ -39,13 +39,12 @@ class LogfireConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='LOGFIRE_')
 
     api_root: str = 'http://localhost:4318'
-    # TODO(Marcelo): Load this value from the backend, or something like that
-    # https://linear.app/pydantic/issue/PYD-240/
-    web_root: str = 'http://localhost:3000'
     project_id: str = Field(default_factory=get_or_generate_secret)
     service_name: str = 'logfire'
     verbose: bool = False
 
+    # TODO(Marcelo): This should be removed with the new API.
+    # https://linear.app/pydantic/issue/PYD-246/logfire-sdk-setup.
     auto_initialize_project: bool = True
 
     @property
@@ -55,10 +54,6 @@ class LogfireConfig(BaseSettings):
     @property
     def traces_endpoint(self) -> str:
         return f'{self.api_root}/v1/traces/{self.project_id}'
-
-    @property
-    def web_endpoint(self) -> str:
-        return f'{self.web_root}/logs/{self.project_id}'
 
 
 class _Telemetry:
@@ -70,9 +65,13 @@ class _Telemetry:
         self.set_exporter(HttpJsonSpanExporter(endpoint=config.traces_endpoint))
 
         if config.auto_initialize_project:
-            httpx.post(config.projects_endpoint)
+            self.initialize_project()
 
-        print(f'*** View logs at {config.web_endpoint} ***')
+    def initialize_project(self) -> None:
+        response = httpx.post(self._config.projects_endpoint)
+        response.raise_for_status()
+        dashboard_url = response.json()['dashboard_url']
+        print(f'*** View logs at {dashboard_url} ***')
 
     def set_exporter(self, exporter: SpanExporter | None = None) -> None:
         self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
