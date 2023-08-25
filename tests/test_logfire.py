@@ -1,5 +1,6 @@
 import pytest
 from opentelemetry.trace import format_span_id
+from pydantic import BaseModel
 
 from logfire import Observe, __version__
 from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, START_PARENT_ID, TAGS_KEY
@@ -126,6 +127,29 @@ def test_log_with_multiple_tags(observe: Observe, exporter):
     observe._telemetry.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
+
+
+def test_log_non_scalar_args(observe: Observe, exporter) -> None:
+    class MyModel(BaseModel):
+        x: str
+        y: int
+
+    m = MyModel(x='x', y=10)
+
+    observe.info('test message {foo=} {bar=} {model=}', foo=['a', 1, True], bar={'k1': 'v1', 'k2': 2}, model=m)
+
+    observe._telemetry.provider.force_flush()
+    s = exporter.exported_spans[0]
+
+    assert s.name == "test message foo=['a', 1, True] bar={'k1': 'v1', 'k2': 2} model=x='x' y=10"
+    assert dict(s.attributes) == {
+        'bar__JSON': '{"k1":"v1","k2":2}',
+        'foo__JSON': '["a",1,true]',
+        'logfire.level': 'info',
+        'logfire.log_type': 'log',
+        'logfire.msg_template': 'test message {foo=} {bar=} {model=}',
+        'model__JSON': '{"x":"x","y":10}',
+    }
 
 
 def test_instrument(observe: Observe, exporter):

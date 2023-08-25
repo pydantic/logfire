@@ -26,6 +26,7 @@ MSG_TEMPLATE_KEY = 'logfire.msg_template'
 LOG_TYPE_KEY = 'logfire.log_type'
 TAGS_KEY = 'logfire.tags'
 START_PARENT_ID = 'logfire.start_parent_id'
+NON_SCALAR_VAR_SUFFIX = '__JSON'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 LogTypeType = Literal['log', 'start_span', 'real_span']
 
@@ -324,18 +325,9 @@ class Observe:
         prefixed_key = prefix + key
         if isinstance(value, str | bool | int | float):
             target[prefixed_key] = value
-        elif isinstance(value, list):
-            # TODO: validate that the list is opentelemetry-compatible
-            #   Need to decide exactly what to do if it isn't
-            target[prefixed_key] = value
-        elif isinstance(value, dict):
-            for k, v in value.items():
-                self._set_user_attribute(target, k, v, f'{prefixed_key}.')
-        elif not dumped:
-            dumped_value = _ANY_TYPE_ADAPTER.dump_python(value)
-            self._set_user_attribute(target, key, dumped_value, prefix, dumped=True)
         else:
-            raise TypeError(f'Unsupported type {type(value)} for attribute {key}')
+            dumped_value = _ANY_TYPE_ADAPTER.dump_json(value)
+            target[prefixed_key + NON_SCALAR_VAR_SUFFIX] = dumped_value
 
     def _self_log(self, __msg: str) -> None:
         self._telemetry.self_log(__msg)
