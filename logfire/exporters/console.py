@@ -12,6 +12,7 @@ from typing import IO, Any, cast
 import structlog
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.trace import format_span_id
 from rich.console import Console
 from structlog.typing import EventDict, WrappedLogger
 
@@ -21,11 +22,11 @@ class DefaultProcessor:
         span = cast(ReadableSpan, event_dict.pop('span'))
 
         if event_dict.pop('verbose', False):
-            event_dict['span_id'] = hex(span.context.span_id)
+            event_dict['span_id'] = format_span_id(span.context.span_id)
             if span.attributes and (span_type := span.attributes.get('logfire.log_type')):
                 event_dict['span_type'] = span_type
             if span.parent and (parent_id := span.parent.span_id):
-                event_dict['parent_id'] = hex(parent_id)
+                event_dict['parent_id'] = format_span_id(parent_id)
             if span.attributes and (start_parent_id := span.attributes.get('logfire.start_parent_id')):
                 event_dict['start_parent_id'] = start_parent_id
 
@@ -67,7 +68,7 @@ class ConsoleSpanExporter(SpanExporter):
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in sorted(spans, key=lambda span: _key_sort_span(span)):
-            parent_id = span.parent and hex(span.parent.span_id)
+            parent_id = span.parent and format_span_id(span.parent.span_id)
             start_parent_id = span.attributes and span.attributes.get('logfire.start_parent_id')
             span_type = span.attributes and span.attributes.get('logfire.log_type')
             if span_type == 'start_span':

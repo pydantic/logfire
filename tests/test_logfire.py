@@ -1,7 +1,8 @@
 import pytest
+from opentelemetry.trace import format_span_id
 
 from logfire import Observe, __version__
-from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, TAGS_KEY
+from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, START_PARENT_ID, TAGS_KEY
 
 
 def test_logfire_version() -> None:
@@ -48,6 +49,10 @@ def test_span_with_parent(observe: Observe) -> None:
     assert c['start_span'].attributes['type'] == 'child'
     assert c['start_span'].attributes[MSG_TEMPLATE_KEY] == '{type} span'
     assert TAGS_KEY not in c['real_span'].attributes
+
+    p_real_span_span_id = p['real_span'].context.span_id
+    c_start_span_start_parent_id = c['start_span'].attributes[START_PARENT_ID]
+    assert format_span_id(p_real_span_span_id) == c_start_span_start_parent_id
 
 
 def test_span_with_tags(observe: Observe) -> None:

@@ -11,7 +11,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
-from opentelemetry.trace import Span, Tracer
+from opentelemetry.trace import Span, Tracer, format_span_id
 from opentelemetry.util.types import AttributeValue
 from pydantic import Field, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -240,7 +240,7 @@ class Observe:
         span_id = trace.get_current_span(None).get_span_context().span_id
         if span_id == 0:
             return None
-        return hex(span_id)
+        return format_span_id(span_id)
 
     def _span_start(
         self,
