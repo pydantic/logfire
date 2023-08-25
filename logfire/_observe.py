@@ -1,4 +1,3 @@
-import base64
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -9,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
 import httpx
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.common._internal import _encode_span_id
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
@@ -19,7 +17,7 @@ from pydantic import Field, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
-from logfire.exporters.http import HttpJsonSpanExporter
+from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none
 from logfire.formatter import logfire_format
 from logfire.secret import get_or_generate_secret
 
@@ -29,6 +27,7 @@ LOG_TYPE_KEY = 'logfire.log_type'
 TAGS_KEY = 'logfire.tags'
 START_PARENT_ID = 'logfire.start_parent_id'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
+LogTypeType = Literal['log', 'start_span', 'real_span']
 
 _RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
@@ -137,16 +136,14 @@ class Observe:
     # Spans
     @contextmanager
     def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
+        """Context manager for creating a span."""
         tracer = self._get_context_tracer()
-        span_start = int(time.time() * 1e9)
+        start_time = int(time.time() * 1e9)
 
         start_parent_id = self._start_parent_id()
-        attrs: dict[str, AttributeValue] = {LOG_TYPE_KEY: 'real_span'}
-        if tags := self._get_tags():
-            attrs[TAGS_KEY] = tags
-        real_span: Span
-        with tracer.start_as_current_span(span_name, attributes=attrs, start_time=span_start) as real_span:
-            start_span = self._span_start(tracer, start_parent_id, span_start, msg_template, kwargs)
+        logfire_attributes = self._logfire_attributes('real_span', start_parent_id=start_parent_id)
+        with tracer.start_as_current_span(span_name, attributes=logfire_attributes, start_time=start_time) as real_span:
+            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, kwargs)
 
             yield {'real_span': real_span, 'start_span': start_span}
 
@@ -157,6 +154,7 @@ class Observe:
         span_name: str | None = None,
         extract_args: bool | None = None,
     ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+        """Decorator for instrumenting a function as a span."""
         tracer = self._get_context_tracer()
 
         if extract_args is None:
@@ -176,7 +174,7 @@ class Observe:
 
             @wraps(func)
             def wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
-                span_start = int(time.time() * 1e9)
+                start_time = int(time.time() * 1e9)
 
                 if extract_args:
                     pos_args = {k: v for k, v in zip(pos_params, args)}
@@ -185,11 +183,9 @@ class Observe:
                     kwarg_groups = ()
 
                 start_parent_id = self._start_parent_id()
-                attrs: dict[str, AttributeValue] = {LOG_TYPE_KEY: 'real_span'}
-                if tags := self._get_tags():
-                    attrs[TAGS_KEY] = tags
-                with tracer.start_as_current_span(span_name_, attributes=attrs, start_time=span_start):
-                    self._span_start(tracer, start_parent_id, span_start, msg_template or span_name_, *kwarg_groups)
+                attributes = self._logfire_attributes('real_span')
+                with tracer.start_as_current_span(span_name_, attributes=attributes, start_time=start_time):
+                    self._span_start(tracer, start_parent_id, start_time, msg_template or span_name_, *kwarg_groups)
                     return func(*args, **kwargs)
 
             return wrapper
@@ -200,21 +196,14 @@ class Observe:
     def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
         msg = logfire_format(msg_template, kwargs)
         tracer = self._get_context_tracer()
-        start_end_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
+        start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
-        attributes = self._prepare_attributes(kwargs)
-        attributes[LEVEL_KEY] = level
-        attributes[MSG_TEMPLATE_KEY] = msg_template
-        attributes[LOG_TYPE_KEY] = 'log'
-        if tags := self._get_tags():
-            attributes[TAGS_KEY] = tags
+        user_attributes = self._user_attributes(kwargs)
+        logfire_attributes = self._logfire_attributes('log', msg_template=msg_template, level=level)
+        attributes = {**user_attributes, **logfire_attributes}
 
-        span = tracer.start_span(
-            name=msg,
-            start_time=start_end_time,
-            attributes=attributes,
-        )
-        span.end(start_end_time)
+        span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
+        span.end(start_time)
         with trace.use_span(span):
             pass
 
@@ -248,18 +237,16 @@ class Observe:
 
     @staticmethod
     def _start_parent_id() -> str | None:
-        id_int = trace.get_current_span(None).get_span_context().span_id
-        if id_int == 0:
+        span_id = trace.get_current_span(None).get_span_context().span_id
+        if span_id == 0:
             return None
-        else:
-            # this matches what OTel does internally to convert int span ids into strings
-            return base64.b64encode(_encode_span_id(id_int)).decode()
+        return hex(span_id)
 
     def _span_start(
         self,
         tracer: Tracer,
         outer_parent_id: str | None,
-        span_start: int,
+        start_time: int,
         msg_template: str,
         *kwarg_groups: dict[str, Any],
     ) -> Span:
@@ -268,22 +255,18 @@ class Observe:
         This is required since the span itself isn't sent until it's closed.
         """
         msg = logfire_format(msg_template, *kwarg_groups)
-        start_attrs: dict[str, AttributeValue] = {
-            MSG_TEMPLATE_KEY: msg_template,
-            LOG_TYPE_KEY: 'start_span',
-        }
-        if outer_parent_id is not None:
-            start_attrs[START_PARENT_ID] = outer_parent_id
+
+        logfire_attributes = self._logfire_attributes(
+            'start_span', msg_template=msg_template, start_parent_id=outer_parent_id
+        )
+        user_attributes: dict[str, AttributeValue] = {}
         for kw in kwarg_groups:
             if kw:
-                start_attrs.update(self._prepare_attributes(kw))
+                user_attributes.update(self._user_attributes(kw))
+        attributes = {**logfire_attributes, **user_attributes}
 
-        start_span: Span = tracer.start_span(
-            name=msg,
-            start_time=span_start,
-            attributes=start_attrs,
-        )
-        start_span.end(span_start)
+        start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
+        start_span.end(start_time)
         with trace.use_span(start_span):
             pass
 
@@ -292,23 +275,45 @@ class Observe:
     def _get_context_tracer(self) -> Tracer:
         tracer = self._tracer.get()
         if tracer is None:
-            # raise RuntimeError('No tracer set')
             return self._get_tracer(self._config.service_name)
         return tracer
 
     def _get_tracer(self, name: str) -> Tracer:
-        # TODO: Add version, schema_url?
+        # NOTE(David): Should we add version, schema_url?
         return trace.get_tracer(name, tracer_provider=self._telemetry.provider)
 
-    def _prepare_attributes(self, attributes: dict[str, Any]) -> dict[str, AttributeValue]:
+    def _logfire_attributes(
+        self,
+        log_type: LogTypeType,
+        *,
+        msg_template: str | None = None,
+        level: LevelName | None = None,
+        start_parent_id: str | None = None,
+    ) -> dict[str, AttributeValue]:
+        tags = self._get_tags()
+        return _dict_not_none(
+            **{
+                LOG_TYPE_KEY: log_type,
+                LEVEL_KEY: level,
+                MSG_TEMPLATE_KEY: msg_template,
+                TAGS_KEY: tags,
+                START_PARENT_ID: start_parent_id,
+            }
+        )
+
+    def _user_attributes(self, attributes: dict[str, Any]) -> dict[str, AttributeValue]:
+        """Prepare attributes for sending to OpenTelemetry.
+
+        This will convert any non-OpenTelemetry compatible types to JSON.
+        """
         prepared: dict[str, AttributeValue] = {}
 
         for k, v in attributes.items():
-            self._set_prepared_attribute(prepared, k, v, '')
+            self._set_user_attribute(prepared, k, v, '')
 
         return prepared
 
-    def _set_prepared_attribute(
+    def _set_user_attribute(
         self,
         target: dict[str, AttributeValue],
         key: str,
@@ -325,10 +330,10 @@ class Observe:
             target[prefixed_key] = value
         elif isinstance(value, dict):
             for k, v in value.items():
-                self._set_prepared_attribute(target, k, v, f'{prefixed_key}.')
+                self._set_user_attribute(target, k, v, f'{prefixed_key}.')
         elif not dumped:
             dumped_value = _ANY_TYPE_ADAPTER.dump_python(value)
-            self._set_prepared_attribute(target, key, dumped_value, prefix, dumped=True)
+            self._set_user_attribute(target, key, dumped_value, prefix, dumped=True)
         else:
             raise TypeError(f'Unsupported type {type(value)} for attribute {key}')
 
