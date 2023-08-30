@@ -1,9 +1,9 @@
 from typing import Any
 
-from opentelemetry.instrumentation.asgi import collect_request_attributes
+from opentelemetry.instrumentation.asgi import collect_request_attributes  # type: ignore
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from logfire import Observe, _instance
+from logfire import Observe, _instance  # type: ignore
 
 
 class LogfireFastAPIMiddleware:

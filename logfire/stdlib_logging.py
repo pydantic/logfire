@@ -35,7 +35,7 @@ RESERVED_ATTRS: tuple[str, ...] = (
 class SpanLoggingHandler(LoggingHandler):
     def emit(self, record: LogRecord) -> None:
         log(
-            record.msg,
+            record.msg,  # type: ignore
             record.levelname.upper(),  # type: ignore
             **{k: v for k, v in record.__dict__.items() if k not in RESERVED_ATTRS},
         )

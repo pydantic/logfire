@@ -17,7 +17,7 @@ from pydantic import Field, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
-from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none
+from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none  # type: ignore
 from logfire.formatter import logfire_format
 from logfire.secret import get_or_generate_secret
 
@@ -83,7 +83,7 @@ class _Telemetry:
         self.processor = BatchSpanProcessor(exporter, schedule_delay_millis=1)
 
         # FIXME big hack - without this `set_exporter` actually just adds another exporter!
-        self.provider._active_span_processor._span_processors = ()
+        self.provider._active_span_processor._span_processors = ()  # type: ignore
 
         self.provider.add_span_processor(self.processor)
         self.self_log(f'Configured span exporter with endpoint={self._config.traces_endpoint!r}')
@@ -344,7 +344,7 @@ class TaggedObserve:
 
         @contextmanager
         def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
-            pass
+            ...
 
         def instrument(
             self,
@@ -353,7 +353,7 @@ class TaggedObserve:
             msg_template: LiteralString | None = None,
             inspect: bool = False,
         ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-            pass
+            ...
 
         def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
             pass
