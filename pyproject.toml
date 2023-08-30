@@ -31,5 +31,5 @@ dependencies = [
 ]
 dynamic = ["version"]
 
-[project.entry-points."pydantic"]
+[project.entry-points.pydantic]
 observer = "logfire.plugin:plugin"
