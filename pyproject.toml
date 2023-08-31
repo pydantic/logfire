@@ -25,6 +25,7 @@ dependencies = [
     "rich>=13.4.2",
     "structlog>=23.1.0",
     "protobuf>=4.23.4",
+    "platformdirs>=3.10.0",
     "pydantic>=2.1.1",
     "pydantic-settings>=2.0.2",
     "typing-extensions",

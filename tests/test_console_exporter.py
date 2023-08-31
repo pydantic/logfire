@@ -41,9 +41,8 @@ def test_console_exporter(log_output: LogCapture) -> None:
     ]
 
 
-def test_logfire_with_console_exporter(log_output: LogCapture) -> None:
+def test_logfire_with_console_exporter(log_output: LogCapture, config: LogfireConfig) -> None:
     exporter = ConsoleSpanExporter()
-    config = LogfireConfig(auto_initialize_project=False)
     observe = Observe()
     observe.configure(config=config, exporter=exporter)
 
@@ -58,7 +57,7 @@ def test_logfire_with_console_exporter(log_output: LogCapture) -> None:
                 observe.warning('this is another warning')
 
     hello_world(123)
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     assert log_output.entries == [
         {
             'event': 'hello-world a=123',

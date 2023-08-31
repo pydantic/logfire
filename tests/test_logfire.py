@@ -77,7 +77,7 @@ def test_span_with_tags(observe: Observe) -> None:
 def test_log(observe: Observe, exporter, level):
     getattr(observe, level)('test {name} {number}', name='foo', number=2)
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[LEVEL_KEY] == level
@@ -91,7 +91,7 @@ def test_log(observe: Observe, exporter, level):
 def test_log_equals(observe: Observe, exporter) -> None:
     observe.info('test message {foo=} {bar=}', foo='foo', bar=3)
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'test message foo=foo bar=3'
@@ -105,7 +105,7 @@ def test_log_equals(observe: Observe, exporter) -> None:
 def test_log_with_tags(observe: Observe, exporter):
     observe.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
@@ -118,13 +118,13 @@ def test_log_with_tags(observe: Observe, exporter):
 def test_log_with_multiple_tags(observe: Observe, exporter):
     observe_with_2_tags = observe.tags('tag1').tags('tag2')
     observe_with_2_tags.info('test {name} {number}', name='foo', number=2)
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
     observe_with_4_tags = observe_with_2_tags.tags('tag3', 'tag4')
     observe_with_4_tags.info('test {name} {number}', name='foo', number=2)
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
@@ -138,7 +138,7 @@ def test_log_non_scalar_args(observe: Observe, exporter) -> None:
 
     observe.info('test message {foo=} {bar=} {model=}', foo=['a', 1, True], bar={'k1': 'v1', 'k2': 2}, model=m)
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == "test message foo=['a', 1, True] bar={'k1': 'v1', 'k2': 2} model=x='x' y=10"
@@ -159,7 +159,7 @@ def test_instrument(observe: Observe, exporter):
 
     assert hello_world(123) == 'hello 123'
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world a=123'
@@ -182,7 +182,7 @@ def test_instrument_extract_false(observe: Observe, exporter):
 
     assert hello_world(123) == 'hello 123'
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world'

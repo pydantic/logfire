@@ -1,9 +1,11 @@
+import dataclasses
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
 
 import httpx
@@ -17,9 +19,9 @@ from pydantic import Field, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
+from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
 from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none  # type: ignore
 from logfire.formatter import logfire_format
-from logfire.secret import get_or_generate_secret
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -39,59 +41,100 @@ class LogfireConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='LOGFIRE_')
 
     api_root: str = 'http://localhost:4318'
-    project_id: str = Field(default_factory=get_or_generate_secret)
+    project_id: str | None = None
+    token: str | None = None
+    credentials_file: Path = Field(default_factory=get_credentials_file)
+    """
+    `credentials_file` is what will be used to load the `project_id` and `token` if they are not otherwise specified.
+    It is also the file that will be used to store those values on disk when they are retrieved from the server
+    when creating a new project.
+    """
+
     service_name: str = 'logfire'
     verbose: bool = False
 
-    # TODO(Marcelo): This should be removed with the new API.
-    # https://linear.app/pydantic/issue/PYD-246/logfire-sdk-setup.
-    auto_initialize_project: bool = True
+    # TODO(DavidM): Implement the new API for configuring:
+    #   https://linear.app/pydantic/issue/PYD-246/logfire-sdk-setup.
 
     @property
     def projects_endpoint(self) -> str:
-        return f'{self.api_root}/v1/projects/{self.project_id}'
+        return f'{self.api_root}/v1/projects/'
+
+    def request_new_project_credentials(self, project_id: str | None) -> LogfireCredentials:
+        # use the explicitly-specified project ID if present
+        params = {'project_id': project_id} if project_id else None
+        response = httpx.post(self.projects_endpoint, params=params)
+        response.raise_for_status()
+        return LogfireCredentials.model_validate_json(response.content)
+
+    def get_credentials(self) -> LogfireCredentials:
+        return get_credentials(self.project_id, self.token, self.credentials_file, self.request_new_project_credentials)
+
+    def get_client(self) -> 'LogfireClient':
+        creds = self.get_credentials()
+
+        return LogfireClient(
+            api_root=self.api_root,
+            service_name=self.service_name,
+            project_id=creds.project_id,
+            token=creds.token,
+            verbose=self.verbose,
+        )
+
+
+@dataclasses.dataclass
+class LogfireClient:
+    api_root: str
+    service_name: str
+    project_id: str
+    token: str
+    verbose: bool
+
+    provider: TracerProvider = dataclasses.field(init=False)
+    processor: BatchSpanProcessor = dataclasses.field(init=False)
+
+    def __post_init__(self) -> None:
+        self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
+        self.set_exporter()
+        self.print_dashboard_url()
 
     @property
     def traces_endpoint(self) -> str:
         return f'{self.api_root}/v1/traces/{self.project_id}'
 
-
-class _Telemetry:
-    def __init__(self, config: LogfireConfig):
-        self._config = config
-
-        self.service_name = service_name = config.service_name
-        self.self_log(f'Configuring telemetry for {service_name!r}...')
-        self.set_exporter(HttpJsonSpanExporter(endpoint=config.traces_endpoint))
-
-        if config.auto_initialize_project:
-            self.initialize_project()
-
-    def initialize_project(self) -> None:
-        response = httpx.post(self._config.projects_endpoint)
-        response.raise_for_status()
-        dashboard_url = response.json()['dashboard_url']
-        print(f'*** View logs at {dashboard_url} ***')
+    @property
+    def dashboard_url_endpoint(self) -> str:
+        return f'{self.api_root}/dash/{self.project_id}'
 
     def set_exporter(self, exporter: SpanExporter | None = None) -> None:
         self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
         self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
-        exporter = exporter or HttpJsonSpanExporter(endpoint=self._config.traces_endpoint)
-        # TODO may want to make some of the processor options configurable so
-        # that overhead vs latency tradeoff can be adjusted, for now set for
-        # minimum latency which will be nicest on small workloads
+
+        exporter = exporter or self._get_default_exporter()
+        # TODO(DavidH): may want to make some of the processor options configurable so
+        #   that overhead vs latency tradeoff can be adjusted, for now set for
+        #   minimum latency which will be nicest on small workloads
         self.processor = BatchSpanProcessor(exporter, schedule_delay_millis=1)
 
         # FIXME big hack - without this `set_exporter` actually just adds another exporter!
         self.provider._active_span_processor._span_processors = ()  # type: ignore
 
         self.provider.add_span_processor(self.processor)
-        self.self_log(f'Configured span exporter with endpoint={self._config.traces_endpoint!r}')
+        self.self_log(f'Configured span exporter with endpoint={self.traces_endpoint!r}')
+
+    def print_dashboard_url(self) -> None:
+        response = httpx.get(self.dashboard_url_endpoint, headers={'Authorization': self.token})
+        response.raise_for_status()
+        dashboard_url = response.json()['dashboardUrl']
+        print(f'*** View logs at {dashboard_url} ***')
 
     def self_log(self, __msg: str) -> None:
         # TODO: probably want to make this more configurable/etc.
-        if self._config.verbose:
+        if self.verbose:
             print(__msg)
+
+    def _get_default_exporter(self) -> HttpJsonSpanExporter:
+        return HttpJsonSpanExporter(endpoint=self.traces_endpoint, headers={'Authorization': self.token})
 
 
 class LogFireSpan(TypedDict):
@@ -106,19 +149,16 @@ class Observe:
         self._tags: tuple[str, ...] = ()
 
     @cached_property
-    def _telemetry(self) -> _Telemetry:
-        # TODO: Don't allow modifying self._config once this has been initialized, or at least reset the cache
-        return _Telemetry(self._config)
+    def _client(self) -> LogfireClient:
+        return self._config.get_client()
 
     # Configuration
     def configure(self, config: LogfireConfig | None = None, exporter: SpanExporter | None = None) -> None:
         if config is not None:
             self._config = config
 
-        # Clear and recompute the cached property
-        self.__dict__.pop('_telemetery', None)
-        assert self._telemetry
-        self._telemetry.set_exporter(exporter)
+        self.__dict__.pop('_client', None)  # Clear the cached property if it has been generated
+        self._client.set_exporter(exporter)
 
     # Tags
     def tags(self, first_tag: str, /, *more_tags: str) -> 'TaggedObserve':
@@ -280,8 +320,8 @@ class Observe:
         return tracer
 
     def _get_tracer(self, name: str) -> Tracer:
-        # NOTE(David): Should we add version, schema_url?
-        return trace.get_tracer(name, tracer_provider=self._telemetry.provider)
+        # NOTE(DavidM): Should we add version, schema_url?
+        return trace.get_tracer(name, tracer_provider=self._client.provider)
 
     def _logfire_attributes(
         self,
@@ -330,7 +370,7 @@ class Observe:
             target[prefixed_key + NON_SCALAR_VAR_SUFFIX] = dumped_value
 
     def _self_log(self, __msg: str) -> None:
-        self._telemetry.self_log(__msg)
+        self._client.self_log(__msg)
 
 
 class TaggedObserve:

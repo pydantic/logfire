@@ -48,7 +48,7 @@ def test_fastapi_middleware(observe, exporter):
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
 
     assert len(exporter.exported_spans)
 
@@ -72,5 +72,5 @@ def test_fastapi_middleware_with_lifespan(observe, exporter):
     assert startup_complete
     assert cleanup_complete
 
-    observe._telemetry.provider.force_flush()
+    observe._client.provider.force_flush()
     assert len(exporter.exported_spans) == 0
