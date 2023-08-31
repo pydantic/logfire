@@ -9,7 +9,7 @@ path = "logfire/__init__.py"
 name = "logfire"
 description = "Coming Soon"
 authors = [{ name = "Pydantic Team", email = "hello@pydantic.dev" }]
-license = {file = "LICENSE"}
+license = "MIT"
 readme = "README.md"
 classifiers = [
     "Development Status :: 1 - Planning",
