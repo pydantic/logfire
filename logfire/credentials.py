@@ -1,8 +1,8 @@
 import hashlib
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from platformdirs import user_config_dir
 from pydantic import BaseModel, ValidationError
