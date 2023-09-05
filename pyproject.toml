@@ -18,9 +18,12 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "opentelemetry-api>=1.19.0",
-    "opentelemetry-sdk>=1.19.0",
-    "opentelemetry-exporter-otlp>=1.19.0",
+    # TODO(davidhewitt) - remove these upper bounds once
+    # opentelemetry-instrumentation-asgi 0.41b0 is released
+    # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/1935
+    "opentelemetry-api>=1.19.0,<1.20.0",
+    "opentelemetry-sdk>=1.19.0,<1.20.0",
+    "opentelemetry-exporter-otlp>=1.19.0,<1.20.0",
     "opentelemetry-instrumentation-asgi>=0.40b0",
     "rich>=13.4.2",
     "structlog>=23.1.0",
