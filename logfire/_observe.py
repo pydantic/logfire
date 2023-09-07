@@ -220,7 +220,13 @@ class Observe:
             span_name, attributes=logfire_attributes, start_time=start_time, record_exception=False
         ) as real_span:
             real_span = cast(Span, real_span)
-            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, kwargs)
+            start_span = self._span_start(
+                tracer=tracer,
+                outer_parent_id=start_parent_id,
+                start_time=start_time,
+                msg_template=msg_template,
+                kwargs=kwargs,
+            )
 
             with record_exception(real_span):
                 yield {'real_span': real_span, 'start_span': start_span}
@@ -256,17 +262,23 @@ class Observe:
 
                 if extract_args:
                     pos_args = {k: v for k, v in zip(pos_params, args)}
-                    kwarg_groups: tuple[dict[str, Any], ...] = pos_args, kwargs
+                    extracted_kwargs = {**pos_args, **kwargs}
                 else:
-                    kwarg_groups = ()
+                    extracted_kwargs = {}
 
                 start_parent_id = self._start_parent_id()
                 attributes = self._logfire_attributes('real_span')
                 with tracer.start_as_current_span(
                     span_name_, attributes=attributes, start_time=start_time, record_exception=False
                 ) as real_span:
-                    self._span_start(tracer, start_parent_id, start_time, msg_template or span_name_, *kwarg_groups)
-                    with record_exception(real_span):  # type: ignore
+                    self._span_start(
+                        tracer=tracer,
+                        outer_parent_id=start_parent_id,
+                        start_time=start_time,
+                        msg_template=msg_template or span_name_,
+                        kwargs=extracted_kwargs,
+                    )
+                    with record_exception(cast(Span, real_span)):
                         return func(*args, **kwargs)
 
             return wrapper
@@ -325,25 +337,23 @@ class Observe:
 
     def _span_start(
         self,
+        *,
         tracer: Tracer,
         outer_parent_id: str | None,
         start_time: int,
         msg_template: str,
-        *kwarg_groups: dict[str, Any],
+        kwargs: dict[str, Any],
     ) -> Span:
         """Send a zero length span at the start of the main span to represent the span opening.
 
         This is required since the span itself isn't sent until it's closed.
         """
-        msg = logfire_format(msg_template, *kwarg_groups)
+        msg = logfire_format(msg_template, kwargs)
 
         logfire_attributes = self._logfire_attributes(
             'start_span', msg_template=msg_template, start_parent_id=outer_parent_id
         )
-        user_attributes: dict[str, AttributeValue] = {}
-        for kw in kwarg_groups:
-            if kw:
-                user_attributes.update(self._user_attributes(kw))
+        user_attributes = self._user_attributes(kwargs)
         attributes = {**logfire_attributes, **user_attributes}
 
         start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
