@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections import ChainMap
+from collections.abc import Mapping
 from string import Formatter
 from typing import Any, Literal
 
@@ -18,14 +19,11 @@ class ArgChunk(TypedDict):
     spec: NotRequired[str]
 
 
-Undefined = object()
-
-
 class ChunksFormatter(Formatter):
     def chunks(
         self,
         format_string: str,
-        kwarg_groups: Sequence[dict[str, Any]],
+        kwargs: Mapping[str, Any],
         *,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
@@ -78,17 +76,18 @@ class ChunksFormatter(Formatter):
 
                 # given the field_name, find the object it references
                 #  and the argument it came from
-                obj, arg_used = self.get_field(field_name, args, kwarg_groups)  # type: ignore[arg-type]
+                obj, _arg_used = self.get_field(field_name, args, kwargs)
 
                 # do any conversion on the resulting object
-                obj = self.convert_field(obj, conversion)  # type: ignore[arg-type]
+                if conversion is not None:
+                    obj = self.convert_field(obj, conversion)
 
                 # expand the format spec, if needed
                 format_spec, auto_arg_index = self._vformat(
                     format_spec,  # type: ignore[arg-type]
                     args,
-                    kwarg_groups,  # type: ignore[arg-type]
-                    used_args,
+                    kwargs,
+                    used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
                     recursion_depth - 1,
                     auto_arg_index=auto_arg_index,
                 )
@@ -101,19 +100,9 @@ class ChunksFormatter(Formatter):
 
         return result
 
-    def get_value(self, key: str, _args: Any, kwargs_groups: Sequence[dict[str, Any]]) -> Any:  # type: ignore[override]
-        """
-        We currently don't use positional arguments, hence ignoring args
-        """
-        for kwargs in kwargs_groups:
-            v = kwargs.get(key, Undefined)
-            if v is not Undefined:
-                return v
-        raise KeyError(key)
-
 
 chunks_formatter = ChunksFormatter()
 
 
 def logfire_format(format_string: str, *kwarg_groups: dict[str, Any]) -> str:
-    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, kwarg_groups))
+    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, ChainMap(*kwarg_groups)))
