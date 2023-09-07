@@ -127,7 +127,11 @@ class LogfireClient:
 
     def print_dashboard_url(self) -> None:
         response = httpx.get(self.dashboard_url_endpoint, headers={'Authorization': self.token})
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except Exception:
+            print(response.text)
+            raise
         dashboard_url = response.json()['dashboardUrl']
         print(f'*** View logs at {dashboard_url} ***')
 
