@@ -1,4 +1,5 @@
 import dataclasses
+import json
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -15,10 +16,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import Span, Tracer, format_span_id
 from opentelemetry.util.types import AttributeValue
-from pydantic import Field, TypeAdapter
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
+from logfire._json_encoder import LogfireConsumeGeneratorEncoder, LogfireEncoder
 from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
 from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none  # type: ignore
 from logfire.formatter import logfire_format
@@ -184,7 +186,7 @@ class Observe:
         start_parent_id = self._start_parent_id()
         logfire_attributes = self._logfire_attributes('real_span', start_parent_id=start_parent_id)
         with tracer.start_as_current_span(span_name, attributes=logfire_attributes, start_time=start_time) as real_span:
-            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, kwargs)
+            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, False, kwargs)
 
             yield {'real_span': real_span, 'start_span': start_span}
 
@@ -226,7 +228,9 @@ class Observe:
                 start_parent_id = self._start_parent_id()
                 attributes = self._logfire_attributes('real_span')
                 with tracer.start_as_current_span(span_name_, attributes=attributes, start_time=start_time):
-                    self._span_start(tracer, start_parent_id, start_time, msg_template or span_name_, *kwarg_groups)
+                    self._span_start(
+                        tracer, start_parent_id, start_time, msg_template or span_name_, True, *kwarg_groups
+                    )
                     return func(*args, **kwargs)
 
             return wrapper
@@ -239,7 +243,7 @@ class Observe:
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
-        user_attributes = self._user_attributes(kwargs)
+        user_attributes = self._user_attributes(kwargs, False)
         logfire_attributes = self._logfire_attributes('log', msg_template=msg_template, level=level)
         attributes = {**user_attributes, **logfire_attributes}
 
@@ -289,6 +293,7 @@ class Observe:
         outer_parent_id: str | None,
         start_time: int,
         msg_template: str,
+        expand_generators: bool,
         *kwarg_groups: dict[str, Any],
     ) -> Span:
         """Send a zero length span at the start of the main span to represent the span opening.
@@ -303,7 +308,7 @@ class Observe:
         user_attributes: dict[str, AttributeValue] = {}
         for kw in kwarg_groups:
             if kw:
-                user_attributes.update(self._user_attributes(kw))
+                user_attributes.update(self._user_attributes(kw, expand_generators))
         attributes = {**logfire_attributes, **user_attributes}
 
         start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
@@ -342,7 +347,7 @@ class Observe:
             }
         )
 
-    def _user_attributes(self, attributes: dict[str, Any]) -> dict[str, AttributeValue]:
+    def _user_attributes(self, attributes: dict[str, Any], expand_generators: bool) -> dict[str, AttributeValue]:
         """Prepare attributes for sending to OpenTelemetry.
 
         This will convert any non-OpenTelemetry compatible types to JSON.
@@ -350,7 +355,7 @@ class Observe:
         prepared: dict[str, AttributeValue] = {}
 
         for k, v in attributes.items():
-            self._set_user_attribute(prepared, k, v, '')
+            self._set_user_attribute(prepared, k, v, expand_generators)
 
         return prepared
 
@@ -359,15 +364,16 @@ class Observe:
         target: dict[str, AttributeValue],
         key: str,
         value: Any,
-        prefix: str,
-        dumped: bool = False,
+        expand_generators: bool,
     ) -> None:
-        prefixed_key = prefix + key
         if isinstance(value, str | bool | int | float):
-            target[prefixed_key] = value
+            target[key] = value
         else:
-            dumped_value = _ANY_TYPE_ADAPTER.dump_json(value)
-            target[prefixed_key + NON_SCALAR_VAR_SUFFIX] = dumped_value
+            if expand_generators:
+                cls = LogfireConsumeGeneratorEncoder
+            else:
+                cls = LogfireEncoder
+            target[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=cls)
 
     def _self_log(self, __msg: str) -> None:
         self._client.self_log(__msg)
@@ -424,6 +430,3 @@ class TaggedObserve:
 
     def tags(self, first_tag: str, *args: str) -> 'TaggedObserve':
         return TaggedObserve(self._tags + (first_tag,) + tuple(args), self._observe)
-
-
-_ANY_TYPE_ADAPTER = TypeAdapter(Any)
