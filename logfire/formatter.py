@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from string import Formatter
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -19,6 +19,8 @@ class ArgChunk(TypedDict):
 
 
 class ChunksFormatter(Formatter):
+    NONE_REPR: Final[str] = 'null'
+
     def chunks(
         self,
         format_string: str,
@@ -98,6 +100,11 @@ class ChunksFormatter(Formatter):
                 result.append(d)
 
         return result
+
+    def format_field(self, value: Any, format_spec: str) -> Any:
+        if value is None:
+            value = self.NONE_REPR
+        return super().format_field(value, format_spec)
 
 
 chunks_formatter = ChunksFormatter()

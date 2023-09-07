@@ -1,5 +1,5 @@
 import dataclasses
-import json
+import json  # TODO(lig): use more performant json library
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -30,6 +30,7 @@ LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
 LOG_TYPE_KEY = 'logfire.log_type'
 TAGS_KEY = 'logfire.tags'
+NULL_ARGS_KEY = 'logfire.null_args'
 START_PARENT_ID = 'logfire.start_parent_id'
 NON_SCALAR_VAR_SUFFIX = '__JSON'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
@@ -130,7 +131,7 @@ class LogfireClient:
         try:
             response.raise_for_status()
         except Exception:
-            print(response.text)
+            print(response.text)  # TODO(lig): a proper log maybe?
             raise
         dashboard_url = response.json()['dashboardUrl']
         print(f'*** View logs at {dashboard_url} ***')
@@ -200,7 +201,7 @@ class Observe:
     def _set_tags(self, tags: tuple[str, ...]) -> None:
         self._tags = tags
 
-    def _get_tags(self) -> tuple[str, ...] | None:
+    def _pop_tags(self) -> tuple[str, ...] | None:
         if not self._tags:
             return None
         tags = self._tags
@@ -381,7 +382,7 @@ class Observe:
         level: LevelName | None = None,
         start_parent_id: str | None = None,
     ) -> dict[str, AttributeValue]:
-        tags = self._get_tags()
+        tags = self._pop_tags()
         return _dict_not_none(
             **{
                 LOG_TYPE_KEY: log_type,
@@ -398,24 +399,24 @@ class Observe:
         This will convert any non-OpenTelemetry compatible types to JSON.
         """
         prepared: dict[str, AttributeValue] = {}
+        null_args: list[str] = []
 
-        for k, v in attributes.items():
-            self._set_user_attribute(prepared, k, v)
+        for key, value in attributes.items():
+            match value:
+                case None:
+                    null_args.append(key)
+                case str() | bool() | int() | float():
+                    prepared[key] = value
+                case _:
+                    # TODO(Marcelo): Should we add the `separators=(",", ":")`?
+                    # TODO(lig): A separator seems like a good idea
+                    # Next person that reads this decides, and removes this comment.
+                    prepared[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=LogfireEncoder)
+
+        if null_args:
+            prepared[NULL_ARGS_KEY] = tuple(null_args)
 
         return prepared
-
-    def _set_user_attribute(
-        self,
-        target: dict[str, AttributeValue],
-        key: str,
-        value: Any,
-    ) -> None:
-        if isinstance(value, str | bool | int | float):
-            target[key] = value
-        else:
-            # TODO(Marcelo): Should we add the `separators=(",", ":")`?
-            # Next person that reads this decides, and removes this comment.
-            target[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=LogfireEncoder)
 
     def _self_log(self, __msg: str) -> None:
         self._client.self_log(__msg)

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 from logfire import Observe, __version__
-from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, START_PARENT_ID, TAGS_KEY
+from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
 
 from .conftest import TestExporter
 
@@ -81,16 +81,17 @@ def test_span_with_tags(observe: Observe) -> None:
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
 def test_log(observe: Observe, exporter: TestExporter, level: str):
-    getattr(observe, level)('test {name} {number}', name='foo', number=2)
+    getattr(observe, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
     observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[LEVEL_KEY] == level
-    assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
+    assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number} {none}'
     assert s.attributes[LOG_TYPE_KEY] == 'log'
     assert s.attributes['name'] == 'foo'
     assert s.attributes['number'] == 2
+    assert s.attributes[NULL_ARGS_KEY] == ('none',)
     assert TAGS_KEY not in s.attributes
 
 
