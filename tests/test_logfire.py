@@ -1,8 +1,15 @@
+import json
+from typing import cast
+
 import pytest
 from opentelemetry.trace import format_span_id
+from pydantic import BaseModel
+from pydantic_core import ValidationError
 
 from logfire import Observe, __version__
 from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, START_PARENT_ID, TAGS_KEY
+
+from .conftest import TestExporter
 
 
 def test_logfire_version() -> None:
@@ -73,7 +80,7 @@ def test_span_with_tags(observe: Observe) -> None:
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
-def test_log(observe: Observe, exporter, level):
+def test_log(observe: Observe, exporter: TestExporter, level: str):
     getattr(observe, level)('test {name} {number}', name='foo', number=2)
 
     observe._client.provider.force_flush()
@@ -87,7 +94,7 @@ def test_log(observe: Observe, exporter, level):
     assert TAGS_KEY not in s.attributes
 
 
-def test_log_equals(observe: Observe, exporter) -> None:
+def test_log_equals(observe: Observe, exporter: TestExporter) -> None:
     observe.info('test message {foo=} {bar=}', foo='foo', bar=3)
 
     observe._client.provider.force_flush()
@@ -101,7 +108,7 @@ def test_log_equals(observe: Observe, exporter) -> None:
     assert s.attributes[LOG_TYPE_KEY] == 'log'
 
 
-def test_log_with_tags(observe: Observe, exporter):
+def test_log_with_tags(observe: Observe, exporter: TestExporter):
     observe.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
     observe._client.provider.force_flush()
@@ -114,7 +121,7 @@ def test_log_with_tags(observe: Observe, exporter):
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
 
-def test_log_with_multiple_tags(observe: Observe, exporter):
+def test_log_with_multiple_tags(observe: Observe, exporter: TestExporter):
     observe_with_2_tags = observe.tags('tag1').tags('tag2')
     observe_with_2_tags.info('test {name} {number}', name='foo', number=2)
     observe._client.provider.force_flush()
@@ -128,7 +135,7 @@ def test_log_with_multiple_tags(observe: Observe, exporter):
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
 
-def test_instrument(observe: Observe, exporter):
+def test_instrument(observe: Observe, exporter: TestExporter):
     @observe.instrument('hello-world {a=}')
     def hello_world(a: int) -> str:
         return f'hello {a}'
@@ -151,7 +158,7 @@ def test_instrument(observe: Observe, exporter):
     assert dict(s.attributes) == {'logfire.log_type': 'real_span'}
 
 
-def test_instrument_extract_false(observe: Observe, exporter):
+def test_instrument_extract_false(observe: Observe, exporter: TestExporter):
     @observe.instrument('hello-world', extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
@@ -163,3 +170,71 @@ def test_instrument_extract_false(observe: Observe, exporter):
 
     assert s.name == 'hello-world'
     assert dict(s.attributes) == {'logfire.msg_template': 'hello-world', 'logfire.log_type': 'start_span'}
+
+
+def test_validation_error_on_instrument(observe: Observe, exporter: TestExporter):
+    class Model(BaseModel):
+        a: int
+
+    @observe.instrument('hello-world {a=}')
+    def run(a: str) -> Model:
+        return Model(a=a)  # type: ignore
+
+    with pytest.raises(ValidationError):
+        run('haha')
+
+    observe._client.provider.force_flush()
+
+    s = exporter.exported_spans.pop()
+    assert len(s.events) == 1
+    event = s.events[0]
+    assert event.name == 'exception' and event.attributes
+    assert event.attributes.get('exception.type') == 'ValidationError'
+    assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
+    assert event.attributes.get('exception.stacktrace') is not None
+    assert event.attributes.get('exception.fields') == ('errors',)
+
+    errors = json.loads(cast(str, event.attributes.get('errors')))
+    # insert_assert(errors)
+    assert errors == [
+        {
+            'type': 'int_parsing',
+            'loc': ['a'],
+            'msg': 'Input should be a valid integer, unable to parse string as an integer',
+            'input': 'haha',
+        }
+    ]
+
+
+def test_validation_error_on_span(observe: Observe, exporter: TestExporter) -> None:
+    class Model(BaseModel):
+        a: int
+
+    def run(a: str) -> None:
+        with observe.span('test span', 'test'):
+            Model(a=a)  # type: ignore
+
+    with pytest.raises(ValidationError):
+        run('haha')
+
+    observe._client.provider.force_flush()
+
+    s = exporter.exported_spans.pop()
+    assert len(s.events) == 1
+    event = s.events[0]
+    assert event.name == 'exception' and event.attributes
+    assert event.attributes.get('exception.type') == 'ValidationError'
+    assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
+    assert event.attributes.get('exception.stacktrace') is not None
+    assert event.attributes.get('exception.fields') == ('errors',)
+
+    errors = json.loads(cast(str, event.attributes.get('errors')))
+    # insert_assert(errors)
+    assert errors == [
+        {
+            'type': 'int_parsing',
+            'loc': ['a'],
+            'msg': 'Input should be a valid integer, unable to parse string as an integer',
+            'input': 'haha',
+        }
+    ]

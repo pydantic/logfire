@@ -95,9 +95,3 @@ class LogfireEncoder(json.JSONEncoder):
             return self._cls_encoder(list, 'Sequence', o)
 
         return self._cls_encoder(repr, o.__class__.__name__, o)
-
-
-class LogfireConsumeGeneratorEncoder(LogfireEncoder):
-    @cached_property
-    def encoder_by_type(self) -> dict[type[Any], Callable[[Any], Any]]:
-        return {**super().encoder_by_type, **{GeneratorType: partial(self._default_encoder, list)}}

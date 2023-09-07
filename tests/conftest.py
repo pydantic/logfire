@@ -10,11 +10,14 @@ from logfire.credentials import LogfireCredentials
 
 
 class TestExporter(SpanExporter):
+    # NOTE: Avoid test discovery by pytest.
+    __test__ = False
+
     def __init__(self) -> None:
-        self.exported_spans: Sequence[ReadableSpan] = []
+        self.exported_spans: list[ReadableSpan] = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
-        self.exported_spans = spans
+        self.exported_spans = list(spans)
 
 
 class TestLogfireClient(LogfireClient):

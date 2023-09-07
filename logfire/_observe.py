@@ -7,20 +7,21 @@ from contextvars import ContextVar
 from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar, cast
 
 import httpx
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import Span, Tracer, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
-from opentelemetry.trace import Span, Tracer, format_span_id
+from opentelemetry.trace import format_span_id
 from opentelemetry.util.types import AttributeValue
 from pydantic import Field
+from pydantic_core import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
-from logfire._json_encoder import LogfireConsumeGeneratorEncoder, LogfireEncoder
+from logfire._json_encoder import LogfireEncoder
 from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
 from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none  # type: ignore
 from logfire.formatter import logfire_format
@@ -144,6 +145,32 @@ class LogFireSpan(TypedDict):
     start_span: Span
 
 
+@contextmanager
+def record_exception(span: Span) -> Iterator[None]:
+    """Context manager for recording an exception on a span.
+
+    This will record the exception on the span and re-raise it.
+
+    Args:
+        span: The span to record the exception on.
+
+    Raises:
+        Any: The exception that was raised.
+    """
+    try:
+        yield
+    # NOTE: We don't want to catch `BaseException` here, since that would catch
+    # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
+    # by the `tracer.use_span` context manager internally.
+    except Exception as exc:
+        attributes: dict[str, Any] = {}
+        if isinstance(exc, ValidationError):
+            errors = json.dumps(exc.errors(include_url=False), cls=LogfireEncoder, separators=(',', ':'))
+            attributes.update({'exception.fields': ('errors',), 'errors': errors})
+        span.record_exception(exc, attributes=attributes, escaped=True)
+        raise
+
+
 class Observe:
     def __init__(self, config: LogfireConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
@@ -185,10 +212,14 @@ class Observe:
 
         start_parent_id = self._start_parent_id()
         logfire_attributes = self._logfire_attributes('real_span', start_parent_id=start_parent_id)
-        with tracer.start_as_current_span(span_name, attributes=logfire_attributes, start_time=start_time) as real_span:
-            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, False, kwargs)
+        with tracer.start_as_current_span(
+            span_name, attributes=logfire_attributes, start_time=start_time, record_exception=False
+        ) as real_span:
+            real_span = cast(Span, real_span)
+            start_span = self._span_start(tracer, start_parent_id, start_time, msg_template, kwargs)
 
-            yield {'real_span': real_span, 'start_span': start_span}
+            with record_exception(real_span):
+                yield {'real_span': real_span, 'start_span': start_span}
 
     def instrument(
         self,
@@ -227,11 +258,12 @@ class Observe:
 
                 start_parent_id = self._start_parent_id()
                 attributes = self._logfire_attributes('real_span')
-                with tracer.start_as_current_span(span_name_, attributes=attributes, start_time=start_time):
-                    self._span_start(
-                        tracer, start_parent_id, start_time, msg_template or span_name_, True, *kwarg_groups
-                    )
-                    return func(*args, **kwargs)
+                with tracer.start_as_current_span(
+                    span_name_, attributes=attributes, start_time=start_time, record_exception=False
+                ) as real_span:
+                    self._span_start(tracer, start_parent_id, start_time, msg_template or span_name_, *kwarg_groups)
+                    with record_exception(real_span):  # type: ignore
+                        return func(*args, **kwargs)
 
             return wrapper
 
@@ -243,7 +275,7 @@ class Observe:
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
-        user_attributes = self._user_attributes(kwargs, False)
+        user_attributes = self._user_attributes(kwargs)
         logfire_attributes = self._logfire_attributes('log', msg_template=msg_template, level=level)
         attributes = {**user_attributes, **logfire_attributes}
 
@@ -293,7 +325,6 @@ class Observe:
         outer_parent_id: str | None,
         start_time: int,
         msg_template: str,
-        expand_generators: bool,
         *kwarg_groups: dict[str, Any],
     ) -> Span:
         """Send a zero length span at the start of the main span to represent the span opening.
@@ -308,7 +339,7 @@ class Observe:
         user_attributes: dict[str, AttributeValue] = {}
         for kw in kwarg_groups:
             if kw:
-                user_attributes.update(self._user_attributes(kw, expand_generators))
+                user_attributes.update(self._user_attributes(kw))
         attributes = {**logfire_attributes, **user_attributes}
 
         start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
@@ -316,7 +347,7 @@ class Observe:
         with trace.use_span(start_span):
             pass
 
-        return start_span
+        return start_span  # type: ignore
 
     def _get_context_tracer(self) -> Tracer:
         tracer = self._tracer.get()
@@ -326,7 +357,7 @@ class Observe:
 
     def _get_tracer(self, name: str) -> Tracer:
         # NOTE(DavidM): Should we add version, schema_url?
-        return trace.get_tracer(name, tracer_provider=self._client.provider)
+        return trace.get_tracer(name, tracer_provider=self._client.provider)  # type: ignore
 
     def _logfire_attributes(
         self,
@@ -347,7 +378,7 @@ class Observe:
             }
         )
 
-    def _user_attributes(self, attributes: dict[str, Any], expand_generators: bool) -> dict[str, AttributeValue]:
+    def _user_attributes(self, attributes: dict[str, Any]) -> dict[str, AttributeValue]:
         """Prepare attributes for sending to OpenTelemetry.
 
         This will convert any non-OpenTelemetry compatible types to JSON.
@@ -355,7 +386,7 @@ class Observe:
         prepared: dict[str, AttributeValue] = {}
 
         for k, v in attributes.items():
-            self._set_user_attribute(prepared, k, v, expand_generators)
+            self._set_user_attribute(prepared, k, v)
 
         return prepared
 
@@ -364,16 +395,13 @@ class Observe:
         target: dict[str, AttributeValue],
         key: str,
         value: Any,
-        expand_generators: bool,
     ) -> None:
         if isinstance(value, str | bool | int | float):
             target[key] = value
         else:
-            if expand_generators:
-                cls = LogfireConsumeGeneratorEncoder
-            else:
-                cls = LogfireEncoder
-            target[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=cls)
+            # TODO(Marcelo): Should we add the `separators=(",", ":")`?
+            # Next person that reads this decides, and removes this comment.
+            target[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=LogfireEncoder)
 
     def _self_log(self, __msg: str) -> None:
         self._client.self_log(__msg)
@@ -402,25 +430,25 @@ class TaggedObserve:
             ...
 
         def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
-            pass
+            ...
 
         def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
         def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
         def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
         def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
         def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
         def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            pass
+            ...
 
     else:
 

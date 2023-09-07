@@ -25,7 +25,8 @@ class HttpJsonSpanExporter(OTLPSpanExporter):
             _logger.warning('Exporter already shutdown, ignoring batch')
             return SpanExportResult.FAILURE
 
-        serialized_data = json.dumps(encode_spans(spans))
+        encoded_spans = encode_spans(spans)
+        serialized_data = json.dumps(encoded_spans)
 
         for delay in _expo(max_value=self._MAX_RETRY_TIMEOUT):
             if delay == self._MAX_RETRY_TIMEOUT:
