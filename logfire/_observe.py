@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar, c
 
 import httpx
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Span, Tracer, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
@@ -23,7 +24,6 @@ from typing_extensions import LiteralString
 
 from logfire._json_encoder import LogfireEncoder
 from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
-from logfire.exporters.http import HttpJsonSpanExporter, _dict_not_none  # type: ignore
 from logfire.formatter import logfire_format
 
 LEVEL_KEY = 'logfire.level'
@@ -141,8 +141,8 @@ class LogfireClient:
         if self.verbose:
             print(__msg)
 
-    def _get_default_exporter(self) -> HttpJsonSpanExporter:
-        return HttpJsonSpanExporter(endpoint=self.traces_endpoint, headers={'Authorization': self.token})
+    def _get_default_exporter(self) -> OTLPSpanExporter:
+        return OTLPSpanExporter(endpoint=self.traces_endpoint, headers={'Authorization': self.token})
 
 
 class LogFireSpan(TypedDict):
@@ -473,3 +473,7 @@ class TaggedObserve:
 
     def tags(self, first_tag: str, *args: str) -> 'TaggedObserve':
         return TaggedObserve(self._tags + (first_tag,) + tuple(args), self._observe)
+
+
+def _dict_not_none(**kwargs: Any) -> dict[str, Any]:
+    return {k: v for k, v in kwargs.items() if v is not None}
