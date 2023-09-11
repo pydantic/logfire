@@ -292,7 +292,7 @@ class Observe:
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
-        user_attributes = self._user_attributes(kwargs)
+        user_attributes = Observe.user_attributes(kwargs)
         logfire_attributes = self._logfire_attributes('log', msg_template=msg_template, level=level)
         attributes = {**user_attributes, **logfire_attributes}
 
@@ -354,7 +354,7 @@ class Observe:
         logfire_attributes = self._logfire_attributes(
             'start_span', msg_template=msg_template, start_parent_id=outer_parent_id
         )
-        user_attributes = self._user_attributes(kwargs)
+        user_attributes = Observe.user_attributes(kwargs)
         attributes = {**logfire_attributes, **user_attributes}
 
         start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
@@ -393,7 +393,8 @@ class Observe:
             }
         )
 
-    def _user_attributes(self, attributes: dict[str, Any]) -> dict[str, AttributeValue]:
+    @staticmethod
+    def user_attributes(attributes: dict[str, Any]) -> dict[str, AttributeValue]:
         """Prepare attributes for sending to OpenTelemetry.
 
         This will convert any non-OpenTelemetry compatible types to JSON.
