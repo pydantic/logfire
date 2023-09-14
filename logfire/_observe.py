@@ -8,7 +8,7 @@ from contextvars import ContextVar
 from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
-from types import TracebackType
+from types import FrameType, TracebackType
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar, cast
 
 import httpx
@@ -35,6 +35,8 @@ LOG_TYPE_KEY = 'logfire.log_type'
 TAGS_KEY = 'logfire.tags'
 NULL_ARGS_KEY = 'logfire.null_args'
 START_PARENT_ID = 'logfire.start_parent_id'
+LINENO = 'logfire.lineno'
+FILENAME = 'logfire.filename'
 NON_SCALAR_VAR_SUFFIX = '__JSON'
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 LogTypeType = Literal['log', 'start_span', 'real_span']
@@ -42,6 +44,8 @@ LogTypeType = Literal['log', 'start_span', 'real_span']
 _RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
 _POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
+
+_cwd = Path('.').resolve()
 
 
 class LogfireConfig(BaseSettings):
@@ -297,13 +301,25 @@ class Observe:
         return decorator
 
     # Logging
-    def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
+    def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any, _frame_depth: int = 1) -> None:
         msg = logfire_format(msg_template, kwargs)
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
 
+        call_frame: FrameType = sys._getframe(_frame_depth)  # type: ignore
+        lineno = call_frame.f_lineno
+        file = Path(call_frame.f_code.co_filename)
+        if file.is_absolute():
+            try:
+                file = file.relative_to(_cwd)
+            except ValueError:
+                # happens if filename path is not within CWD
+                pass
+
         user_attributes = Observe.user_attributes(kwargs)
-        logfire_attributes = self._logfire_attributes('log', msg_template=msg_template, level=level)
+        logfire_attributes = self._logfire_attributes(
+            'log', msg_template=msg_template, level=level, lineno=lineno, filename=str(file)
+        )
         attributes = {**user_attributes, **logfire_attributes}
 
         span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
@@ -312,22 +328,22 @@ class Observe:
             pass
 
     def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'debug', kwargs)
+        self.log(msg_template, 'debug', kwargs, _frame_depth=2)
 
     def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'info', kwargs)
+        self.log(msg_template, 'info', kwargs, _frame_depth=2)
 
     def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'notice', kwargs)
+        self.log(msg_template, 'notice', kwargs, _frame_depth=2)
 
     def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'warning', kwargs)
+        self.log(msg_template, 'warning', kwargs, _frame_depth=2)
 
     def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'error', kwargs)
+        self.log(msg_template, 'error', kwargs, _frame_depth=2)
 
     def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-        self.log(msg_template, 'critical', kwargs)
+        self.log(msg_template, 'critical', kwargs, _frame_depth=2)
 
     # Utilities
     @contextmanager
@@ -391,6 +407,8 @@ class Observe:
         msg_template: str | None = None,
         level: LevelName | None = None,
         start_parent_id: str | None = None,
+        lineno: int | None = None,
+        filename: str | None = None,
     ) -> dict[str, AttributeValue]:
         tags = self._pop_tags()
         return _dict_not_none(
@@ -400,6 +418,8 @@ class Observe:
                 MSG_TEMPLATE_KEY: msg_template,
                 TAGS_KEY: tags,
                 START_PARENT_ID: start_parent_id,
+                LINENO: lineno,
+                FILENAME: filename,
             }
         )
 

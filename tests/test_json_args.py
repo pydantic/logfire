@@ -15,6 +15,8 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from logfire import Observe
 
+from .conftest import TestExporter
+
 
 class MyModel(BaseModel):
     x: str
@@ -201,7 +203,7 @@ def test_instrument_generator_arg(observe: Observe, exporter) -> None:
     s.attributes['var__JSON'] == '{"$__datatype__": "generator", "data": [0, 1, 2]}'
 
 
-def test_log_non_scalar_complex_args(observe: Observe, exporter) -> None:
+def test_log_non_scalar_complex_args(observe: Observe, exporter: TestExporter) -> None:
     class MyModel(BaseModel):
         x: str
         y: datetime
@@ -229,6 +231,7 @@ def test_log_non_scalar_complex_args(observe: Observe, exporter) -> None:
     observe._client.provider.force_flush()
     s = exporter.exported_spans[0]
 
+    # insert_assert(dict(s.attributes))
     assert dict(s.attributes) == {
         'complex_list__JSON': (
             '["a", 1, '
@@ -245,4 +248,6 @@ def test_log_non_scalar_complex_args(observe: Observe, exporter) -> None:
         'logfire.log_type': 'log',
         'logfire.level': 'info',
         'logfire.msg_template': 'test message {complex_list=} {complex_dict=}',
+        'logfire.lineno': 225,
+        'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
     }
