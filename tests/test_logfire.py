@@ -2,6 +2,7 @@ import json
 from typing import cast
 
 import pytest
+from dirty_equals import IsPositive, IsStr
 from opentelemetry.trace import format_span_id
 from pydantic import BaseModel
 from pydantic_core import ValidationError
@@ -193,18 +194,62 @@ def test_validation_error_on_instrument(observe: Observe, exporter: TestExporter
     assert event.attributes.get('exception.type') == 'ValidationError'
     assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
     assert event.attributes.get('exception.stacktrace') is not None
-    assert event.attributes.get('exception.fields') == ('errors',)
 
-    errors = json.loads(cast(str, event.attributes.get('errors')))
+    data = json.loads(cast(bytes, event.attributes.get('exception.logfire.data')))
+    # insert_assert(data)
+    assert data == {
+        'errors': [
+            {
+                'type': 'int_parsing',
+                'loc': ['a'],
+                'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                'input': 'haha',
+            }
+        ]
+    }
+
+    errors = json.loads(cast(bytes, event.attributes.get('exception.logfire.trace')))
     # insert_assert(errors)
-    assert errors == [
-        {
-            'type': 'int_parsing',
-            'loc': ['a'],
-            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-            'input': 'haha',
-        }
-    ]
+    assert errors == {
+        'stacks': [
+            {
+                'exc_type': 'ValidationError',
+                'exc_value': "1 validation error for Model\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='haha', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing",
+                'syntax_error': None,
+                'is_cause': False,
+                'frames': [
+                    {
+                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
+                        'lineno': IsPositive(),
+                        'name': 'record_exception',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
+                        'lineno': IsPositive(),
+                        'name': 'wrapper',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
+                        'lineno': IsPositive(),
+                        'name': 'run',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/pydantic/main.py'),
+                        'lineno': IsPositive(),
+                        'name': '__init__',
+                        'line': '',
+                        'locals': None,
+                    },
+                ],
+            }
+        ]
+    }
 
 
 def test_validation_error_on_span(observe: Observe, exporter: TestExporter) -> None:
@@ -227,15 +272,59 @@ def test_validation_error_on_span(observe: Observe, exporter: TestExporter) -> N
     assert event.attributes.get('exception.type') == 'ValidationError'
     assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
     assert event.attributes.get('exception.stacktrace') is not None
-    assert event.attributes.get('exception.fields') == ('errors',)
 
-    errors = json.loads(cast(str, event.attributes.get('errors')))
+    data = json.loads(cast(bytes, event.attributes.get('exception.logfire.data')))
+    # insert_assert(data)
+    assert data == {
+        'errors': [
+            {
+                'type': 'int_parsing',
+                'loc': ['a'],
+                'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                'input': 'haha',
+            }
+        ]
+    }
+
+    errors = json.loads(cast(bytes, event.attributes.get('exception.logfire.trace')))
     # insert_assert(errors)
-    assert errors == [
-        {
-            'type': 'int_parsing',
-            'loc': ['a'],
-            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-            'input': 'haha',
-        }
-    ]
+    assert errors == {
+        'stacks': [
+            {
+                'exc_type': 'ValidationError',
+                'exc_value': "1 validation error for Model\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='haha', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing",
+                'syntax_error': None,
+                'is_cause': False,
+                'frames': [
+                    {
+                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
+                        'lineno': IsPositive(),
+                        'name': 'record_exception',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
+                        'lineno': IsPositive(),
+                        'name': 'span',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
+                        'lineno': IsPositive(),
+                        'name': 'run',
+                        'line': '',
+                        'locals': None,
+                    },
+                    {
+                        'filename': IsStr(regex=r'.*/pydantic/main.py'),
+                        'lineno': IsPositive(),
+                        'name': '__init__',
+                        'line': '',
+                        'locals': None,
+                    },
+                ],
+            }
+        ]
+    }

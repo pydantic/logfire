@@ -1,5 +1,6 @@
 import dataclasses
 import json  # TODO(lig): use more performant json library
+import sys
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -7,9 +8,11 @@ from contextvars import ContextVar
 from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar, cast
 
 import httpx
+import rich.traceback
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -18,7 +21,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import format_span_id
 from opentelemetry.util.types import AttributeValue
 from pydantic import Field
-from pydantic_core import ValidationError
+from pydantic_core import ValidationError, to_json
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
@@ -167,12 +170,19 @@ def record_exception(span: Span) -> Iterator[None]:
     # NOTE: We don't want to catch `BaseException` here, since that would catch
     # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
     # by the `tracer.use_span` context manager internally.
-    except Exception as exc:
-        attributes: dict[str, Any] = {}
-        if isinstance(exc, ValidationError):
-            errors = json.dumps(exc.errors(include_url=False), cls=LogfireEncoder, separators=(',', ':'))
-            attributes.update({'exception.fields': ('errors',), 'errors': errors})
-        span.record_exception(exc, attributes=attributes, escaped=True)
+    except Exception:
+        exc_type, exc_value, traceback = cast(tuple[type[Exception], Exception, TracebackType], sys.exc_info())
+        # NOTE(Marcelo): You can pass `show_locals=True` to `rich.traceback.Traceback.from_exception`
+        # to get the local variables in the traceback. For now, we're not doing that.
+        tb = rich.traceback.Traceback.from_exception(exc_type=exc_type, exc_value=exc_value, traceback=traceback)
+
+        attributes: dict[str, bytes] = {'exception.logfire.trace': to_json(tb.trace), 'exception.logfire.data': b''}
+        if exc_type == ValidationError:
+            exc = cast(ValidationError, exc_value)
+            data = json.dumps({'errors': exc.errors(include_url=False)}, cls=LogfireEncoder, separators=(',', ':'))
+            attributes['exception.logfire.data'] = data.encode()
+
+        span.record_exception(exc_value, attributes=attributes, escaped=True)
         raise
 
 
