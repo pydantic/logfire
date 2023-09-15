@@ -7,20 +7,16 @@ from opentelemetry.trace import format_span_id
 from pydantic import BaseModel
 from pydantic_core import ValidationError
 
-from logfire import Observe, __version__
+from logfire import Observe
 from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
 
 from .conftest import TestExporter
 
 
-def test_logfire_version() -> None:
-    assert __version__ is not None
-
-
 def test_span_without_kwargs(observe: Observe) -> None:
     with pytest.raises(KeyError, match="'name'"):
         with observe.span('test span', 'test {name}'):
-            pass
+            pass  # pragma: no cover
 
 
 def test_span_with_kwargs(observe: Observe) -> None:

@@ -1,6 +1,7 @@
 from logfire._observe import LogfireConfig, Observe
+from logfire.version import VERSION
 
-__version__ = '0.0.2'
+__version__ = VERSION
 
 __all__ = (
     'Observe',

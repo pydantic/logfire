@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "logfire/__init__.py"
+path = "logfire/version.py"
 
 [project]
 name = "logfire"

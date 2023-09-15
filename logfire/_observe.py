@@ -28,6 +28,7 @@ from typing_extensions import LiteralString
 from logfire._json_encoder import LogfireEncoder
 from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
 from logfire.formatter import logfire_format
+from logfire.version import VERSION
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -117,6 +118,10 @@ class LogfireClient:
     def dashboard_url_endpoint(self) -> str:
         return f'{self.api_root}/dash/{self.project_id}'
 
+    @property
+    def headers(self) -> dict[str, str]:
+        return {'Authorization': self.token, 'User-Agent': f'logfire/{VERSION}'}
+
     def set_exporter(self, exporter: SpanExporter | None = None) -> None:
         self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
         self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
@@ -134,7 +139,7 @@ class LogfireClient:
         self.self_log(f'Configured span exporter with endpoint={self.traces_endpoint!r}')
 
     def print_dashboard_url(self) -> None:
-        response = httpx.get(self.dashboard_url_endpoint, headers={'Authorization': self.token})
+        response = httpx.get(self.dashboard_url_endpoint, headers=self.headers)
         try:
             response.raise_for_status()
         except Exception:
@@ -149,7 +154,7 @@ class LogfireClient:
             print(__msg)
 
     def _get_default_exporter(self) -> OTLPSpanExporter:
-        return OTLPSpanExporter(endpoint=self.traces_endpoint, headers={'Authorization': self.token})
+        return OTLPSpanExporter(endpoint=self.traces_endpoint, headers=self.headers)
 
 
 class LogFireSpan(TypedDict):
