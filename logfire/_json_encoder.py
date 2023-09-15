@@ -13,7 +13,14 @@ from types import GeneratorType
 from typing import Any
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseModel, NameEmail, SecretBytes, SecretStr
+try:
+    import pydantic
+except ImportError:
+    # pydantic is not installed, possible since it's not a dependency
+    # don't add the types to the lookup logic
+    pydantic = None
+
+__all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback'
 
 
 class LogfireEncoder(json.JSONEncoder):
@@ -40,7 +47,7 @@ class LogfireEncoder(json.JSONEncoder):
 
     @cached_property
     def encoder_by_type(self) -> dict[type[Any], Callable[[Any], Any]]:
-        return {
+        lookup: dict[type[Any], Callable[[Any], Any]] = {
             set: partial(self._default_encoder, list),
             bytes: partial(self._default_encoder, lambda o: o.decode()),
             datetime.date: partial(self._default_encoder, lambda d: d.isoformat()),
@@ -52,22 +59,30 @@ class LogfireEncoder(json.JSONEncoder):
             frozenset: partial(self._default_encoder, list),
             deque: partial(self._default_encoder, list),
             GeneratorType: partial(self._default_encoder, repr),
-            AnyUrl: partial(self._default_encoder, str),
             IPv4Address: partial(self._default_encoder, str),
             IPv4Interface: partial(self._default_encoder, str),
             IPv4Network: partial(self._default_encoder, str),
             IPv6Address: partial(self._default_encoder, str),
             IPv6Interface: partial(self._default_encoder, str),
             IPv6Network: partial(self._default_encoder, str),
-            NameEmail: partial(self._default_encoder, str),
             PosixPath: partial(self._default_encoder, str),
             Pattern: partial(self._default_encoder, lambda o: o.pattern),
-            SecretBytes: partial(self._default_encoder, str),
-            SecretStr: partial(self._default_encoder, str),
             UUID: partial(self._uuid_encoder, str),
-            BaseModel: partial(self._cls_encoder, lambda o: o.model_dump(), 'BaseModel'),
             Exception: partial(self._cls_encoder, str, 'Exception'),
         }
+        if pydantic:
+            lookup.update(
+                {
+                    pydantic.AnyUrl: partial(self._default_encoder, str),
+                    pydantic.NameEmail: partial(self._default_encoder, str),
+                    pydantic.SecretBytes: partial(self._default_encoder, str),
+                    pydantic.SecretStr: partial(self._default_encoder, str),
+                    pydantic.BaseModel: partial(self._cls_encoder, lambda o: o.model_dump(), 'BaseModel'),
+                }
+            )
+        # TODO(Samuel): add other popular 3rd party types here if they're installed,
+        #  in particular: attrs, sqlalchemy, pandas, numpy
+        return lookup
 
     def encode(self, o: Any) -> Any:
         if isinstance(o, tuple):
@@ -95,3 +110,22 @@ class LogfireEncoder(json.JSONEncoder):
             return self._cls_encoder(list, 'Sequence', o)
 
         return self._cls_encoder(repr, o.__class__.__name__, o)
+
+
+def logfire_json_dumps(obj: Any) -> str:
+    # TODO(Samuel), we should add `, separators=(',', ':')`, https://linear.app/pydantic/issue/PYD-281
+    return json.dumps(obj, cls=LogfireEncoder)
+
+
+def _traceback_default(obj: Any):
+    if dataclasses.is_dataclass(obj):
+        return dataclasses.asdict(obj)
+    else:
+        raise TypeError(f"Object of type '{obj.__class__.__name__}' is not JSON serializable")
+
+
+def json_dumps_traceback(obj: Any) -> str:
+    """
+    Specifically for converting rich tracebacks to JSON, where dataclasses need to be converted to dicts.
+    """
+    return json.dumps(obj, default=_traceback_default)

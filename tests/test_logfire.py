@@ -7,20 +7,20 @@ from opentelemetry.trace import format_span_id
 from pydantic import BaseModel
 from pydantic_core import ValidationError
 
-from logfire import Observe
+from logfire import Logfire
 from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
 
 from .conftest import TestExporter
 
 
-def test_span_without_kwargs(observe: Observe) -> None:
+def test_span_without_kwargs(logfire: Logfire) -> None:
     with pytest.raises(KeyError, match="'name'"):
-        with observe.span('test span', 'test {name}'):
+        with logfire.span('test span', 'test {name}'):
             pass  # pragma: no cover
 
 
-def test_span_with_kwargs(observe: Observe) -> None:
-    with observe.span('test span', 'test {name=} {number}', name='foo', number=3, extra='extra') as s:
+def test_span_with_kwargs(logfire: Logfire) -> None:
+    with logfire.span('test span', 'test {name=} {number}', name='foo', number=3, extra='extra') as s:
         pass
 
     assert s['real_span'].name == 'test span'
@@ -35,9 +35,9 @@ def test_span_with_kwargs(observe: Observe) -> None:
     assert TAGS_KEY not in s['real_span'].attributes
 
 
-def test_span_with_parent(observe: Observe) -> None:
-    with observe.span('test parent span', '{type} span', type='parent') as p:
-        with observe.span('test child span', '{type} span', type='child') as c:
+def test_span_with_parent(logfire: Logfire) -> None:
+    with logfire.span('test parent span', '{type} span', type='parent') as p:
+        with logfire.span('test child span', '{type} span', type='child') as c:
             pass
 
     assert p['real_span'].name == 'test parent span'
@@ -59,8 +59,8 @@ def test_span_with_parent(observe: Observe) -> None:
     assert format_span_id(p_real_span_span_id) == c_start_span_start_parent_id
 
 
-def test_span_with_tags(observe: Observe) -> None:
-    with observe.tags('tag1', 'tag2').span(
+def test_span_with_tags(logfire: Logfire) -> None:
+    with logfire.tags('tag1', 'tag2').span(
         'test span', 'test {name} {number}', name='foo', number=3, extra='extra'
     ) as s:
         pass
@@ -77,10 +77,10 @@ def test_span_with_tags(observe: Observe) -> None:
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
-def test_log(observe: Observe, exporter: TestExporter, level: str):
-    getattr(observe, level)('test {name} {number} {none}', name='foo', number=2, none=None)
+def test_log(logfire: Logfire, exporter: TestExporter, level: str):
+    getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[LEVEL_KEY] == level
@@ -92,10 +92,10 @@ def test_log(observe: Observe, exporter: TestExporter, level: str):
     assert TAGS_KEY not in s.attributes
 
 
-def test_log_equals(observe: Observe, exporter: TestExporter) -> None:
-    observe.info('test message {foo=} {bar=}', foo='foo', bar=3)
+def test_log_equals(logfire: Logfire, exporter: TestExporter) -> None:
+    logfire.info('test message {foo=} {bar=}', foo='foo', bar=3)
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'test message foo=foo bar=3'
@@ -106,10 +106,10 @@ def test_log_equals(observe: Observe, exporter: TestExporter) -> None:
     assert s.attributes[LOG_TYPE_KEY] == 'log'
 
 
-def test_log_with_tags(observe: Observe, exporter: TestExporter):
-    observe.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
+def test_log_with_tags(logfire: Logfire, exporter: TestExporter):
+    logfire.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
@@ -119,28 +119,28 @@ def test_log_with_tags(observe: Observe, exporter: TestExporter):
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
 
-def test_log_with_multiple_tags(observe: Observe, exporter: TestExporter):
-    observe_with_2_tags = observe.tags('tag1').tags('tag2')
-    observe_with_2_tags.info('test {name} {number}', name='foo', number=2)
-    observe._client.provider.force_flush()
+def test_log_with_multiple_tags(logfire: Logfire, exporter: TestExporter):
+    logfire_with_2_tags = logfire.tags('tag1').tags('tag2')
+    logfire_with_2_tags.info('test {name} {number}', name='foo', number=2)
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
-    observe_with_4_tags = observe_with_2_tags.tags('tag3', 'tag4')
-    observe_with_4_tags.info('test {name} {number}', name='foo', number=2)
-    observe._client.provider.force_flush()
+    logfire_with_4_tags = logfire_with_2_tags.tags('tag3', 'tag4')
+    logfire_with_4_tags.info('test {name} {number}', name='foo', number=2)
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
 
-def test_instrument(observe: Observe, exporter: TestExporter):
-    @observe.instrument('hello-world {a=}')
+def test_instrument(logfire: Logfire, exporter: TestExporter):
+    @logfire.instrument('hello-world {a=}')
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
     assert hello_world(123) == 'hello 123'
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world a=123'
@@ -156,32 +156,32 @@ def test_instrument(observe: Observe, exporter: TestExporter):
     assert dict(s.attributes) == {'logfire.log_type': 'real_span'}
 
 
-def test_instrument_extract_false(observe: Observe, exporter: TestExporter):
-    @observe.instrument('hello-world', extract_args=False)
+def test_instrument_extract_false(logfire: Logfire, exporter: TestExporter):
+    @logfire.instrument('hello-world', extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
     assert hello_world(123) == 'hello 123'
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world'
     assert dict(s.attributes) == {'logfire.msg_template': 'hello-world', 'logfire.log_type': 'start_span'}
 
 
-def test_validation_error_on_instrument(observe: Observe, exporter: TestExporter):
+def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter):
     class Model(BaseModel):
         a: int
 
-    @observe.instrument('hello-world {a=}')
+    @logfire.instrument('hello-world {a=}')
     def run(a: str) -> Model:
         return Model(a=a)  # type: ignore
 
     with pytest.raises(ValidationError):
         run('haha')
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
 
     s = exporter.exported_spans.pop()
     assert len(s.events) == 1
@@ -248,18 +248,18 @@ def test_validation_error_on_instrument(observe: Observe, exporter: TestExporter
     }
 
 
-def test_validation_error_on_span(observe: Observe, exporter: TestExporter) -> None:
+def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> None:
     class Model(BaseModel):
         a: int
 
     def run(a: str) -> None:
-        with observe.span('test span', 'test'):
+        with logfire.span('test span', 'test'):
             Model(a=a)  # type: ignore
 
     with pytest.raises(ValidationError):
         run('haha')
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
 
     s = exporter.exported_spans.pop()
     assert len(s.events) == 1

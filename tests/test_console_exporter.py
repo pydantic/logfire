@@ -9,7 +9,8 @@ from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from structlog.testing import LogCapture
 
-from logfire import LogfireConfig, Observe
+from logfire import Logfire
+from logfire.config import LogfireConfig
 from logfire.exporters.console import ConsoleSpanExporter
 
 
@@ -43,21 +44,20 @@ def test_console_exporter(log_output: LogCapture) -> None:
 
 def test_logfire_with_console_exporter(log_output: LogCapture, config: LogfireConfig) -> None:
     exporter = ConsoleSpanExporter()
-    observe = Observe()
-    observe.configure(config=config, exporter=exporter)
+    logfire = Logfire(LogfireConfig.from_exports(exporter, service_name='logfire-sdk-testing'))
 
-    @observe.instrument('hello-world {a=}')
+    @logfire.instrument('hello-world {a=}')
     def hello_world(a: int) -> None:
-        observe.tags('tag1', 'tag2').info('aha {i}', i=0)
-        observe.tags('tag1', 'tag2').info('aha {i}', i=1)
+        logfire.tags('tag1', 'tag2').info('aha {i}', i=0)
+        logfire.tags('tag1', 'tag2').info('aha {i}', i=1)
 
-        with observe.span('nested-span1', 'more stuff'):
-            observe.warning('this is a warning')
-            with observe.span('nested-span2', 'more stuff'):
-                observe.warning('this is another warning')
+        with logfire.span('nested-span1', 'more stuff'):
+            logfire.warning('this is a warning')
+            with logfire.span('nested-span2', 'more stuff'):
+                logfire.warning('this is another warning')
 
     hello_world(123)
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     assert log_output.entries == [
         {
             'event': 'hello-world a=123',

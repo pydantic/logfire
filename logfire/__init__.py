@@ -1,11 +1,11 @@
-from logfire._observe import LogfireConfig, Observe
-from logfire.version import VERSION
+from ._observe import Logfire
+from .config import configure
+from .version import VERSION
 
 __version__ = VERSION
 
 __all__ = (
-    'Observe',
-    'LogfireConfig',
+    'Logfire',
     'configure',
     'span',
     'instrument',
@@ -17,23 +17,26 @@ __all__ = (
     'error',
     'critical',
     'context_tracer',
+    'get_default_logger',
 )
 
-_instance = Observe()
+_default_logger = Logfire()
 
-configure = _instance.configure
+tags = _default_logger.tags
 
-tags = _instance.tags
+span = _default_logger.span
+instrument = _default_logger.instrument
 
-span = _instance.span
-instrument = _instance.instrument
+log = _default_logger.log
+info = _default_logger.info
+debug = _default_logger.debug
+notice = _default_logger.notice
+warning = _default_logger.warning
+error = _default_logger.error
+critical = _default_logger.critical
 
-log = _instance.log
-info = _instance.info
-debug = _instance.debug
-notice = _instance.notice
-warning = _instance.warning
-error = _instance.error
-critical = _instance.critical
+context_tracer = _default_logger.context_tracer
 
-context_tracer = _instance.context_tracer
+
+def get_default_logger() -> Logfire:
+    return _default_logger

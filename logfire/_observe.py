@@ -1,5 +1,4 @@
-import dataclasses
-import json  # TODO(lig): use more performant json library
+# TODO(Samuel) rename to `_main`
 import sys
 import time
 from collections.abc import Callable, Iterator
@@ -11,24 +10,22 @@ from pathlib import Path
 from types import FrameType, TracebackType
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypedDict, TypeVar, cast
 
-import httpx
 import rich.traceback
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import Span, Tracer, TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace import Span, Tracer
 from opentelemetry.trace import format_span_id
 from opentelemetry.util.types import AttributeValue
-from pydantic import Field
-from pydantic_core import ValidationError, to_json
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import LiteralString
 
-from logfire._json_encoder import LogfireEncoder
-from logfire.credentials import LogfireCredentials, get_credentials, get_credentials_file
-from logfire.formatter import logfire_format
-from logfire.version import VERSION
+from ._json_encoder import json_dumps_traceback, logfire_json_dumps
+from .config import LogfireConfig
+from .formatter import logfire_format
+
+try:
+    from pydantic_core import ValidationError as PydanticValidationError
+except ImportError:
+    # pydantic is not installed, possible since it's not a dependency
+    PydanticValidationError = None
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -49,187 +46,25 @@ _POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POS
 _cwd = Path('.').resolve()
 
 
-class LogfireConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix='LOGFIRE_')
-
-    api_root: str = 'http://localhost:4318'
-    project_id: str | None = None
-    token: str | None = None
-    credentials_file: Path = Field(default_factory=get_credentials_file)
-    """
-    `credentials_file` is what will be used to load the `project_id` and `token` if they are not otherwise specified.
-    It is also the file that will be used to store those values on disk when they are retrieved from the server
-    when creating a new project.
-    """
-
-    service_name: str = 'logfire'
-    verbose: bool = False
-
-    # TODO(DavidM): Implement the new API for configuring:
-    #   https://linear.app/pydantic/issue/PYD-246/logfire-sdk-setup.
-
-    @property
-    def projects_endpoint(self) -> str:
-        return f'{self.api_root}/v1/projects/'
-
-    def request_new_project_credentials(self, project_id: str | None) -> LogfireCredentials:
-        # use the explicitly-specified project ID if present
-        params = {'project_id': project_id} if project_id else None
-        response = httpx.post(self.projects_endpoint, params=params)
-        response.raise_for_status()
-        return LogfireCredentials.model_validate_json(response.content)
-
-    def get_credentials(self) -> LogfireCredentials:
-        return get_credentials(self.project_id, self.token, self.credentials_file, self.request_new_project_credentials)
-
-    def get_client(self) -> 'LogfireClient':
-        creds = self.get_credentials()
-
-        return LogfireClient(
-            api_root=self.api_root,
-            service_name=self.service_name,
-            project_id=creds.project_id,
-            token=creds.token,
-            verbose=self.verbose,
-        )
-
-
-@dataclasses.dataclass
-class LogfireClient:
-    api_root: str
-    service_name: str
-    project_id: str
-    token: str
-    verbose: bool
-
-    provider: TracerProvider = dataclasses.field(init=False)
-    processor: BatchSpanProcessor = dataclasses.field(init=False)
-
-    def __post_init__(self) -> None:
-        self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
-        self.set_exporter()
-        self.print_dashboard_url()
-
-    @property
-    def traces_endpoint(self) -> str:
-        return f'{self.api_root}/v1/traces/{self.project_id}'
-
-    @property
-    def dashboard_url_endpoint(self) -> str:
-        return f'{self.api_root}/dash/{self.project_id}'
-
-    @property
-    def headers(self) -> dict[str, str]:
-        return {'Authorization': self.token, 'User-Agent': f'logfire/{VERSION}'}
-
-    def set_exporter(self, exporter: SpanExporter | None = None) -> None:
-        self.provider = TracerProvider(resource=Resource(attributes={'service.name': self.service_name}))
-        self.self_log(f'Configured tracer provider with service.name={self.service_name!r}')
-
-        exporter = exporter or self._get_default_exporter()
-        # TODO(DavidH): may want to make some of the processor options configurable so
-        #   that overhead vs latency tradeoff can be adjusted, for now set for
-        #   minimum latency which will be nicest on small workloads
-        self.processor = BatchSpanProcessor(exporter, schedule_delay_millis=1)
-
-        # FIXME big hack - without this `set_exporter` actually just adds another exporter!
-        self.provider._active_span_processor._span_processors = ()  # type: ignore
-
-        self.provider.add_span_processor(self.processor)
-        self.self_log(f'Configured span exporter with endpoint={self.traces_endpoint!r}')
-
-    def print_dashboard_url(self) -> None:
-        response = httpx.get(self.dashboard_url_endpoint, headers=self.headers)
-        try:
-            response.raise_for_status()
-        except Exception:
-            print(response.text)  # TODO(lig): a proper log maybe?
-            raise
-        dashboard_url = response.json()['dashboardUrl']
-        print(f'*** View logs at {dashboard_url} ***')
-
-    def self_log(self, __msg: str) -> None:
-        # TODO: probably want to make this more configurable/etc.
-        if self.verbose:
-            print(__msg)
-
-    def _get_default_exporter(self) -> OTLPSpanExporter:
-        return OTLPSpanExporter(endpoint=self.traces_endpoint, headers=self.headers)
-
-
 class LogFireSpan(TypedDict):
     real_span: Span
     start_span: Span
 
 
-@contextmanager
-def record_exception(span: Span) -> Iterator[None]:
-    """Context manager for recording an exception on a span.
-
-    This will record the exception on the span and re-raise it.
-
-    Args:
-        span: The span to record the exception on.
-
-    Raises:
-        Any: The exception that was raised.
-    """
-    try:
-        yield
-    # NOTE: We don't want to catch `BaseException` here, since that would catch
-    # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
-    # by the `tracer.use_span` context manager internally.
-    except Exception:
-        exc_type, exc_value, traceback = cast(tuple[type[Exception], Exception, TracebackType], sys.exc_info())
-        # NOTE(Marcelo): You can pass `show_locals=True` to `rich.traceback.Traceback.from_exception`
-        # to get the local variables in the traceback. For now, we're not doing that.
-        tb = rich.traceback.Traceback.from_exception(exc_type=exc_type, exc_value=exc_value, traceback=traceback)
-
-        attributes: dict[str, bytes] = {'exception.logfire.trace': to_json(tb.trace), 'exception.logfire.data': b''}
-        if exc_type == ValidationError:
-            exc = cast(ValidationError, exc_value)
-            data = json.dumps({'errors': exc.errors(include_url=False)}, cls=LogfireEncoder, separators=(',', ':'))
-            attributes['exception.logfire.data'] = data.encode()
-
-        span.record_exception(exc_value, attributes=attributes, escaped=True)
-        raise
-
-
-class Observe:
+class Logfire:
     def __init__(self, config: LogfireConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
-        self._config: LogfireConfig = config or LogfireConfig()
+        self._init_config: LogfireConfig | None = config
         self._tags: tuple[str, ...] = ()
 
-    @cached_property
-    def _client(self) -> LogfireClient:
-        return self._config.get_client()
-
-    # Configuration
-    def configure(self, config: LogfireConfig | None = None, exporter: SpanExporter | None = None) -> None:
-        if config is not None:
-            self._config = config
-
-        self.__dict__.pop('_client', None)  # Clear the cached property if it has been generated
-        self._client.set_exporter(exporter)
-
-    # Tags
-    def tags(self, first_tag: str, /, *more_tags: str) -> 'TaggedObserve':
-        return TaggedObserve((first_tag,) + more_tags, self)
-
-    def _set_tags(self, tags: tuple[str, ...]) -> None:
-        self._tags = tags
-
-    def _pop_tags(self) -> tuple[str, ...] | None:
-        if not self._tags:
-            return None
-        tags = self._tags
-        self._tags = ()
-        return tags
+    def tags(self, first_tag: str, /, *more_tags: str) -> 'TaggedLogfire':
+        return TaggedLogfire((first_tag,) + more_tags, self)
 
     # Spans
     @contextmanager
-    def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
+    def span(
+        self, span_name: str, msg_template: LiteralString | None = None, /, **kwargs: Any
+    ) -> Iterator[LogFireSpan]:
         """Context manager for creating a span."""
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)
@@ -244,7 +79,7 @@ class Observe:
                 tracer=tracer,
                 outer_parent_id=start_parent_id,
                 start_time=start_time,
-                msg_template=msg_template,
+                msg_template=msg_template or span_name,
                 kwargs=kwargs,
             )
 
@@ -321,7 +156,7 @@ class Observe:
                 # happens if filename path is not within CWD
                 pass
 
-        user_attributes = Observe.user_attributes(kwargs)
+        user_attributes = self.user_attributes(kwargs)
         logfire_attributes = self._logfire_attributes(
             'log', msg_template=msg_template, level=level, lineno=lineno, filename=str(file)
         )
@@ -360,6 +195,13 @@ class Observe:
         finally:
             self._tracer.reset(token)
 
+    @cached_property
+    def _config(self) -> LogfireConfig:
+        if self._init_config is not None:
+            return self._init_config
+        else:
+            return LogfireConfig.get_default()
+
     @staticmethod
     def _start_parent_id() -> str | None:
         span_id = trace.get_current_span(None).get_span_context().span_id
@@ -385,7 +227,7 @@ class Observe:
         logfire_attributes = self._logfire_attributes(
             'start_span', msg_template=msg_template, start_parent_id=outer_parent_id
         )
-        user_attributes = Observe.user_attributes(kwargs)
+        user_attributes = self.user_attributes(kwargs)
         attributes = {**logfire_attributes, **user_attributes}
 
         start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
@@ -403,7 +245,7 @@ class Observe:
 
     def _get_tracer(self, name: str) -> Tracer:
         # NOTE(DavidM): Should we add version, schema_url?
-        return trace.get_tracer(name, tracer_provider=self._client.provider)  # type: ignore
+        return trace.get_tracer(name, tracer_provider=self._config.provider)  # type: ignore
 
     def _logfire_attributes(
         self,
@@ -444,26 +286,35 @@ class Observe:
                 case str() | bool() | int() | float():
                     prepared[key] = value
                 case _:
-                    # TODO(Marcelo): Should we add the `separators=(",", ":")`?
-                    # TODO(lig): A separator seems like a good idea
-                    # Next person that reads this decides, and removes this comment.
-                    prepared[key + NON_SCALAR_VAR_SUFFIX] = json.dumps(value, cls=LogfireEncoder)
+                    prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
 
         if null_args:
             prepared[NULL_ARGS_KEY] = tuple(null_args)
 
         return prepared
 
-    def _self_log(self, __msg: str) -> None:
-        self._client.self_log(__msg)
-
-
-class TaggedObserve:
-    """Proxy class to to make the observer.tags() syntax possible."""
-
-    def __init__(self, tags: tuple[str, ...], observe: Observe):
+    def _set_tags(self, tags: tuple[str, ...]) -> None:
         self._tags = tags
-        self._observe = observe
+
+    def _pop_tags(self) -> tuple[str, ...] | None:
+        if not self._tags:
+            return None
+        tags = self._tags
+        self._tags = ()
+        return tags
+
+    def _self_log(self, __msg: str) -> None:
+        # TODO: probably want to make this more configurable/etc.
+        if self._config.internal_logging:
+            print(__msg)
+
+
+class TaggedLogfire:
+    """Proxy class to make the logfire.tags() syntax possible."""
+
+    def __init__(self, tags: tuple[str, ...], observe: Logfire):
+        self._tags = tags
+        self._logfire_logger = observe
 
     if TYPE_CHECKING:
 
@@ -504,11 +355,46 @@ class TaggedObserve:
     else:
 
         def __getattr__(self, item):
-            self._observe._set_tags(self._tags)
-            return getattr(self._observe, item)
+            self._logfire_logger._set_tags(self._tags)
+            return getattr(self._logfire_logger, item)
 
-    def tags(self, first_tag: str, *args: str) -> 'TaggedObserve':
-        return TaggedObserve(self._tags + (first_tag,) + tuple(args), self._observe)
+    def tags(self, first_tag: str, *args: str) -> 'TaggedLogfire':
+        return TaggedLogfire(self._tags + (first_tag,) + tuple(args), self._logfire_logger)
+
+
+@contextmanager
+def record_exception(span: Span) -> Iterator[None]:
+    """Context manager for recording an exception on a span.
+
+    This will record the exception on the span and re-raise it.
+
+    Args:
+        span: The span to record the exception on.
+
+    Raises:
+        Any: The exception that was raised.
+    """
+    try:
+        yield
+    # NOTE: We don't want to catch `BaseException` here, since that would catch
+    # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
+    # by the `tracer.use_span` context manager internally.
+    except Exception:
+        exc_type, exc_value, traceback = cast(tuple[type[Exception], Exception, TracebackType], sys.exc_info())
+        # NOTE(Marcelo): You can pass `show_locals=True` to `rich.traceback.Traceback.from_exception`
+        # to get the local variables in the traceback. For now, we're not doing that.
+        tb = rich.traceback.Traceback.from_exception(exc_type=exc_type, exc_value=exc_value, traceback=traceback)
+
+        attributes: dict[str, str] = {
+            'exception.logfire.trace': json_dumps_traceback(tb.trace),
+            'exception.logfire.data': '',
+        }
+        if PydanticValidationError is not None and exc_type == PydanticValidationError:
+            exc = cast(PydanticValidationError, exc_value)
+            attributes['exception.logfire.data'] = logfire_json_dumps({'errors': exc.errors(include_url=False)})
+
+        span.record_exception(exc_value, attributes=attributes, escaped=True)
+        raise
 
 
 def _dict_not_none(**kwargs: Any) -> dict[str, Any]:

@@ -7,6 +7,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from logfire import Logfire
 from logfire.middlewares import LogfireFastAPIMiddleware
 
 
@@ -36,11 +37,11 @@ def test_fastapi_middleware_get_attributes():
     }
 
 
-def test_fastapi_middleware(observe, exporter):
+def test_fastapi_middleware(logfire: Logfire, exporter):
     def homepage(request):
         return PlainTextResponse('middleware test')
 
-    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(LogfireFastAPIMiddleware, observe=observe)])
+    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(LogfireFastAPIMiddleware, logfire=logfire)])
 
     client = TestClient(app)
     response = client.get('/')
@@ -48,12 +49,12 @@ def test_fastapi_middleware(observe, exporter):
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
 
     assert len(exporter.exported_spans)
 
 
-def test_fastapi_middleware_with_lifespan(observe, exporter):
+def test_fastapi_middleware_with_lifespan(logfire: Logfire, exporter):
     startup_complete = False
     cleanup_complete = False
 
@@ -64,7 +65,7 @@ def test_fastapi_middleware_with_lifespan(observe, exporter):
         yield
         cleanup_complete = True
 
-    app = Starlette(lifespan=lifespan, middleware=[Middleware(LogfireFastAPIMiddleware, observe=observe)])
+    app = Starlette(lifespan=lifespan, middleware=[Middleware(LogfireFastAPIMiddleware, logfire=logfire)])
 
     with TestClient(app):
         assert startup_complete
@@ -72,5 +73,5 @@ def test_fastapi_middleware_with_lifespan(observe, exporter):
     assert startup_complete
     assert cleanup_complete
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 0

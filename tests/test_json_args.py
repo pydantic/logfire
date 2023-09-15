@@ -13,7 +13,7 @@ import pytest
 from pydantic import AnyUrl, BaseModel, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
-from logfire import Observe
+from logfire import Logfire
 
 from .conftest import TestExporter
 
@@ -151,33 +151,33 @@ class MyBytes(bytes):
         ),
     ],
 )
-def test_log_non_scalar_args(observe: Observe, exporter, value, value_repr, value_json) -> None:
-    observe.info('test message {var=}', var=value)
+def test_log_non_scalar_args(logfire: Logfire, exporter, value, value_repr, value_json) -> None:
+    logfire.info('test message {var=}', var=value)
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith(f'test message var={value_repr}')
     assert s.attributes['var__JSON'] == value_json
 
 
-def test_log_dataclass_arg(observe: Observe, exporter) -> None:
-    observe.info('test message {dc.t} repr = {dc}', dc=MyDataclass(t=1))
+def test_log_dataclass_arg(logfire: Logfire, exporter) -> None:
+    logfire.info('test message {dc.t} repr = {dc}', dc=MyDataclass(t=1))
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'test message 1 repr = MyDataclass(t=1)'
     assert s.attributes['dc__JSON'] == '{"$__datatype__": "dataclass", "data": {"t": 1}, "cls": "MyDataclass"}'
 
 
-def test_log_generator_arg(observe: Observe, exporter) -> None:
+def test_log_generator_arg(logfire: Logfire, exporter) -> None:
     def generator():
         yield from range(3)
 
-    observe.info('test message {var=}', var=generator())
+    logfire.info('test message {var=}', var=generator())
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith('test message var=<generator object test_log_generator_arg.<locals>.generator')
@@ -186,24 +186,24 @@ def test_log_generator_arg(observe: Observe, exporter) -> None:
     assert 'generator object test_log_generator_arg.<locals>.generator' in attr_value
 
 
-def test_instrument_generator_arg(observe: Observe, exporter) -> None:
+def test_instrument_generator_arg(logfire: Logfire, exporter) -> None:
     def generator():
         yield from range(3)
 
-    @observe.instrument('test message {var=}')
+    @logfire.instrument('test message {var=}')
     def hello_world(var):
         pass
 
     assert hello_world(generator()) is None
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith('test message var=<generator object test_instrument_generator_arg.<locals>.generator')
     s.attributes['var__JSON'] == '{"$__datatype__": "generator", "data": [0, 1, 2]}'
 
 
-def test_log_non_scalar_complex_args(observe: Observe, exporter: TestExporter) -> None:
+def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -> None:
     class MyModel(BaseModel):
         x: str
         y: datetime
@@ -222,13 +222,13 @@ def test_log_non_scalar_complex_args(observe: Observe, exporter: TestExporter) -
 
     pdc = MyPydanticDataclass(20)
 
-    observe.info(
+    logfire.info(
         'test message {complex_list=} {complex_dict=}',
         complex_list=['a', 1, model, dc, pdc],
         complex_dict={'k1': 'v1', 'model': model, 'dataclass': dc, 'pydantic_dataclass': pdc},
     )
 
-    observe._client.provider.force_flush()
+    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     # insert_assert(dict(s.attributes))

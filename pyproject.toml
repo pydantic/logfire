@@ -26,9 +26,7 @@ dependencies = [
     "structlog>=23.1.0",
     "protobuf>=4.23.4",
     "platformdirs>=3.10.0",
-    "pydantic>=2.1.1",
-    "pydantic-settings>=2.0.2",
-    "typing-extensions",
+    "typing-extensions>=4.0.0",
     "httpx>=0.22.0",
 ]
 dynamic = ["version"]
