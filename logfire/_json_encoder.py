@@ -114,7 +114,7 @@ class LogfireEncoder(json.JSONEncoder):
 
 def logfire_json_dumps(obj: Any) -> str:
     # TODO(Samuel), we should add `, separators=(',', ':')`, https://linear.app/pydantic/issue/PYD-281
-    return json.dumps(obj, cls=LogfireEncoder)
+    return json.dumps(obj, cls=LogfireEncoder, separators=(',', ':'))
 
 
 def _traceback_default(obj: Any):
