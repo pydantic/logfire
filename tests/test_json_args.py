@@ -1,6 +1,6 @@
 import re
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -32,6 +32,19 @@ class MyDataclass:
 @pydantic_dataclass
 class MyPydanticDataclass:
     p: int
+
+
+class MySequence(Sequence):
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, key):
+        if key == 0:
+            return 1
+        elif key == 1:
+            return 2
+        else:
+            raise IndexError()
 
 
 class MyMapping(Mapping):
@@ -77,7 +90,7 @@ class MyBytes(bytes):
             '{"$__datatype__": "datetime", "data": "2023-01-01T10:10:00"}',
         ),
         (time(12, 10), '12:10:00', '{"$__datatype__": "time", "data": "12:10:00"}'),
-        (timedelta(1), '1 day, 0:00:00', '{"$__datatype__": "timedelta", "data": 86400.0}'),
+        (timedelta(1, seconds=3672), '1 day, 1:01:12', '{"$__datatype__": "timedelta", "data": 90072.0}'),
         (
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
@@ -139,6 +152,11 @@ class MyBytes(bytes):
             '{"$__datatype__": "Mapping", "data": {"foo": "bar"}, "cls": "MyMapping"}',
         ),
         (range(4), 'range(0, 4)', '{"$__datatype__": "Sequence", "data": [0, 1, 2, 3], "cls": "range"}'),
+        (
+            MySequence(),
+            '<tests.test_json_args.MySequence object at',
+            '{"$__datatype__": "Sequence", "data": [1, 2], "cls": "MySequence"}',
+        ),
         (
             MyArbitaryType(12),
             'MyArbitaryType(12)',
@@ -248,6 +266,6 @@ def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -
         'logfire.log_type': 'log',
         'logfire.level': 'info',
         'logfire.msg_template': 'test message {complex_list=} {complex_dict=}',
-        'logfire.lineno': 225,
+        'logfire.lineno': 243,
         'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
     }
