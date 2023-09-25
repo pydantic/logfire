@@ -119,7 +119,9 @@ class LogfireConfig:
             if logfire_token is None:
                 # the token is still None, we create one by asking logfire.dev to create a new project
                 request_project_name = project_name or get_env('LOGFIRE_PROJECT_NAME') or service_name
-                new_creds = LogfireCredentials.create_new_project(request_project_name)
+                new_creds = LogfireCredentials.create_new_project(
+                    logfire_api_url=logfire_api_root, requested_project_name=request_project_name
+                )
                 logfire_token = new_creds.token
                 new_creds.write_creds_file(logfire_dir)
                 if show_summary != 'never':
@@ -221,7 +223,7 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def create_new_project(cls, requested_project_name: str) -> Self:
+    def create_new_project(cls, *, logfire_api_url: str, requested_project_name: str) -> Self:
         """
         Create a new project on logfire.dev requesting the given project name.
 
@@ -232,7 +234,7 @@ class LogfireCredentials:
         Returns:
             `LogfireCredentials`
         """
-        url = f'{LOGFIRE_API_ROOT}/v1/projects/'
+        url = f'{logfire_api_url}/v1/projects/'
         try:
             response = httpx.post(
                 url,
