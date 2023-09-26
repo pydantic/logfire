@@ -15,12 +15,12 @@ from .conftest import TestExporter
 
 def test_span_without_kwargs(logfire: Logfire) -> None:
     with pytest.raises(KeyError, match="'name'"):
-        with logfire.span('test span', 'test {name}'):
+        with logfire.span('test {name}', span_name='test span'):
             pass  # pragma: no cover
 
 
 def test_span_with_kwargs(logfire: Logfire) -> None:
-    with logfire.span('test span', 'test {name=} {number}', name='foo', number=3, extra='extra') as s:
+    with logfire.span('test {name=} {number}', span_name='test span', name='foo', number=3, extra='extra') as s:
         pass
 
     assert s['real_span'].name == 'test span'
@@ -36,8 +36,8 @@ def test_span_with_kwargs(logfire: Logfire) -> None:
 
 
 def test_span_with_parent(logfire: Logfire) -> None:
-    with logfire.span('test parent span', '{type} span', type='parent') as p:
-        with logfire.span('test child span', '{type} span', type='child') as c:
+    with logfire.span('{type} span', span_name='test parent span', type='parent') as p:
+        with logfire.span('{type} span', span_name='test child span', type='child') as c:
             pass
 
     assert p['real_span'].name == 'test parent span'
@@ -61,7 +61,7 @@ def test_span_with_parent(logfire: Logfire) -> None:
 
 def test_span_with_tags(logfire: Logfire) -> None:
     with logfire.tags('tag1', 'tag2').span(
-        'test span', 'test {name} {number}', name='foo', number=3, extra='extra'
+        'test {name} {number}', span_name='test span', name='foo', number=3, extra='extra'
     ) as s:
         pass
 
@@ -71,9 +71,43 @@ def test_span_with_tags(logfire: Logfire) -> None:
     assert s['start_span'].attributes['name'] == 'foo'
     assert s['start_span'].attributes['number'] == 3
     assert s['start_span'].attributes['extra'] == 'extra'
+    assert s['start_span'].attributes['span_name'] == 'test span'
     assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
     assert s['real_span'].attributes[TAGS_KEY] == ('tag1', 'tag2')
     assert len(s['real_span'].events) == 0
+
+
+def test_span_without_span_name(logfire: Logfire) -> None:
+    with logfire.span('test {name=} {number}', name='foo', number=3, extra='extra') as s:
+        pass
+
+    assert s['real_span'].name == 'test name=foo 3'
+    assert s['real_span'].parent is None
+    assert s['real_span'].start_time < s['real_span'].end_time
+    assert len(s['real_span'].events) == 0
+    assert s['start_span'].name == 'test name=foo 3'
+    assert s['start_span'].attributes['name'] == 'foo'
+    assert s['start_span'].attributes['number'] == 3
+    assert s['start_span'].attributes['extra'] == 'extra'
+    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
+    assert TAGS_KEY not in s['real_span'].attributes
+
+
+def test_span_use_span_name_in_formatting(logfire: Logfire) -> None:
+    with logfire.span('test {name=} {number} {span_name}', span_name='bar', name='foo', number=3, extra='extra') as s:
+        pass
+
+    assert s['real_span'].name == 'bar'
+    assert s['real_span'].parent is None
+    assert s['real_span'].start_time < s['real_span'].end_time
+    assert len(s['real_span'].events) == 0
+    assert s['start_span'].name == 'test name=foo 3 bar'
+    assert s['start_span'].attributes['name'] == 'foo'
+    assert s['start_span'].attributes['number'] == 3
+    assert s['start_span'].attributes['span_name'] == 'bar'
+    assert s['start_span'].attributes['extra'] == 'extra'
+    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number} {span_name}'
+    assert TAGS_KEY not in s['real_span'].attributes
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
@@ -253,7 +287,7 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
         a: int
 
     def run(a: str) -> None:
-        with logfire.span('test span', 'test'):
+        with logfire.span('test', span_name='test span'):
             Model(a=a)  # type: ignore
 
     with pytest.raises(ValidationError):

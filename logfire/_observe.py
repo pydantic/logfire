@@ -63,23 +63,30 @@ class Logfire:
     # Spans
     @contextmanager
     def span(
-        self, span_name: str, msg_template: LiteralString | None = None, /, **kwargs: Any
+        self, msg_template: LiteralString, *, span_name: str | None = None, **kwargs: Any
     ) -> Iterator[LogFireSpan]:
         """Context manager for creating a span."""
         tracer = self._get_context_tracer()
         start_time = int(time.time() * 1e9)
 
+        span_name_: str
+        if span_name is not None:
+            span_name_ = span_name
+            kwargs['span_name'] = span_name
+        else:
+            span_name_ = logfire_format(msg_template, kwargs)
+
         start_parent_id = self._start_parent_id()
         logfire_attributes = self._logfire_attributes('real_span', start_parent_id=start_parent_id)
         with tracer.start_as_current_span(
-            span_name, attributes=logfire_attributes, start_time=start_time, record_exception=False
+            span_name_, attributes=logfire_attributes, start_time=start_time, record_exception=False
         ) as real_span:
             real_span = cast(Span, real_span)
             start_span = self._span_start(
                 tracer=tracer,
                 outer_parent_id=start_parent_id,
                 start_time=start_time,
-                msg_template=msg_template or span_name,
+                msg_template=msg_template,
                 kwargs=kwargs,
             )
 
@@ -319,7 +326,9 @@ class TaggedLogfire:
     if TYPE_CHECKING:
 
         @contextmanager
-        def span(self, span_name: str, msg_template: LiteralString, /, **kwargs: Any) -> Iterator[LogFireSpan]:
+        def span(
+            self, msg_template: LiteralString, *, span_name: str | None = None, **kwargs: Any
+        ) -> Iterator[LogFireSpan]:
             ...
 
         def instrument(

@@ -21,5 +21,5 @@ class LogfireFastAPIMiddleware:
         attributes = self._get_attributes(scope)
         attributes['method'] = scope.get('method')
         attributes['path'] = scope.get('path')
-        with self._logfire.span('request', '{method} {path}', **attributes):
+        with self._logfire.span('{method} {path}', **attributes):
             await self._app(scope, receive, send)

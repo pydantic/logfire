@@ -51,9 +51,9 @@ def test_logfire_with_console_exporter(log_output: LogCapture, config: LogfireCo
         logfire.tags('tag1', 'tag2').info('aha {i}', i=0)
         logfire.tags('tag1', 'tag2').info('aha {i}', i=1)
 
-        with logfire.span('nested-span1', 'more stuff'):
+        with logfire.span('more stuff', span_name='nested-span1'):
             logfire.warning('this is a warning')
-            with logfire.span('nested-span2', 'more stuff'):
+            with logfire.span('more stuff', span_name='nested-span2'):
                 logfire.warning('this is another warning')
 
     hello_world(123)
