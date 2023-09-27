@@ -7,11 +7,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import httpx
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.metrics import MeterProvider
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
+from ._metrics import set_meter_provider
 from .version import VERSION
 
 if TYPE_CHECKING:
@@ -85,6 +88,7 @@ class LogfireConfig:
     provider: TracerProvider
     service_name: str
     internal_logging: bool = False
+    meter_provider: MeterProvider | None = None
 
     @classmethod
     def configure(
@@ -133,10 +137,14 @@ class LogfireConfig:
             # existing token, print summary
             file_creds.print_existing_token_summary(logfire_dir)
 
+        meter_provider = None
         exporters: list[SpanExporter] = []
         if send and logfire_token is not None:
             headers = {'Authorization': logfire_token, **COMMON_REQUEST_HEADERS}
             exporters.append(OTLPSpanExporter(endpoint=f'{logfire_api_root}/v1/traces', headers=headers))
+
+            metric_exporter = OTLPMetricExporter(endpoint=f'{logfire_api_root}/v1/metrics', headers=headers)
+            meter_provider = set_meter_provider(exporter=metric_exporter)
 
         if console_print != 'off':
             from .exporters.console import ConsoleSpanExporter
@@ -144,14 +152,20 @@ class LogfireConfig:
             # TODO(Samuel) use console_colors
             exporters.append(ConsoleSpanExporter(verbose=console_print == 'verbose'))
 
-        return cls.from_exports(*exporters, service_name=service_name)
+        return cls.from_exports(*exporters, service_name=service_name, meter_provider=meter_provider)
 
     @classmethod
-    def from_exports(cls, *exporters: SpanExporter, service_name: str, schedule_delay_millis: int = 1) -> Self:
+    def from_exports(
+        cls,
+        *exporters: SpanExporter,
+        service_name: str,
+        schedule_delay_millis: int = 1,
+        meter_provider: MeterProvider | None = None,
+    ) -> Self:
         provider = TracerProvider(resource=Resource(attributes={'service.name': service_name}))
         for exporter in exporters:
             provider.add_span_processor(BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis))
-        return cls(service_name=service_name, provider=provider)
+        return cls(service_name=service_name, provider=provider, meter_provider=meter_provider)
 
     @staticmethod
     def get_default() -> LogfireConfig:
@@ -325,5 +339,3 @@ class LogfireConfigError(ValueError):
     """
     Error raised when there is a problem with the logfire configuration.
     """
-
-    pass
