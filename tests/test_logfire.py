@@ -7,7 +7,7 @@ from opentelemetry.trace import format_span_id
 from pydantic import BaseModel
 from pydantic_core import ValidationError
 
-from logfire import Logfire
+from logfire import Logfire, LogfireSpan
 from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
 
 from .conftest import TestExporter
@@ -23,16 +23,16 @@ def test_span_with_kwargs(logfire: Logfire) -> None:
     with logfire.span('test {name=} {number}', span_name='test span', name='foo', number=3, extra='extra') as s:
         pass
 
-    assert s['real_span'].name == 'test span'
-    assert s['real_span'].parent is None
-    assert s['real_span'].start_time < s['real_span'].end_time
-    assert len(s['real_span'].events) == 0
-    assert s['start_span'].name == 'test name=foo 3'
-    assert s['start_span'].attributes['name'] == 'foo'
-    assert s['start_span'].attributes['number'] == 3
-    assert s['start_span'].attributes['extra'] == 'extra'
-    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
-    assert TAGS_KEY not in s['real_span'].attributes
+    assert s.real_span.name == 'test span'
+    assert s.real_span.parent is None
+    assert s.real_span.start_time < s.real_span.end_time
+    assert len(s.real_span.events) == 0
+    assert s.start_span.name == 'test name=foo 3'
+    assert s.start_span.attributes['name'] == 'foo'
+    assert s.start_span.attributes['number'] == 3
+    assert s.start_span.attributes['extra'] == 'extra'
+    assert s.start_span.attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
+    assert TAGS_KEY not in s.real_span.attributes
 
 
 def test_span_with_parent(logfire: Logfire) -> None:
@@ -40,22 +40,22 @@ def test_span_with_parent(logfire: Logfire) -> None:
         with logfire.span('{type} span', span_name='test child span', type='child') as c:
             pass
 
-    assert p['real_span'].name == 'test parent span'
-    assert p['real_span'].parent is None
-    assert len(p['real_span'].events) == 0
-    assert p['start_span'].attributes['type'] == 'parent'
-    assert p['start_span'].attributes[MSG_TEMPLATE_KEY] == '{type} span'
-    assert TAGS_KEY not in p['real_span'].attributes
+    assert p.real_span.name == 'test parent span'
+    assert p.real_span.parent is None
+    assert len(p.real_span.events) == 0
+    assert p.start_span.attributes['type'] == 'parent'
+    assert p.start_span.attributes[MSG_TEMPLATE_KEY] == '{type} span'
+    assert TAGS_KEY not in p.real_span.attributes
 
-    assert c['real_span'].name == 'test child span'
-    assert c['real_span'].parent == p['real_span'].context
-    assert len(c['real_span'].events) == 0
-    assert c['start_span'].attributes['type'] == 'child'
-    assert c['start_span'].attributes[MSG_TEMPLATE_KEY] == '{type} span'
-    assert TAGS_KEY not in c['real_span'].attributes
+    assert c.real_span.name == 'test child span'
+    assert c.real_span.parent == p.real_span.context
+    assert len(c.real_span.events) == 0
+    assert c.start_span.attributes['type'] == 'child'
+    assert c.start_span.attributes[MSG_TEMPLATE_KEY] == '{type} span'
+    assert TAGS_KEY not in c.real_span.attributes
 
-    p_real_span_span_id = p['real_span'].context.span_id
-    c_start_span_start_parent_id = c['start_span'].attributes[START_PARENT_ID]
+    p_real_span_span_id = p.real_span.context.span_id
+    c_start_span_start_parent_id = c.start_span.attributes[START_PARENT_ID]
     assert format_span_id(p_real_span_span_id) == c_start_span_start_parent_id
 
 
@@ -65,49 +65,84 @@ def test_span_with_tags(logfire: Logfire) -> None:
     ) as s:
         pass
 
-    assert s['real_span'].name == 'test span'
-    assert s['real_span'].parent is None
-    assert s['real_span'].start_time < s['real_span'].end_time
-    assert s['start_span'].attributes['name'] == 'foo'
-    assert s['start_span'].attributes['number'] == 3
-    assert s['start_span'].attributes['extra'] == 'extra'
-    assert s['start_span'].attributes['span_name'] == 'test span'
-    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
-    assert s['real_span'].attributes[TAGS_KEY] == ('tag1', 'tag2')
-    assert len(s['real_span'].events) == 0
+    assert s.real_span.name == 'test span'
+    assert s.real_span.parent is None
+    assert s.real_span.start_time < s.real_span.end_time
+    assert s.start_span.attributes['name'] == 'foo'
+    assert s.start_span.attributes['number'] == 3
+    assert s.start_span.attributes['extra'] == 'extra'
+    assert s.start_span.attributes['span_name'] == 'test span'
+    assert s.start_span.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
+    assert s.real_span.attributes[TAGS_KEY] == ('tag1', 'tag2')
+    assert len(s.real_span.events) == 0
 
 
-def test_span_without_span_name(logfire: Logfire) -> None:
+def test_span_without_span_name(logfire: Logfire, exporter: TestExporter) -> None:
     with logfire.span('test {name=} {number}', name='foo', number=3, extra='extra') as s:
         pass
 
-    assert s['real_span'].name == 'test name=foo 3'
-    assert s['real_span'].parent is None
-    assert s['real_span'].start_time < s['real_span'].end_time
-    assert len(s['real_span'].events) == 0
-    assert s['start_span'].name == 'test name=foo 3'
-    assert s['start_span'].attributes['name'] == 'foo'
-    assert s['start_span'].attributes['number'] == 3
-    assert s['start_span'].attributes['extra'] == 'extra'
-    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
-    assert TAGS_KEY not in s['real_span'].attributes
+    assert s.real_span.name == 'test name=foo 3'
+    assert s.real_span.parent is None
+    assert s.real_span.start_time < s.real_span.end_time
+    assert len(s.real_span.events) == 0
+    assert s.start_span.name == 'test name=foo 3'
+    assert s.start_span.attributes['name'] == 'foo'
+    assert s.start_span.attributes['number'] == 3
+    assert s.start_span.attributes['extra'] == 'extra'
+    assert s.start_span.attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
+    assert TAGS_KEY not in s.real_span.attributes
+
+    logfire._config.provider.force_flush()
+    # debug([(s.name, s.attributes) for s in exporter.exported_spans])
+    assert len(exporter.exported_spans) == 2
+    # # because both spans have been ended
 
 
 def test_span_use_span_name_in_formatting(logfire: Logfire) -> None:
     with logfire.span('test {name=} {number} {span_name}', span_name='bar', name='foo', number=3, extra='extra') as s:
         pass
 
-    assert s['real_span'].name == 'bar'
-    assert s['real_span'].parent is None
-    assert s['real_span'].start_time < s['real_span'].end_time
-    assert len(s['real_span'].events) == 0
-    assert s['start_span'].name == 'test name=foo 3 bar'
-    assert s['start_span'].attributes['name'] == 'foo'
-    assert s['start_span'].attributes['number'] == 3
-    assert s['start_span'].attributes['span_name'] == 'bar'
-    assert s['start_span'].attributes['extra'] == 'extra'
-    assert s['start_span'].attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number} {span_name}'
-    assert TAGS_KEY not in s['real_span'].attributes
+    assert isinstance(s, LogfireSpan)
+    assert s.real_span.name == 'bar'
+    assert s.real_span.parent is None
+    assert s.real_span.start_time < s.real_span.end_time
+    assert len(s.real_span.events) == 0
+    assert s.start_span.name == 'test name=foo 3 bar'
+    assert s.start_span.attributes['name'] == 'foo'
+    assert s.start_span.attributes['number'] == 3
+    assert s.start_span.attributes['span_name'] == 'bar'
+    assert s.start_span.attributes['extra'] == 'extra'
+    assert s.start_span.attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number} {span_name}'
+    assert TAGS_KEY not in s.real_span.attributes
+
+
+def test_span_end_on_exit_false(logfire: Logfire, exporter: TestExporter) -> None:
+    with logfire.span('test {name=} {number}', name='foo', number=3, extra='extra') as s:
+        s.end_on_exit = False
+
+    assert s.real_span.name == 'test name=foo 3'
+    assert s.real_span.parent is None
+    assert s.real_span.end_time is None
+    assert isinstance(s.real_span.start_time, int)
+    assert s.start_span.name == 'test name=foo 3'
+    assert s.start_span.start_time == s.real_span.start_time
+    assert s.start_span.end_time == s.real_span.start_time
+
+    logfire._config.provider.force_flush()
+    assert len(exporter.exported_spans) == 1
+    span = exporter.exported_spans[0]
+    assert span.attributes['logfire.log_type'] == 'start_span'
+    # because the real span hasn't ended yet
+
+    with s.activate(end_on_exit=True):
+        pass
+
+    assert isinstance(s.real_span.end_time, int)
+    assert s.real_span.end_time > s.real_span.start_time
+    logfire._config.provider.force_flush()
+    assert len(exporter.exported_spans) == 2
+    span = exporter.exported_spans[1]
+    assert span.attributes['logfire.log_type'] == 'real_span'
 
 
 @pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
@@ -157,13 +192,15 @@ def test_log_with_multiple_tags(logfire: Logfire, exporter: TestExporter):
     logfire_with_2_tags = logfire.tags('tag1').tags('tag2')
     logfire_with_2_tags.info('test {name} {number}', name='foo', number=2)
     logfire._config.provider.force_flush()
+    assert len(exporter.exported_spans) == 1
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
     logfire_with_4_tags = logfire_with_2_tags.tags('tag3', 'tag4')
     logfire_with_4_tags.info('test {name} {number}', name='foo', number=2)
     logfire._config.provider.force_flush()
-    s = exporter.exported_spans[0]
+    assert len(exporter.exported_spans) == 2
+    s = exporter.exported_spans[1]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
 
@@ -249,20 +286,6 @@ def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter
                 'is_cause': False,
                 'frames': [
                     {
-                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
-                        'lineno': IsPositive(),
-                        'name': 'record_exception',
-                        'line': '',
-                        'locals': None,
-                    },
-                    {
-                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
-                        'lineno': IsPositive(),
-                        'name': 'wrapper',
-                        'line': '',
-                        'locals': None,
-                    },
-                    {
                         'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
                         'lineno': IsPositive(),
                         'name': 'run',
@@ -322,17 +345,16 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
         'stacks': [
             {
                 'exc_type': 'ValidationError',
-                'exc_value': "1 validation error for Model\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='haha', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing",
+                'exc_value': (
+                    "1 validation error for Model\n"
+                    "a\n"
+                    "  Input should be a valid integer, unable to parse string as an integer "
+                    "[type=int_parsing, input_value='haha', input_type=str]\n"
+                    "    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing"
+                ),
                 'syntax_error': None,
                 'is_cause': False,
                 'frames': [
-                    {
-                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
-                        'lineno': IsPositive(),
-                        'name': 'record_exception',
-                        'line': '',
-                        'locals': None,
-                    },
                     {
                         'filename': IsStr(regex=r'.*/logfire/_observe.py'),
                         'lineno': IsPositive(),

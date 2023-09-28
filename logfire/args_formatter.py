@@ -7,7 +7,7 @@ from typing import Any, Callable, cast
 class JsonArgsValueFormatter:
     """Format values recursively based on the information provided in value dict.
 
-    The value dict may contains `$__datatype__`, `cls` and `data` keys.
+    When a custom format is identified, the `$__datatype__` key is always present.
     """
 
     def __init__(self, indent_step: int = 4):

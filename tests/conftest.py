@@ -20,7 +20,7 @@ class TestExporter(SpanExporter):
         self.exported_spans: list[ReadableSpan] = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
-        self.exported_spans = list(spans)
+        self.exported_spans.extend(spans)
 
 
 class TestMetricExporter(MetricExporter):
