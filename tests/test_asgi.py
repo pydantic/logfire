@@ -6,13 +6,15 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
+from starlette.types import ASGIApp
 
 from logfire import Logfire
-from logfire.middlewares import LogfireFastAPIMiddleware
+from logfire.integrations.asgi import LogfireMiddleware
+
+from .conftest import TestExporter
 
 
 def test_fastapi_middleware_get_attributes():
-    middleware = LogfireFastAPIMiddleware(None)
     request = Request(
         {
             'type': 'http',
@@ -24,7 +26,7 @@ def test_fastapi_middleware_get_attributes():
             'server': ('192.168.1.2', 443),
         }
     )
-    assert middleware._get_attributes(request) == {
+    assert LogfireMiddleware._get_attributes(request) == {
         'http.scheme': 'https',
         'http.host': '192.168.1.2:443',
         'net.host.port': 443,
@@ -37,11 +39,11 @@ def test_fastapi_middleware_get_attributes():
     }
 
 
-def test_fastapi_middleware(logfire: Logfire, exporter):
-    def homepage(request):
+def test_fastapi_middleware(logfire: Logfire, exporter: TestExporter):
+    def homepage(request: Request):
         return PlainTextResponse('middleware test')
 
-    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(LogfireFastAPIMiddleware, logfire=logfire)])
+    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(LogfireMiddleware, logfire=logfire)])
 
     client = TestClient(app)
     response = client.get('/')
@@ -54,18 +56,18 @@ def test_fastapi_middleware(logfire: Logfire, exporter):
     assert len(exporter.exported_spans)
 
 
-def test_fastapi_middleware_with_lifespan(logfire: Logfire, exporter):
+def test_fastapi_middleware_with_lifespan(logfire: Logfire, exporter: TestExporter):
     startup_complete = False
     cleanup_complete = False
 
     @contextlib.asynccontextmanager
-    async def lifespan(app):
+    async def lifespan(app: ASGIApp):
         nonlocal startup_complete, cleanup_complete
         startup_complete = True
         yield
         cleanup_complete = True
 
-    app = Starlette(lifespan=lifespan, middleware=[Middleware(LogfireFastAPIMiddleware, logfire=logfire)])
+    app = Starlette(lifespan=lifespan, middleware=[Middleware(LogfireMiddleware, logfire=logfire)])
 
     with TestClient(app):
         assert startup_complete

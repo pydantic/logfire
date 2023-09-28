@@ -21,7 +21,10 @@ dependencies = [
     "opentelemetry-api>=1.19.0",
     "opentelemetry-sdk>=1.19.0",
     "opentelemetry-exporter-otlp>=1.19.0",
+    # TODO(Marcelo): opentelemetry-instrumentation-asgi should be optional.
     "opentelemetry-instrumentation-asgi>=0.40b0",
+    # TODO: opentelemetry-instrumentation-wsgi should be optional.
+    "opentelemetry-instrumentation-wsgi>=0.40b0",
     "rich>=13.4.2",
     "structlog>=23.1.0",
     "protobuf>=4.23.4",
