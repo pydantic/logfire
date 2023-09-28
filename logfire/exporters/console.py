@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import IO, Any, cast
 
 import structlog
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
@@ -98,11 +99,10 @@ if __name__ == '__main__':
     from time import sleep
 
     from opentelemetry import trace
-    from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-    provider = TracerProvider(resource=Resource(attributes={'service.name': 'test'}))
+    provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
     processor = SimpleSpanProcessor(ConsoleSpanExporter())
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)

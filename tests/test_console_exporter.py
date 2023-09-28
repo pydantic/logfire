@@ -4,7 +4,7 @@ import pytest
 import structlog
 from dirty_equals import IsInstance
 from opentelemetry import trace
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from structlog.testing import LogCapture
@@ -26,7 +26,7 @@ def fixture_configure_structlog(log_output: LogCapture):
 
 def test_console_exporter(log_output: LogCapture) -> None:
     output = io.StringIO()
-    provider = TracerProvider(resource=Resource(attributes={'service.name': 'test'}))
+    provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
     processor = SimpleSpanProcessor(ConsoleSpanExporter(output=output))
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)

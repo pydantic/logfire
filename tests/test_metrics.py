@@ -2,6 +2,7 @@ import json
 import os
 
 from dirty_equals import IsDict, IsFloat, IsList, IsPositiveFloat, IsPositiveInt, IsStr
+from opentelemetry.sdk.resources import SERVICE_NAME
 
 from logfire import Logfire
 from logfire._metrics import set_meter_provider
@@ -25,7 +26,7 @@ def test_metric_exporter(logfire: Logfire, metric_exporter: TestMetricExporter) 
                             'telemetry.sdk.language': 'python',
                             'telemetry.sdk.name': 'opentelemetry',
                             'telemetry.sdk.version': IsStr(),
-                            'service.name': 'unknown_service',
+                            SERVICE_NAME: 'unknown_service',
                         },
                         'schema_url': '',
                     },

@@ -10,7 +10,7 @@ import httpx
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import MeterProvider
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
@@ -162,7 +162,7 @@ class LogfireConfig:
         schedule_delay_millis: int = 1,
         meter_provider: MeterProvider | None = None,
     ) -> Self:
-        provider = TracerProvider(resource=Resource(attributes={'service.name': service_name}))
+        provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: service_name}))
         for exporter in exporters:
             provider.add_span_processor(BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis))
         return cls(service_name=service_name, provider=provider, meter_provider=meter_provider)
