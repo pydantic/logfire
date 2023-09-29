@@ -53,20 +53,53 @@ _cwd = Path('.').resolve()
 
 
 class Logfire:
+    """The main class for logging and tracing.
+
+    When you import logfire, you get a default instance of this class.
+
+    Args:
+        config: The config to use. If not provided, the default config will be used.
+    """
+
     def __init__(self, config: LogfireConfig | None = None):
         self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
         self._init_config: LogfireConfig | None = config
         self._tags: tuple[str, ...] = ()
 
-    def tags(self, first_tag: str, /, *more_tags: str) -> TaggedLogfire:
-        return TaggedLogfire((first_tag,) + more_tags, self)
+    def tags(self, tag: str, /, *more_tags: str) -> TaggedLogfire:
+        """Add tags to the current context.
+
+        Args:
+            tag: The tag to add.
+            more_tags: Any additional tags to add.
+
+        ```py
+        import logfire
+
+        logfire.tags('tag1', 'tag2').info('new log 1')
+        ```
+        """
+        return TaggedLogfire((tag,) + more_tags, self)
 
     # Spans
     @contextmanager
     def span(
         self, msg_template: LiteralString, *, span_name: str | None = None, **kwargs: Any
     ) -> Iterator[LogfireSpan]:
-        """Context manager for creating a span."""
+        """Context manager for creating a span.
+
+        Args:
+            msg_template: The template for the span message.
+            span_name: The span name. If not provided, the rendered message will be used.
+            kwargs: The arguments to format the span message template with.
+
+        ```py
+        import logfire
+
+        with logfire.span('This is a span {a=}', a='data'):
+            logfire.info('new log 1')
+        ```
+        """
         tracer = self.get_context_tracer()
         start_time = int(time.time() * 1e9)
 
@@ -104,7 +137,22 @@ class Logfire:
         span_name: str | None = None,
         extract_args: bool | None = None,
     ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-        """Decorator for instrumenting a function as a span."""
+        """Decorator for instrumenting a function as a span.
+
+        Args:
+            msg_template: The template for the span message. If not provided, the span name will be used.
+            span_name: The name of the span. If not provided, the function name will be used.
+            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+                If not provided, this will be enabled if `msg_template` is provided and contains `{}`.
+
+        ```py
+        import logfire
+
+        @logfire.instrument('This is a span {a=}', a='data')
+        def my_function():
+            logfire.info('new log 1')
+        ```
+        """
         tracer = self.get_context_tracer()
 
         if extract_args is None:
@@ -160,6 +208,15 @@ class Logfire:
         frame_depth: int = 1,
         context: LogfireContext | None = None,
     ) -> None:
+        """Log a message.
+
+        Args:
+            msg_template: The template for the message.
+            level: The level of the message.
+            kwargs: The arguments to format the message template with.
+            frame_depth: The depth of call frame to get.
+            context: The logfire log context.
+        """
         msg = logfire_format(msg_template, kwargs)
         tracer = self.get_context_tracer()
         start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
@@ -187,21 +244,57 @@ class Logfire:
             pass
 
     def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log a debug message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'debug', kwargs, frame_depth=2)
 
     def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log an info message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'info', kwargs, frame_depth=2)
 
     def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log a notice message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'notice', kwargs, frame_depth=2)
 
     def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log a warning message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'warning', kwargs, frame_depth=2)
 
     def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log an error message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'error', kwargs, frame_depth=2)
 
     def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        """Log a critical message.
+
+        Args:
+            msg_template: The template for the message.
+            kwargs: The arguments to format the message template with.
+        """
         self.log(msg_template, 'critical', kwargs, frame_depth=2)
 
     @classmethod
@@ -213,6 +306,11 @@ class Logfire:
     # Utilities
     @contextmanager
     def context_tracer(self, name: str) -> Iterator[None]:
+        """Context manager for setting the tracer for the current context.
+
+        Args:
+            name: The name of the tracer to use.
+        """
         tracer = self._get_tracer(name)
         token = self._tracer.set(tracer)
         try:
@@ -385,8 +483,8 @@ class TaggedLogfire:
             self._logfire_logger._set_tags(self._tags)
             return getattr(self._logfire_logger, item)
 
-    def tags(self, first_tag: str, *args: str) -> TaggedLogfire:
-        return TaggedLogfire(self._tags + (first_tag,) + tuple(args), self._logfire_logger)
+    def tags(self, tag: str, *args: str) -> TaggedLogfire:
+        return TaggedLogfire(self._tags + (tag,) + tuple(args), self._logfire_logger)
 
 
 @dataclass(slots=True)

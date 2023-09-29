@@ -7,14 +7,18 @@ path = "logfire/version.py"
 
 [project]
 name = "logfire"
-description = "Coming Soon"
+description = "The observability framework focused on developer experience! 🚀"
 authors = [{ name = "Pydantic Team", email = "hello@pydantic.dev" }]
 license = "MIT"
 readme = "README.md"
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 2 - Pre-Alpha",
     "Topic :: Internet",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking :: Monitoring",
     "Typing :: Typed",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
 ]
 requires-python = ">=3.8"
 dependencies = [
@@ -37,6 +41,9 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = []
+docs = [
+    "mkdocs-material"
+]
 
 [project.entry-points.pydantic]
 observer = "logfire.plugin:plugin"

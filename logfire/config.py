@@ -25,6 +25,7 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 # LOGFIRE_API_ROOT = 'https://api.logfire.dev'
 # TODO(Samuel) remove before release
 LOGFIRE_API_ROOT = 'http://localhost:4318'
+"""Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
 
@@ -44,25 +45,24 @@ def configure(
 
     Args:
         send_to_logfire: Whether to send logs to logfire.dev, defaults to `enabled`, values have the following meaning:
-            * 'enabled': logs will be send to logfire.dev, uses logfire_token, if missing will be generated
-            * 'env': checks the `LOGFIRE_SEND` env var, otherwise defaults to `enabled`
+
+            * `'enabled'`: logs will be send to [logfire.dev](), uses logfire_token, if missing will be generated
+            * `'env'`: checks the `LOGFIRE_SEND` env var, otherwise defaults to `enabled`
             * TODO 'require-auth`: like `enabled` but requires a proper authenticated token, either free or pro
             * TODO 'require-pro`: like `enabled` but requires a pro-tier token
-        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` and `send=True` it
-            will be read from the `LOGFIRE_TOKEN` env variable,
-            otherwise an anon-tier token will be generated and stored in `<logfire_dir>/token`
-        project_name: Name to request when creating a new project, if `None` checks `LOGFIRE_PROJECT_NAME`,
-            only used when creating a project
-        service_name: Name of this service, if `None` checks `LOGFIRE_SERVICE_NAME`, or the current directory name
+        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` and `send=True` it will be read from
+            the `LOGFIRE_TOKEN` environment variable, otherwise an anon-tier token will be generated and stored in
+            `<logfire_dir>/token`.
+        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment
+            variable, only used when creating a project.
+        service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the
+            current directory name.
         console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {indent} [message]`
-            lines or to output full JSON details of every log message
-        console_colors: whether to color terminal output
-        show_summary: When to print a summary of the logfire setup including a link to the dashboard
-        logfire_dir: Directory to store credentials and logs in
-        logfire_api_root: Root URL for the logfire API
-
-    Returns:
-        None
+            lines, or to output full JSON details of every log message.
+        console_colors: Whether to color terminal output.
+        show_summary: When to print a summary of the Logfire setup including a link to the dashboard.
+        logfire_dir: Directory to store credentials, and logs.
+        logfire_api_root: Root URL for the Logfire API.
     """
     global _default_config
 
@@ -86,7 +86,9 @@ class LogfireConfig:
     """
 
     provider: TracerProvider
+    """The OpenTelemetry provider to use for tracing."""
     service_name: str
+    """The name of this service."""
     internal_logging: bool = False
     meter_provider: MeterProvider | None = None
 
@@ -106,23 +108,23 @@ class LogfireConfig:
         """
         Construct a new config, see the `configure` function in this module for more details.
         """
-        send = get_send_value(send_to_logfire)
+        send = _get_send_value(send_to_logfire)
 
         if logfire_dir.exists() and not logfire_dir.is_dir():
             raise LogfireConfigError(f'`logfire_dir` {logfire_dir!r} must be a directory')
 
         file_creds = LogfireCredentials.load_creds_file(logfire_dir)
 
-        service_name = service_name or get_env('LOGFIRE_SERVICE_NAME') or Path.cwd().name
+        service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or Path.cwd().name
 
         if logfire_token is None and send:
-            logfire_token = get_env('LOGFIRE_TOKEN')
+            logfire_token = os.getenv('LOGFIRE_TOKEN')
             if logfire_token is None and file_creds:
                 logfire_token = file_creds.token
 
             if logfire_token is None:
                 # the token is still None, we create one by asking logfire.dev to create a new project
-                request_project_name = project_name or get_env('LOGFIRE_PROJECT_NAME') or service_name
+                request_project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or service_name
                 new_creds = LogfireCredentials.create_new_project(
                     logfire_api_url=logfire_api_root, requested_project_name=request_project_name
                 )
@@ -176,24 +178,17 @@ class LogfireConfig:
         return _default_config
 
 
-def get_send_value(arg: str | bool) -> bool:
+def _get_send_value(arg: str | bool) -> bool:
     if arg is True:
         arg = 'enabled'
     elif arg is False:
         arg = 'off'
     elif arg == 'env':
-        arg = get_env('LOGFIRE_SEND') or 'enabled'
+        arg = os.getenv('LOGFIRE_SEND') or 'enabled'
         if arg not in {'enabled', 'off'}:
             raise LogfireConfigError(f'Invalid value for LOGFIRE_SEND env var: {arg!r}, must be "enabled" or "off"')
 
     return arg == 'enabled'
-
-
-def get_env(name: str) -> str | None:
-    """
-    Get an environment variable, returning `None` if it is not set or empty
-    """
-    return os.environ.get(name) or None
 
 
 @dataclasses.dataclass
@@ -204,7 +199,9 @@ class LogfireCredentials:
 
     token: str
     project_name: str
+    """The name of the project"""
     dashboard_url: str
+    """The URL to the project dashboard."""
 
     def __post_init__(self):
         for attr, value in dataclasses.asdict(self).items():
@@ -221,9 +218,12 @@ class LogfireCredentials:
             creds_dir: Path to the credentials directory
 
         Returns:
-            `LogfireCredentials`, all values will be `None` if the file does not exist
+            The loaded credentials or `None` if the file does not exist.
+
+        Raises:
+            LogfireConfigError: If the credentials file exists but is invalid.
         """
-        path = get_creds_file(creds_dir)
+        path = _get_creds_file(creds_dir)
         if path.exists():
             try:
                 with path.open('rb') as f:
@@ -242,11 +242,12 @@ class LogfireCredentials:
         Create a new project on logfire.dev requesting the given project name.
 
         Args:
-            requested_project_name: Name to request for the project, the actual returned name may include a
-                random suffix to make it unique.
+            logfire_api_url: The root URL for the Logfire API.
+            requested_project_name: Name to request for the project, the actual returned name may include a random
+                suffix to make it unique.
 
         Returns:
-            `LogfireCredentials`
+            The new credentials.
         """
         url = f'{logfire_api_url}/v1/projects/'
         try:
@@ -270,7 +271,7 @@ class LogfireCredentials:
         Write a credentials file to the given path.
         """
         data = dataclasses.asdict(self)
-        path = get_creds_file(creds_dir)
+        path = _get_creds_file(creds_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open('w') as f:
             json.dump(data, f, indent=2)
@@ -280,8 +281,8 @@ class LogfireCredentials:
         """
         Print a summary of the new project.
         """
-        creds_file = get_creds_file(creds_dir)
-        print_summary(
+        creds_file = _get_creds_file(creds_dir)
+        _print_summary(
             f"""\
 A new anonymous project called **{self.project_name}** has been created on logfire.dev, to view it go
 
@@ -296,8 +297,8 @@ But you can see project details by running `logfire whoami`, or by viewing the c
         Print a summary of the existing project.
         """
         if self.project_name and self.dashboard_url:
-            creds_file = get_creds_file(creds_dir)
-            print_summary(
+            creds_file = _get_creds_file(creds_dir)
+            _print_summary(
                 f"""\
 A project called **{self.project_name}** was found and has been configured for this service, to view it go
 
@@ -308,7 +309,7 @@ But you can see project details by running `logfire whoami`, or by viewing the c
             )
 
 
-def print_summary(message: str):
+def _print_summary(message: str):
     from rich.console import Console
     from rich.markdown import Markdown
     from rich.panel import Panel
@@ -328,7 +329,7 @@ def print_summary(message: str):
     Console(stderr=True, theme=custom_theme).print(panel)
 
 
-def get_creds_file(creds_dir: Path) -> Path:
+def _get_creds_file(creds_dir: Path) -> Path:
     """
     Get the path to the credentials file.
     """
@@ -337,5 +338,5 @@ def get_creds_file(creds_dir: Path) -> Path:
 
 class LogfireConfigError(ValueError):
     """
-    Error raised when there is a problem with the logfire configuration.
+    Error raised when there is a problem with the Logfire configuration.
     """
