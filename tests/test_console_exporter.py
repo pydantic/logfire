@@ -44,7 +44,7 @@ def test_console_exporter(log_output: LogCapture) -> None:
 
 def test_logfire_with_console_exporter(log_output: LogCapture, config: LogfireConfig) -> None:
     exporter = ConsoleSpanExporter()
-    logfire = Logfire(LogfireConfig.from_exports(exporter, service_name='logfire-sdk-testing'))
+    logfire = Logfire(LogfireConfig.from_exporters(exporter, service_name='logfire-sdk-testing'))
 
     @logfire.instrument('hello-world {a=}')
     def hello_world(a: int) -> None:

@@ -58,7 +58,7 @@ def metric_exporter() -> TestMetricExporter:
 
 @pytest.fixture
 def config(exporter: TestExporter) -> LogfireConfig:
-    return LogfireConfig.from_exports(exporter, service_name='logfire-sdk-testing')
+    return LogfireConfig.from_exporters(exporter, service_name='logfire-sdk-testing')
 
 
 @pytest.fixture

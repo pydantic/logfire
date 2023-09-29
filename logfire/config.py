@@ -92,6 +92,18 @@ class LogfireConfig:
     internal_logging: bool = False
     meter_provider: MeterProvider | None = None
 
+    @staticmethod
+    def load_token(
+        logfire_token: str | None = None,
+        logfire_dir: Path = Path('.logfire'),
+    ) -> tuple[str | None, LogfireCredentials | None]:
+        file_creds = LogfireCredentials.load_creds_file(logfire_dir)
+        if logfire_token is None:
+            logfire_token = os.getenv('LOGFIRE_TOKEN')
+            if logfire_token is None and file_creds:
+                logfire_token = file_creds.token
+        return logfire_token, file_creds
+
     @classmethod
     def configure(
         cls,
@@ -113,29 +125,25 @@ class LogfireConfig:
         if logfire_dir.exists() and not logfire_dir.is_dir():
             raise LogfireConfigError(f'`logfire_dir` {logfire_dir!r} must be a directory')
 
-        file_creds = LogfireCredentials.load_creds_file(logfire_dir)
-
         service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or Path.cwd().name
 
-        if logfire_token is None and send:
-            logfire_token = os.getenv('LOGFIRE_TOKEN')
-            if logfire_token is None and file_creds:
-                logfire_token = file_creds.token
+        logfire_token, file_creds = cls.load_token(logfire_token, logfire_dir)
 
-            if logfire_token is None:
-                # the token is still None, we create one by asking logfire.dev to create a new project
-                request_project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or service_name
-                new_creds = LogfireCredentials.create_new_project(
-                    logfire_api_url=logfire_api_root, requested_project_name=request_project_name
-                )
-                logfire_token = new_creds.token
-                new_creds.write_creds_file(logfire_dir)
-                if show_summary != 'never':
-                    new_creds.print_new_token_summary(logfire_dir)
-                # to avoid printing another summary
-                file_creds = None
+        if send and logfire_token is None:
+            # create a token by asking logfire.dev to create a new project
+            request_project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or service_name
+            new_creds = LogfireCredentials.create_new_project(
+                logfire_api_url=logfire_api_root, requested_project_name=request_project_name
+            )
+            logfire_token = new_creds.token
+            new_creds.write_creds_file(logfire_dir)
+            if show_summary != 'never':
+                new_creds.print_new_token_summary(logfire_dir)
+            # to avoid printing another summary
+            file_creds = None
 
         if show_summary == 'always' and file_creds:
+            # TODO(DavidM): It might be nice to print out the summary even if the creds didn't come from a file
             # existing token, print summary
             file_creds.print_existing_token_summary(logfire_dir)
 
@@ -154,10 +162,10 @@ class LogfireConfig:
             # TODO(Samuel) use console_colors
             exporters.append(ConsoleSpanExporter(verbose=console_print == 'verbose'))
 
-        return cls.from_exports(*exporters, service_name=service_name, meter_provider=meter_provider)
+        return cls.from_exporters(*exporters, service_name=service_name, meter_provider=meter_provider)
 
     @classmethod
-    def from_exports(
+    def from_exporters(
         cls,
         *exporters: SpanExporter,
         service_name: str,
@@ -167,7 +175,7 @@ class LogfireConfig:
         provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: service_name}))
         for exporter in exporters:
             provider.add_span_processor(BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis))
-        return cls(service_name=service_name, provider=provider, meter_provider=meter_provider)
+        return cls(provider=provider, service_name=service_name, meter_provider=meter_provider)
 
     @staticmethod
     def get_default() -> LogfireConfig:
