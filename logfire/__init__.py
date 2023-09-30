@@ -1,4 +1,4 @@
-from ._observe import Logfire, LogfireContext, LogfireSpan, TaggedLogfire
+from ._observe import LevelName, Logfire, LogfireContext, LogfireSpan, TaggedLogfire
 from .config import configure
 from .version import VERSION
 
@@ -9,6 +9,7 @@ __all__ = (
     'LogfireContext',
     'LogfireSpan',
     'TaggedLogfire',
+    'LevelName',
     'configure',
     'span',
     'instrument',

@@ -31,7 +31,7 @@ except ImportError:
     # pydantic is not installed, this is possible since it's not a dependency
     PydanticValidationError = None
 
-__all__ = 'Logfire', 'LogfireContext', 'LogfireSpan', 'TaggedLogfire'
+__all__ = 'Logfire', 'LogfireContext', 'LogfireSpan', 'TaggedLogfire', 'LevelName'
 
 LEVEL_KEY = 'logfire.level'
 MSG_TEMPLATE_KEY = 'logfire.msg_template'
@@ -117,7 +117,6 @@ class Logfire:
             span_name_, attributes=logfire_attributes, start_time=start_time, record_exception=False
         )
 
-        # we don't use LogfireSpan.active here to avoid adding another entry to the stack on exceptions
         with trace.use_span(real_span, end_on_exit=False, record_exception=False):
             start_span = self._span_start(
                 tracer=tracer,
