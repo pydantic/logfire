@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -49,14 +50,26 @@ class Plugin:
 
 
     Environment Variables:
-        LOGFIRE_DISABLE_PYDANTIC_PLUGIN: Set to `1` to disable the plugin.
+        LOGFIRE_DISABLE_PYDANTIC_PLUGIN: Set to `1` or `true` to disable the plugin.
             TODO(lig): Use PYDANTIC_DISABLE_PLUGINS instead. See https://github.com/pydantic/pydantic/issues/7709
     """
+
+    _disabled: bool = False
+
+    def __init__(self) -> None:
+        disable_plugin = os.getenv('LOGFIRE_DISABLE_PYDANTIC_PLUGIN')
+        if disable_plugin:
+            if disable_plugin.casefold() in ('1', 'true'):
+                self._disabled = True
+            else:
+                warnings.warn(
+                    f'"LOGFIRE_DISABLE_PYDANTIC_PLUGIN" env var could be "1" or "true" only, got {disable_plugin}'
+                )
 
     def new_schema_validator(
         self, _schema: dict[str, object], _config: dict[str, object] | None, _plugin_settings: dict[str, object]
     ) -> tuple[ValidatePythonHandler | None, None, None]:
-        if os.environ.get('LOGFIRE_DISABLE_PYDANTIC_PLUGIN') == '1':
+        if self._disabled:
             return None, None, None
         return ValidatePythonHandler(), None, None
 
