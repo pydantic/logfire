@@ -1,4 +1,5 @@
 import json
+import re
 from typing import cast
 
 import pytest
@@ -281,7 +282,18 @@ def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter
         'stacks': [
             {
                 'exc_type': 'ValidationError',
-                'exc_value': "1 validation error for Model\na\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='haha', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing",
+                'exc_value': IsStr(
+                    regex=(
+                        re.escape(
+                            "1 validation error for Model\n"
+                            "a\n"
+                            "  Input should be a valid integer, unable to parse string as an integer "
+                            "[type=int_parsing, input_value='haha', input_type=str]\n"
+                        )
+                        + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'
+                    ),
+                    regex_flags=re.MULTILINE,
+                ),
                 'syntax_error': None,
                 'is_cause': False,
                 'frames': [
@@ -341,16 +353,22 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
 
     errors = json.loads(cast(bytes, event.attributes.get('exception.logfire.trace')))
     # insert_assert(errors)
+    print(errors)
     assert errors == {
         'stacks': [
             {
                 'exc_type': 'ValidationError',
-                'exc_value': (
-                    "1 validation error for Model\n"
-                    "a\n"
-                    "  Input should be a valid integer, unable to parse string as an integer "
-                    "[type=int_parsing, input_value='haha', input_type=str]\n"
-                    "    For further information visit https://errors.pydantic.dev/2.3/v/int_parsing"
+                'exc_value': IsStr(
+                    regex=(
+                        re.escape(
+                            "1 validation error for Model\n"
+                            "a\n"
+                            "  Input should be a valid integer, unable to parse string as an integer "
+                            "[type=int_parsing, input_value='haha', input_type=str]\n"
+                        )
+                        + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'
+                    ),
+                    regex_flags=re.MULTILINE,
                 ),
                 'syntax_error': None,
                 'is_cause': False,

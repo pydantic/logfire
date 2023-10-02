@@ -38,7 +38,7 @@ def configure(
     console_colors: Literal['auto', 'always', 'never'] = 'auto',
     show_summary: Literal['always', 'never', 'new-project'] = 'always',
     logfire_dir: Path = Path('.logfire'),
-    logfire_api_root: str = LOGFIRE_API_ROOT,
+    _logfire_api_root: str = LOGFIRE_API_ROOT,
 ) -> None:
     """
     Configure the logfire SDK.
@@ -50,9 +50,9 @@ def configure(
             * `'env'`: checks the `LOGFIRE_SEND` env var, otherwise defaults to `enabled`
             * TODO 'require-auth`: like `enabled` but requires a proper authenticated token, either free or pro
             * TODO 'require-pro`: like `enabled` but requires a pro-tier token
-        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` and `send=True` it will be read from
-            the `LOGFIRE_TOKEN` environment variable, otherwise an anon-tier token will be generated and stored in
-            `<logfire_dir>/token`.
+        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` and `send_to_logfire` is set to
+            `'enabled'` it will be read from the `LOGFIRE_TOKEN` environment variable. If no token is provided
+            an anon-tier token will be generated and stored in `<logfire_dir>/token`.
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment
             variable, only used when creating a project.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the
@@ -62,7 +62,14 @@ def configure(
         console_colors: Whether to color terminal output.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard.
         logfire_dir: Directory to store credentials, and logs.
-        logfire_api_root: Root URL for the Logfire API.
+        _logfire_api_root: Root URL for the Logfire API, defaults to `LOGFIRE_API_ROOT`.
+
+    Environment Variables:
+        LOGFIRE_PROJECT_NAME: Could be used to provide a project name. See `project_name` argument for details.
+        LOGFIRE_SEND: Could be set to either `'enabled'` or `'off'`. Acts as the value of `send_to_logfire` argument.
+            Defaults to `'enabled'`. Ignored if `send_to_logfire` is not set to `'env'`.
+        LOGFIRE_SERVICE_NAME: Could be used to provide a service name. See `service_name` argument for details.
+        LOGFIRE_TOKEN: Could be used to provide a token value. See `logfire_token` argument for details.
     """
     global _default_config
 
@@ -75,7 +82,7 @@ def configure(
         console_colors=console_colors,
         show_summary=show_summary,
         logfire_dir=logfire_dir,
-        logfire_api_root=logfire_api_root,
+        logfire_api_root=_logfire_api_root,
     )
 
 
