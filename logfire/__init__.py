@@ -1,3 +1,4 @@
+from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
 from ._observe import LevelName, Logfire, LogfireContext, LogfireSpan, TaggedLogfire
 from .config import configure
 from .version import VERSION
@@ -22,6 +23,8 @@ __all__ = (
     'critical',
     'context_tracer',
     'get_default_logger',
+    'install_automatic_instrumentation',
+    'uninstall_automatic_instrumentation',
 )
 
 _default_logger = Logfire()
