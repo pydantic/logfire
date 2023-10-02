@@ -1,50 +1,32 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# TODO revert this file to hatchling using https://github.com/pydantic/platform/pull/264/commits/01e4d2258776f98284d019d5040eceeb5e9af42f
+# when we move it to a new repo
 
-[tool.hatch.version]
-path = "logfire/version.py"
-
-[project]
+[tool.poetry]
 name = "logfire"
+version = "0.1.0"
 description = "The observability framework focused on developer experience! 🚀"
-authors = [{ name = "Pydantic Team", email = "hello@pydantic.dev" }]
+authors = ["Pydantic Team <hello@pydantic.dev>"]
 license = "MIT"
-readme = "README.md"
-classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Topic :: Internet",
-    "Topic :: System :: Monitoring",
-    "Topic :: System :: Networking :: Monitoring",
-    "Typing :: Typed",
-    "Framework :: Pydantic",
-    "Framework :: Pydantic :: 2",
-]
-requires-python = ">=3.8"
-dependencies = [
-    "opentelemetry-api>=1.19.0",
-    "opentelemetry-sdk>=1.19.0",
-    "opentelemetry-exporter-otlp>=1.19.0",
-    # TODO(Marcelo): opentelemetry-instrumentation-asgi should be optional.
-    "opentelemetry-instrumentation-asgi>=0.40b0",
-    # TODO: opentelemetry-instrumentation-wsgi should be optional.
-    "opentelemetry-instrumentation-wsgi>=0.40b0",
-    "rich>=13.4.2",
-    "structlog>=23.1.0",
-    "protobuf>=4.23.4",
-    "platformdirs>=3.10.0",
-    "typing-extensions>=4.0.0",
-    "httpx>=0.22.0",
-    "psutil>=5.9.5",
-]
-dynamic = ["version"]
 
-[project.optional-dependencies]
+[tool.poetry.dependencies]
+python = ">=3.8"
+opentelemetry-api = ">=1.19.0"
+opentelemetry-sdk = ">=1.19.0"
+opentelemetry-exporter-otlp = ">=1.19.0"
+opentelemetry-instrumentation-asgi = ">=0.40b0"
+opentelemetry-instrumentation-wsgi = ">=0.40b0"
+rich = ">=13.4.2"
+structlog = ">=23.1.0"
+protobuf = ">=4.23.4"
+platformdirs = ">=3.10.0"
+typing-extensions = ">=4.0.0"
+httpx = ">=0.22.0"
+psutil = ">=5.9.5"
+
+[tool.optional-dependencies]
 test = []
-docs = [
-    "mkdocs-material"
-]
 backfill = ["pydantic>=2.3"]
 
-[project.entry-points.pydantic]
-observer = "logfire.plugin:plugin"
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
