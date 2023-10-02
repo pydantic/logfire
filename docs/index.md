@@ -16,7 +16,7 @@ The Pydantic Logfire is the observability tool focused on developer experience.
 To install the latest version of Logfire, run the following command:
 
 ```bash
-pip install logfire
+pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
 ```
 
 ## Usage
