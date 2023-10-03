@@ -52,6 +52,8 @@ class FuncTracer:
         if event == 'call':
             span_gen = tracer.start_as_current_span(frame.f_code.co_name, end_on_exit=False)
             span = span_gen.__enter__()
+            # TODO: this is literally editing the locals of the frame, is there a better way to do this?
+            # Users can not only see this but also locals() and such will reflect it!
             frame.f_locals['__span'] = span
         elif event == 'return':
             f = frame
@@ -68,6 +70,15 @@ _TRACER = FuncTracer()
 
 
 def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
+    """Install automatic instrumentation.
+
+    Automatic instrumentation will trace all function calls in the modules specified by the modules argument.
+
+    Calling this function multiple times will overwrite the previous modules.
+
+    Args:
+        modules: List of module names to trace. Defaults to None.
+    """
     # if modules is None then use the filename of the module of the caller
     # otherwise get the filenames for each module and join them with |
     if modules is None:
@@ -83,4 +94,8 @@ def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
 
 
 def uninstall_automatic_instrumentation() -> None:
+    """Uninstall automatic instrumentation.
+
+    This will stop tracing all function calls.
+    """
     _TRACER.enabled = False

@@ -30,3 +30,13 @@ logfire.info("Hello, world!")
 ```
 
 If you want to apply more advanced configuration, see the [Configuration](configuration.md) section.
+
+## Automatic instrumentation
+
+Logfire can automatically instrument all calls within specific modules.
+
+```py
+import logfire
+
+logfire.install_automatic_instrumentation(modules=["app"])
+```
