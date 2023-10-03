@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import inspect
 import re
 import sys
@@ -17,6 +18,9 @@ from opentelemetry.trace.span import Span
 tracer = trace.get_tracer(__name__)
 
 
+_SPANS: dict[tuple[FrameType, str], Span] = {}
+
+
 @dataclass
 class FuncTracer:
     modules: re.Pattern[str] | None = None
@@ -24,7 +28,7 @@ class FuncTracer:
     enabled: bool = True
     installed: bool = False
 
-    def __call__(
+    def __call__(  # noqa: C901
         self,
         frame: FrameType,
         event: str,
@@ -50,23 +54,70 @@ class FuncTracer:
                 return
             f = f.f_back
         if event == 'call':
-            span_gen = tracer.start_as_current_span(frame.f_code.co_name, end_on_exit=False)
+            name = f'{frame.f_globals["__name__"]}.{getattr(frame.f_code, "co_qualname", frame.f_code.co_name)}'
+            attributes = {
+                'code.namespace': frame.f_globals['__name__'],
+                'code.function': frame.f_code.co_name,
+            }
+            if frame.f_back is not None:
+                attributes.update(
+                    {
+                        'code.filepath': frame.f_back.f_code.co_filename,
+                        'code.lineno': frame.f_back.f_lineno,
+                    }
+                )
+            span_gen = tracer.start_as_current_span(name, end_on_exit=False, attributes=attributes)
             span = span_gen.__enter__()
-            # TODO: this is literally editing the locals of the frame, is there a better way to do this?
-            # Users can not only see this but also locals() and such will reflect it!
-            frame.f_locals['__span'] = span
+            _SPANS[(frame, 'call')] = span
+        elif event == 'c_call':
+            name = f'{arg.__module__}.{arg.__name__}'
+            attributes = {
+                'code.namespace': arg.__module__,
+                'code.function': arg.__name__,
+                'code.lineno': frame.f_lineno,
+                'code.filepath': frame.f_code.co_filename,
+            }
+            span_gen = tracer.start_as_current_span(name, end_on_exit=False, attributes=attributes)
+            span = span_gen.__enter__()
+            _SPANS[(frame, 'c_call')] = span
         elif event == 'return':
             f = frame
             while f:
-                span: Span | None = f.f_locals.get('__span', None)
+                span: Span | None = _SPANS.pop((f, 'call'), None)
                 if span is not None:
                     span.__exit__(None, None, None)
-                    del f.f_locals['__span']
+                    break
+                f = f.f_back
+        elif event == 'c_return':
+            f = frame
+            while f:
+                span: Span | None = _SPANS.pop((f, 'c_call'), None)
+                if span is not None:
+                    span.__exit__(None, None, None)
                     break
                 f = f.f_back
 
 
 _TRACER = FuncTracer()
+
+
+def get_module_path(module: str) -> str:
+    try:
+        path = Path(inspect.getfile(importlib.import_module(module)))
+    except (KeyError, TypeError):
+        # maybe we are currently defining the module
+        # traverse up the stack to see if we can find it
+        for frame in inspect.stack():
+            mod = inspect.getmodule(frame[0])
+            if mod and mod.__name__.startswith(module):
+                path = Path(inspect.getfile(frame[0])).parent
+                break
+        raise KeyError(f'module {module} not found')
+    # match either that path or any subpath
+    if path.stem == '__init__':
+        path = path.parent
+        return f'^{path}/.*$'
+    return f'^{path}$'
 
 
 def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
@@ -82,9 +133,13 @@ def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
     # if modules is None then use the filename of the module of the caller
     # otherwise get the filenames for each module and join them with |
     if modules is None:
-        modules_pattern = inspect.stack()[1].filename
+        frame = inspect.stack()[1]
+        module = inspect.getmodule(frame[0])
+        if module is None:
+            raise KeyError('module not found')
+        modules_pattern = get_module_path(module.__name__.split('.')[0])
     else:
-        modules_pattern = '|'.join(f'{Path(inspect.getfile(sys.modules[module])).parent}/.*' for module in modules)
+        modules_pattern = '|'.join([get_module_path(module) for module in modules])
     _TRACER.modules = re.compile(modules_pattern)
     _TRACER.enabled = True
     if not _TRACER.installed:

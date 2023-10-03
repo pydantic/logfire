@@ -1,6 +1,7 @@
 import io
+import math
+import statistics
 from contextlib import ExitStack
-from time import sleep
 
 import pytest
 import structlog
@@ -28,11 +29,10 @@ def fixture_configure_structlog(log_output: LogCapture):
 
 
 def foo(x: int) -> int:
-    sleep(0.01)
-    return x * 2
+    return int(statistics.mean([math.sin(x) * 10]))
 
 
-def test_auto_instrumentation(log_output: LogCapture) -> None:
+def test_auto_instrumentation_no_filter(log_output: LogCapture) -> None:
     output = io.StringIO()
     provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
     processor = SimpleSpanProcessor(ConsoleSpanExporter(output=output))
@@ -48,9 +48,24 @@ def test_auto_instrumentation(log_output: LogCapture) -> None:
 
         uninstall_automatic_instrumentation()
 
-    # insert_assert(log_output.entries)
+    # note that math.sin is included because it's a built in / C function
     assert log_output.entries == [
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'foo', 'log_level': 'info'}
+        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'time.sleep', 'log_level': 'info'},
+        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'math.sin', 'log_level': 'info'},
+        {
+            'span': IsInstance(ReadableSpan),
+            'verbose': True,
+            'indent': 0,
+            'event': 'tests.test_auto_instrumentation.foo',
+            'log_level': 'info',
+        },
+        {
+            'span': IsInstance(ReadableSpan),
+            'verbose': True,
+            'indent': 0,
+            'event': 'tests.module_used_for_tests.wrap',
+            'log_level': 'info',
+        },
     ]
 
 
@@ -64,7 +79,7 @@ def test_auto_instrumentation_filter_modules(log_output: LogCapture) -> None:
     with ExitStack() as stack:
         stack.callback(uninstall_automatic_instrumentation)
 
-        install_automatic_instrumentation(modules=['tests'])
+        install_automatic_instrumentation(modules=['tests.test_auto_instrumentation'])
 
         wrap(foo, 1)
 
@@ -72,6 +87,12 @@ def test_auto_instrumentation_filter_modules(log_output: LogCapture) -> None:
 
     # insert_assert(log_output.entries)
     assert log_output.entries == [
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'foo', 'log_level': 'info'},
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'wrap', 'log_level': 'info'},
+        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'math.sin', 'log_level': 'info'},
+        {
+            'span': IsInstance(ReadableSpan),
+            'verbose': True,
+            'indent': 0,
+            'event': 'tests.test_auto_instrumentation.foo',
+            'log_level': 'info',
+        },
     ]
