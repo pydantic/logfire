@@ -27,6 +27,9 @@ psutil = ">=5.9.5"
 test = []
 backfill = ["pydantic>=2.3"]
 
+[tool.poetry.scripts]
+logfire = "logfire.cli:app"
+
 [tool.poetry.plugins."pydantic"]
 logfire-plugin = "logfire.integrations.pydantic_plugin:plugin"
 
