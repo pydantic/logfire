@@ -4,6 +4,8 @@ from typing import Any, Final, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
+from ._flatten import Flatten
+
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
 
@@ -104,6 +106,8 @@ class ChunksFormatter(Formatter):
     def format_field(self, value: Any, format_spec: str) -> Any:
         if value is None:
             value = self.NONE_REPR
+        if isinstance(value, Flatten):
+            value = value.value
         return super().format_field(value, format_spec)
 
 

@@ -11,7 +11,7 @@ from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
 from types import FrameType, TracebackType
-from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, Mapping, ParamSpec, TypeVar, cast
 
 import rich.traceback
 from opentelemetry import propagate, trace
@@ -20,6 +20,7 @@ from opentelemetry.sdk.trace import Tracer
 from opentelemetry.util.types import AttributeValue
 from typing_extensions import LiteralString
 
+from ._flatten import Flatten
 from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from .config import LogfireConfig
 from .formatter import logfire_format
@@ -391,8 +392,8 @@ class Logfire:
             }
         )
 
-    @staticmethod
-    def user_attributes(attributes: dict[str, Any]) -> dict[str, AttributeValue]:
+    @classmethod
+    def user_attributes(cls, attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, AttributeValue]:
         """Prepare attributes for sending to OpenTelemetry.
 
         This will convert any non-OpenTelemetry compatible types to JSON.
@@ -406,6 +407,13 @@ class Logfire:
                     null_args.append(key)
                 case str() | bool() | int() | float():
                     prepared[key] = value
+                case Flatten() if should_flatten:
+                    value = value.value
+                    iter = value.items() if isinstance(value, Mapping) else enumerate(value)  # type: ignore
+                    for k, v in iter:  # type: ignore
+                        inner_prepared = cls.user_attributes({str(k): v}, should_flatten=False)  # type: ignore
+                        for inner_key, inner_value in inner_prepared.items():
+                            prepared[f'{key}.{inner_key}'] = inner_value
                 case _:
                     prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
 

@@ -17,11 +17,11 @@ class JsonArgsValueFormatter:
             'BaseModel': partial(self._format_items, ' (\n', '=', ',\n', ')', False),
             'dataclass': partial(self._format_items, ' (\n', '=', ',\n', ')', False),
             'Mapping': partial(self._format_items, '({\n', ': ', ',\n', '})', True),
-            'tuple': partial(self._forrmat_list_like, '(\n', ',\n', ')'),
-            'Sequence': partial(self._forrmat_sequence, '([\n', ',\n', '])'),
-            'set': partial(self._forrmat_list_like, '{\n', ',\n', '}'),
-            'frozenset': partial(self._forrmat_list_like, 'frozenset({\n', ',\n', '})'),
-            'deque': partial(self._forrmat_list_like, 'deque([\n', ',\n', '])'),
+            'tuple': partial(self._format_list_like, '(\n', ',\n', ')'),
+            'Sequence': partial(self._format_sequence, '([\n', ',\n', '])'),
+            'set': partial(self._format_list_like, '{\n', ',\n', '}'),
+            'frozenset': partial(self._format_list_like, 'frozenset({\n', ',\n', '})'),
+            'deque': partial(self._format_list_like, 'deque([\n', ',\n', '])'),
             'bytes': partial(self._write, 'b', '', True),
             'Decimal': partial(self._write, 'Decimal(', ')', True),
             'date': partial(self._write, 'date(', ')', True),
@@ -41,7 +41,7 @@ class JsonArgsValueFormatter:
             'SecretStr': partial(self._write, 'SecretStr(', ')', True),
             'UUID': partial(self._write, "UUID('", "')", False),
             'Exception': partial(self._write, '(', ')', True),
-            'timedelta': partial(self._forrmat_timedelta),
+            'timedelta': partial(self._format_timedelta),
         }
 
     def __call__(self, value: Any, *, indent: int = 0):
@@ -64,7 +64,7 @@ class JsonArgsValueFormatter:
                 self._format_items('{\n', ': ', ',\n', '}', True, indent_current, value, None)
 
         elif isinstance(value, list):
-            self._forrmat_list_like('{\n', ',\n', '}', indent_current, value, None)
+            self._format_list_like('{\n', ',\n', '}', indent_current, value, None)
         else:
             if use_repr:
                 value = repr(value)
@@ -87,16 +87,16 @@ class JsonArgsValueFormatter:
 
         self._stream.write(f'{open_}{value}{after_}')
 
-    def _forrmat_timedelta(self, _indent_current: int, value: Any, _cls: str):
+    def _format_timedelta(self, _indent_current: int, value: Any, _cls: str):
         self._write('', '', True, 0, timedelta(seconds=value), None)
 
-    def _forrmat_sequence(self, open_: str, after_: str, close_: str, indent_current: int, value: Any, cls: str):
+    def _format_sequence(self, open_: str, after_: str, close_: str, indent_current: int, value: Any, cls: str):
         if cls == 'range':
             self._write('(', ')', False, 0, f'{value[0]}, {value[-1] + 1}', 'range')
         else:
-            self._forrmat_list_like(f'{cls}{open_}', after_, close_, indent_current, value, None)
+            self._format_list_like(f'{cls}{open_}', after_, close_, indent_current, value, None)
 
-    def _forrmat_list_like(
+    def _format_list_like(
         self, open_: str, after_: str, close_: str, indent_current: int, value: Any, _cls: str | None
     ):
         indent_new = indent_current + self._indent_step

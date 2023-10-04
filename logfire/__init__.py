@@ -1,4 +1,5 @@
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
+from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireContext, LogfireSpan, TaggedLogfire
 from .config import configure
 from .version import VERSION
@@ -25,6 +26,7 @@ __all__ = (
     'get_default_logger',
     'install_automatic_instrumentation',
     'uninstall_automatic_instrumentation',
+    'flatten',
 )
 
 _default_logger = Logfire()

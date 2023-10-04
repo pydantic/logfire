@@ -1,3 +1,4 @@
+import json
 import re
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -7,13 +8,16 @@ from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import pytest
+from dirty_equals import IsInt
 from pydantic import AnyUrl, BaseModel, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from logfire import Logfire
+from logfire._flatten import Flatten
 
 from .conftest import TestExporter
 
@@ -61,12 +65,12 @@ class MyMapping(Mapping):
         return len(self._d)
 
 
-class MyArbitaryType:
+class MyArbitraryType:
     def __init__(self, x: int) -> None:
         self.x = x
 
     def __repr__(self) -> str:
-        return f'MyArbitaryType({self.x})'
+        return f'MyArbitraryType({self.x})'
 
 
 class MyBytes(bytes):
@@ -158,9 +162,9 @@ class MyBytes(bytes):
             '{"$__datatype__":"Sequence","data":[1,2],"cls":"MySequence"}',
         ),
         (
-            MyArbitaryType(12),
-            'MyArbitaryType(12)',
-            '{"$__datatype__":"MyArbitaryType","data":"MyArbitaryType(12)","cls":"MyArbitaryType"}',
+            MyArbitraryType(12),
+            'MyArbitraryType(12)',
+            '{"$__datatype__":"MyArbitraryType","data":"MyArbitraryType(12)","cls":"MyArbitraryType"}',
         ),
         (
             MyBytes(b'test bytes'),
@@ -169,7 +173,7 @@ class MyBytes(bytes):
         ),
     ],
 )
-def test_log_non_scalar_args(logfire: Logfire, exporter, value, value_repr, value_json) -> None:
+def test_log_non_scalar_args(logfire: Logfire, exporter: TestExporter, value, value_repr, value_json) -> None:
     logfire.info('test message {var=}', var=value)
 
     logfire._config.provider.force_flush()
@@ -179,7 +183,73 @@ def test_log_non_scalar_args(logfire: Logfire, exporter, value, value_repr, valu
     assert s.attributes['var__JSON'] == value_json
 
 
-def test_log_dataclass_arg(logfire: Logfire, exporter) -> None:
+@pytest.mark.parametrize(
+    'value,attributes',
+    [
+        pytest.param(
+            Flatten({'a': 1, 'b': 2}),
+            {
+                'var.a': 1,
+                'var.b': 2,
+                'logfire.log_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test message {var=}',
+                'logfire.lineno': IsInt(),
+                'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
+            },
+            id='flatten_dict',
+        ),
+        pytest.param(
+            Flatten([3, 2]),
+            {
+                'var.0': 3,
+                'var.1': 2,
+                'logfire.log_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test message {var=}',
+                'logfire.lineno': IsInt(),
+                'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
+            },
+            id='flatten_list',
+        ),
+        pytest.param(
+            Flatten({'a': {'b': {'c': [1, 2]}}}),
+            {
+                'var.a__JSON': '{"b":{"c":[1,2]}}',
+                'logfire.log_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test message {var=}',
+                'logfire.lineno': IsInt(),
+                'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
+            },
+            id='flatten_nested_dict',
+        ),
+        pytest.param(
+            Flatten([{'a': 1}, {'b': 2}]),
+            {
+                'var.0__JSON': '{"a":1}',
+                'var.1__JSON': '{"b":2}',
+                'logfire.log_type': 'log',
+                'logfire.level': 'info',
+                'logfire.lineno': IsInt(),
+                'logfire.msg_template': 'test message {var=}',
+                'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
+            },
+            id='nested_list',
+        ),
+    ],
+)
+def test_log_flatten(logfire: Logfire, exporter: TestExporter, value: Flatten, attributes: dict[str, Any]) -> None:
+    logfire.info('test message {var=}', var=value)
+
+    logfire._config.provider.force_flush()
+    s = exporter.exported_spans[0]
+
+    # insert_assert(json.loads(s.to_json())['attributes'])
+    assert json.loads(s.to_json())['attributes'] == attributes
+
+
+def test_log_dataclass_arg(logfire: Logfire, exporter: TestExporter) -> None:
     logfire.info('test message {dc.t} repr = {dc}', dc=MyDataclass(t=1))
 
     logfire._config.provider.force_flush()
@@ -189,7 +259,7 @@ def test_log_dataclass_arg(logfire: Logfire, exporter) -> None:
     assert s.attributes['dc__JSON'] == '{"$__datatype__":"dataclass","data":{"t":1},"cls":"MyDataclass"}'
 
 
-def test_log_generator_arg(logfire: Logfire, exporter) -> None:
+def test_log_generator_arg(logfire: Logfire, exporter: TestExporter) -> None:
     def generator():
         yield from range(3)
 
@@ -204,7 +274,7 @@ def test_log_generator_arg(logfire: Logfire, exporter) -> None:
     assert 'generator object test_log_generator_arg.<locals>.generator' in attr_value
 
 
-def test_instrument_generator_arg(logfire: Logfire, exporter) -> None:
+def test_instrument_generator_arg(logfire: Logfire, exporter: TestExporter) -> None:
     def generator():
         yield from range(3)
 
@@ -266,6 +336,6 @@ def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -
         'logfire.log_type': 'log',
         'logfire.level': 'info',
         'logfire.msg_template': 'test message {complex_list=} {complex_dict=}',
-        'logfire.lineno': 243,
+        'logfire.lineno': IsInt(),
         'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
     }
