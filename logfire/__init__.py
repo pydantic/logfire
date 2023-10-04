@@ -1,5 +1,5 @@
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
-from ._observe import LevelName, Logfire, LogfireContext, LogfireSpan, TaggedLogfire
+from ._main import LevelName, Logfire, LogfireContext, LogfireSpan, TaggedLogfire
 from .config import configure
 from .version import VERSION
 

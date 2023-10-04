@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 from logfire import Logfire, LogfireSpan
-from logfire._observe import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
+from logfire._main import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
 
 from .conftest import TestExporter
 
@@ -374,7 +374,7 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
                 'is_cause': False,
                 'frames': [
                     {
-                        'filename': IsStr(regex=r'.*/logfire/_observe.py'),
+                        'filename': IsStr(regex=r'.*/logfire/_main.py'),
                         'lineno': IsPositive(),
                         'name': 'span',
                         'line': '',

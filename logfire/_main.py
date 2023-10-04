@@ -1,4 +1,3 @@
-# TODO(Samuel) rename to `_main`
 from __future__ import annotations as _annotations
 
 import json
@@ -600,7 +599,7 @@ def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
     filter out the record_exception call itself.
     """
     stack.frames = [
-        f for f in stack.frames if not (f.filename.endswith('logfire/_observe.py') and f.name in IGNORED_METHODS)
+        f for f in stack.frames if not (f.filename.endswith('logfire/_main.py') and f.name in IGNORED_METHODS)
     ]
     return stack
 
