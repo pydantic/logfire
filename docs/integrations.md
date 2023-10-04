@@ -6,6 +6,13 @@
 
 ## ASGI
 
+!!! info
+    You need to install the `logfire[asgi]` extra to use this integration.
+
+    ```bash
+    pip install 'logfire[asgi]' --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
+
 Integration with ASGI frameworks like [FastAPI][fastapi], [Starlette][starlette], [Quart][quart], etc.
 
 You just need to add the `LogfireMiddleware` to your application. Let's see an example with [FastAPI][fastapi]:
@@ -19,6 +26,13 @@ app.add_middleware(LogfireMiddleware)
 ```
 
 ## WSGI
+
+!!! info
+    You need to install the `logfire[wsgi]` extra to use this integration.
+
+    ```bash
+    pip install 'logfire[wsgi]' --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
 
 Integration with WSGI frameworks like [Flask][flask], [Django][django], etc.
 
