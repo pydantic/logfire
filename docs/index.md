@@ -31,7 +31,7 @@ logfire.info("Hello, world!")
 
 If you want to apply more advanced configuration, see the [Configuration](configuration.md) section.
 
-## Automatic instrumentation
+### Automatic instrumentation
 
 Logfire can automatically instrument all calls within specific modules.
 
@@ -39,4 +39,14 @@ Logfire can automatically instrument all calls within specific modules.
 import logfire
 
 logfire.install_automatic_instrumentation(modules=["app"])
+```
+
+### CLI
+
+Logfire comes with a CLI that can help you with some tasks.
+
+Run the following command to see what you can do with it:
+
+```bash
+logfire --help
 ```
