@@ -12,7 +12,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from dirty_equals import IsInt
+from dirty_equals import IsInt, IsStr
 from pydantic import AnyUrl, BaseModel, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
@@ -337,5 +337,5 @@ def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -
         'logfire.level': 'info',
         'logfire.msg_template': 'test message {complex_list=} {complex_dict=}',
         'logfire.lineno': IsInt(),
-        'logfire.filename': 'src/packages/logfire/tests/test_json_args.py',
+        'logfire.filename': IsStr(regex=r'src/packages/logfire/tests/test_json_args\.py'),
     }

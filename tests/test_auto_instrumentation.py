@@ -79,7 +79,7 @@ def test_auto_instrumentation_filter_modules(log_output: LogCapture) -> None:
     with ExitStack() as stack:
         stack.callback(uninstall_automatic_instrumentation)
 
-        install_automatic_instrumentation(modules=['tests.test_auto_instrumentation'])
+        install_automatic_instrumentation(modules=[__name__])
 
         wrap(foo, 1)
 
