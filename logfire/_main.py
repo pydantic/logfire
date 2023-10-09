@@ -21,9 +21,9 @@ from opentelemetry.util.types import AttributeValue
 from typing_extensions import LiteralString
 
 from ._flatten import Flatten
-from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from .config import LogfireConfig
 from .formatter import logfire_format
+from .json_encoder import json_dumps_traceback, logfire_json_dumps
 
 try:
     from pydantic_core import ValidationError as PydanticValidationError

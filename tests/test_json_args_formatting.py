@@ -2,7 +2,8 @@ from typing import Any
 
 import pytest
 
-from logfire.args_formatter import json_args_value_formatter
+from logfire.json_encoder import DataType
+from logfire.json_formatter import json_args_value_formatter, json_args_value_formatter_compact
 
 
 @pytest.mark.parametrize(
@@ -10,11 +11,11 @@ from logfire.args_formatter import json_args_value_formatter
     [
         (
             ['a', 1, True],
-            """{
+            """[
     'a',
     1,
     True,
-}""",
+]""",
         ),
         (
             {'k1': 'v1', 'k2': 2},
@@ -23,7 +24,8 @@ from logfire.args_formatter import json_args_value_formatter
     'k2': 2,
 }""",
         ),
-        ({'$__datatype__': 'bytes', 'data': 'test bytes'}, "b'test bytes'"),
+        ({'$__datatype__': 'bytes-utf8', 'data': 'test bytes'}, "b'test bytes'"),
+        ({'$__datatype__': 'bytes-base64', 'data': 'gQ=='}, "b'\\x81'"),
         (
             {'$__datatype__': 'tuple', 'data': [1, 2, 'b']},
             """(
@@ -31,6 +33,10 @@ from logfire.args_formatter import json_args_value_formatter
     2,
     'b',
 )""",
+        ),
+        (
+            {'$__datatype__': 'tuple', 'data': []},
+            '()',
         ),
         (
             {'$__datatype__': 'set', 'data': ['s', 1, True]},
@@ -53,7 +59,7 @@ from logfire.args_formatter import json_args_value_formatter
         ({'$__datatype__': 'datetime', 'data': '2023-01-01T10:10:00'}, "datetime('2023-01-01T10:10:00')"),
         ({'$__datatype__': 'time', 'data': '12:10:00'}, "time('12:10:00')"),
         ({'$__datatype__': 'timedelta', 'data': 90072.0}, 'datetime.timedelta(days=1, seconds=3672)'),
-        ({'$__datatype__': 'enum', 'data': 3, 'cls': 'Color'}, 'Color(3)'),
+        ({'$__datatype__': 'Enum', 'data': 3, 'cls': 'Color'}, 'Color(3)'),
         (
             {'$__datatype__': 'deque', 'data': [4, 5]},
             """deque([
@@ -82,7 +88,7 @@ from logfire.args_formatter import json_args_value_formatter
                 'data': {'x': 'x', 'y': 10, 'u': {'$__datatype__': 'Url', 'data': 'http://test.com/'}},
                 'cls': 'MyModel',
             },
-            """MyModel (
+            """MyModel(
     x='x',
     y=10,
     u=Url('http://test.com/'),
@@ -90,13 +96,17 @@ from logfire.args_formatter import json_args_value_formatter
         ),
         (
             {'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'},
-            """MyDataclass (
+            """MyDataclass(
     t=10,
 )""",
         ),
         (
-            {'$__datatype__': 'dataclass', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
-            """MyPydanticDataclass (
+            {'$__datatype__': 'dataclass', 'data': {}, 'cls': 'MyDataclass'},
+            'MyDataclass()',
+        ),
+        (
+            {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
+            """MyPydanticDataclass(
     p=20,
 )""",
         ),
@@ -123,7 +133,9 @@ from logfire.args_formatter import json_args_value_formatter
             {'$__datatype__': 'MyArbitaryType', 'data': 'MyArbitaryType(12)', 'cls': 'MyArbitaryType'},
             'MyArbitaryType(12)',
         ),
+        ({'$__datatype__': 'unknown', 'data': '<this is repr>'}, '<this is repr>'),
     ],
+    ids=repr,
 )
 def test_json_args_value_formatting(value: Any, formatted_value: str):
     assert json_args_value_formatter(value) == formatted_value
@@ -139,23 +151,77 @@ def test_nested_json_args_value_formatting():
             'cls': 'MyModel',
         },
         {'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'},
-        {'$__datatype__': 'dataclass', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
+        {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
     ]
 
     assert (
         json_args_value_formatter(value)
-        == """{
+        == """[
     'a',
     1,
-    MyModel (
+    MyModel(
         x='x',
         y=datetime('2023-01-01T00:00:00'),
     ),
-    MyDataclass (
+    MyDataclass(
         t=10,
     ),
-    MyPydanticDataclass (
+    MyPydanticDataclass(
         p=20,
     ),
-}"""
+]"""
     )
+
+
+@pytest.mark.parametrize(
+    'value,formatted_value',
+    [
+        (['a', 1, True], "['a', 1, True]"),
+        ({'k1': 'v1', 'k2': 2}, "{'k1': 'v1', 'k2': 2}"),
+        ({'$__datatype__': 'tuple', 'data': [1, 2, 'b']}, "(1, 2, 'b')"),
+        ({'$__datatype__': 'tuple', 'data': []}, '()'),
+        ({'$__datatype__': 'set', 'data': ['s', 1, True]}, "{'s', 1, True}"),
+        ({'$__datatype__': 'frozenset', 'data': ['s', 1, True]}, "frozenset({'s', 1, True})"),
+        ({'$__datatype__': 'Decimal', 'data': '1.7'}, "Decimal('1.7')"),
+        ({'$__datatype__': 'date', 'data': '2023-01-01'}, "date('2023-01-01')"),
+        ({'$__datatype__': 'datetime', 'data': '2023-01-01T10:10:00'}, "datetime('2023-01-01T10:10:00')"),
+        ({'$__datatype__': 'time', 'data': '12:10:00'}, "time('12:10:00')"),
+        ({'$__datatype__': 'timedelta', 'data': 90072.0}, 'datetime.timedelta(days=1, seconds=3672)'),
+        ({'$__datatype__': 'Enum', 'data': 3, 'cls': 'Color'}, 'Color(3)'),
+        ({'$__datatype__': 'deque', 'data': [4, 5]}, 'deque([4, 5])'),
+        (
+            {'$__datatype__': 'UUID', 'data': '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4', 'version': 4},
+            "UUID('7265bc22-ccb0-4ee2-97f0-5dd206f01ae4')",
+        ),
+        (
+            {
+                '$__datatype__': 'BaseModel',
+                'data': {'x': 'x', 'y': 10, 'u': {'$__datatype__': 'Url', 'data': 'http://test.com/'}},
+                'cls': 'MyModel',
+            },
+            "MyModel(x='x', y=10, u=Url('http://test.com/'))",
+        ),
+        ({'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'}, 'MyDataclass(t=10)'),
+        ({'$__datatype__': 'dataclass', 'data': {}, 'cls': 'MyDataclass'}, 'MyDataclass()'),
+        ({'$__datatype__': 'dataclass', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'}, 'MyPydanticDataclass(p=20)'),
+        (
+            {'$__datatype__': 'Exception', 'data': 'Test value error', 'cls': 'ValueError'},
+            "ValueError('Test value error')",
+        ),
+        ({'$__datatype__': 'Mapping', 'data': {'foo': 'bar'}, 'cls': 'MyMapping'}, "MyMapping({'foo': 'bar'})"),
+        ({'$__datatype__': 'Sequence', 'data': [0, 1, 2, 3], 'cls': 'range'}, 'range(0, 4)'),
+        ({'$__datatype__': 'Sequence', 'data': [1, 2, 3], 'cls': 'MySequence'}, 'MySequence([1, 2, 3])'),
+        (
+            {'$__datatype__': 'MyArbitaryType', 'data': 'MyArbitaryType(12)', 'cls': 'MyArbitaryType'},
+            'MyArbitaryType(12)',
+        ),
+        ({'$__datatype__': 'unknown', 'data': '<this is repr>'}, '<this is repr>'),
+        ({'$__datatype__': 'generator', 'data': [0, 1, 2]}, 'generator((0, 1, 2))'),
+    ],
+)
+def test_json_args_value_formatting_compact(value: Any, formatted_value: str):
+    assert json_args_value_formatter_compact(value) == formatted_value
+
+
+def test_all_types_covered():
+    assert set(DataType.__args__) == set(json_args_value_formatter_compact._data_type_map.keys())

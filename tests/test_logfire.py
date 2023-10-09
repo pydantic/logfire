@@ -1,5 +1,6 @@
 import json
 import re
+from dataclasses import dataclass
 from typing import cast
 
 import pytest
@@ -398,3 +399,24 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
             }
         ]
     }
+
+
+@dataclass
+class Foo:
+    x: int
+    y: int
+
+
+def test_json_args(logfire: Logfire, exporter: TestExporter) -> None:
+    logfire.info('test message {foo=}', foo=Foo(1, 2))
+    logfire.info('test message {foos=}', foos=[Foo(1, 2)])
+
+    logfire._config.provider.force_flush()
+    assert len(exporter.exported_spans) == 2
+    s = exporter.exported_spans[0]
+    assert s.name == 'test message foo=Foo(x=1, y=2)'
+    assert s.attributes['foo__JSON'] == '{"$__datatype__":"dataclass","data":{"x":1,"y":2},"cls":"Foo"}'
+
+    s = exporter.exported_spans[1]
+    assert s.name == 'test message foos=[Foo(x=1, y=2)]'
+    assert s.attributes['foos__JSON'] == '[{"$__datatype__":"dataclass","data":{"x":1,"y":2},"cls":"Foo"}]'

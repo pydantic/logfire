@@ -82,7 +82,8 @@ class MyBytes(bytes):
     [
         (['a', 1, True], "['a', 1, True]", '["a",1,true]'),
         ({'k1': 'v1', 'k2': 2}, "{'k1': 'v1', 'k2': 2}", '{"k1":"v1","k2":2}'),
-        (b'test bytes', "b'test bytes'", '{"$__datatype__":"bytes","data":"test bytes"}'),
+        (b'test bytes', "b'test bytes'", '{"$__datatype__":"bytes-utf8","data":"test bytes"}'),
+        (b'\x81', "b'\\x81'", '{"$__datatype__":"bytes-base64","data":"gQ=="}'),
         ((1, 2, 'b'), "(1, 2, 'b')", '{"$__datatype__":"tuple","data":[1,2,"b"]}'),
         (set(['s']), "{'s'}", '{"$__datatype__":"set","data":["s"]}'),
         (frozenset(['f']), "frozenset({'f'})", '{"$__datatype__":"frozenset","data":["f"]}'),
@@ -98,7 +99,7 @@ class MyBytes(bytes):
         (
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
-            '{"$__datatype__":"enum","data":3,"cls":"Color"}',
+            '{"$__datatype__":"Enum","data":3,"cls":"Color"}',
         ),
         (deque([4, 5]), 'deque([4, 5])', '{"$__datatype__":"deque","data":[4,5]}'),
         (IPv4Address('127.0.0.1'), '127.0.0.1', '{"$__datatype__":"IPv4Address","data":"127.0.0.1"}'),
@@ -164,12 +165,12 @@ class MyBytes(bytes):
         (
             MyArbitraryType(12),
             'MyArbitraryType(12)',
-            '{"$__datatype__":"MyArbitraryType","data":"MyArbitraryType(12)","cls":"MyArbitraryType"}',
+            '{"$__datatype__":"unknown","data":"MyArbitraryType(12)","cls":"MyArbitraryType"}',
         ),
         (
             MyBytes(b'test bytes'),
             "b'test bytes'",
-            '{"$__datatype__":"type","data":"test bytes","subclass":"MyBytes"}',
+            '{"$__datatype__":"bytes-utf8","data":"test bytes","cls":"MyBytes"}',
         ),
     ],
 )
