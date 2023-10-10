@@ -3,8 +3,9 @@ from __future__ import annotations as _annotations
 import dataclasses
 import json
 import os
+import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Callable, Literal
 
 import httpx
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -13,6 +14,7 @@ from opentelemetry.metrics import MeterProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 
 from ._metrics import set_meter_provider
 from .version import VERSION
@@ -91,6 +93,8 @@ class LogfireConfig:
     Configuration for the logfire SDK.
     """
 
+    ns_time_generator: Callable[[], int]
+    """Function used to generate nanosecond timestamps."""
     provider: TracerProvider
     """The OpenTelemetry provider to use for tracing."""
     service_name: str
@@ -184,11 +188,20 @@ class LogfireConfig:
         service_name: str,
         schedule_delay_millis: int = 1,
         meter_provider: MeterProvider | None = None,
+        id_generator: IdGenerator | None = None,
+        ns_time_generator: Callable[[], int] = lambda: int(time.time() * 1e9),
     ) -> Self:
-        provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: service_name}))
+        provider = TracerProvider(
+            resource=Resource(attributes={SERVICE_NAME: service_name}), id_generator=id_generator or RandomIdGenerator()
+        )
         for exporter in exporters:
             provider.add_span_processor(BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis))
-        return cls(provider=provider, service_name=service_name, meter_provider=meter_provider)
+        return cls(
+            provider=provider,
+            service_name=service_name,
+            meter_provider=meter_provider,
+            ns_time_generator=ns_time_generator,
+        )
 
     @staticmethod
     def get_default() -> LogfireConfig:

@@ -7,28 +7,64 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
+
+from typing_extensions import TypedDict
+
+from logfire._main import Logfire, LogfireSpan
 
 if TYPE_CHECKING:
     from _typeshed import ProfileFunction
 
-from opentelemetry import trace
-from opentelemetry.trace.span import Span
 
-tracer = trace.get_tracer(__name__)
+_SPANS: dict[tuple[FrameType, str], LogfireSpan] = {}
 
 
-_SPANS: dict[tuple[FrameType, str], Span] = {}
+class ExtractedMetadata(TypedDict):
+    namespace: str | None
+    function: str
+    filepath: str
+    lineno: int
+
+
+def extract_attributes(event: Literal['call', 'c_call'], frame: FrameType, arg: Any) -> ExtractedMetadata:
+    if event == 'call':
+        module = inspect.getmodule(frame)
+        module_name = module.__name__ if module else None
+        f_name = getattr(frame.f_code, 'co_qualname', frame.f_code.co_name)
+        assert frame.f_back is not None
+        return ExtractedMetadata(
+            namespace=module_name,
+            function=f_name,
+            filepath=frame.f_back.f_code.co_filename,
+            lineno=frame.f_back.f_lineno,
+        )
+    else:
+        assert event == 'c_call'
+        if arg.__module__:
+            module = inspect.getmodule(arg)
+            if module:
+                module_name = module.__name__
+            else:
+                module_name = None
+        else:
+            module_name = arg.__module__
+        f_name = getattr(arg, '__qualname__', arg.__name__)
+        return ExtractedMetadata(
+            namespace=module_name,
+            function=f_name,
+            filepath=frame.f_code.co_filename,
+            lineno=frame.f_lineno,
+        )
 
 
 @dataclass
 class FuncTracer:
+    logfire: Logfire
     modules: re.Pattern[str] | None = None
     previous_tracer: ProfileFunction | None = None
-    enabled: bool = True
-    installed: bool = False
 
-    def __call__(  # noqa: C901
+    def __call__(
         self,
         frame: FrameType,
         event: str,
@@ -36,12 +72,10 @@ class FuncTracer:
     ) -> None:
         if self.previous_tracer is not None:
             self.previous_tracer(frame, event, arg)
-        if not self.enabled:
-            return
-        # skip anything not happening in the __main__ module
-        # eventually we'd want to add some sort of filtering
-        # return if modules match frame.co_code.co_qualname or maodules matches '__main__' and frame.co_code.co_qualname has not prefix
         if self.modules is not None:
+            if event == 'c_call':
+                # always filter out c calls, we have no way to get the filename
+                return
             if not self.modules.search(frame.f_code.co_filename):
                 return
         # skip if we are within ourselves because we call functions in here that we don't want to trace
@@ -53,52 +87,33 @@ class FuncTracer:
             ):
                 return
             f = f.f_back
-        if event == 'call':
-            name = f'{frame.f_globals["__name__"]}.{getattr(frame.f_code, "co_qualname", frame.f_code.co_name)}'
+        if event == 'call' or event == 'c_call':
+            metadata = extract_attributes(event, frame, arg)
+            name = f'{metadata["namespace"]}.{metadata["function"]}' if metadata['namespace'] else metadata['function']
             attributes = {
-                'code.namespace': frame.f_globals['__name__'],
-                'code.function': frame.f_code.co_name,
+                'code.function': metadata['function'],
+                'code.lineno': metadata['lineno'],
+                'code.filepath': metadata['filepath'],
             }
-            if frame.f_back is not None:
-                attributes.update(
-                    {
-                        'code.filepath': frame.f_back.f_code.co_filename,
-                        'code.lineno': frame.f_back.f_lineno,
-                    }
-                )
-            span_gen = tracer.start_as_current_span(name, end_on_exit=False, attributes=attributes)
-            span = span_gen.__enter__()
-            _SPANS[(frame, 'call')] = span
-        elif event == 'c_call':
-            name = f'{arg.__module__}.{arg.__name__}'
-            attributes = {
-                'code.namespace': arg.__module__,
-                'code.function': arg.__name__,
-                'code.lineno': frame.f_lineno,
-                'code.filepath': frame.f_code.co_filename,
-            }
-            span_gen = tracer.start_as_current_span(name, end_on_exit=False, attributes=attributes)
-            span = span_gen.__enter__()
-            _SPANS[(frame, 'c_call')] = span
-        elif event == 'return':
+            if metadata['namespace'] is not None:
+                attributes['code.namespace'] = metadata['namespace']
+            logfire_span_gen = self.logfire.span(
+                'function {func_name}() called', span_name=name, **attributes, func_name=metadata['function']
+            )
+            logfire_span = logfire_span_gen.__enter__()
+            logfire_span.end_on_exit = False
+            _SPANS[(frame, 'call')] = logfire_span
+        elif event == 'return' or event == 'c_return':
             f = frame
             while f:
-                span: Span | None = _SPANS.pop((f, 'call'), None)
-                if span is not None:
-                    span.__exit__(None, None, None)
-                    break
-                f = f.f_back
-        elif event == 'c_return':
-            f = frame
-            while f:
-                span: Span | None = _SPANS.pop((f, 'c_call'), None)
-                if span is not None:
-                    span.__exit__(None, None, None)
+                logfire_span: LogfireSpan | None = _SPANS.pop((f, 'call'), None)
+                if logfire_span is not None:
+                    logfire_span.end()
                     break
                 f = f.f_back
 
 
-_TRACER = FuncTracer()
+_TRACERS: list[FuncTracer] = []
 
 
 def get_module_path(module: str) -> str:
@@ -120,7 +135,7 @@ def get_module_path(module: str) -> str:
     return f'^{path}$'
 
 
-def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
+def install_automatic_instrumentation(modules: list[str] | None = None, logfire: Logfire | None = None) -> None:
     """Install automatic instrumentation.
 
     Automatic instrumentation will trace all function calls in the modules specified by the modules argument.
@@ -140,12 +155,17 @@ def install_automatic_instrumentation(modules: list[str] | None = None) -> None:
         modules_pattern = get_module_path(module.__name__.split('.')[0])
     else:
         modules_pattern = '|'.join([get_module_path(module) for module in modules])
-    _TRACER.modules = re.compile(modules_pattern)
-    _TRACER.enabled = True
-    if not _TRACER.installed:
-        _TRACER.previous_tracer = sys.getprofile()
-        sys.setprofile(_TRACER)
-        _TRACER.installed = True
+    if logfire is None:
+        from logfire import _default_logger  # type: ignore
+
+        logfire = _default_logger
+    tracer = FuncTracer(
+        logfire=logfire,
+        modules=re.compile(modules_pattern),
+        previous_tracer=sys.getprofile(),
+    )
+    sys.setprofile(tracer)
+    _TRACERS.append(tracer)
 
 
 def uninstall_automatic_instrumentation() -> None:
@@ -153,4 +173,8 @@ def uninstall_automatic_instrumentation() -> None:
 
     This will stop tracing all function calls.
     """
-    _TRACER.enabled = False
+    last_tracer = _TRACERS.pop()
+    current_tracer = sys.getprofile()
+    if current_tracer is not last_tracer:
+        raise RuntimeError('current tracer does not match last tracer')
+    sys.setprofile(last_tracer.previous_tracer)

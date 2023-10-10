@@ -1,98 +1,206 @@
-import io
 import math
-import statistics
 from contextlib import ExitStack
 
-import pytest
-import structlog
-from dirty_equals import IsInstance
-from opentelemetry import trace
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from structlog.testing import LogCapture
+from logfire import Logfire, install_automatic_instrumentation, uninstall_automatic_instrumentation
 
-from logfire import install_automatic_instrumentation, uninstall_automatic_instrumentation
-from logfire.exporters.console import ConsoleSpanExporter
-
+from .conftest import TestExporter
 from .module_used_for_tests import wrap
 
 
-@pytest.fixture(name='log_output')
-def fixture_log_output():
-    return LogCapture()
+class Foo:
+    def bar(self) -> None:
+        return None
 
 
-@pytest.fixture(autouse=True)
-def fixture_configure_structlog(log_output: LogCapture):
-    structlog.configure(processors=[log_output])
+def foo(x: int) -> float:
+    d: dict[str, int] = {}
+    d.get('a', None)  # access a method on a built in type
+    f = Foo()
+    f.bar()  # access a method on a user defined type
+    xs = [x for x in range(x)]  # comprehension
+    x = sum(xs)  # call a builtin function
+    return math.sin(x)  # call a python function from a builtin module
 
 
-def foo(x: int) -> int:
-    return int(statistics.mean([math.sin(x) * 10]))
-
-
-def test_auto_instrumentation_no_filter(log_output: LogCapture) -> None:
-    output = io.StringIO()
-    provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
-    processor = SimpleSpanProcessor(ConsoleSpanExporter(output=output))
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
+def test_auto_instrumentation_no_filter(logfire: Logfire, exporter: TestExporter) -> None:
     with ExitStack() as stack:
         stack.callback(uninstall_automatic_instrumentation)
 
-        install_automatic_instrumentation()
+        install_automatic_instrumentation(logfire=logfire)
 
         wrap(foo, 1)
 
-        uninstall_automatic_instrumentation()
+    logfire._config.provider.force_flush()  # type: ignore
 
-    # note that math.sin is included because it's a built in / C function
-    assert log_output.entries == [
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'time.sleep', 'log_level': 'info'},
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'math.sin', 'log_level': 'info'},
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-            'indent': 0,
-            'event': 'tests.test_auto_instrumentation.foo',
-            'log_level': 'info',
+            'name': 'function wrap() called',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1,
+            'end_time': 1,
+            'attributes': {
+                'code.namespace': 'tests.module_used_for_tests',
+                'code.function': 'wrap',
+                'code.lineno': 31,
+                'code.filepath': 'src/packages/logfire/tests/test_auto_instrumentation.py',
+                'logfire.log_type': 'start_span',
+            },
         },
         {
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-            'indent': 0,
-            'event': 'tests.module_used_for_tests.wrap',
-            'log_level': 'info',
+            'name': 'tests.module_used_for_tests.wrap',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1,
+            'end_time': 2,
+            'attributes': {'logfire.log_type': 'real_span'},
+        },
+        {
+            'name': 'function foo() called',
+            'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'start_time': 3,
+            'end_time': 3,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'foo',
+                'code.lineno': 12,
+                'code.filepath': 'src/packages/logfire/tests/module_used_for_tests.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.foo',
+            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'parent': None,
+            'start_time': 3,
+            'end_time': 4,
+            'attributes': {'logfire.log_type': 'real_span'},
+        },
+        {
+            'name': 'function Foo.bar() called',
+            'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+            'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'start_time': 5,
+            'end_time': 5,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'Foo.bar',
+                'code.lineno': 19,
+                'code.filepath': 'src/packages/logfire/tests/test_auto_instrumentation.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.Foo.bar',
+            'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'parent': None,
+            'start_time': 5,
+            'end_time': 6,
+            'attributes': {'logfire.log_type': 'real_span'},
+        },
+        {
+            'name': 'function foo.<locals>.<listcomp>() called',
+            'context': {'trace_id': 4, 'span_id': 8, 'is_remote': False},
+            'parent': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+            'start_time': 7,
+            'end_time': 7,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'foo.<locals>.<listcomp>',
+                'code.lineno': 20,
+                'code.filepath': 'src/packages/logfire/tests/test_auto_instrumentation.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp>',
+            'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+            'parent': None,
+            'start_time': 7,
+            'end_time': 8,
+            'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
 
 
-def test_auto_instrumentation_filter_modules(log_output: LogCapture) -> None:
-    output = io.StringIO()
-    provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
-    processor = SimpleSpanProcessor(ConsoleSpanExporter(output=output))
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
+def test_auto_instrumentation_filter_modules(logfire: Logfire, exporter: TestExporter) -> None:
     with ExitStack() as stack:
         stack.callback(uninstall_automatic_instrumentation)
 
-        install_automatic_instrumentation(modules=[__name__])
+        install_automatic_instrumentation(modules=[__name__], logfire=logfire)
 
         wrap(foo, 1)
 
-        uninstall_automatic_instrumentation()
+    logfire._config.provider.force_flush()  # type: ignore
 
-    # insert_assert(log_output.entries)
-    assert log_output.entries == [
-        {'span': IsInstance(ReadableSpan), 'verbose': True, 'indent': 0, 'event': 'math.sin', 'log_level': 'info'},
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-            'indent': 0,
-            'event': 'tests.test_auto_instrumentation.foo',
-            'log_level': 'info',
+            'name': 'function foo() called',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1,
+            'end_time': 1,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'foo',
+                'code.lineno': 12,
+                'code.filepath': 'src/packages/logfire/tests/module_used_for_tests.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.foo',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1,
+            'end_time': 2,
+            'attributes': {'logfire.log_type': 'real_span'},
+        },
+        {
+            'name': 'function Foo.bar() called',
+            'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'start_time': 3,
+            'end_time': 3,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'Foo.bar',
+                'code.lineno': 19,
+                'code.filepath': 'src/packages/logfire/tests/test_auto_instrumentation.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.Foo.bar',
+            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'parent': None,
+            'start_time': 3,
+            'end_time': 4,
+            'attributes': {'logfire.log_type': 'real_span'},
+        },
+        {
+            'name': 'function foo.<locals>.<listcomp>() called',
+            'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+            'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'start_time': 5,
+            'end_time': 5,
+            'attributes': {
+                'code.namespace': 'tests.test_auto_instrumentation',
+                'code.function': 'foo.<locals>.<listcomp>',
+                'code.lineno': 20,
+                'code.filepath': 'src/packages/logfire/tests/test_auto_instrumentation.py',
+                'logfire.log_type': 'start_span',
+            },
+        },
+        {
+            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp>',
+            'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'parent': None,
+            'start_time': 5,
+            'end_time': 6,
+            'attributes': {'logfire.log_type': 'real_span'},
         },
     ]

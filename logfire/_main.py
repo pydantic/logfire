@@ -2,7 +2,6 @@ from __future__ import annotations as _annotations
 
 import json
 import sys
-import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -101,7 +100,7 @@ class Logfire:
         ```
         """
         tracer = self.get_context_tracer()
-        start_time = int(time.time() * 1e9)
+        start_time = self._config.ns_time_generator()
 
         span_name_: str
         if span_name is not None:
@@ -125,7 +124,7 @@ class Logfire:
                 msg_template=msg_template,
                 kwargs=kwargs,
             )
-            logfire_span = LogfireSpan(real_span, start_span)
+            logfire_span = LogfireSpan(self._config.ns_time_generator, real_span, start_span)
             with maybe_exit(logfire_span):
                 yield logfire_span
 
@@ -171,7 +170,7 @@ class Logfire:
 
             @wraps(func)
             def instrument_wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
-                start_time = int(time.time() * 1e9)
+                start_time = self._config.ns_time_generator()
 
                 if extract_args:
                     pos_args = {k: v for k, v in zip(pos_params, args)}
@@ -218,7 +217,7 @@ class Logfire:
         """
         msg = logfire_format(msg_template, kwargs)
         tracer = self.get_context_tracer()
-        start_time = int(time.time() * 1e9)  # OpenTelemetry uses ns for timestamps
+        start_time = self._config.ns_time_generator()  # OpenTelemetry uses ns for timestamps
 
         call_frame: FrameType = sys._getframe(frame_depth)  # type: ignore
         lineno = call_frame.f_lineno
@@ -499,6 +498,9 @@ class LogfireSpan:
     Logfire span, holds references to both our `real_span` and `start_span`.
     """
 
+    ns_time_generator: Callable[[], int]
+    """Generator for ns timestamps."""
+
     real_span: trace.Span
     """
     `real_span` is the open telemetry span used to represent the span, it's so named to differentiate it from
@@ -516,7 +518,7 @@ class LogfireSpan:
     """
 
     def end(self) -> None:
-        self.real_span.end()
+        self.real_span.end(self.ns_time_generator())
 
     @contextmanager
     def activate(self, end_on_exit: bool | None = None) -> Iterator[None]:
