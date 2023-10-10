@@ -299,7 +299,7 @@ class LogfireCredentials:
         creds_file = _get_creds_file(creds_dir)
         _print_summary(
             f"""\
-A new anonymous project called **{self.project_name}** has been created on logfire.dev, to view it go
+A new anonymous project called **{self.project_name}** has been created on logfire.dev, to view it go to:
 
 [{self.dashboard_url}]({self.dashboard_url})
 
@@ -315,7 +315,7 @@ But you can see project details by running `logfire whoami`, or by viewing the c
             creds_file = _get_creds_file(creds_dir)
             _print_summary(
                 f"""\
-A project called **{self.project_name}** was found and has been configured for this service, to view it go
+A project called **{self.project_name}** was found and has been configured for this service, to view it go to:
 
 [{self.dashboard_url}]({self.dashboard_url})
 
