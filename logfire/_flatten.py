@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Generic, Mapping, Sequence, overload
+from typing import Any, Generic, Mapping, Sequence
 
 from typing_extensions import TypeVar
 
@@ -13,21 +13,10 @@ class Flatten(Generic[ValueType]):
     value: ValueType
 
 
-FlattenMapping = Flatten[Mapping[KT, VT]]
-FlattenSequence = Flatten[Sequence[VT]]
+FlattenValue = TypeVar('FlattenValue', bound=Mapping[Any, Any] | Sequence[Any])
 
 
-@overload
-def flatten(value: Mapping[KT, VT]) -> FlattenMapping[KT, VT]:
-    ...
-
-
-@overload
-def flatten(value: Sequence[VT]) -> FlattenSequence[VT]:
-    ...
-
-
-def flatten(value: Any) -> Any:
+def flatten(value: FlattenValue) -> Flatten[FlattenValue]:
     """
     A wrapper class that tells logfire to flatten the first level of a mapping or sequence into OTel
     parameters so they can be easily queried.
