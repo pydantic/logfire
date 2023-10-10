@@ -10,7 +10,12 @@ from logfire.version import VERSION
 
 @pytest.fixture
 def logfire_credentials() -> LogfireCredentials:
-    return LogfireCredentials(token='token', project_name='my-project', dashboard_url='https://dashboard.logfire.dev')
+    return LogfireCredentials(
+        token='token',
+        project_name='my-project',
+        dashboard_url='https://dashboard.logfire.dev',
+        logfire_api_url='https://api.logfire.dev',
+    )
 
 
 def test_version() -> None:

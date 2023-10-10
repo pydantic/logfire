@@ -22,9 +22,7 @@ if TYPE_CHECKING:
 
 _default_config: LogfireConfig | None = None
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
-# LOGFIRE_API_ROOT = 'https://api.logfire.dev'
-# TODO(Samuel) remove before release
-LOGFIRE_API_ROOT = 'http://localhost:4318'
+LOGFIRE_API_ROOT = 'https://api.logfire.dev'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
@@ -38,7 +36,7 @@ def configure(
     console_colors: Literal['auto', 'always', 'never'] = 'auto',
     show_summary: Literal['always', 'never', 'new-project'] = 'always',
     logfire_dir: Path = Path('.logfire'),
-    _logfire_api_root: str = LOGFIRE_API_ROOT,
+    logfire_api_root: str | None = None,
 ) -> None:
     """
     Configure the logfire SDK.
@@ -62,7 +60,8 @@ def configure(
         console_colors: Whether to color terminal output.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard.
         logfire_dir: Directory to store credentials, and logs.
-        _logfire_api_root: Root URL for the Logfire API, defaults to `LOGFIRE_API_ROOT`.
+        logfire_api_root: Root URL for the Logfire API, if `None` uses the `LOGFIRE_API_ROOT` environment variable,
+            otherwise `https://api.logfire.dev`.
 
     Environment Variables:
         LOGFIRE_PROJECT_NAME: Could be used to provide a project name. See `project_name` argument for details.
@@ -82,7 +81,7 @@ def configure(
         console_colors=console_colors,
         show_summary=show_summary,
         logfire_dir=logfire_dir,
-        logfire_api_root=_logfire_api_root,
+        logfire_api_root=logfire_api_root,
     )
 
 
@@ -122,7 +121,7 @@ class LogfireConfig:
         console_colors: Literal['auto', 'always', 'never'] = 'auto',
         show_summary: Literal['always', 'never', 'new-project'] = 'always',
         logfire_dir: Path = Path('.logfire'),
-        logfire_api_root: str = LOGFIRE_API_ROOT,
+        logfire_api_root: str | None = None,
     ) -> Self:
         """
         Construct a new config, see the `configure` function in this module for more details.
@@ -136,11 +135,18 @@ class LogfireConfig:
 
         logfire_token, file_creds = cls.load_token(logfire_token, logfire_dir)
 
+        # order for logfire_api_root is: arg, env, file, default
+        logfire_api_root = logfire_api_root or os.getenv('LOGFIRE_API_ROOT')
+        if file_creds:
+            logfire_api_root_str = logfire_api_root or file_creds.logfire_api_url
+        else:
+            logfire_api_root_str = logfire_api_root or LOGFIRE_API_ROOT
+
         if send and logfire_token is None:
             # create a token by asking logfire.dev to create a new project
             request_project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or service_name
             new_creds = LogfireCredentials.create_new_project(
-                logfire_api_url=logfire_api_root, requested_project_name=request_project_name
+                logfire_api_url=logfire_api_root_str, requested_project_name=request_project_name
             )
             logfire_token = new_creds.token
             new_creds.write_creds_file(logfire_dir)
@@ -158,9 +164,9 @@ class LogfireConfig:
         exporters: list[SpanExporter] = []
         if send and logfire_token is not None:
             headers = {'Authorization': logfire_token, **COMMON_REQUEST_HEADERS}
-            exporters.append(OTLPSpanExporter(endpoint=f'{logfire_api_root}/v1/traces', headers=headers))
+            exporters.append(OTLPSpanExporter(endpoint=f'{logfire_api_root_str}/v1/traces', headers=headers))
 
-            metric_exporter = OTLPMetricExporter(endpoint=f'{logfire_api_root}/v1/metrics', headers=headers)
+            metric_exporter = OTLPMetricExporter(endpoint=f'{logfire_api_root_str}/v1/metrics', headers=headers)
             meter_provider = set_meter_provider(exporter=metric_exporter)
 
         if console_print != 'off':
@@ -217,6 +223,8 @@ class LogfireCredentials:
     """The name of the project"""
     dashboard_url: str
     """The URL to the project dashboard."""
+    logfire_api_url: str
+    """The root URL for the Logfire API."""
 
     def __post_init__(self):
         for attr, value in dataclasses.asdict(self).items():
@@ -246,6 +254,8 @@ class LogfireCredentials:
             except (ValueError, OSError) as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path}') from e
 
+            # support for old credentials files that don't include `logfire_api_url`
+            data.setdefault('logfire_api_url', LOGFIRE_API_ROOT)
             try:
                 return cls(**data)
             except TypeError as e:
@@ -277,7 +287,7 @@ class LogfireCredentials:
         else:
             json_data = response.json()
             try:
-                return cls(**json_data)
+                return cls(**json_data, logfire_api_url=logfire_api_url)
             except TypeError as e:
                 raise LogfireConfigError(f'Invalid credentials, when creating project at {url}: {e}') from e
 
