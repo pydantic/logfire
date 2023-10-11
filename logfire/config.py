@@ -327,7 +327,8 @@ A new anonymous project called **{self.project_name}** has been created on logfi
 [{self.dashboard_url}]({self.dashboard_url})
 
 But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
-"""
+""",
+            min_content_width=len(self.dashboard_url),
         )
 
     def print_existing_token_summary(self, creds_dir: Path) -> None:
@@ -343,11 +344,12 @@ A project called **{self.project_name}** was found and has been configured for t
 [{self.dashboard_url}]({self.dashboard_url})
 
 But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
-"""
+""",
+                min_content_width=len(self.dashboard_url),
             )
 
 
-def _print_summary(message: str):
+def _print_summary(message: str, min_content_width: int):
     from rich.console import Console
     from rich.markdown import Markdown
     from rich.panel import Panel
@@ -364,7 +366,10 @@ def _print_summary(message: str):
 
     # customise the link color since the default `blue` is too dark for me to read.
     custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
-    Console(stderr=True, theme=custom_theme).print(panel)
+    console = Console(stderr=True, theme=custom_theme)
+    if console.width < min_content_width + 4:
+        console.width = min_content_width + 4
+    console.print(panel)
 
 
 def _get_creds_file(creds_dir: Path) -> Path:
