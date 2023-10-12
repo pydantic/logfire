@@ -244,7 +244,7 @@ def test_instrument_extract_false(logfire: Logfire, exporter: TestExporter):
 
 
 def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter):
-    class Model(BaseModel):
+    class Model(BaseModel, plugin_settings={'logfire': 'disable'}):
         a: int
 
     @logfire.instrument('hello-world {a=}')
@@ -319,7 +319,7 @@ def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter
 
 
 def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> None:
-    class Model(BaseModel):
+    class Model(BaseModel, plugin_settings={'logfire': 'disable'}):
         a: int
 
     def run(a: str) -> None:

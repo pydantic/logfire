@@ -25,10 +25,15 @@ class TestExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
         self.exported_spans.extend(spans)
 
-    def exported_spans_as_dict(self) -> list[dict[str, Any]]:
+    def exported_spans_as_dict(self, *, full_attributes: bool = False) -> list[dict[str, Any]]:
         def build_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:
             if attributes is None:
                 return None
+            elif full_attributes:
+                return dict(attributes)
+
+            # FIXME(Samuel) this seems confusion and unnecessary, we should just use the full attributes
+            #   and use dirty-equals where attributes are non-deterministic, e.g. make full_attributes=True universal
             out: dict[str, Any] = {}
             if 'code.namespace' in attributes:
                 out['code.namespace'] = attributes['code.namespace']

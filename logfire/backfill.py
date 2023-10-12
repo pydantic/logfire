@@ -8,7 +8,7 @@ from typing_extensions import Annotated, Self
 from . import LevelName
 
 try:
-    from pydantic import BaseModel, Field, validate_call
+    from pydantic import BaseModel, ConfigDict, Field, validate_call
 except ImportError as e:
     raise ImportError('pydantic is required to use logfire.import, run `pip install logfire[backfill]`') from e
 
@@ -25,7 +25,11 @@ def generate_span_id() -> int:
     return ID_GENERATOR.generate_span_id()
 
 
+pydantic_config = ConfigDict(plugin_settings={'logfire': 'disable'})
+
+
 class RecordLog(BaseModel):
+    model_config = pydantic_config
     type: Literal['log'] = 'log'
     msg_template: str
     level: LevelName
@@ -38,6 +42,7 @@ class RecordLog(BaseModel):
 
 
 class StartSpan(BaseModel):
+    model_config = pydantic_config
     type: Literal['start_span'] = 'start_span'
     span_name: str
     msg_template: str
@@ -51,6 +56,7 @@ class StartSpan(BaseModel):
 
 
 class EndSpan(BaseModel):
+    model_config = pydantic_config
     type: Literal['end_span'] = 'end_span'
     span_id: int
     end_timestamp: datetime | None = None
@@ -66,7 +72,7 @@ class PrepareBackfill:
         self.write_file = self.store_path.open('wb')
         return self
 
-    @validate_call
+    @validate_call(config=pydantic_config)
     def write(
         self, data: Annotated[RecordLog | StartSpan | EndSpan, Field(discriminator='type')]
     ) -> RecordLog | StartSpan | EndSpan:

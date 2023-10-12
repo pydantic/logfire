@@ -13,7 +13,7 @@ from uuid import UUID
 
 import pytest
 from dirty_equals import IsInt, IsStr
-from pydantic import AnyUrl, BaseModel, FilePath, NameEmail, SecretBytes, SecretStr
+from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from logfire import Logfire
@@ -21,8 +21,11 @@ from logfire._flatten import Flatten
 
 from .conftest import TestExporter
 
+pydantic_model_config = ConfigDict(plugin_settings={'logfire': 'disable'})
+
 
 class MyModel(BaseModel):
+    model_config = pydantic_model_config
     x: str
     y: int
     u: AnyUrl
@@ -33,7 +36,7 @@ class MyDataclass:
     t: int
 
 
-@pydantic_dataclass
+@pydantic_dataclass(config=pydantic_model_config)
 class MyPydanticDataclass:
     p: int
 
@@ -294,6 +297,7 @@ def test_instrument_generator_arg(logfire: Logfire, exporter: TestExporter) -> N
 
 def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -> None:
     class MyModel(BaseModel):
+        model_config = pydantic_model_config
         x: str
         y: datetime
 
@@ -305,7 +309,7 @@ def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -
 
     dc = MyDataclass(10)
 
-    @pydantic_dataclass
+    @pydantic_dataclass(config=pydantic_model_config)
     class MyPydanticDataclass:
         p: int
 
