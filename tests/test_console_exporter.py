@@ -1,87 +1,72 @@
 import io
 
-import pytest
-import structlog
-from dirty_equals import IsInstance
 from opentelemetry import trace
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from structlog.testing import LogCapture
+from opentelemetry.sdk.trace import ReadableSpan
 
-from logfire import Logfire
-from logfire.config import LogfireConfig
 from logfire.exporters.console import ConsoleSpanExporter
 
-
-@pytest.fixture(name='log_output')
-def fixture_log_output():
-    return LogCapture()
+tracer = trace.get_tracer('test')
 
 
-@pytest.fixture(autouse=True)
-def fixture_configure_structlog(log_output: LogCapture):
-    structlog.configure(processors=[log_output])
+NANOSECONDS_PER_SECOND = int(1e9)
 
 
-def test_console_exporter(log_output: LogCapture) -> None:
-    output = io.StringIO()
-    provider = TracerProvider(resource=Resource(attributes={SERVICE_NAME: 'test'}))
-    processor = SimpleSpanProcessor(ConsoleSpanExporter(output=output))
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-    tracer = trace.get_tracer(__name__)
+def test_console_exporter() -> None:
+    out = io.StringIO()
 
-    with tracer.start_as_current_span('rootSpan'):
-        with tracer.start_as_current_span('childSpan'):
-            ...
-
-    assert log_output.entries == [
-        {'event': 'childSpan', 'indent': 0, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
-        {'event': 'rootSpan', 'indent': 0, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
+    spans = [
+        ReadableSpan(
+            name='rootSpan',
+            context=trace.SpanContext(trace_id=0, span_id=1, is_remote=False),
+            parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
+            attributes={'logfire.log_type': 'start_span', 'logfire.msg_template': 'rootSpan'},
+            start_time=2 * NANOSECONDS_PER_SECOND,
+            end_time=2 * NANOSECONDS_PER_SECOND,
+        ),
+        ReadableSpan(
+            name='childSpan',
+            context=trace.SpanContext(trace_id=0, span_id=3, is_remote=False),
+            parent=trace.SpanContext(trace_id=0, span_id=4, is_remote=False),
+            attributes={
+                'logfire.log_type': 'start_span',
+                'logfire.msg_template': 'childSpan',
+                'logfire.start_parent_id': 0,
+            },
+            start_time=5 * NANOSECONDS_PER_SECOND,
+            end_time=5 * NANOSECONDS_PER_SECOND,
+        ),
+        ReadableSpan(
+            name='childSpan',
+            context=trace.SpanContext(trace_id=0, span_id=4, is_remote=False),
+            parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
+            attributes={'logfire.log_type': 'real_span', 'logfire.start_parent_id': 0},
+            start_time=5 * NANOSECONDS_PER_SECOND,
+            end_time=6 * NANOSECONDS_PER_SECOND,
+        ),
+        ReadableSpan(
+            name='rootSpan',
+            context=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
+            parent=None,
+            attributes={'logfire.log_type': 'real_span'},
+            start_time=2 * NANOSECONDS_PER_SECOND,
+            end_time=7 * NANOSECONDS_PER_SECOND,
+        ),
     ]
 
+    ConsoleSpanExporter(output=out, verbose=True).export(spans)
 
-def test_logfire_with_console_exporter(log_output: LogCapture, config: LogfireConfig) -> None:
-    exporter = ConsoleSpanExporter()
-    logfire = Logfire(LogfireConfig.from_exporters(exporter, service_name='logfire-sdk-testing'))
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m',
+        '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan                     \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000004\x1b[0m \x1b[36mparent_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m',
+    ]
 
-    @logfire.instrument('hello-world {a=}')
-    def hello_world(a: int) -> None:
-        logfire.tags('tag1', 'tag2').info('aha {i}', i=0)
-        logfire.tags('tag1', 'tag2').info('aha {i}', i=1)
+    out = io.StringIO()
 
-        with logfire.span('more stuff', span_name='nested-span1'):
-            logfire.warning('this is a warning')
-            with logfire.span('more stuff', span_name='nested-span2'):
-                logfire.warning('this is another warning')
+    ConsoleSpanExporter(output=out, verbose=False).export(spans)
 
-    hello_world(123)
-    logfire._config.provider.force_flush()
-    assert log_output.entries == [
-        {
-            'event': 'hello-world a=123',
-            'indent': 0,
-            'log_level': 'info',
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-        },
-        {'event': 'aha 0', 'indent': 1, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
-        {'event': 'aha 1', 'indent': 1, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
-        {'event': 'more stuff', 'indent': 1, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
-        {
-            'event': 'this is a warning',
-            'indent': 2,
-            'log_level': 'info',
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-        },
-        {'event': 'more stuff', 'indent': 2, 'log_level': 'info', 'span': IsInstance(ReadableSpan), 'verbose': True},
-        {
-            'event': 'this is another warning',
-            'indent': 3,
-            'log_level': 'info',
-            'span': IsInstance(ReadableSpan),
-            'verbose': True,
-        },
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan\x1b[0m',
+        '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan\x1b[0m',
     ]
