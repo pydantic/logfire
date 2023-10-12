@@ -164,6 +164,7 @@ class Logfire:
                 span_name_ = span_name
             self._self_log(f'Instrumenting {func=} {span_name=}')
 
+            pos_params = ()
             if extract_args:
                 sig = inspect_signature(func)
                 pos_params = tuple(n for n, p in sig.parameters.items() if p.kind in _POSITIONAL_PARAMS)
