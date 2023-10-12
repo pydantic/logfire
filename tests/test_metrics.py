@@ -6,9 +6,8 @@ from opentelemetry.sdk.resources import SERVICE_NAME
 
 from logfire import Logfire
 from logfire._metrics import set_meter_provider
+from logfire.testing import TestMetricExporter
 from logfire.version import VERSION
-
-from .conftest import TestMetricExporter
 
 
 def test_metric_exporter(logfire: Logfire, metric_exporter: TestMetricExporter) -> None:

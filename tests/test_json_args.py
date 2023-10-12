@@ -18,8 +18,7 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from logfire import Logfire
 from logfire._flatten import Flatten
-
-from .conftest import TestExporter
+from logfire.testing import TestExporter
 
 pydantic_model_config = ConfigDict(plugin_settings={'logfire': 'disable'})
 

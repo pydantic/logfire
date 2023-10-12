@@ -1,12 +1,10 @@
 import importlib.metadata
 
 import pytest
-from dirty_equals import IsJson
 from pydantic import BaseModel, ValidationError
 
 from logfire import Logfire
-
-from .conftest import TestExporter
+from logfire.testing import TestExporter
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -47,14 +45,14 @@ def test_pydantic_plugin_python_success(logfire: Logfire, exporter: TestExporter
 
     MyModel(x=1)
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_python',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -66,10 +64,10 @@ def test_pydantic_plugin_python_success(logfire: Logfire, exporter: TestExporter
         },
         {
             'name': 'Validation successful result=MyModel(x=1)',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'result__JSON': '{"$__datatype__":"BaseModel","data":{"x":1},"cls":"MyModel"}',
                 'logfire.log_type': 'log',
@@ -81,10 +79,10 @@ def test_pydantic_plugin_python_success(logfire: Logfire, exporter: TestExporter
         },
         {
             'name': 'pydantic.validate_python',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
@@ -99,14 +97,14 @@ def test_pydantic_plugin_python_error(logfire: Logfire, exporter: TestExporter, 
     with pytest.raises(ValidationError):
         MyModel(x='a')
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_python',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -118,23 +116,14 @@ def test_pydantic_plugin_python_error(logfire: Logfire, exporter: TestExporter, 
         },
         {
             'name': '1 validation error',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'error_count': 1,
                 'plural': '',
-                'errors__JSON': IsJson(
-                    [
-                        {
-                            'type': 'int_parsing',
-                            'loc': ['x'],
-                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                            'input': 'a',
-                        }
-                    ]
-                ),
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
                 'logfire.log_type': 'log',
                 'logfire.level': 'warning',
                 'logfire.msg_template': '{error_count} validation error{plural}',
@@ -144,10 +133,10 @@ def test_pydantic_plugin_python_error(logfire: Logfire, exporter: TestExporter, 
         },
         {
             'name': 'pydantic.validate_python',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
@@ -161,14 +150,14 @@ def test_pydantic_plugin_json_success(logfire: Logfire, exporter: TestExporter, 
 
     MyModel.model_validate_json('{"x":1}')
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_json',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -180,10 +169,10 @@ def test_pydantic_plugin_json_success(logfire: Logfire, exporter: TestExporter, 
         },
         {
             'name': 'Validation successful result=MyModel(x=1)',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'result__JSON': '{"$__datatype__":"BaseModel","data":{"x":1},"cls":"MyModel"}',
                 'logfire.log_type': 'log',
@@ -195,10 +184,10 @@ def test_pydantic_plugin_json_success(logfire: Logfire, exporter: TestExporter, 
         },
         {
             'name': 'pydantic.validate_json',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
@@ -213,14 +202,14 @@ def test_pydantic_plugin_json_error(logfire: Logfire, exporter: TestExporter, mo
     with pytest.raises(ValidationError):
         MyModel.model_validate({'x': 'a'})
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_python',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -232,23 +221,14 @@ def test_pydantic_plugin_json_error(logfire: Logfire, exporter: TestExporter, mo
         },
         {
             'name': '1 validation error',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'error_count': 1,
                 'plural': '',
-                'errors__JSON': IsJson(
-                    [
-                        {
-                            'type': 'int_parsing',
-                            'loc': ['x'],
-                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                            'input': 'a',
-                        }
-                    ]
-                ),
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
                 'logfire.log_type': 'log',
                 'logfire.level': 'warning',
                 'logfire.msg_template': '{error_count} validation error{plural}',
@@ -258,10 +238,10 @@ def test_pydantic_plugin_json_error(logfire: Logfire, exporter: TestExporter, mo
         },
         {
             'name': 'pydantic.validate_python',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
@@ -275,14 +255,14 @@ def test_pydantic_plugin_strings_success(logfire: Logfire, exporter: TestExporte
 
     MyModel.model_validate_strings({'x': '1'}, strict=True)
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_strings',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -294,10 +274,10 @@ def test_pydantic_plugin_strings_success(logfire: Logfire, exporter: TestExporte
         },
         {
             'name': 'Validation successful result=MyModel(x=1)',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'result__JSON': '{"$__datatype__":"BaseModel","data":{"x":1},"cls":"MyModel"}',
                 'logfire.log_type': 'log',
@@ -309,10 +289,10 @@ def test_pydantic_plugin_strings_success(logfire: Logfire, exporter: TestExporte
         },
         {
             'name': 'pydantic.validate_strings',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]
@@ -327,14 +307,14 @@ def test_pydantic_plugin_strings_error(logfire: Logfire, exporter: TestExporter,
     with pytest.raises(ValidationError):
         MyModel.model_validate_strings({'x': 'a'})
 
-    # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
-    assert exporter.exported_spans_as_dict(full_attributes=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'Pydantic MyModel validate_strings',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1,
-            'end_time': 1,
+            'context': {'trace_id': 0, 'span_id': 0, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 2,
+            'end_time': 2,
             'attributes': {
                 'logfire.log_type': 'start_span',
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -346,23 +326,14 @@ def test_pydantic_plugin_strings_error(logfire: Logfire, exporter: TestExporter,
         },
         {
             'name': '1 validation error',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2,
-            'end_time': 2,
+            'context': {'trace_id': 0, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
+            'start_time': 4,
+            'end_time': 4,
             'attributes': {
                 'error_count': 1,
                 'plural': '',
-                'errors__JSON': IsJson(
-                    [
-                        {
-                            'type': 'int_parsing',
-                            'loc': ['x'],
-                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                            'input': 'a',
-                        }
-                    ]
-                ),
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
                 'logfire.log_type': 'log',
                 'logfire.level': 'warning',
                 'logfire.msg_template': '{error_count} validation error{plural}',
@@ -372,10 +343,10 @@ def test_pydantic_plugin_strings_error(logfire: Logfire, exporter: TestExporter,
         },
         {
             'name': 'pydantic.validate_strings',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'context': {'trace_id': 0, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': 1,
-            'end_time': 3,
+            'start_time': 2,
+            'end_time': 5,
             'attributes': {'logfire.log_type': 'real_span'},
         },
     ]

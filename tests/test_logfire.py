@@ -11,8 +11,7 @@ from pydantic_core import ValidationError
 
 from logfire import Logfire, LogfireSpan
 from logfire._main import LEVEL_KEY, LOG_TYPE_KEY, MSG_TEMPLATE_KEY, NULL_ARGS_KEY, START_PARENT_ID, TAGS_KEY
-
-from .conftest import TestExporter
+from logfire.testing import TestExporter
 
 
 def test_span_without_kwargs(logfire: Logfire) -> None:

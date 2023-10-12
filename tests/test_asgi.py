@@ -10,8 +10,7 @@ from starlette.types import ASGIApp
 
 from logfire import Logfire
 from logfire.integrations.asgi import LogfireMiddleware
-
-from .conftest import TestExporter
+from logfire.testing import TestExporter
 
 
 def test_fastapi_middleware_get_attributes():

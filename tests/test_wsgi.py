@@ -6,8 +6,7 @@ from dirty_equals import IsDatetime, IsStr
 
 from logfire import Logfire
 from logfire.integrations.wsgi import LogfireMiddleware
-
-from .conftest import TestExporter
+from logfire.testing import TestExporter
 
 
 def wsgi(environ: dict[str, Any], start_response: Callable[..., None]) -> list[bytes]:
