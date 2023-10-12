@@ -21,7 +21,7 @@ typing-extensions = ">=4.0.0"
 httpx = ">=0.22.0"
 psutil = ">=5.9.5"
 # Extras
-pydantic = {version = ">=2.3", optional = true}
+pydantic = {optional = true, git = "https://github.com/pydantic/pydantic.git", branch = "main"}
 opentelemetry-instrumentation-wsgi = {version = ">=0.40b0", optional = true}
 opentelemetry-instrumentation-asgi = {version = ">=0.40b0", optional = true}
 

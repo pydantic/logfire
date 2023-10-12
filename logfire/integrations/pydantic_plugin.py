@@ -68,6 +68,10 @@ class BaseValidateHandler:
         )
         self.span_stack.close()
 
+    def on_exception(self, exception: Exception) -> None:
+        logfire.error('{exception=}', exception=exception)
+        self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
+
 
 def get_schema_name(schema: CoreSchema) -> str:
     """
