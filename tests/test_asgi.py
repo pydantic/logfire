@@ -51,8 +51,6 @@ def test_fastapi_middleware(logfire: Logfire, exporter: TestExporter):
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    logfire._config.provider.force_flush()
-
     assert len(exporter.exported_spans)
 
 
@@ -75,5 +73,4 @@ def test_fastapi_middleware_with_lifespan(logfire: Logfire, exporter: TestExport
     assert startup_complete
     assert cleanup_complete
 
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 0

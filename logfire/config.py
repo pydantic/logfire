@@ -12,8 +12,8 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import MeterProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 
 from ._metrics import set_meter_provider
@@ -165,10 +165,12 @@ class LogfireConfig:
             file_creds.print_existing_token_summary(logfire_dir)
 
         meter_provider = None
-        exporters: list[SpanExporter] = []
+        processors: list[SpanProcessor] = []
         if send and logfire_token is not None:
             headers = {'Authorization': logfire_token, **COMMON_REQUEST_HEADERS}
-            exporters.append(OTLPSpanExporter(endpoint=f'{logfire_api_root_str}/v1/traces', headers=headers))
+            processors.append(
+                BatchSpanProcessor(OTLPSpanExporter(endpoint=f'{logfire_api_root_str}/v1/traces', headers=headers))
+            )
 
             metric_exporter = OTLPMetricExporter(endpoint=f'{logfire_api_root_str}/v1/metrics', headers=headers)
             meter_provider = set_meter_provider(exporter=metric_exporter)
@@ -177,16 +179,15 @@ class LogfireConfig:
             from .exporters.console import ConsoleSpanExporter
 
             # TODO(Samuel) use console_colors
-            exporters.append(ConsoleSpanExporter(verbose=console_print == 'verbose'))
+            processors.append(SimpleSpanProcessor(ConsoleSpanExporter(verbose=console_print == 'verbose')))
 
-        return cls.from_exporters(*exporters, service_name=service_name, meter_provider=meter_provider)
+        return cls.from_processors(*processors, service_name=service_name, meter_provider=meter_provider)
 
     @classmethod
-    def from_exporters(
+    def from_processors(
         cls,
-        *exporters: SpanExporter,
+        *processors: SpanProcessor,
         service_name: str,
-        schedule_delay_millis: int = 1,
         meter_provider: MeterProvider | None = None,
         id_generator: IdGenerator | None = None,
         ns_time_generator: Callable[[], int] = lambda: int(time.time() * 1e9),
@@ -194,8 +195,8 @@ class LogfireConfig:
         provider = TracerProvider(
             resource=Resource(attributes={SERVICE_NAME: service_name}), id_generator=id_generator or RandomIdGenerator()
         )
-        for exporter in exporters:
-            provider.add_span_processor(BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis))
+        for processor in processors:
+            provider.add_span_processor(processor)
         return cls(
             provider=provider,
             service_name=service_name,

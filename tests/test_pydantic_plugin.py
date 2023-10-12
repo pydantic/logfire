@@ -47,7 +47,6 @@ def test_pydantic_plugin_python_success(logfire: Logfire, exporter: TestExporter
 
     MyModel(x=1)
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {
@@ -100,7 +99,6 @@ def test_pydantic_plugin_python_error(logfire: Logfire, exporter: TestExporter, 
     with pytest.raises(ValidationError):
         MyModel(x='a')
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {
@@ -163,7 +161,6 @@ def test_pydantic_plugin_json_success(logfire: Logfire, exporter: TestExporter, 
 
     MyModel.model_validate_json('{"x":1}')
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {
@@ -216,7 +213,6 @@ def test_pydantic_plugin_json_error(logfire: Logfire, exporter: TestExporter, mo
     with pytest.raises(ValidationError):
         MyModel.model_validate({'x': 'a'})
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {
@@ -279,7 +275,6 @@ def test_pydantic_plugin_strings_success(logfire: Logfire, exporter: TestExporte
 
     MyModel.model_validate_strings({'x': '1'}, strict=True)
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {
@@ -332,7 +327,6 @@ def test_pydantic_plugin_strings_error(logfire: Logfire, exporter: TestExporter,
     with pytest.raises(ValidationError):
         MyModel.model_validate_strings({'x': 'a'})
 
-    logfire._config.provider.force_flush()
     # insert_assert(exporter.exported_spans_as_dict(full_attributes=True))
     assert exporter.exported_spans_as_dict(full_attributes=True) == [
         {

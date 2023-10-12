@@ -180,7 +180,6 @@ class MyBytes(bytes):
 def test_log_non_scalar_args(logfire: Logfire, exporter: TestExporter, value, value_repr, value_json) -> None:
     logfire.info('test message {var=}', var=value)
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith(f'test message var={value_repr}')
@@ -246,7 +245,6 @@ def test_log_non_scalar_args(logfire: Logfire, exporter: TestExporter, value, va
 def test_log_flatten(logfire: Logfire, exporter: TestExporter, value: Flatten, attributes: dict[str, Any]) -> None:
     logfire.info('test message {var=}', var=value)
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     # insert_assert(json.loads(s.to_json())['attributes'])
@@ -256,7 +254,6 @@ def test_log_flatten(logfire: Logfire, exporter: TestExporter, value: Flatten, a
 def test_log_dataclass_arg(logfire: Logfire, exporter: TestExporter) -> None:
     logfire.info('test message {dc.t} repr = {dc}', dc=MyDataclass(t=1))
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'test message 1 repr = MyDataclass(t=1)'
@@ -269,7 +266,6 @@ def test_log_generator_arg(logfire: Logfire, exporter: TestExporter) -> None:
 
     logfire.info('test message {var=}', var=generator())
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith('test message var=<generator object test_log_generator_arg.<locals>.generator')
@@ -288,7 +284,6 @@ def test_instrument_generator_arg(logfire: Logfire, exporter: TestExporter) -> N
 
     assert hello_world(generator()) is None
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name.startswith('test message var=<generator object test_instrument_generator_arg.<locals>.generator')
@@ -321,7 +316,6 @@ def test_log_non_scalar_complex_args(logfire: Logfire, exporter: TestExporter) -
         complex_dict={'k1': 'v1', 'model': model, 'dataclass': dc, 'pydantic_dataclass': pdc},
     )
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     # insert_assert(dict(s.attributes))

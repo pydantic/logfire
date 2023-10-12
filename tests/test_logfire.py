@@ -94,7 +94,6 @@ def test_span_without_span_name(logfire: Logfire, exporter: TestExporter) -> Non
     assert s.start_span.attributes[MSG_TEMPLATE_KEY] == 'test {name=} {number}'
     assert TAGS_KEY not in s.real_span.attributes
 
-    logfire._config.provider.force_flush()
     # debug([(s.name, s.attributes) for s in exporter.exported_spans])
     assert len(exporter.exported_spans) == 2
     # # because both spans have been ended
@@ -130,7 +129,6 @@ def test_span_end_on_exit_false(logfire: Logfire, exporter: TestExporter) -> Non
     assert s.start_span.start_time == s.real_span.start_time
     assert s.start_span.end_time == s.real_span.start_time
 
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 1
     span = exporter.exported_spans[0]
     assert span.attributes['logfire.log_type'] == 'start_span'
@@ -141,7 +139,6 @@ def test_span_end_on_exit_false(logfire: Logfire, exporter: TestExporter) -> Non
 
     assert isinstance(s.real_span.end_time, int)
     assert s.real_span.end_time > s.real_span.start_time
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 2
     span = exporter.exported_spans[1]
     assert span.attributes['logfire.log_type'] == 'real_span'
@@ -151,7 +148,6 @@ def test_span_end_on_exit_false(logfire: Logfire, exporter: TestExporter) -> Non
 def test_log(logfire: Logfire, exporter: TestExporter, level: str):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[LEVEL_KEY] == level
@@ -166,7 +162,6 @@ def test_log(logfire: Logfire, exporter: TestExporter, level: str):
 def test_log_equals(logfire: Logfire, exporter: TestExporter) -> None:
     logfire.info('test message {foo=} {bar=}', foo='foo', bar=3)
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'test message foo=foo bar=3'
@@ -180,7 +175,6 @@ def test_log_equals(logfire: Logfire, exporter: TestExporter) -> None:
 def test_log_with_tags(logfire: Logfire, exporter: TestExporter):
     logfire.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.attributes[MSG_TEMPLATE_KEY] == 'test {name} {number}'
@@ -193,14 +187,12 @@ def test_log_with_tags(logfire: Logfire, exporter: TestExporter):
 def test_log_with_multiple_tags(logfire: Logfire, exporter: TestExporter):
     logfire_with_2_tags = logfire.tags('tag1').tags('tag2')
     logfire_with_2_tags.info('test {name} {number}', name='foo', number=2)
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 1
     s = exporter.exported_spans[0]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2')
 
     logfire_with_4_tags = logfire_with_2_tags.tags('tag3', 'tag4')
     logfire_with_4_tags.info('test {name} {number}', name='foo', number=2)
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 2
     s = exporter.exported_spans[1]
     assert s.attributes[TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
@@ -213,7 +205,6 @@ def test_instrument(logfire: Logfire, exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world a=123'
@@ -236,7 +227,6 @@ def test_instrument_extract_false(logfire: Logfire, exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    logfire._config.provider.force_flush()
     s = exporter.exported_spans[0]
 
     assert s.name == 'hello-world'
@@ -253,8 +243,6 @@ def test_validation_error_on_instrument(logfire: Logfire, exporter: TestExporter
 
     with pytest.raises(ValidationError):
         run('haha')
-
-    logfire._config.provider.force_flush()
 
     s = exporter.exported_spans.pop()
     assert len(s.events) == 1
@@ -328,8 +316,6 @@ def test_validation_error_on_span(logfire: Logfire, exporter: TestExporter) -> N
 
     with pytest.raises(ValidationError):
         run('haha')
-
-    logfire._config.provider.force_flush()
 
     s = exporter.exported_spans.pop()
     assert len(s.events) == 1
@@ -411,7 +397,6 @@ def test_json_args(logfire: Logfire, exporter: TestExporter) -> None:
     logfire.info('test message {foo=}', foo=Foo(1, 2))
     logfire.info('test message {foos=}', foos=[Foo(1, 2)])
 
-    logfire._config.provider.force_flush()
     assert len(exporter.exported_spans) == 2
     s = exporter.exported_spans[0]
     assert s.name == 'test message foo=Foo(x=1, y=2)'

@@ -25,7 +25,6 @@ def test_wsgi_middleware(logfire: Logfire, exporter: TestExporter) -> None:
         assert response.status_code == 200
         assert response.text == 'Hello, World!'
 
-    logfire._config.provider.force_flush()
     exported_spans = [json.loads(span.to_json()) for span in exporter.exported_spans]
     # insert_assert(exported_spans)
     assert exported_spans == [

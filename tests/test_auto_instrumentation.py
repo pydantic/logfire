@@ -30,8 +30,6 @@ def test_auto_instrumentation_no_filter(logfire: Logfire, exporter: TestExporter
 
         wrap(foo, 1)
 
-    logfire._config.provider.force_flush()  # type: ignore
-
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
@@ -132,8 +130,6 @@ def test_auto_instrumentation_filter_modules(logfire: Logfire, exporter: TestExp
         install_automatic_instrumentation(modules=[__name__], logfire=logfire)
 
         wrap(foo, 1)
-
-    logfire._config.provider.force_flush()  # type: ignore
 
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [

@@ -8,7 +8,7 @@ from opentelemetry.sdk.metrics._internal.aggregation import AggregationTemporali
 from opentelemetry.sdk.metrics._internal.point import MetricsData
 from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 from logfire import Logfire
@@ -158,8 +158,11 @@ def metric_exporter() -> TestMetricExporter:
 def config(
     exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator
 ) -> LogfireConfig:
-    return LogfireConfig.from_exporters(
-        exporter, service_name='logfire-sdk-testing', id_generator=id_generator, ns_time_generator=time_generator
+    return LogfireConfig.from_processors(
+        SimpleSpanProcessor(exporter),
+        service_name='logfire-sdk-testing',
+        id_generator=id_generator,
+        ns_time_generator=time_generator,
     )
 
 
