@@ -1,10 +1,10 @@
 The Pydantic Logfire is the observability tool focused on developer experience.
 
-<!-- TODO: Add some images here. -->
+<!-- TODO(Marcelo): Add some images here. -->
 
 ## Features
 
-<!-- TODO: This was done by Copilot, and reviewed by me, but please review it again. -->
+<!-- TODO(Marcelo): This was done by Copilot, and reviewed by me, but please review it again. -->
 
 - **Easy to use**: Logfire is easy to use, and configure.
 - **Fast**: Logfire is fast, and doesn't add any overhead to your application.
@@ -15,9 +15,34 @@ The Pydantic Logfire is the observability tool focused on developer experience.
 
 To install the latest version of Logfire, run the following command:
 
-```bash
-pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-```
+=== "pip"
+
+    ```bash
+    pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
+
+=== "poetry"
+
+    ```bash
+    poetry add logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
+
+You can also add it to your project requirements:
+
+<!-- TODO(Marcelo): Recommend people to pin the logfire version. -->
+=== "pip"
+
+    ```txt title='requirements.txt'
+    --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    logfire
+    ```
+
+=== "poetry"
+
+    ```toml title='pyproject.toml'
+    [tool.poetry.dependencies]
+    logfire = { index = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/" }
+    ```
 
 ## Usage
 
