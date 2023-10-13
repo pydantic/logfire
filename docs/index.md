@@ -8,7 +8,6 @@ The Pydantic Logfire is the observability tool focused on developer experience.
 
 - **Easy to use**: Logfire is easy to use, and configure.
 - **Fast**: Logfire is fast, and doesn't add any overhead to your application.
-- **Open source**: Logfire is open source, and free to use.
 - **Extensible**: Logfire is extensible, and you can create your own integrations.
 
 ## Installation
