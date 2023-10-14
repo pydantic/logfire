@@ -49,8 +49,7 @@ def configure(
     processors: Sequence[SpanProcessor] | None = None,
     default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
 ) -> None:
-    f"""
-    Configure the logfire SDK.
+    """Configure the logfire SDK.
 
     Args:
         send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
@@ -58,13 +57,13 @@ def configure(
             `send_to_logfire` is True a new `anon_` project will be created using `project_name`.
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
-        console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {{indent}} [message]` lines, or to output full details of every log message.
+        console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {indent} [message]` lines, or to output full details of every log message.
             If `None` uses the `LOGFIRE_CONSOLE_PRINT` environment variable, otherwise defaults to `'concise'`.
         console_colors: Whether to color terminal output. If `None` uses the `LOGFIRE_CONSOLE_COLORS` environment variable, otherwise defaults to `'auto'`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `'new-project'`.
         logfire_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_DIR` environment variable, otherwise defaults to `'.logfire'`.
-        logfire_api_root: Root URL for the Logfire API. If `None` uses the `LOGFIRE_API_ROOT` environment variable, otherwise defaults to {LOGFIRE_API_ROOT}.
+        logfire_api_root: Root URL for the Logfire API. If `None` uses the `LOGFIRE_API_ROOT` environment variable, otherwise defaults to https://api.logfire.dev.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to `time.time_ns` from the Python standard library.
         processors: Span processors to use. Defaults to an empty sequence.

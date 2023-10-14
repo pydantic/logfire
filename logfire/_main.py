@@ -124,7 +124,7 @@ class Logfire:
         Args:
             msg_template: The template for the span message.
             span_name: The span name. If not provided, the rendered message will be used.
-            kwargs: The arguments to format the span message template with.
+            attributes: The arguments to format the span message template with.
 
         ```py
         import logfire
@@ -195,13 +195,13 @@ class Logfire:
 
         return decorator
 
-    def log(self, msg_template: LiteralString, level: LevelName, **attributes: Any) -> None:
+    def log(self, msg_template: LiteralString, /, level: LevelName, **attributes: Any) -> None:
         """Log a message.
 
         Args:
-            message: The message to log.
+            msg_template: The message to log.
             level: The level of the log.
-            kwargs: The attributes to bind to the log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -240,12 +240,12 @@ class Logfire:
             span.set_status(trace_api.Status(trace_api.StatusCode.OK))
             span.end(start_time)
 
-    def debug(self, message: LiteralString, **attributes: Any) -> None:
+    def debug(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a debug message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -253,14 +253,14 @@ class Logfire:
         logfire.debug('This is a debug log')
         ```
         """
-        self.log(message, 'debug', **attributes)
+        self.log(msg_template, 'debug', **attributes)
 
-    def info(self, message: LiteralString, **attributes: Any) -> None:
+    def info(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an info message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -268,14 +268,14 @@ class Logfire:
         logfire.info('This is an info log')
         ```
         """
-        self.log(message, 'info', **attributes)
+        self.log(msg_template, 'info', **attributes)
 
-    def notice(self, message: LiteralString, **attributes: Any) -> None:
+    def notice(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a notice message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -283,14 +283,14 @@ class Logfire:
         logfire.notice('This is a notice log')
         ```
         """
-        self.log(message, 'notice', **attributes)
+        self.log(msg_template, 'notice', **attributes)
 
-    def warning(self, message: LiteralString, **attributes: Any) -> None:
+    def warning(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a warning message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -298,14 +298,14 @@ class Logfire:
         logfire.warning('This is a warning log')
         ```
         """
-        self.log(message, 'warning', **attributes)
+        self.log(msg_template, 'warning', **attributes)
 
-    def error(self, message: LiteralString, **attributes: Any) -> None:
+    def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an error message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -313,14 +313,14 @@ class Logfire:
         logfire.error('This is an error log')
         ```
         """
-        self.log(message, 'error', **attributes)
+        self.log(msg_template, 'error', **attributes)
 
-    def critical(self, message: LiteralString, **attributes: Any) -> None:
+    def critical(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a critical message.
 
         Args:
-            message: The message to log.
-            kwargs: The attributes to bind to the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
 
         ```py
         import logfire
@@ -328,7 +328,7 @@ class Logfire:
         logfire.critical('This is a critical log')
         ```
         """
-        self.log(message, 'critical', **attributes)
+        self.log(msg_template, 'critical', **attributes)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
