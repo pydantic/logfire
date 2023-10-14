@@ -4,10 +4,11 @@ import importlib
 import inspect
 import re
 import sys
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ContextManager, Literal
 
 from typing_extensions import TypedDict
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from _typeshed import ProfileFunction
 
 
-_SPANS: dict[tuple[FrameType, str], LogfireSpan] = {}
+_SPANS: dict[tuple[FrameType, str], ContextManager[LogfireSpan]] = {}
 
 
 class ExtractedMetadata(TypedDict):
@@ -98,22 +99,21 @@ class FuncTracer:
             if metadata['namespace'] is not None:
                 attributes['code.namespace'] = metadata['namespace']
             logfire_span_gen = self.logfire.span(
-                'function {func_name}() called', span_name=name, **attributes, func_name=metadata['function']
+                'function {function_name}() called',
+                span_name=name,
+                **attributes,
+                function_name=metadata['function'],
             )
-            logfire_span = logfire_span_gen.__enter__()
-            logfire_span.end_on_exit = False
-            _SPANS[(frame, 'call')] = logfire_span
+            logfire_span_gen.__enter__()
+            _SPANS[(frame, 'call')] = logfire_span_gen
         elif event == 'return' or event == 'c_return':
             f = frame
             while f:
-                logfire_span: LogfireSpan | None = _SPANS.pop((f, 'call'), None)
+                logfire_span: ContextManager[LogfireSpan] | None = _SPANS.pop((f, 'call'), None)
                 if logfire_span is not None:
-                    logfire_span.end()
+                    logfire_span.__exit__(None, None, None)
                     break
                 f = f.f_back
-
-
-_TRACERS: list[FuncTracer] = []
 
 
 def get_module_path(module: str) -> str:
@@ -156,16 +156,15 @@ def install_automatic_instrumentation(modules: list[str] | None = None, logfire:
     else:
         modules_pattern = '|'.join([get_module_path(module) for module in modules])
     if logfire is None:
-        from logfire import _default_logger  # type: ignore
+        from logfire import DEFAULT_LOGFIRE_INSTANCE
 
-        logfire = _default_logger
+        logfire = DEFAULT_LOGFIRE_INSTANCE
     tracer = FuncTracer(
         logfire=logfire,
         modules=re.compile(modules_pattern),
         previous_tracer=sys.getprofile(),
     )
     sys.setprofile(tracer)
-    _TRACERS.append(tracer)
 
 
 def uninstall_automatic_instrumentation() -> None:
@@ -173,8 +172,13 @@ def uninstall_automatic_instrumentation() -> None:
 
     This will stop tracing all function calls.
     """
-    last_tracer = _TRACERS.pop()
     current_tracer = sys.getprofile()
-    if current_tracer is not last_tracer:
-        raise RuntimeError('current tracer does not match last tracer')
-    sys.setprofile(last_tracer.previous_tracer)
+    if isinstance(current_tracer, FuncTracer):
+        # if the current tracer is a FuncTracer then we are in a nested call to install_automatic_instrumentation
+        # so we need to set the previous tracer to the previous tracer of the last tracer
+        sys.setprofile(current_tracer.previous_tracer)
+    else:
+        warnings.warn(
+            'uninstall_automatic_instrumentation called without a previous call to install_automatic_instrumentation',
+            UserWarning,
+        )

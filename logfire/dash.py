@@ -78,7 +78,7 @@ async def query(q: str) -> list[dict[str, Any]]:
         raise RuntimeError(_PYODIDE_MUST_INJECT_MESSAGE)
 
     assert httpx is not None
-    from logfire.config import LOGFIRE_API_ROOT
+    from ._constants import LOGFIRE_API_ROOT
 
     # Need to use a logfire configuration
     # Should we expose the token as part of the configuration

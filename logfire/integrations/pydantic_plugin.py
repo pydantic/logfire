@@ -69,7 +69,9 @@ class BaseValidateHandler:
         self.span_stack.close()
 
     def on_exception(self, exception: Exception) -> None:
-        logfire.error('{exception=}', exception=exception)
+        logfire.error(
+            '{exception_type=}: {exception_msg=}', exception=type(exception).__name__, exception_msg=exception
+        )
         self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
 
 

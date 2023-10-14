@@ -3,17 +3,16 @@ from typing import Any, Generic, Mapping, Sequence
 
 from typing_extensions import TypeVar
 
-ValueType = TypeVar('ValueType', default=Any)
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 
-@dataclass(slots=True)
-class Flatten(Generic[ValueType]):
-    value: ValueType
-
-
 FlattenValue = TypeVar('FlattenValue', bound=Mapping[Any, Any] | Sequence[Any])
+
+
+@dataclass(slots=True)
+class Flatten(Generic[FlattenValue]):
+    value: FlattenValue
 
 
 def flatten(value: FlattenValue) -> Flatten[FlattenValue]:

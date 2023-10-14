@@ -1,90 +1,124 @@
-from __future__ import annotations as _annotations
+from __future__ import annotations
 
-import json
-import sys
-from collections.abc import Callable, Iterator
+import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
-from functools import cached_property, wraps
+from functools import wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
-from types import FrameType, TracebackType
-from typing import TYPE_CHECKING, Any, Literal, Mapping, ParamSpec, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterator,
+    LiteralString,
+    Mapping,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
+import opentelemetry.trace as trace_api
 import rich.traceback
-from opentelemetry import propagate, trace
-from opentelemetry.context import Context as OtelContext
-from opentelemetry.sdk.trace import Tracer
-from opentelemetry.util.types import AttributeValue
-from typing_extensions import LiteralString
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import Tracer
+from opentelemetry.util import types as otel_types
 
-from ._flatten import Flatten
-from .config import LogfireConfig
-from .formatter import logfire_format
-from .json_encoder import json_dumps_traceback, logfire_json_dumps
+from logfire.config import DEFAULT_CONFIG, LogfireConfig
 
 try:
-    from pydantic_core import ValidationError as PydanticValidationError
+    from pydantic import ValidationError
 except ImportError:
-    # pydantic is not installed, this is possible since it's not a dependency
-    PydanticValidationError = None
+    ValidationError = None
+from typing_extensions import ParamSpec
 
-__all__ = 'Logfire', 'LogfireContext', 'LogfireSpan', 'TaggedLogfire', 'LevelName'
+from logfire.formatter import logfire_format
 
-LEVEL_KEY = 'logfire.level'
-MSG_TEMPLATE_KEY = 'logfire.msg_template'
-LOG_TYPE_KEY = 'logfire.log_type'
-TAGS_KEY = 'logfire.tags'
-NULL_ARGS_KEY = 'logfire.null_args'
-START_PARENT_ID = 'logfire.start_parent_id'
-LINENO = 'logfire.lineno'
-FILENAME = 'logfire.filename'
-NON_SCALAR_VAR_SUFFIX = '__JSON'
-LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
-LogTypeType = Literal['log', 'start_span', 'real_span']
+from ._constants import (
+    ATTRIBUTES_LOG_LEVEL_KEY,
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    ATTRIBUTES_TAGS_KEY,
+    ATTRIBUTES_VALIDATION_ERROR_KEY,
+    NON_SCALAR_VAR_SUFFIX,
+    NULL_ARGS_KEY,
+    LevelName,
+)
+from ._flatten import Flatten
+from ._tracer import ProxyTracerProvider, get_global_tracer_provider
+from .json_encoder import json_dumps_traceback, logfire_json_dumps
 
-_RETURN = TypeVar('_RETURN')
-_PARAMS = ParamSpec('_PARAMS')
-_POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
-
-_cwd = Path('.').resolve()
+_CDW = Path('.').resolve()
 
 
 class Logfire:
-    """The main class for logging and tracing.
+    def __init__(self, tags: Sequence[str] = (), config: LogfireConfig = DEFAULT_CONFIG) -> None:
+        self._tags = list(tags)
+        self._config = config
+        self.__tracer_provider: ProxyTracerProvider | None = None
+        self._logs_tracer: Tracer | None = None
+        self._spans_tracer: Tracer | None = None
 
-    When you import logfire, you get a default instance of this class.
+    def tags(self, *tags: str) -> Logfire:
+        return Logfire(self._tags + list(tags), self._config)
 
-    Args:
-        config: The config to use. If not provided, the default config will be used.
-    """
+    def _get_tracer_provider(self) -> ProxyTracerProvider:
+        if self.__tracer_provider is None:
+            self.__tracer_provider = get_global_tracer_provider()
+        return self.__tracer_provider
 
-    def __init__(self, config: LogfireConfig | None = None):
-        self._tracer: ContextVar[Tracer | None] = ContextVar('_tracer', default=None)
-        self._init_config: LogfireConfig | None = config
-        self._tags: tuple[str, ...] = ()
+    def _get_config(self) -> LogfireConfig:
+        return self._get_tracer_provider().config
 
-    def tags(self, tag: str, /, *more_tags: str) -> TaggedLogfire:
-        """Add tags to the current context.
-
-        Args:
-            tag: The tag to add.
-            more_tags: Any additional tags to add.
-
-        ```py
-        import logfire
-
-        logfire.tags('tag1', 'tag2').info('new log 1')
-        ```
-        """
-        return TaggedLogfire((tag,) + more_tags, self)
-
-    # Spans
     @contextmanager
-    def span(
-        self, msg_template: LiteralString, *, span_name: str | None = None, **kwargs: Any
+    def _span(
+        self,
+        msg_template: LiteralString,
+        *,
+        span_name: str | None = None,
+        **attributes: Any,
     ) -> Iterator[LogfireSpan]:
+        stack_info = _get_caller_stack_info()
+
+        merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
+        otlp_attributes = user_attributes(merged_attributes)
+        otlp_attributes = _merge_tags_into_attributes(otlp_attributes, self._tags)
+        otlp_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+
+        span_name_: str
+        log_message: str = msg_template
+        if span_name is not None:
+            span_name_ = span_name
+        else:
+            span_name_ = msg_template
+        log_message = logfire_format(msg_template, {'span_name': span_name, **attributes})
+
+        otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
+
+        if self._spans_tracer is None:
+            self._spans_tracer = self._get_tracer_provider().get_tracer(
+                'logfire',  # the name here is really not important, logfire itself doesn't use it
+            )
+
+        span = self._spans_tracer.start_span(
+            name=span_name_,
+            attributes=otlp_attributes,
+        )
+
+        with trace_api.use_span(span, end_on_exit=False, record_exception=False):
+            logfire_span = LogfireSpan(span)
+            with logfire_span.activate():
+                yield logfire_span
+
+    def span(
+        self,
+        msg_template: LiteralString,
+        *,
+        span_name: str | None = None,
+        **attributes: Any,
+    ) -> ContextManager[LogfireSpan]:
         """Context manager for creating a span.
 
         Args:
@@ -99,34 +133,11 @@ class Logfire:
             logfire.info('new log 1')
         ```
         """
-        tracer = self.get_context_tracer()
-        start_time = self._config.ns_time_generator()
-
-        span_name_: str
-        if span_name is not None:
-            span_name_ = span_name
-            kwargs['span_name'] = span_name
-        else:
-            span_name_ = logfire_format(msg_template, kwargs)
-
-        start_parent_id = self._start_parent_id()
-        logfire_attributes = self._logfire_attributes('real_span', start_parent_id=start_parent_id)
-
-        real_span = tracer.start_span(
-            span_name_, attributes=logfire_attributes, start_time=start_time, record_exception=False
+        return self._span(
+            msg_template=msg_template,
+            span_name=span_name,
+            **attributes,
         )
-
-        with trace.use_span(real_span, end_on_exit=False, record_exception=False):
-            start_span = self._span_start(
-                tracer=tracer,
-                outer_parent_id=start_parent_id,
-                start_time=start_time,
-                msg_template=msg_template,
-                kwargs=kwargs,
-            )
-            logfire_span = LogfireSpan(self._config.ns_time_generator, real_span, start_span)
-            with maybe_exit(logfire_span):
-                yield logfire_span
 
     def instrument(
         self,
@@ -146,23 +157,23 @@ class Logfire:
         ```py
         import logfire
 
-        @logfire.instrument('This is a span {a=}', a='data')
-        def my_function():
-            logfire.info('new log 1')
+        @logfire.instrument('This is a span {a=}')
+        def my_function(a: int):
+            logfire.info('new log {a=}', a=a)
         ```
         """
-        tracer = self.get_context_tracer()
-
         if extract_args is None:
             extract_args = bool(msg_template and '{' in msg_template)
 
         def decorator(func: Callable[_PARAMS, _RETURN]) -> Callable[_PARAMS, _RETURN]:
             nonlocal span_name
             if span_name is None:
-                span_name_ = f'{func.__module__}.{func.__name__}'
+                if func.__module__:
+                    span_name_ = f'{func.__module__}.{getattr(func, "__qualname__", func.__name__)}'
+                else:
+                    span_name_ = getattr(func, '__qualname__', func.__name__)
             else:
                 span_name_ = span_name
-            self._self_log(f'Instrumenting {func=} {span_name=}')
 
             pos_params = ()
             if extract_args:
@@ -170,356 +181,206 @@ class Logfire:
                 pos_params = tuple(n for n, p in sig.parameters.items() if p.kind in _POSITIONAL_PARAMS)
 
             @wraps(func)
-            def instrument_wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
-                start_time = self._config.ns_time_generator()
-
+            def _instrument_wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
                 if extract_args:
                     pos_args = {k: v for k, v in zip(pos_params, args)}
                     extracted_kwargs = {**pos_args, **kwargs}
                 else:
                     extracted_kwargs = {}
 
-                start_parent_id = self._start_parent_id()
-                attributes = self._logfire_attributes('real_span')
-                with tracer.start_as_current_span(
-                    span_name_, attributes=attributes, start_time=start_time, record_exception=False
-                ) as real_span:
-                    self._span_start(
-                        tracer=tracer,
-                        outer_parent_id=start_parent_id,
-                        start_time=start_time,
-                        msg_template=msg_template or span_name_,
-                        kwargs=extracted_kwargs,
-                    )
-                    with record_exception(real_span):
-                        return func(*args, **kwargs)
+                with self._span(msg_template=msg_template, span_name=span_name_, **extracted_kwargs):  # type: ignore
+                    return func(*args, **kwargs)
 
-            return instrument_wrapper
+            return _instrument_wrapper
 
         return decorator
 
-    # Logging
-    def log(
-        self,
-        msg_template: LiteralString,
-        level: LevelName,
-        kwargs: Any,
-        frame_depth: int = 1,
-        context: LogfireContext | None = None,
-    ) -> None:
+    def log(self, msg_template: LiteralString, level: LevelName, **attributes: Any) -> None:
         """Log a message.
 
         Args:
-            msg_template: The template for the message.
-            level: The level of the message.
-            kwargs: The arguments to format the message template with.
-            frame_depth: The depth of call frame to get.
-            context: The logfire log context.
+            message: The message to log.
+            level: The level of the log.
+            kwargs: The attributes to bind to the log.
+
+        ```py
+        import logfire
+
+        logfire.log('This is a log', level='info')
+        ```
         """
-        msg = logfire_format(msg_template, kwargs)
-        tracer = self.get_context_tracer()
-        start_time = self._config.ns_time_generator()  # OpenTelemetry uses ns for timestamps
 
-        call_frame: FrameType = sys._getframe(frame_depth)  # type: ignore
-        lineno = call_frame.f_lineno
-        file = Path(call_frame.f_code.co_filename)
-        if file.is_absolute():
-            try:
-                file = file.relative_to(_cwd)
-            except ValueError:
-                # happens if filename path is not within CWD
-                pass
+        stack_info = _get_caller_stack_info()
 
-        user_attributes = self.user_attributes(kwargs)
-        logfire_attributes = self._logfire_attributes(
-            'log', msg_template=msg_template, level=level, lineno=lineno, filename=str(file)
+        merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
+        msg = logfire_format(msg_template, merged_attributes)
+        otlp_attributes = user_attributes(merged_attributes)
+        otlp_attributes = _merge_tags_into_attributes(otlp_attributes, self._tags)
+
+        start_time = self._get_config().ns_timestamp_generator()
+
+        if self._logs_tracer is None:
+            self._logs_tracer = self._get_tracer_provider().get_tracer(
+                'logfire',  # the name here is really not important, logfire itself doesn't use it
+                wrap_with_start_span_tracer=False,  # logs don't need a start span
+            )
+
+        span = self._logs_tracer.start_span(
+            msg,
+            attributes={
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+                ATTRIBUTES_LOG_LEVEL_KEY: level,
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+                ATTRIBUTES_MESSAGE_KEY: msg,
+                **otlp_attributes,
+            },
+            start_time=start_time,
         )
-        attributes = {**user_attributes, **logfire_attributes}
+        with trace_api.use_span(span, end_on_exit=False, record_exception=False):
+            span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+            span.end(start_time)
 
-        otel_context = context.otel_context if context is not None else None
-        span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes, context=otel_context)
-        span.end(start_time)
-        with trace.use_span(span):
-            pass
-
-    def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+    def debug(self, message: LiteralString, **attributes: Any) -> None:
         """Log a debug message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
-        """
-        self.log(msg_template, 'debug', kwargs, frame_depth=2)
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
 
-    def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        ```py
+        import logfire
+
+        logfire.debug('This is a debug log')
+        ```
+        """
+        self.log(message, 'debug', **attributes)
+
+    def info(self, message: LiteralString, **attributes: Any) -> None:
         """Log an info message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
-        """
-        self.log(msg_template, 'info', kwargs, frame_depth=2)
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
 
-    def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        ```py
+        import logfire
+
+        logfire.info('This is an info log')
+        ```
+        """
+        self.log(message, 'info', **attributes)
+
+    def notice(self, message: LiteralString, **attributes: Any) -> None:
         """Log a notice message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
-        """
-        self.log(msg_template, 'notice', kwargs, frame_depth=2)
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
 
-    def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        ```py
+        import logfire
+
+        logfire.notice('This is a notice log')
+        ```
+        """
+        self.log(message, 'notice', **attributes)
+
+    def warning(self, message: LiteralString, **attributes: Any) -> None:
         """Log a warning message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
-        """
-        self.log(msg_template, 'warning', kwargs, frame_depth=2)
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
 
-    def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        ```py
+        import logfire
+
+        logfire.warning('This is a warning log')
+        ```
+        """
+        self.log(message, 'warning', **attributes)
+
+    def error(self, message: LiteralString, **attributes: Any) -> None:
         """Log an error message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
-        """
-        self.log(msg_template, 'error', kwargs, frame_depth=2)
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
 
-    def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
+        ```py
+        import logfire
+
+        logfire.error('This is an error log')
+        ```
+        """
+        self.log(message, 'error', **attributes)
+
+    def critical(self, message: LiteralString, **attributes: Any) -> None:
         """Log a critical message.
 
         Args:
-            msg_template: The template for the message.
-            kwargs: The arguments to format the message template with.
+            message: The message to log.
+            kwargs: The attributes to bind to the log.
+
+        ```py
+        import logfire
+
+        logfire.critical('This is a critical log')
+        ```
         """
-        self.log(msg_template, 'critical', kwargs, frame_depth=2)
+        self.log(message, 'critical', **attributes)
 
-    @classmethod
-    def get_context(cls) -> LogfireContext:
-        carrier: OtelContext = {}  # type: ignore
-        propagate.inject(carrier)
-        return LogfireContext(otel_context=carrier)
-
-    # Utilities
-    @contextmanager
-    def context_tracer(self, name: str) -> Iterator[None]:
-        """Context manager for setting the tracer for the current context.
+    def force_flush(self, timeout_millis: int = 3_000) -> bool:
+        """Force flush all spans.
 
         Args:
-            name: The name of the tracer to use.
+            timeout_millis: The timeout in milliseconds.
+
+        Returns:
+            Whether the flush was successful.
         """
-        tracer = self._get_tracer(name)
-        token = self._tracer.set(tracer)
-        try:
-            yield
-        finally:
-            self._tracer.reset(token)
+        return self._get_tracer_provider().force_flush(timeout_millis)
 
-    @cached_property
-    def _config(self) -> LogfireConfig:
-        if self._init_config is not None:
-            return self._init_config
-        else:
-            return LogfireConfig.get_default()
 
-    @staticmethod
-    def _start_parent_id() -> str | None:
-        span_id = trace.get_current_span(None).get_span_context().span_id
-        if span_id == 0:
+class LogfireSpan(ReadableSpan):
+    def __init__(self, span: trace_api.Span) -> None:
+        self._span = span
+        self.end_on_exit = True
+
+    if not TYPE_CHECKING:
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._span, name)
+
+    @property
+    def message_template(self) -> str | None:
+        attributes = getattr(self._span, 'attributes')
+        if not attributes:
             return None
-        return trace.format_span_id(span_id)
-
-    def _span_start(
-        self,
-        *,
-        tracer: Tracer,
-        outer_parent_id: str | None,
-        start_time: int,
-        msg_template: str,
-        kwargs: dict[str, Any],
-    ) -> trace.Span:
-        """Send a zero length span at the start of the main span to represent the span opening.
-
-        This is required since the span itself isn't sent until it's closed.
-        """
-        msg = logfire_format(msg_template, kwargs)
-
-        logfire_attributes = self._logfire_attributes(
-            'start_span', msg_template=msg_template, start_parent_id=outer_parent_id
-        )
-        user_attributes = self.user_attributes(kwargs)
-        attributes = {**logfire_attributes, **user_attributes}
-
-        start_span = tracer.start_span(name=msg, start_time=start_time, attributes=attributes)
-        start_span.end(start_time)
-        with trace.use_span(start_span):
-            pass
-
-        return start_span
-
-    def get_context_tracer(self) -> Tracer:
-        tracer = self._tracer.get()
-        if tracer is None:
-            return self._get_tracer(self._config.service_name)
-        return tracer
-
-    def _get_tracer(self, name: str) -> Tracer:
-        # NOTE(DavidM): Should we add version, schema_url?
-        return trace.get_tracer(name, tracer_provider=self._config.provider)  # type: ignore
-
-    def _logfire_attributes(
-        self,
-        log_type: LogTypeType,
-        *,
-        msg_template: str | None = None,
-        level: LevelName | None = None,
-        start_parent_id: str | None = None,
-        lineno: int | None = None,
-        filename: str | None = None,
-    ) -> dict[str, AttributeValue]:
-        tags = self._pop_tags()
-        return _dict_not_none(
-            **{
-                LOG_TYPE_KEY: log_type,
-                LEVEL_KEY: level,
-                MSG_TEMPLATE_KEY: msg_template,
-                TAGS_KEY: tags,
-                START_PARENT_ID: start_parent_id,
-                LINENO: lineno,
-                FILENAME: filename,
-            }
-        )
-
-    @classmethod
-    def user_attributes(cls, attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, AttributeValue]:
-        """Prepare attributes for sending to OpenTelemetry.
-
-        This will convert any non-OpenTelemetry compatible types to JSON.
-        """
-        prepared: dict[str, AttributeValue] = {}
-        null_args: list[str] = []
-
-        for key, value in attributes.items():
-            match value:
-                case None:
-                    null_args.append(key)
-                case str() | bool() | int() | float():
-                    prepared[key] = value
-                case Flatten() if should_flatten:
-                    value = value.value
-                    iter = value.items() if isinstance(value, Mapping) else enumerate(value)  # type: ignore
-                    for k, v in iter:  # type: ignore
-                        inner_prepared = cls.user_attributes({str(k): v}, should_flatten=False)  # type: ignore
-                        for inner_key, inner_value in inner_prepared.items():
-                            prepared[f'{key}.{inner_key}'] = inner_value
-                case _:
-                    prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
-
-        if null_args:
-            prepared[NULL_ARGS_KEY] = tuple(null_args)
-
-        return prepared
-
-    def _set_tags(self, tags: tuple[str, ...]) -> None:
-        self._tags = tags
-
-    def _pop_tags(self) -> tuple[str, ...] | None:
-        if not self._tags:
+        if ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes:
             return None
-        tags = self._tags
-        self._tags = ()
-        return tags
+        return str(attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY])
 
-    def _self_log(self, __msg: str) -> None:
-        # TODO: probably want to make this more configurable/etc.
-        if self._config.internal_logging:
-            print(__msg)
-
-
-class TaggedLogfire:
-    """Proxy class to make the logfire.tags() syntax possible."""
-
-    def __init__(self, tags: tuple[str, ...], observe: Logfire):
-        self._tags = tags
-        self._logfire_logger = observe
-
-    if TYPE_CHECKING:
-
-        @contextmanager
-        def span(
-            self, msg_template: LiteralString, *, span_name: str | None = None, **kwargs: Any
-        ) -> Iterator[LogfireSpan]:
-            ...
-
-        def instrument(
-            self,
-            tracer_name: str | None = None,
-            span_name: str | None = None,
-            msg_template: LiteralString | None = None,
-            inspect: bool = False,
-        ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-            ...
-
-        def log(self, msg_template: LiteralString, level: LevelName, kwargs: Any) -> None:
-            ...
-
-        def debug(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-        def info(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-        def notice(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-        def warning(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-        def error(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-        def critical(self, msg_template: LiteralString, /, **kwargs: Any) -> None:
-            ...
-
-    else:
-
-        def __getattr__(self, item):
-            self._logfire_logger._set_tags(self._tags)
-            return getattr(self._logfire_logger, item)
-
-    def tags(self, tag: str, *args: str) -> TaggedLogfire:
-        return TaggedLogfire(self._tags + (tag,) + tuple(args), self._logfire_logger)
-
-
-@dataclass(slots=True)
-class LogfireSpan:
-    """
-    Logfire span, holds references to both our `real_span` and `start_span`.
-    """
-
-    ns_time_generator: Callable[[], int]
-    """Generator for ns timestamps."""
-
-    real_span: trace.Span
-    """
-    `real_span` is the open telemetry span used to represent the span, it's so named to differentiate it from
-    `start_span`, `real_span`'s length is the actual length of the span and it's send when the space ends.
-    """
-    start_span: trace.Span | None
-    """
-    `start_span` contains information about the message that started the span, it's a zero length and is sent
-    right after the span starts, it allows us to "see" the span while it's still open.
-    """
-    end_on_exit: bool = True
-    """
-    Switch to control whether the span should be ended when the context manager exits, this allows you to
-    re-activate and re-use the span multiple times
-    """
+    @property
+    def tags(self) -> Sequence[str]:
+        attributes = getattr(self._span, 'attributes')
+        if not attributes:
+            return []
+        if ATTRIBUTES_TAGS_KEY not in attributes:
+            return []
+        return cast(Sequence[str], attributes[ATTRIBUTES_TAGS_KEY])
 
     def end(self) -> None:
-        self.real_span.end(self.ns_time_generator())
+        """Sets the current time as the span's end time.
+
+        The span's end time is the wall time at which the operation finished.
+
+        Only the first call to this method is recorded, further calls are ignored so you
+        can call this within the span's context manager to end it before the context manager
+        exits.
+        """
+        if self._span.is_recording():
+            self._span.end()
 
     @contextmanager
     def activate(self, end_on_exit: bool | None = None) -> Iterator[None]:
@@ -528,92 +389,212 @@ class LogfireSpan:
 
         Args:
             end_on_exit: Whether to end the span when the context manager exits, if `None` will use the value
-                of `self.end_on_exit`, this allows you to avoid ending the span withing a context manager.
+                of self.end_on_exit.
+                By setting end_on_exit=False when creating the span or assigning the attribute you can
+                later use `activate` to manually activate and end the span.
         """
-        with trace.use_span(self.real_span, end_on_exit=False, record_exception=False):
-            with maybe_exit(self, end_on_exit):
+        with trace_api.use_span(self._span, end_on_exit=False, record_exception=False):
+            with self._maybe_exit(end_on_exit):
                 yield
 
+    @staticmethod
+    @contextmanager
+    def _record_exception(span: trace_api.Span) -> Iterator[None]:
+        """Context manager for recording an exception on a span.
 
-@contextmanager
-def maybe_exit(logfire_span: LogfireSpan, end_on_exit: bool | None = None) -> Iterator[None]:
-    try:
-        with record_exception(logfire_span.real_span):
+        This will record the exception on the span and re-raise it.
+
+        Args:
+            span: The span to record the exception on.
+
+        Raises:
+            Any: The exception that was raised.
+        """
+        try:
             yield
-    finally:
-        end_on_exit_ = logfire_span.end_on_exit if end_on_exit is None else end_on_exit
-        if end_on_exit_:
-            logfire_span.end()
+        # NOTE: We don't want to catch `BaseException` here, since that would catch
+        # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
+        # by the `tracer.use_span` context manager internally.
+        except Exception as exc:
+            if span.is_recording():
+                # stolen from OTEL's codebase
+                span.set_status(
+                    trace_api.Status(
+                        status_code=trace_api.StatusCode.ERROR,
+                        description=f'{type(exc).__name__}: {exc}',
+                    )
+                )
+                # insert a more detailed breakdown of pydantic errors
+                tb = rich.traceback.Traceback.from_exception(
+                    exc_type=type(exc), exc_value=exc, traceback=exc.__traceback__
+                )
+                tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
+                attributes: dict[str, otel_types.AttributeValue] = {
+                    'exception.logfire.trace': json_dumps_traceback(tb.trace),
+                }
+                if ValidationError is not None and isinstance(exc, ValidationError):
+                    err_json = exc.json(include_url=False)
+                    span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc.json(include_url=False))
+                    attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
+                span.record_exception(exc, attributes=attributes, escaped=True)
+            raise
+        else:
+            if span.is_recording():
+                span.set_status(
+                    trace_api.Status(
+                        status_code=trace_api.StatusCode.OK,
+                    )
+                )
+
+    @contextmanager
+    def _maybe_exit(self, end_on_exit: bool | None = None) -> Iterator[None]:
+        """Context manager that ends a span on exit.
+
+        Args:
+            end_on_exit: Whether to end the span when the context manager exits, if `None` will use
+                the value of self.end_on_exit.
+        """
+        try:
+            with self._record_exception(self._span):
+                yield
+        finally:
+            end_on_exit_ = self.end_on_exit if end_on_exit is None else end_on_exit
+            if end_on_exit_:
+                self._span.end()
 
 
-@dataclass(slots=True)
-class LogfireContext:
-    """
-    Wrapper for context as propagated by OpenTelemetry, done this way so we can change the type without
-    breaking the public API.
-
-    See https://opentelemetry.io/docs/specs/otel/context/
-    """
-
-    otel_context: OtelContext
-
-    def to_json(self) -> str:
-        return logfire_json_dumps(self.otel_context)
-
-    @classmethod
-    def from_json(cls, json_data: str | bytes) -> LogfireContext:
-        return cls(**json.loads(json_data))
+ATTRIBUTES: ContextVar[dict[str, Any]] = ContextVar('logfire.attributes', default={})
 
 
 @contextmanager
-def record_exception(span: trace.Span) -> Iterator[None]:
-    """Context manager for recording an exception on a span.
-
-    This will record the exception on the span and re-raise it.
+@staticmethod
+def with_attributes(**attributes: Any) -> Iterator[None]:
+    """Context manager for binding attributes to all logs and traces.
 
     Args:
-        span: The span to record the exception on.
+        attributes: The attributes to bind.
 
-    Raises:
-        Any: The exception that was raised.
+    ```py
+    import logfire
+
+    with logfire.with_attributes(user_id='123'):
+        logfire.info('new log 1')
+    ```
     """
+    old_attributes = ATTRIBUTES.get()
+    ATTRIBUTES.set({**old_attributes, **attributes})
     try:
         yield
-    # NOTE: We don't want to catch `BaseException` here, since that would catch
-    # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
-    # by the `tracer.use_span` context manager internally.
-    except Exception:
-        exc_type, exc_value, traceback = cast(tuple[type[Exception], Exception, TracebackType], sys.exc_info())
-        # NOTE(Marcelo): You can pass `show_locals=True` to `rich.traceback.Traceback.from_exception`
-        # to get the local variables in the traceback. For now, we're not doing that.
-        tb = rich.traceback.Traceback.from_exception(exc_type=exc_type, exc_value=exc_value, traceback=traceback)
+    finally:
+        ATTRIBUTES.set(old_attributes)
 
-        tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
 
-        attributes: dict[str, str] = {
-            'exception.logfire.trace': json_dumps_traceback(tb.trace),
-            'exception.logfire.data': '',
+@contextmanager
+@staticmethod
+def with_tags(*tags: str) -> Iterator[None]:
+    """Context manager for binding tags to all logs and traces.
+
+    Args:
+        tags: The tags to bind.
+
+    ```py
+    import logfire
+
+    with logfire.with_tags('tag1', 'tag2'):
+        logfire.info('new log 1')
+    ```
+    """
+    old_attributes = ATTRIBUTES.get()
+    ATTRIBUTES.set(_merge_tags_into_attributes(old_attributes, tags))
+    try:
+        yield
+    finally:
+        ATTRIBUTES.set(old_attributes)
+
+
+AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
+
+
+def _merge_tags_into_attributes(
+    attributes: dict[str, AttributesValueType], tags: Sequence[str]
+) -> dict[str, AttributesValueType]:
+    # merge tags into attributes preserving any existing tags
+    old_tags = cast('list[str]', attributes.get(ATTRIBUTES_TAGS_KEY, None) or []).copy()
+    old_tags.extend(tags)
+    if old_tags:
+        return {**attributes, ATTRIBUTES_TAGS_KEY: old_tags}  # type: ignore
+    return attributes
+
+
+def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, otel_types.AttributeValue]:
+    """Prepare attributes for sending to OpenTelemetry.
+
+    This will convert any non-OpenTelemetry compatible types to JSON.
+    """
+    prepared: dict[str, otel_types.AttributeValue] = {}
+    null_args: list[str] = []
+
+    for key, value in attributes.items():
+        if value is None:
+            null_args.append(key)
+        elif isinstance(value, (str, bool, int, float)):
+            prepared[key] = value
+        elif isinstance(value, Flatten) and should_flatten:
+            value = cast(Flatten[Mapping[Any, Any] | Sequence[Any]], value).value
+            iter = value.items() if isinstance(value, Mapping) else enumerate(value)
+            for k, v in iter:
+                inner_prepared = user_attributes({str(k): v}, should_flatten=False)
+                for inner_key, inner_value in inner_prepared.items():
+                    prepared[f'{key}.{inner_key}'] = inner_value
+        else:
+            prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
+
+    if null_args:
+        prepared[NULL_ARGS_KEY] = tuple(null_args)
+
+    return prepared
+
+
+def _get_caller_stack_info() -> dict[str, otel_types.AttributeValue]:
+    """Get the stack info of the caller.
+
+    This is used to bind the caller's stack info to logs and spans.
+
+    Returns:
+        A dictionary of stack info attributes.
+    """
+    try:
+        frame = inspect.currentframe()
+        if frame is None:
+            return {}
+        stack = inspect.getouterframes(frame, 3)
+        if len(stack) < 4:
+            return {}
+        caller_frame = stack[3]
+        file = Path(caller_frame.filename)
+        if file.is_absolute():
+            try:
+                file = file.relative_to(_CDW)
+            except ValueError:
+                # happens if filename path is not within CWD
+                pass
+        return {
+            'code.filepath': str(file),
+            'code.lineno': caller_frame.lineno,
+            'code.function': caller_frame.function,
         }
-        if PydanticValidationError is not None and exc_type == PydanticValidationError:
-            exc = cast(PydanticValidationError, exc_value)
-            attributes['exception.logfire.data'] = logfire_json_dumps({'errors': exc.errors(include_url=False)})
-
-        span.record_exception(exc_value, attributes=attributes, escaped=True)
-        raise
-
-
-IGNORED_METHODS: set[str] = {'record_exception', 'instrument_wrapper', 'maybe_exit'}
+    except Exception:
+        return {}
 
 
 def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
     """
     filter out the record_exception call itself.
     """
-    stack.frames = [
-        f for f in stack.frames if not (f.filename.endswith('logfire/_main.py') and f.name in IGNORED_METHODS)
-    ]
+    stack.frames = [f for f in stack.frames if not (f.filename.endswith('logfire/_main.py') and f.name.startswith('_'))]
     return stack
 
 
-def _dict_not_none(**kwargs: Any) -> dict[str, Any]:
-    return {k: v for k, v in kwargs.items() if v is not None}
+_RETURN = TypeVar('_RETURN')
+_PARAMS = ParamSpec('_PARAMS')
+_POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}

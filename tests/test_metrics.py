@@ -4,13 +4,12 @@ import os
 from dirty_equals import IsDict, IsFloat, IsList, IsPositiveFloat, IsPositiveInt, IsStr
 from opentelemetry.sdk.resources import SERVICE_NAME
 
-from logfire import Logfire
 from logfire._metrics import set_meter_provider
 from logfire.testing import TestMetricExporter
 from logfire.version import VERSION
 
 
-def test_metric_exporter(logfire: Logfire, metric_exporter: TestMetricExporter) -> None:
+def test_metric_exporter(metric_exporter: TestMetricExporter) -> None:
     meter_provider = set_meter_provider(metric_exporter)
     meter_provider.force_flush()
 

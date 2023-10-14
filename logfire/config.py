@@ -1,80 +1,78 @@
-from __future__ import annotations as _annotations
+from __future__ import annotations, annotations as _annotations
 
 import dataclasses
 import json
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Sequence,
+    TypeVar,
+)
 
 import httpx
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.metrics import MeterProvider
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
+from typing_extensions import Self, get_args, get_origin
 
+from ._constants import LOGFIRE_API_ROOT
 from ._metrics import set_meter_provider
+from ._tracer import set_global_tracer_provider
+from .exporters.console import ConsoleSpanExporter
 from .version import VERSION
 
-if TYPE_CHECKING:
-    from typing_extensions import Self
-
-_default_config: LogfireConfig | None = None
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
-LOGFIRE_API_ROOT = 'https://api.logfire.dev'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
 
 def configure(
-    send_to_logfire: Literal['enabled', 'env', 'off'] = 'env',
+    send_to_logfire: bool | None = None,
     logfire_token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
-    console_print: Literal['off', 'concise', 'verbose'] = 'concise',
-    console_colors: Literal['auto', 'always', 'never'] = 'auto',
-    show_summary: Literal['always', 'never', 'new-project'] = 'always',
-    logfire_dir: Path = Path('.logfire'),
+    console_print: Literal['off', 'concise', 'verbose'] | None = None,
+    console_colors: Literal['auto', 'always', 'never'] | None = None,
+    show_summary: Literal['always', 'never', 'new-project'] | None = None,
+    logfire_dir: Path | None = None,
     logfire_api_root: str | None = None,
+    id_generator: IdGenerator | None = None,
+    ns_timestamp_generator: Callable[[], int] | None = None,
+    processors: Sequence[SpanProcessor] | None = None,
+    default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
 ) -> None:
-    """
+    f"""
     Configure the logfire SDK.
 
     Args:
-        send_to_logfire: Whether to send logs to logfire.dev, defaults to `enabled`, values have the following meaning:
-
-            * `'enabled'`: logs will be send to [logfire.dev](), uses logfire_token, if missing will be generated
-            * `'env'`: checks the `LOGFIRE_SEND` env var, otherwise defaults to `enabled`
-            * TODO 'require-auth`: like `enabled` but requires a proper authenticated token, either free or pro
-            * TODO 'require-pro`: like `enabled` but requires a pro-tier token
-        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` and `send_to_logfire` is set to
-            `'enabled'` it will be read from the `LOGFIRE_TOKEN` environment variable. If no token is provided
-            an anon-tier token will be generated and stored in `<logfire_dir>/token`.
-        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment
-            variable, only used when creating a project.
-        service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the
-            current directory name.
-        console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {indent} [message]`
-            lines, or to output full JSON details of every log message.
-        console_colors: Whether to color terminal output.
-        show_summary: When to print a summary of the Logfire setup including a link to the dashboard.
-        logfire_dir: Directory to store credentials, and logs.
-        logfire_api_root: Root URL for the Logfire API, if `None` uses the `LOGFIRE_API_ROOT` environment variable,
-            otherwise `https://api.logfire.dev`.
-
-    Environment Variables:
-        LOGFIRE_PROJECT_NAME: Could be used to provide a project name. See `project_name` argument for details.
-        LOGFIRE_SEND: Could be set to either `'enabled'` or `'off'`. Acts as the value of `send_to_logfire` argument.
-            Defaults to `'enabled'`. Ignored if `send_to_logfire` is not set to `'env'`.
-        LOGFIRE_SERVICE_NAME: Could be used to provide a service name. See `service_name` argument for details.
-        LOGFIRE_TOKEN: Could be used to provide a token value. See `logfire_token` argument for details.
+        send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
+        logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` it defaults to the value f the environment variable `LOGFIRE_LOGFIRE_TOKEN` if set, otherwise if
+            `send_to_logfire` is True a new `anon_` project will be created using `project_name`.
+        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
+        service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
+        console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {{indent}} [message]` lines, or to output full details of every log message.
+            If `None` uses the `LOGFIRE_CONSOLE_PRINT` environment variable, otherwise defaults to `'concise'`.
+        console_colors: Whether to color terminal output. If `None` uses the `LOGFIRE_CONSOLE_COLORS` environment variable, otherwise defaults to `'auto'`.
+        show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
+            defaults to `'new-project'`.
+        logfire_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_DIR` environment variable, otherwise defaults to `'.logfire'`.
+        logfire_api_root: Root URL for the Logfire API. If `None` uses the `LOGFIRE_API_ROOT` environment variable, otherwise defaults to {LOGFIRE_API_ROOT}.
+        id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
+        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to `time.time_ns` from the Python standard library.
+        processors: Span processors to use. Defaults to an empty sequence.
+        default_processor: Function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK.
+            You can configure the export delay for BatchSpanProcessor by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
     """
-    global _default_config
-
-    _default_config = LogfireConfig.configure(
+    config = LogfireConfig(
+        api_root=logfire_api_root,
         send_to_logfire=send_to_logfire,
         logfire_token=logfire_token,
         project_name=project_name,
@@ -83,24 +81,188 @@ def configure(
         console_colors=console_colors,
         show_summary=show_summary,
         logfire_dir=logfire_dir,
-        logfire_api_root=logfire_api_root,
+        id_generator=id_generator,
+        ns_timestamp_generator=ns_timestamp_generator,
+        processors=processors,
+        default_processor=default_processor,
+    )
+    return _configure(config)
+
+
+def _configure(config: LogfireConfig) -> None:
+    global _meter_provider
+    # this function exists just to avoid programming errors by referencing local variables in config()
+    tracer_provider = SDKTracerProvider(
+        resource=Resource.create(
+            {
+                'service.name': config.service_name,
+            }
+        ),
+        id_generator=config.id_generator,
     )
 
+    for processor in config.processors:
+        tracer_provider.add_span_processor(processor)
 
-@dataclasses.dataclass
+    if config.console_print != 'off':
+        tracer_provider.add_span_processor(
+            config.default_processor(
+                ConsoleSpanExporter(verbose=config.console_print == 'verbose'),
+            )
+        )
+
+    credentials_from_local_file = None
+
+    if config.send_to_logfire:
+        if config.logfire_token is None:
+            credentials_from_local_file = LogfireCredentials.load_creds_file(config.logfire_dir)
+            if credentials_from_local_file:
+                config.logfire_token = credentials_from_local_file.token
+            else:
+                # create a token by asking logfire.dev to create a new project
+                new_credentials = LogfireCredentials.create_new_project(
+                    logfire_api_url=config.api_root, requested_project_name=config.project_name or config.service_name
+                )
+                config.logfire_token = new_credentials.token
+                new_credentials.write_creds_file(config.logfire_dir)
+                if config.show_summary != 'never':
+                    new_credentials.print_new_token_summary(config.logfire_dir)
+                # to avoid printing another summary
+                credentials_from_local_file = None
+
+        headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': config.logfire_token}
+        endpoint = f'{config.api_root}/v1/traces'
+        tracer_provider.add_span_processor(
+            config.default_processor(
+                OTLPSpanExporter(
+                    endpoint=endpoint,
+                    headers=headers,
+                )
+            )
+        )
+
+        metric_exporter = OTLPMetricExporter(endpoint=f'{config.api_root}/v1/metrics', headers=headers)
+        _meter_provider = set_meter_provider(exporter=metric_exporter)
+
+    if config.show_summary == 'always' and credentials_from_local_file:
+        credentials_from_local_file.print_existing_token_summary(config.logfire_dir)
+
+    # reset the global proxy tracer
+    set_global_tracer_provider(tracer_provider, config)
+
+
+def _get_bool_from_env(env_var: str) -> bool | None:
+    value = os.getenv(env_var)
+    if value is None:
+        return None
+    return value.lower() in ('1', 'true', 't')
+
+
+_ConsolePrintValues = Literal['off', 'concise', 'verbose']
+_ConsoleColorsValues = Literal['auto', 'always', 'never']
+_ShowSummaryValues = Literal['always', 'never', 'new-project']
+
+
+T = TypeVar('T')
+
+
+def _check_literal(value: Any | None, name: str, tp: type[T]) -> T | None:
+    if value is None:
+        return None
+    assert get_origin(tp) is Literal
+    literals = get_args(tp)
+    if value not in literals:
+        raise LogfireConfigError(f'Expected {name} to be one of {literals}, got {value!r}')
+    return value
+
+
+# Need to hold onto a reference to avoid gc
+# TODO(adrian): refactor this to be more like the global proxy tracer
+_meter_provider: MeterProvider | None = None
+
+
+def coalesce(runtime: T | None, env: T | None, default: T) -> T:
+    """
+    Return the first non-None value.
+    """
+    if runtime is not None:
+        return runtime
+    if env is not None:
+        return env
+    return default
+
+
 class LogfireConfig:
-    """
-    Configuration for the logfire SDK.
-    """
-
-    ns_time_generator: Callable[[], int]
-    """Function used to generate nanosecond timestamps."""
-    provider: TracerProvider
-    """The OpenTelemetry provider to use for tracing."""
+    api_root: str
+    """The root URL of the Logfire API"""
+    send_to_logfire: bool
+    """Whether to send logs and spans to Logfire"""
+    logfire_token: str | None
+    """The Logfire API token to use"""
+    project_name: str | None
+    """The Logfire project name to use"""
     service_name: str
-    """The name of this service."""
-    internal_logging: bool = False
-    meter_provider: MeterProvider | None = None
+    """The name of this service"""
+    console_print: _ConsolePrintValues
+    """How to print logs to the console"""
+    console_colors: _ConsoleColorsValues
+    """Whether to use colors when printing logs to the console"""
+    show_summary: _ShowSummaryValues
+    """Whether to show the summary when starting a new project"""
+    logfire_dir: Path
+    """The directory to store Logfire config in"""
+    id_generator: IdGenerator
+    """The ID generator to use"""
+    ns_timestamp_generator: Callable[[], int]
+    """The nanosecond timestamp generator to use"""
+    processors: Sequence[SpanProcessor]
+    """Additional span processors"""
+    default_processor: Callable[[SpanExporter], SpanProcessor]
+    """The span processor used for the logfire exporter and console exporter"""
+
+    def __init__(
+        self,
+        api_root: str | None = None,
+        send_to_logfire: bool | None = None,
+        logfire_token: str | None = None,
+        project_name: str | None = None,
+        service_name: str | None = None,
+        console_print: _ConsolePrintValues | None = None,
+        console_colors: _ConsoleColorsValues | None = None,
+        show_summary: _ShowSummaryValues | None = None,
+        logfire_dir: Path | None = None,
+        id_generator: IdGenerator | None = None,
+        ns_timestamp_generator: Callable[[], int] | None = None,
+        processors: Sequence[SpanProcessor] | None = None,
+        default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
+    ) -> None:
+        """
+        Configure the logfire SDK.
+
+        See the `configure` function for details of the arguments.
+        """
+        self.api_root = api_root or os.getenv('LOGFIRE_API_ROOT') or DEFAULT_CONFIG.api_root
+        self.send_to_logfire = coalesce(
+            send_to_logfire, _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'), DEFAULT_CONFIG.send_to_logfire
+        )
+        self.logfire_token = logfire_token or os.getenv('LOGFIRE_LOGFIRE_TOKEN') or DEFAULT_CONFIG.logfire_token
+        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or DEFAULT_CONFIG.project_name
+        self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or DEFAULT_CONFIG.service_name
+        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or DEFAULT_CONFIG.console_print  # type: ignore
+        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', _ConsoleColorsValues) or DEFAULT_CONFIG.console_colors  # type: ignore
+        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY'), 'show_summary', _ShowSummaryValues) or DEFAULT_CONFIG.show_summary  # type: ignore
+        if logfire_dir:
+            self.logfire_dir = logfire_dir
+        else:
+            dir = os.getenv('LOGFIRE_DIR')
+            if dir is not None:
+                self.logfire_dir = Path(dir)
+            else:
+                self.logfire_dir = DEFAULT_CONFIG.logfire_dir
+        self.id_generator = id_generator or DEFAULT_CONFIG.id_generator
+        self.ns_timestamp_generator = ns_timestamp_generator or DEFAULT_CONFIG.ns_timestamp_generator
+        self.processors = tuple(processors or DEFAULT_CONFIG.processors)
+        self.default_processor = default_processor or DEFAULT_CONFIG.default_processor
 
     @staticmethod
     def load_token(
@@ -114,116 +276,24 @@ class LogfireConfig:
                 logfire_token = file_creds.token
         return logfire_token, file_creds
 
-    @classmethod
-    def configure(
-        cls,
-        send_to_logfire: Literal['enabled', 'env', 'off'] = 'env',
-        logfire_token: str | None = None,
-        project_name: str | None = None,
-        service_name: str | None = None,
-        console_print: Literal['off', 'concise', 'verbose'] = 'concise',
-        console_colors: Literal['auto', 'always', 'never'] = 'auto',
-        show_summary: Literal['always', 'never', 'new-project'] = 'always',
-        logfire_dir: Path = Path('.logfire'),
-        logfire_api_root: str | None = None,
-    ) -> Self:
-        """
-        Construct a new config, see the `configure` function in this module for more details.
-        """
-        send = _get_send_value(send_to_logfire)
-
-        if logfire_dir.exists() and not logfire_dir.is_dir():
-            raise LogfireConfigError(f'`logfire_dir` {logfire_dir!r} must be a directory')
-
-        service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or Path.cwd().name
-
-        logfire_token, file_creds = cls.load_token(logfire_token, logfire_dir)
-
-        # order for logfire_api_root is: arg, env, file, default
-        logfire_api_root = logfire_api_root or os.getenv('LOGFIRE_API_ROOT')
-        if file_creds:
-            logfire_api_root_str = logfire_api_root or file_creds.logfire_api_url
-        else:
-            logfire_api_root_str = logfire_api_root or LOGFIRE_API_ROOT
-
-        if send and logfire_token is None:
-            # create a token by asking logfire.dev to create a new project
-            request_project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or service_name
-            new_creds = LogfireCredentials.create_new_project(
-                logfire_api_url=logfire_api_root_str, requested_project_name=request_project_name
-            )
-            logfire_token = new_creds.token
-            new_creds.write_creds_file(logfire_dir)
-            if show_summary != 'never':
-                new_creds.print_new_token_summary(logfire_dir)
-            # to avoid printing another summary
-            file_creds = None
-
-        if show_summary == 'always' and file_creds:
-            # TODO(DavidM): It might be nice to print out the summary even if the creds didn't come from a file
-            # existing token, print summary
-            file_creds.print_existing_token_summary(logfire_dir)
-
-        meter_provider = None
-        processors: list[SpanProcessor] = []
-        if send and logfire_token is not None:
-            headers = {'Authorization': logfire_token, **COMMON_REQUEST_HEADERS}
-            processors.append(
-                BatchSpanProcessor(OTLPSpanExporter(endpoint=f'{logfire_api_root_str}/v1/traces', headers=headers))
-            )
-
-            metric_exporter = OTLPMetricExporter(endpoint=f'{logfire_api_root_str}/v1/metrics', headers=headers)
-            meter_provider = set_meter_provider(exporter=metric_exporter)
-
-        if console_print != 'off':
-            from .exporters.console import ConsoleSpanExporter
-
-            # TODO(Samuel) use console_colors
-            processors.append(SimpleSpanProcessor(ConsoleSpanExporter(verbose=console_print == 'verbose')))
-
-        return cls.from_processors(*processors, service_name=service_name, meter_provider=meter_provider)
-
-    @classmethod
-    def from_processors(
-        cls,
-        *processors: SpanProcessor,
-        service_name: str,
-        meter_provider: MeterProvider | None = None,
-        id_generator: IdGenerator | None = None,
-        ns_time_generator: Callable[[], int] = lambda: int(time.time() * 1e9),
-    ) -> Self:
-        provider = TracerProvider(
-            resource=Resource(attributes={SERVICE_NAME: service_name}), id_generator=id_generator or RandomIdGenerator()
-        )
-        for processor in processors:
-            provider.add_span_processor(processor)
-        return cls(
-            provider=provider,
-            service_name=service_name,
-            meter_provider=meter_provider,
-            ns_time_generator=ns_time_generator,
-        )
-
-    @staticmethod
-    def get_default() -> LogfireConfig:
-        global _default_config
-        if _default_config is None:
-            configure()
-            assert _default_config is not None
-        return _default_config
+    def __repr__(self) -> str:
+        return f'LogfireConfig({", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())})'
 
 
-def _get_send_value(arg: str | bool) -> bool:
-    if arg is True:
-        arg = 'enabled'
-    elif arg is False:
-        arg = 'off'
-    elif arg == 'env':
-        arg = os.getenv('LOGFIRE_SEND') or 'enabled'
-        if arg not in {'enabled', 'off'}:
-            raise LogfireConfigError(f'Invalid value for LOGFIRE_SEND env var: {arg!r}, must be "enabled" or "off"')
-
-    return arg == 'enabled'
+DEFAULT_CONFIG = object.__new__(LogfireConfig)
+DEFAULT_CONFIG.api_root = LOGFIRE_API_ROOT
+DEFAULT_CONFIG.send_to_logfire = True
+DEFAULT_CONFIG.console_print = 'concise'
+DEFAULT_CONFIG.console_colors = 'auto'
+DEFAULT_CONFIG.show_summary = 'new-project'
+DEFAULT_CONFIG.logfire_dir = Path('.logfire')
+DEFAULT_CONFIG.project_name = None
+DEFAULT_CONFIG.logfire_token = None
+DEFAULT_CONFIG.service_name = 'unknown'
+DEFAULT_CONFIG.id_generator = RandomIdGenerator()
+DEFAULT_CONFIG.ns_timestamp_generator = time.time_ns
+DEFAULT_CONFIG.processors = ()
+DEFAULT_CONFIG.default_processor = BatchSpanProcessor
 
 
 @dataclasses.dataclass
@@ -268,8 +338,6 @@ class LogfireCredentials:
             except (ValueError, OSError) as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path}') from e
 
-            # support for old credentials files that don't include `logfire_api_url`
-            data.setdefault('logfire_api_url', LOGFIRE_API_ROOT)
             try:
                 return cls(**data)
             except TypeError as e:
@@ -328,8 +396,7 @@ A new anonymous project called **{self.project_name}** has been created on logfi
 [{self.dashboard_url}]({self.dashboard_url})
 
 But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
-""",
-            min_content_width=len(self.dashboard_url),
+"""
         )
 
     def print_existing_token_summary(self, creds_dir: Path) -> None:
@@ -345,12 +412,11 @@ A project called **{self.project_name}** was found and has been configured for t
 [{self.dashboard_url}]({self.dashboard_url})
 
 But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
-""",
-                min_content_width=len(self.dashboard_url),
+"""
             )
 
 
-def _print_summary(message: str, min_content_width: int):
+def _print_summary(message: str):
     from rich.console import Console
     from rich.markdown import Markdown
     from rich.panel import Panel
@@ -367,10 +433,7 @@ def _print_summary(message: str, min_content_width: int):
 
     # customise the link color since the default `blue` is too dark for me to read.
     custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
-    console = Console(stderr=True, theme=custom_theme)
-    if console.width < min_content_width + 4:
-        console.width = min_content_width + 4
-    console.print(panel)
+    Console(stderr=True, theme=custom_theme).print(panel)
 
 
 def _get_creds_file(creds_dir: Path) -> Path:

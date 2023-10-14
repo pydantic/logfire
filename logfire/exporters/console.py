@@ -15,7 +15,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
 from structlog.typing import EventDict, WrappedLogger
 
-from .._main import LOG_TYPE_KEY, LogTypeType
+from .._constants import ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
 
 _NANOSECONDS_PER_SECOND = 1_000_000_000
 
@@ -26,12 +26,10 @@ class _DefaultProcessor:
 
         if event_dict.pop('verbose', False):
             event_dict['span_id'] = format_span_id(span.context.span_id)
-            if span.attributes and (span_type := span.attributes.get('logfire.span_type')):
+            if span.attributes and (span_type := span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY)):
                 event_dict['span_type'] = span_type
             if span.parent and (parent_id := span.parent.span_id):
                 event_dict['parent_id'] = format_span_id(parent_id)
-            if span.attributes and (start_parent_id := span.attributes.get('logfire.start_parent_id')):
-                event_dict['start_parent_id'] = start_parent_id
         assert span.start_time is not None
         start_time = datetime.fromtimestamp(span.start_time // _NANOSECONDS_PER_SECOND, tz=timezone.utc).strftime(
             '%Y-%m-%d %H:%M:%S'
@@ -96,5 +94,5 @@ def _get_span_parent_id(span: ReadableSpan) -> int | None:
     return cast(int | None, span.parent.span_id) if span.parent else None
 
 
-def _get_span_type(span: ReadableSpan) -> LogTypeType:
-    return cast(LogTypeType, span.attributes.get(LOG_TYPE_KEY, 'real_span')) if span.attributes else 'real_span'
+def _get_span_type(span: ReadableSpan) -> SpanTypeType:
+    return cast(SpanTypeType, span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')) if span.attributes else 'span'
