@@ -45,7 +45,7 @@ def test_fastapi_middleware(exporter: TestExporter) -> None:
                 'net.peer.ip': 'testclient',
                 'net.peer.port': 50000,
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -54,7 +54,7 @@ def test_fastapi_middleware(exporter: TestExporter) -> None:
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
             'end_time': 2000000000,
-            'attributes': {'logfire.span_type': 'start_span', 'logfire.start_parent_id': 1},
+            'attributes': {'logfire.span_type': 'start_span', 'logfire.start_parent_id': '1'},
         },
         {
             'name': 'GET / http send',
@@ -70,7 +70,7 @@ def test_fastapi_middleware(exporter: TestExporter) -> None:
             'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
             'start_time': 4000000000,
             'end_time': 4000000000,
-            'attributes': {'logfire.span_type': 'start_span', 'logfire.start_parent_id': 1},
+            'attributes': {'logfire.span_type': 'start_span', 'logfire.start_parent_id': '1'},
         },
         {
             'name': 'GET / http send',

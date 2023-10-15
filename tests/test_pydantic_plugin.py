@@ -49,7 +49,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_python',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -115,7 +115,7 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_python',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -182,7 +182,7 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_json',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -248,7 +248,7 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_python',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -315,7 +315,7 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_strings',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -381,7 +381,7 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                 'logfire.msg': 'Pydantic MyModel validate_strings',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {

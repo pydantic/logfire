@@ -325,7 +325,9 @@ def _emit_start_span(
     attributes.update(
         {
             ATTRIBUTES_SPAN_TYPE_KEY: 'start_span',
-            ATTRIBUTES_START_SPAN_REAL_PARENT_KEY: real_span.parent.span_id if real_span.parent else 0,
+            # use str here since protobuf can't encode ints above 2^64,
+            # see https://github.com/pydantic/platform/pull/388
+            ATTRIBUTES_START_SPAN_REAL_PARENT_KEY: str(real_span.parent.span_id if real_span.parent else 0),
         }
     )
     span_context = SpanContext(

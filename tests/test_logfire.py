@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 from dirty_equals import IsPositive, IsStr
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel
 from pydantic_core import ValidationError
@@ -58,7 +59,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -115,7 +116,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'parent span',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -132,7 +133,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'child span',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 1,
+                'logfire.start_parent_id': '1',
             },
         },
         {
@@ -203,7 +204,7 @@ def test_span_with_tags(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 3',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -263,7 +264,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -320,7 +321,7 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number} {span_name}',
                 'logfire.msg': 'test name=foo 3 bar',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -380,7 +381,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         }
     ]
@@ -413,7 +414,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -588,7 +589,7 @@ def test_instrument(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -632,7 +633,7 @@ def test_instrument_extract_false(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world',
                 'logfire.msg': 'hello-world',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -870,7 +871,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -886,7 +887,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 1,
+                'logfire.start_parent_id': '1',
             },
         },
         {
@@ -983,7 +984,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -1000,7 +1001,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 8,
+                'logfire.start_parent_id': '8',
             },
         },
         {
@@ -1099,7 +1100,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -1116,7 +1117,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 15,
+                'logfire.start_parent_id': '15',
             },
         },
         {
@@ -1202,3 +1203,14 @@ def test_propagate_config_to_tags() -> None:
             },
         },
     ]
+
+
+def test_int_span_id_encoding():
+    """https://github.com/pydantic/platform/pull/388"""
+
+    AnyValue(int_value=2**63 - 1)
+    with pytest.raises(ValueError, match='Value out of range: 9223372036854775808'):
+        AnyValue(int_value=2**63)
+    AnyValue(string_value=str(2**63 - 1))
+    AnyValue(string_value=str(2**63))
+    AnyValue(string_value=str(2**128))

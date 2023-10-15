@@ -47,7 +47,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function wrap() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -82,7 +82,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function foo() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -117,7 +117,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function Foo.bar() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -152,7 +152,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function foo.<locals>.<listcomp>() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -200,7 +200,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function foo() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -235,7 +235,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function Foo.bar() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
@@ -270,7 +270,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'function {function_name}() called',
                 'logfire.msg': 'function foo.<locals>.<listcomp>() called',
                 'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': 0,
+                'logfire.start_parent_id': '0',
             },
         },
         {
