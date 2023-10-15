@@ -244,7 +244,7 @@ class LogfireConfig:
         self.send_to_logfire = coalesce(
             send_to_logfire, _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'), DEFAULT_CONFIG.send_to_logfire
         )
-        self.logfire_token = logfire_token or os.getenv('LOGFIRE_LOGFIRE_TOKEN') or DEFAULT_CONFIG.logfire_token
+        self.logfire_token = logfire_token or os.getenv('LOGFIRE_TOKEN') or DEFAULT_CONFIG.logfire_token
         self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or DEFAULT_CONFIG.project_name
         self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or DEFAULT_CONFIG.service_name
         self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or DEFAULT_CONFIG.console_print  # type: ignore
