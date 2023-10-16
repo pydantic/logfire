@@ -15,7 +15,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
 from structlog.typing import EventDict, WrappedLogger
 
-from .._constants import ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
+from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
 
 _NANOSECONDS_PER_SECOND = 1_000_000_000
 
@@ -83,7 +83,7 @@ class ConsoleSpanExporter(SpanExporter):
                 del self._indent_level[next(iter(self._indent_level))]
 
             if span_type != 'start_span':
-                self._log(event=span.name, span=span, verbose=self._verbose, indent=indent)
+                self._log(event=_get_span_name(span), span=span, verbose=self._verbose, indent=indent)
         return SpanExportResult.SUCCESS
 
     def force_flush(self, timeout_millis: int = 0) -> bool:
@@ -96,3 +96,10 @@ def _get_span_parent_id(span: ReadableSpan) -> int | None:
 
 def _get_span_type(span: ReadableSpan) -> SpanTypeType:
     return cast(SpanTypeType, span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')) if span.attributes else 'span'
+
+
+def _get_span_name(span: ReadableSpan) -> str:
+    if not span.attributes:
+        return span.name
+    formatted_message = cast(str | None, span.attributes.get(ATTRIBUTES_MESSAGE_KEY))
+    return formatted_message or span.name
