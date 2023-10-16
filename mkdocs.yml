@@ -37,6 +37,11 @@ nav:
   - Home: index.md
   - Configuration: configuration.md
   - Integrations: integrations.md
+  - Examples:
+    - Examples: examples/index.md
+    - Image Transformation: examples/image_transformation.md
+    - FastAPI: examples/fastapi.md
+    - Machine Learning: examples/machine_learning.md
   - API Reference: api.md
 
 markdown_extensions:
@@ -47,6 +52,7 @@ markdown_extensions:
 - admonition
 - pymdownx.details
 - pymdownx.superfences
+- pymdownx.snippets
 - pymdownx.highlight:
     pygments_lang_class: true
 - pymdownx.extra
