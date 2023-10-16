@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,14 +34,16 @@ if TYPE_CHECKING:
 class ProxyTracerProvider(TracerProvider):
     """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned"""
 
-    provider: SDKTracerProvider
+    provider: TracerProvider
     config: LogfireConfig
     tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    lock: Lock = field(default_factory=Lock)
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
-        self.provider = provider
-        for tracer, factory in self.tracers.items():
-            tracer.set_tracer(factory())
+        with self.lock:
+            self.provider = provider
+            for tracer, factory in self.tracers.items():
+                tracer.set_tracer(factory())
 
     def get_tracer(
         self,
@@ -49,32 +52,44 @@ class ProxyTracerProvider(TracerProvider):
         schema_url: str | None = None,
         wrap_with_start_span_tracer: bool = True,
     ) -> _ProxyTracer:
-        def make() -> Tracer:
-            tracer = self.provider.get_tracer(
-                instrumenting_module_name=instrumenting_module_name,
-                instrumenting_library_version=instrumenting_library_version,
-                schema_url=schema_url,
-            )
-            if wrap_with_start_span_tracer:
-                tracer = _StartSpanTracer(tracer, self)
+        with self.lock:
+
+            def make() -> Tracer:
+                tracer = self.provider.get_tracer(
+                    instrumenting_module_name=instrumenting_module_name,
+                    instrumenting_library_version=instrumenting_library_version,
+                    schema_url=schema_url,
+                )
+                if wrap_with_start_span_tracer:
+                    tracer = _StartSpanTracer(tracer, self)
+                return tracer
+
+            tracer = _ProxyTracer(make(), self)
+            self.tracers[tracer] = make
             return tracer
 
-        tracer = _ProxyTracer(make(), self)
-        self.tracers[tracer] = make
-        return tracer
-
     def add_span_processor(self, span_processor: Any) -> None:
-        self.provider.add_span_processor(span_processor)
+        with self.lock:
+            if isinstance(self.provider, SDKTracerProvider):
+                self.provider.add_span_processor(span_processor)
 
     def shutdown(self) -> None:
-        self.provider.shutdown()
+        with self.lock:
+            if isinstance(self.provider, SDKTracerProvider):
+                self.provider.shutdown()
 
     @property
     def resource(self) -> Resource:
-        return self.provider.resource
+        with self.lock:
+            if isinstance(self.provider, SDKTracerProvider):
+                return self.provider.resource
+            return Resource.create({'service.name': 'unknown'})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.provider.force_flush(timeout_millis)
+        with self.lock:
+            if isinstance(self.provider, SDKTracerProvider):
+                return self.provider.force_flush(timeout_millis)
+            return True
 
 
 @dataclass
@@ -275,36 +290,6 @@ class _ProxyTracer(Tracer):
             ),
             ns_timestamp_generator=self.provider.config.ns_timestamp_generator,
         )
-
-
-# making this None by default lets us know when we need to call `set_tracer_provider()`
-# which will warn or error if it is called more than once
-global_proxy_tracer_provider: ProxyTracerProvider | None = None
-
-
-def set_global_tracer_provider(provider: SDKTracerProvider, config: LogfireConfig) -> None:
-    global global_proxy_tracer_provider
-
-    if global_proxy_tracer_provider is None:
-        global_proxy_tracer_provider = ProxyTracerProvider(provider, config)
-        trace_api.set_tracer_provider(global_proxy_tracer_provider)
-    else:
-        global_proxy_tracer_provider.force_flush()  # send any lingering spans
-        global_proxy_tracer_provider.provider = provider
-        global_proxy_tracer_provider.config = config
-        for tracer, factory in global_proxy_tracer_provider.tracers.items():
-            tracer.set_tracer(factory())
-
-
-def get_global_tracer_provider() -> ProxyTracerProvider:
-    global global_proxy_tracer_provider
-
-    if global_proxy_tracer_provider is None:
-        from logfire.config import configure
-
-        configure()
-        assert global_proxy_tracer_provider is not None
-    return global_proxy_tracer_provider
 
 
 def _emit_start_span(

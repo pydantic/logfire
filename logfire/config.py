@@ -1,4 +1,4 @@
-from __future__ import annotations, annotations as _annotations
+from __future__ import annotations as _annotations
 
 import dataclasses
 import json
@@ -14,9 +14,11 @@ from typing import (
 )
 
 import httpx
+from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
@@ -24,8 +26,8 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from typing_extensions import Self, get_args, get_origin
 
 from ._constants import LOGFIRE_API_ROOT
-from ._metrics import set_meter_provider
-from ._tracer import set_global_tracer_provider
+from ._metrics import ProxyMeterProvider, configure_metrics
+from ._tracer import ProxyTracerProvider
 from .exporters.console import ConsoleSpanExporter
 from .version import VERSION
 
@@ -48,6 +50,7 @@ def configure(
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: Sequence[SpanProcessor] | None = None,
     default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
+    metric_readers: Sequence[MetricReader] | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -70,7 +73,7 @@ def configure(
         default_processor: Function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK.
             You can configure the export delay for BatchSpanProcessor by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
     """
-    config = LogfireConfig(
+    GLOBAL_CONFIG.merge_with_env(
         api_root=logfire_api_root,
         send_to_logfire=send_to_logfire,
         logfire_token=logfire_token,
@@ -84,70 +87,9 @@ def configure(
         ns_timestamp_generator=ns_timestamp_generator,
         processors=processors,
         default_processor=default_processor,
+        metric_readers=metric_readers,
     )
-    return _configure(config)
-
-
-def _configure(config: LogfireConfig) -> None:
-    global _meter_provider
-    # this function exists just to avoid programming errors by referencing local variables in config()
-    tracer_provider = SDKTracerProvider(
-        resource=Resource.create(
-            {
-                'service.name': config.service_name,
-            }
-        ),
-        id_generator=config.id_generator,
-    )
-
-    for processor in config.processors:
-        tracer_provider.add_span_processor(processor)
-
-    if config.console_print != 'off':
-        tracer_provider.add_span_processor(
-            config.default_processor(
-                ConsoleSpanExporter(verbose=config.console_print == 'verbose'),
-            )
-        )
-
-    credentials_from_local_file = None
-
-    if config.send_to_logfire:
-        if config.logfire_token is None:
-            credentials_from_local_file = LogfireCredentials.load_creds_file(config.logfire_dir)
-            if credentials_from_local_file:
-                config.logfire_token = credentials_from_local_file.token
-            else:
-                # create a token by asking logfire.dev to create a new project
-                new_credentials = LogfireCredentials.create_new_project(
-                    logfire_api_url=config.api_root, requested_project_name=config.project_name or config.service_name
-                )
-                config.logfire_token = new_credentials.token
-                new_credentials.write_creds_file(config.logfire_dir)
-                if config.show_summary != 'never':
-                    new_credentials.print_new_token_summary(config.logfire_dir)
-                # to avoid printing another summary
-                credentials_from_local_file = None
-
-        headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': config.logfire_token}
-        endpoint = f'{config.api_root}/v1/traces'
-        tracer_provider.add_span_processor(
-            config.default_processor(
-                OTLPSpanExporter(
-                    endpoint=endpoint,
-                    headers=headers,
-                )
-            )
-        )
-
-        metric_exporter = OTLPMetricExporter(endpoint=f'{config.api_root}/v1/metrics', headers=headers)
-        _meter_provider = set_meter_provider(exporter=metric_exporter)
-
-    if config.show_summary == 'always' and credentials_from_local_file:
-        credentials_from_local_file.print_existing_token_summary(config.logfire_dir)
-
-    # reset the global proxy tracer
-    set_global_tracer_provider(tracer_provider, config)
+    GLOBAL_CONFIG.initialize()
 
 
 def _get_bool_from_env(env_var: str) -> bool | None:
@@ -175,12 +117,7 @@ def _check_literal(value: Any | None, name: str, tp: type[T]) -> T | None:
     return value
 
 
-# Need to hold onto a reference to avoid gc
-# TODO(adrian): refactor this to be more like the global proxy tracer
-_meter_provider: MeterProvider | None = None
-
-
-def coalesce(runtime: T | None, env: T | None, default: T) -> T:
+def _coalesce(runtime: T | None, env: T | None, default: T) -> T:
     """
     Return the first non-None value.
     """
@@ -234,34 +171,33 @@ class LogfireConfig:
         ns_timestamp_generator: Callable[[], int] | None = None,
         processors: Sequence[SpanProcessor] | None = None,
         default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
+        metric_readers: Sequence[MetricReader] | None = None,
     ) -> None:
-        """
-        Configure the logfire SDK.
-
-        See the `configure` function for details of the arguments.
-        """
-        self.api_root = api_root or os.getenv('LOGFIRE_API_ROOT') or DEFAULT_CONFIG.api_root
-        self.send_to_logfire = coalesce(
-            send_to_logfire, _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'), DEFAULT_CONFIG.send_to_logfire
+        # merge_with_env is it's own method so that it can be called on an existing config object
+        # in particular the global config object
+        self.merge_with_env(
+            api_root=api_root,
+            send_to_logfire=send_to_logfire,
+            logfire_token=logfire_token,
+            project_name=project_name,
+            service_name=service_name,
+            console_print=console_print,
+            console_colors=console_colors,
+            show_summary=show_summary,
+            logfire_dir=logfire_dir,
+            id_generator=id_generator,
+            ns_timestamp_generator=ns_timestamp_generator,
+            processors=processors,
+            default_processor=default_processor,
+            metric_readers=metric_readers,
         )
-        self.logfire_token = logfire_token or os.getenv('LOGFIRE_TOKEN') or DEFAULT_CONFIG.logfire_token
-        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or DEFAULT_CONFIG.project_name
-        self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or DEFAULT_CONFIG.service_name
-        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or DEFAULT_CONFIG.console_print  # type: ignore
-        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', _ConsoleColorsValues) or DEFAULT_CONFIG.console_colors  # type: ignore
-        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY'), 'show_summary', _ShowSummaryValues) or DEFAULT_CONFIG.show_summary  # type: ignore
-        if logfire_dir:
-            self.logfire_dir = logfire_dir
-        else:
-            dir = os.getenv('LOGFIRE_DIR')
-            if dir is not None:
-                self.logfire_dir = Path(dir)
-            else:
-                self.logfire_dir = DEFAULT_CONFIG.logfire_dir
-        self.id_generator = id_generator or DEFAULT_CONFIG.id_generator
-        self.ns_timestamp_generator = ns_timestamp_generator or DEFAULT_CONFIG.ns_timestamp_generator
-        self.processors = tuple(processors or DEFAULT_CONFIG.processors)
-        self.default_processor = default_processor or DEFAULT_CONFIG.default_processor
+        # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
+        # that is, we defer setting logfire as the otel global config until `configure` is called
+        self._tracer_provider = ProxyTracerProvider(trace.NoOpTracerProvider(), self)
+        # note: this reference is important because the MeterProvider runs things in background threads
+        # thus it "shuts down" when it's gc'ed
+        self._meter_provider = ProxyMeterProvider(metrics.NoOpMeterProvider())
+        self._initialized = False
 
     @staticmethod
     def load_token(
@@ -275,24 +211,159 @@ class LogfireConfig:
                 logfire_token = file_creds.token
         return logfire_token, file_creds
 
+    def merge_with_env(
+        self,
+        # note that there are no defaults here so that the only place
+        # defaults exist is `__init__` and we don't forgot a parameter when
+        # forwarding parameters from `__init__` to `merge_with_env
+        api_root: str | None,
+        send_to_logfire: bool | None,
+        logfire_token: str | None,
+        project_name: str | None,
+        service_name: str | None,
+        console_print: _ConsolePrintValues | None,
+        console_colors: _ConsoleColorsValues | None,
+        show_summary: _ShowSummaryValues | None,
+        logfire_dir: Path | None,
+        id_generator: IdGenerator | None,
+        ns_timestamp_generator: Callable[[], int] | None,
+        processors: Sequence[SpanProcessor] | None,
+        default_processor: Callable[[SpanExporter], SpanProcessor] | None,
+        metric_readers: Sequence[MetricReader] | None,
+    ) -> None:
+        """Merge the given parameters with the environment variables file configurations"""
+        self.api_root = api_root or os.getenv('LOGFIRE_API_ROOT') or LOGFIRE_API_ROOT
+        self.send_to_logfire = _coalesce(
+            send_to_logfire,
+            _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'),
+            True,
+        )
+        self.logfire_token = logfire_token or os.getenv('LOGFIRE_TOKEN')
+        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME')
+        self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or 'unknown'
+        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or 'concise'  # type: ignore
+        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', _ConsoleColorsValues) or 'auto'  # type: ignore
+        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
+        if logfire_dir:
+            self.logfire_dir = logfire_dir
+        else:
+            dir = os.getenv('LOGFIRE_DIR')
+            if dir is not None:
+                self.logfire_dir = Path(dir)
+            else:
+                self.logfire_dir = Path('.logfire')
+        self.id_generator = id_generator or RandomIdGenerator()
+        self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
+        self.processors = list(processors or ())
+        self.default_processor = default_processor or BatchSpanProcessor
+        self.metric_readers = metric_readers
+
+    def initialize(self) -> ProxyTracerProvider:
+        """Configure internals to start exporting traces and metrics."""
+        tracer_provider = SDKTracerProvider(
+            resource=Resource.create(
+                {
+                    'service.name': self.service_name,
+                }
+            ),
+            id_generator=self.id_generator,
+        )
+
+        for processor in self.processors:
+            tracer_provider.add_span_processor(processor)
+
+        if self.console_print != 'off':
+            tracer_provider.add_span_processor(
+                self.default_processor(
+                    ConsoleSpanExporter(verbose=self.console_print == 'verbose'),
+                )
+            )
+
+        credentials_from_local_file = None
+
+        metric_readers = list(self.metric_readers or ())
+
+        if self.send_to_logfire:
+            if self.logfire_token is None:
+                credentials_from_local_file = LogfireCredentials.load_creds_file(self.logfire_dir)
+                if credentials_from_local_file:
+                    self.logfire_token = credentials_from_local_file.token
+                else:
+                    # create a token by asking logfire.dev to create a new project
+                    new_credentials = LogfireCredentials.create_new_project(
+                        logfire_api_url=self.api_root, requested_project_name=self.project_name or self.service_name
+                    )
+                    self.logfire_token = new_credentials.token
+                    new_credentials.write_creds_file(self.logfire_dir)
+                    if self.show_summary != 'never':
+                        new_credentials.print_new_token_summary(self.logfire_dir)
+                    # to avoid printing another summary
+                    credentials_from_local_file = None
+
+            headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.logfire_token}
+            endpoint = f'{self.api_root}/v1/traces'
+            tracer_provider.add_span_processor(
+                self.default_processor(
+                    OTLPSpanExporter(
+                        endpoint=endpoint,
+                        headers=headers,
+                    )
+                )
+            )
+
+            metric_readers.append(
+                PeriodicExportingMetricReader(
+                    OTLPMetricExporter(
+                        endpoint=endpoint,
+                        headers=headers,
+                    )
+                )
+            )
+
+        if self.show_summary == 'always' and credentials_from_local_file:
+            credentials_from_local_file.print_existing_token_summary(self.logfire_dir)
+
+        meter_provider = MeterProvider(metric_readers=metric_readers)
+        configure_metrics(meter_provider)
+        self._tracer_provider.set_provider(tracer_provider)
+        self._meter_provider.set_meter_provider(meter_provider)
+
+        if self is GLOBAL_CONFIG and not self._initialized:
+            trace.set_tracer_provider(self._tracer_provider)
+            metrics.set_meter_provider(self._meter_provider)
+
+        self._initialized = True
+
+        return self._tracer_provider
+
+    def get_tracer_provider(self) -> ProxyTracerProvider:
+        """Get a tracer provider from this LogfireConfig
+
+        This is used internally and should not be called by users of the SDK.
+        """
+        if not self._initialized:
+            return self.initialize()
+        return self._tracer_provider
+
+    def __copy__(self) -> LogfireConfig:
+        # this is implemented like this instead of passing in each param
+        # not only for code verbosity but also to make sure we don't forget any!
+        # this means we do have to be methodical about storing parameters that are valid for __init__
+        # without leading underscores and prefixing other parameters with `_`
+        return LogfireConfig(**self._get_params())
+
     def __repr__(self) -> str:
-        return f'LogfireConfig({", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())})'
+        return f'LogfireConfig({", ".join(f"{k}={v!r}" for k, v in self._get_params().items())})'
+
+    def _get_params(self) -> dict[str, Any]:
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
 
-DEFAULT_CONFIG = object.__new__(LogfireConfig)
-DEFAULT_CONFIG.api_root = LOGFIRE_API_ROOT
-DEFAULT_CONFIG.send_to_logfire = True
-DEFAULT_CONFIG.console_print = 'concise'
-DEFAULT_CONFIG.console_colors = 'auto'
-DEFAULT_CONFIG.show_summary = 'new-project'
-DEFAULT_CONFIG.logfire_dir = Path('.logfire')
-DEFAULT_CONFIG.project_name = None
-DEFAULT_CONFIG.logfire_token = None
-DEFAULT_CONFIG.service_name = 'unknown'
-DEFAULT_CONFIG.id_generator = RandomIdGenerator()
-DEFAULT_CONFIG.ns_timestamp_generator = time.time_ns
-DEFAULT_CONFIG.processors = ()
-DEFAULT_CONFIG.default_processor = BatchSpanProcessor
+# The global config is the single global object in logfire
+# It also does not initialize anything when it's created (right now)
+# but when `logfire.configure` aka `GLOBAL_CONFIG.configure` is called
+# it will initialize the tracer and metrics
+GLOBAL_CONFIG = LogfireConfig()
 
 
 @dataclasses.dataclass

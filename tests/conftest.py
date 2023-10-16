@@ -1,12 +1,12 @@
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from logfire.config import configure
 from logfire.testing import (
     IncrementalIdGenerator,
     TestExporter,
-    TestMetricExporter,
     TimeGenerator,
 )
 
@@ -27,13 +27,14 @@ def exporter() -> TestExporter:
 
 
 @pytest.fixture
-def metric_exporter() -> TestMetricExporter:
-    return TestMetricExporter()
+def metrics_reader() -> InMemoryMetricReader:
+    return InMemoryMetricReader()
 
 
 @pytest.fixture(autouse=True)
 def config(
     exporter: TestExporter,
+    metrics_reader: InMemoryMetricReader,
     id_generator: IncrementalIdGenerator,
     time_generator: TimeGenerator,
 ) -> None:
@@ -43,6 +44,7 @@ def config(
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
+        metric_readers=[metrics_reader],
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

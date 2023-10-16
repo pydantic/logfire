@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 import logfire
-from logfire import LogfireSpan
+from logfire import Logfire, LogfireSpan
 from logfire._constants import (
     ATTRIBUTES_LOG_LEVEL_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -20,7 +20,7 @@ from logfire._constants import (
     ATTRIBUTES_TAGS_KEY,
     NULL_ARGS_KEY,
 )
-from logfire.config import configure
+from logfire.config import LogfireConfig, configure
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -1214,3 +1214,126 @@ def test_int_span_id_encoding():
     AnyValue(string_value=str(2**63 - 1))
     AnyValue(string_value=str(2**63))
     AnyValue(string_value=str(2**128))
+
+
+def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
+    exporter1 = TestExporter()
+    config = LogfireConfig(
+        send_to_logfire=False,
+        console_print='off',
+        ns_timestamp_generator=TimeGenerator(),
+        id_generator=IncrementalIdGenerator(),
+        processors=[
+            SimpleSpanProcessor(exporter1),
+        ],
+    )
+
+    logfire = Logfire(config=config)
+    logfire1 = logfire.tags('tag1', 'tag2')
+
+    with logfire.span('root'):
+        with logfire.span('child'):
+            logfire.info('test1')
+            logfire1.info('test2')
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == []
+
+    # insert_assert(exporter1.exported_spans_as_dict())
+    assert exporter1.exported_spans_as_dict() == [
+        {
+            'name': 'root (start)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+                'logfire.msg_template': 'root',
+                'logfire.msg': 'root',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'child (start)',
+            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+                'logfire.msg_template': 'child',
+                'logfire.msg': 'child',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '1',
+            },
+        },
+        {
+            'name': 'test1',
+            'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 3000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test1',
+                'logfire.msg': 'test1',
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+            },
+        },
+        {
+            'name': 'test2',
+            'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 4000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test2',
+                'logfire.msg': 'test2',
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+                'logfire.tags': ('tag1', 'tag2'),
+            },
+        },
+        {
+            'name': 'child',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 5000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+                'logfire.msg_template': 'child',
+                'logfire.msg': 'child',
+                'logfire.span_type': 'span',
+            },
+        },
+        {
+            'name': 'root',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 6000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_logifre_with_its_own_config',
+                'logfire.msg_template': 'root',
+                'logfire.msg': 'root',
+                'logfire.span_type': 'span',
+            },
+        },
+    ]

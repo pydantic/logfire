@@ -13,6 +13,8 @@ from logfire.testing import TestExporter
 
 
 def test_fastapi_middleware(exporter: TestExporter) -> None:
+    # note: this also serves as a unit test of our integration with otel's various integrations
+
     def homepage(_: Request):
         return PlainTextResponse('middleware test')
 

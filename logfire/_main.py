@@ -25,7 +25,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 
-from logfire.config import DEFAULT_CONFIG, LogfireConfig
+from logfire.config import GLOBAL_CONFIG, LogfireConfig
 
 try:
     from pydantic import ValidationError
@@ -47,14 +47,14 @@ from ._constants import (
     LevelName,
 )
 from ._flatten import Flatten
-from ._tracer import ProxyTracerProvider, get_global_tracer_provider
+from ._tracer import ProxyTracerProvider
 from .json_encoder import json_dumps_traceback, logfire_json_dumps
 
 _CDW = Path('.').resolve()
 
 
 class Logfire:
-    def __init__(self, tags: Sequence[str] = (), config: LogfireConfig = DEFAULT_CONFIG) -> None:
+    def __init__(self, tags: Sequence[str] = (), config: LogfireConfig = GLOBAL_CONFIG) -> None:
         self._tags = list(tags)
         self._config = config
         self.__tracer_provider: ProxyTracerProvider | None = None
@@ -66,11 +66,8 @@ class Logfire:
 
     def _get_tracer_provider(self) -> ProxyTracerProvider:
         if self.__tracer_provider is None:
-            self.__tracer_provider = get_global_tracer_provider()
+            self.__tracer_provider = self._config.get_tracer_provider()
         return self.__tracer_provider
-
-    def _get_config(self) -> LogfireConfig:
-        return self._get_tracer_provider().config
 
     @contextmanager
     def _span(
@@ -217,7 +214,7 @@ class Logfire:
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = _merge_tags_into_attributes(otlp_attributes, self._tags)
 
-        start_time = self._get_config().ns_timestamp_generator()
+        start_time = self._config.ns_timestamp_generator()
 
         if self._logs_tracer is None:
             self._logs_tracer = self._get_tracer_provider().get_tracer(

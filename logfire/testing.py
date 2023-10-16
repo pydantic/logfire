@@ -3,9 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from opentelemetry.sdk.metrics._internal.aggregation import AggregationTemporality
-from opentelemetry.sdk.metrics._internal.point import MetricsData
-from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -74,29 +71,6 @@ class TestExporter(SpanExporter):
             return res
 
         return [build_span(span) for span in self.exported_spans]
-
-
-class TestMetricExporter(MetricExporter):
-    # NOTE: Avoid test discovery by pytest.
-    __test__ = False
-
-    def __init__(
-        self,
-        preferred_temporality: dict[type, AggregationTemporality] | None = None,
-        preferred_aggregation: dict[type, Any] | None = None,
-    ) -> None:
-        self.exported_metrics: list[MetricsData] = []
-        super().__init__(preferred_temporality, preferred_aggregation)  # type: ignore
-
-    def export(self, metrics_data: MetricsData, timeout_millis: float = 10000, **kwargs: Any) -> MetricExportResult:
-        self.exported_metrics.append(metrics_data)
-        return MetricExportResult.SUCCESS
-
-    def shutdown(self, timeout_millis: float = 30000, **kwargs: Any) -> None:
-        return None
-
-    def force_flush(self, timeout_millis: float = 10000) -> bool:
-        return super().force_flush(timeout_millis)
 
 
 @dataclass(repr=True)
