@@ -1,1 +1,3 @@
-VERSION = '0.0.2'
+import importlib_metadata
+
+VERSION = importlib_metadata.version('logfire')
