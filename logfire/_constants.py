@@ -10,7 +10,6 @@ LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 """Level names for logs"""
 
 ATTRIBUTES_LOG_LEVEL_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level'
-
 """The key within OTEL attributes where logfire puts the log level"""
 
 SpanTypeType = Literal['log', 'start_span', 'span']

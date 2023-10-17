@@ -144,6 +144,7 @@ def install_automatic_instrumentation(modules: list[str] | None = None, logfire:
 
     Args:
         modules: List of module names to trace. Defaults to None.
+        logfire: The logfire instance to use. Defaults to the default logfire instance.
     """
     # if modules is None then use the filename of the module of the caller
     # otherwise get the filenames for each module and join them with |
