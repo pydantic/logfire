@@ -301,11 +301,10 @@ class LogfireConfig:
                     credentials_from_local_file = None
 
             headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.logfire_token}
-            endpoint = f'{self.api_root}/v1/traces'
             tracer_provider.add_span_processor(
                 self.default_processor(
                     OTLPSpanExporter(
-                        endpoint=endpoint,
+                        endpoint=f'{self.api_root}/v1/traces',
                         headers=headers,
                     )
                 )
@@ -314,7 +313,7 @@ class LogfireConfig:
             metric_readers.append(
                 PeriodicExportingMetricReader(
                     OTLPMetricExporter(
-                        endpoint=endpoint,
+                        endpoint=f'{self.api_root}/v1/metrics',
                         headers=headers,
                     )
                 )
