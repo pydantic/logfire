@@ -1,7 +1,8 @@
 import json
 import re
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import cast
+from typing import Callable, cast
 
 import pytest
 from dirty_equals import IsPositive, IsStr
@@ -764,7 +765,6 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
 
     errors = json.loads(cast(bytes, event.attributes.get('exception.logfire.trace')))
     # insert_assert(errors)
-    print(errors)
     assert errors == {
         'stacks': [
             {
@@ -1337,3 +1337,155 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             },
         },
     ]
+
+
+def do_work() -> None:
+    with logfire.span('child'):
+        pass
+
+
+def do_work_with_arg(within: str) -> None:
+    with logfire.span('child {within}', within=within):
+        pass
+
+
+def test_span_in_executor(
+    exporter: TestExporter,
+) -> None:
+    with logfire.span('main'):
+        with ThreadPoolExecutor() as executor:
+            executor.submit(do_work)
+            executor.shutdown(wait=True)
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'main (start)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_span_in_executor',
+                'logfire.msg_template': 'main',
+                'logfire.msg': 'main',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'child (start)',
+            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'do_work',
+                'logfire.msg_template': 'child',
+                'logfire.msg': 'child',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '1',
+            },
+        },
+        {
+            'name': 'child',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+            'start_time': 2000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'do_work',
+                'logfire.msg_template': 'child',
+                'logfire.msg': 'child',
+                'logfire.span_type': 'span',
+            },
+        },
+        {
+            'name': 'main',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_span_in_executor',
+                'logfire.msg_template': 'main',
+                'logfire.msg': 'main',
+                'logfire.span_type': 'span',
+            },
+        },
+    ]
+
+
+def test_span_in_executor_args(exporter: TestExporter) -> None:
+    with ThreadPoolExecutor() as exec:
+        exec.submit(do_work_with_arg, 'foo')
+        exec.shutdown(wait=True)
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'child {within} (start)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'do_work_with_arg',
+                'within': 'foo',
+                'logfire.msg_template': 'child {within}',
+                'logfire.msg': 'child foo',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'child {within}',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'do_work_with_arg',
+                'within': 'foo',
+                'logfire.msg_template': 'child {within}',
+                'logfire.msg': 'child foo',
+                'logfire.span_type': 'span',
+            },
+        },
+    ]
+
+
+def check_project_name(expected_project_name: str) -> None:
+    from logfire.config import GLOBAL_CONFIG
+
+    assert GLOBAL_CONFIG.project_name == expected_project_name
+
+
+@pytest.mark.parametrize(
+    'executor_factory',
+    [
+        ThreadPoolExecutor,
+        ProcessPoolExecutor,
+    ],
+)
+def test_config_preserved_across_thread_or_process(
+    executor_factory: Callable[[], ThreadPoolExecutor | ProcessPoolExecutor],
+) -> None:
+    """Check that we copy the current global configuration when moving execution to a thread or process."""
+    configure(send_to_logfire=False, console_print='off', project_name='foobar!')
+
+    with executor_factory() as executor:
+        executor.submit(check_project_name, 'foobar!')
+        executor.shutdown(wait=True)

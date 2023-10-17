@@ -100,15 +100,19 @@ class IncrementalIdGenerator(IdGenerator):
 ONE_NANOSECOND = 1_000_000_000
 
 
-@dataclass(repr=True)
+# Making this a dataclass causes errors in the process pool end-to-end tests
 class TimeGenerator:
     """Generate incrementing timestamps for testing.
 
     Timestamps are in nanoseconds, start at 1_000_000_000, and increment by 1_000_000_000 (1 second) each time.
     """
 
-    ns_time: int = 0
+    def __init__(self, ns_time: int = 0):
+        self.ns_time = ns_time
 
     def __call__(self) -> int:
         self.ns_time += ONE_NANOSECOND
         return self.ns_time
+
+    def __repr__(self) -> str:
+        return f'TimeGenerator(ns_time={self.ns_time})'
