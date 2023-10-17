@@ -2,7 +2,7 @@ This project is a simple example of how to use the `logfire` package to scrape a
 
 ??? note "See source code! 🔎"
     ```py
-    --8<-- "docs/src/scrapper/main.py"
+    --8<-- "docs/src/scraper/main.py"
     ```
 
 ## Installation
@@ -10,7 +10,7 @@ This project is a simple example of how to use the `logfire` package to scrape a
 To install the dependencies, you can copy the following dependencies to a `requirements.txt` file:
 
 ```txt
---8<-- "docs/src/scrapper/requirements.txt"
+--8<-- "docs/src/scraper/requirements.txt"
 ```
 
 Then run the following command:
