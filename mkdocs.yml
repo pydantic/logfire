@@ -40,6 +40,7 @@ nav:
   - Examples:
     - Image Transformation: examples/image_transformation.md
     - FastAPI Application: examples/fastapi.md
+    - Web Scrapper: examples/web_scrapper.md
     - Machine Learning: examples/machine_learning.md
   - API Reference: api.md
 
