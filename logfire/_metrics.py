@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 from abc import ABC, abstractmethod
 from threading import Lock
 from typing import Generic, Sequence, TypeVar, Union
@@ -21,12 +22,43 @@ from opentelemetry.metrics import (
 )
 from opentelemetry.util.types import Attributes
 
+# copied from opentelemetry/instrumentation/system_metrics/__init__.py
+DEFAULT_CONFIG = {
+    'system.cpu.time': ['idle', 'user', 'system', 'irq'],
+    'system.cpu.utilization': ['idle', 'user', 'system', 'irq'],
+    'system.memory.usage': ['used', 'free', 'cached'],
+    'system.memory.utilization': ['used', 'free', 'cached'],
+    'system.swap.usage': ['used', 'free'],
+    'system.swap.utilization': ['used', 'free'],
+    'system.disk.io': ['read', 'write'],
+    'system.disk.operations': ['read', 'write'],
+    'system.disk.time': ['read', 'write'],
+    'system.network.dropped.packets': ['transmit', 'receive'],
+    'system.network.packets': ['transmit', 'receive'],
+    'system.network.errors': ['transmit', 'receive'],
+    'system.network.io': ['transmit', 'receive'],
+    'system.network.connections': ['family', 'type'],
+    'system.thread_count': None,
+    'process.runtime.memory': ['rss', 'vms'],
+    'process.runtime.cpu.time': ['user', 'system'],
+    'process.runtime.gc_count': None,
+}
+
+if sys.platform == 'darwin':
+    # see https://github.com/giampaolo/psutil/issues/1219
+    # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
+    DEFAULT_CONFIG.pop('system.network.connections')
+
+
+INSTRUMENTOR = SystemMetricsInstrumentor(config=DEFAULT_CONFIG)  # type: ignore
+
 
 def configure_metrics(meter_provider: MeterProvider) -> None:
     # we need to call uninstrument() otherwise instrument() will do nothing
     # even if the meter provider is different
-    SystemMetricsInstrumentor().uninstrument()  # type: ignore
-    SystemMetricsInstrumentor().instrument(meter_provider=meter_provider)  # type: ignore
+    if INSTRUMENTOR.is_instrumented_by_opentelemetry:
+        INSTRUMENTOR.uninstrument()  # type: ignore
+    INSTRUMENTOR.instrument(meter_provider=meter_provider)  # type: ignore
 
 
 # The following proxy classes are adapted from OTEL's SDK
