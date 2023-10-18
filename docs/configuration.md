@@ -4,7 +4,7 @@ There are two ways to configure Logfire:
 - [Using environment variables](#using-environment-variables)
 
 !!! note
-    The programmatically _way_ has precedence over environment variables.
+    Settings passed programmatically have precedence over environment variables.
 
 ## Programmatically via `configure`
 
