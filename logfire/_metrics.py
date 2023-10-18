@@ -3,12 +3,11 @@ from __future__ import annotations
 import dataclasses
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Generic, Iterable, Sequence, TypeVar, Union
+from typing import Generic, Sequence, TypeVar, Union
 from weakref import WeakSet
 
-import psutil
+from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.metrics import (
-    CallbackOptions,
     CallbackT,
     Counter,
     Histogram,
@@ -18,37 +17,19 @@ from opentelemetry.metrics import (
     ObservableCounter,
     ObservableGauge,
     ObservableUpDownCounter,
-    Observation,
     UpDownCounter,
-    get_meter,
 )
 from opentelemetry.util.types import Attributes
 
-from logfire.version import VERSION
-
-
-def cpu_usage_callback(_: CallbackOptions):
-    for number, percent in enumerate(psutil.cpu_percent(percpu=True)):
-        attributes = {'cpu_number': str(number)}
-        yield Observation(percent, attributes)
-
-
-def ram_usage_callback(_: CallbackOptions) -> Iterable[Observation]:
-    ram_percent = psutil.virtual_memory().percent
-    swap_percent = psutil.swap_memory().percent
-    yield Observation(ram_percent, {'type': 'ram'})
-    yield Observation(swap_percent, {'type': 'swap'})
-
 
 def configure_metrics(meter_provider: MeterProvider) -> None:
-    meter = get_meter('opentelemetry.instrumentation.logfire', version=VERSION, meter_provider=meter_provider)
-    meter.create_observable_gauge('system.cpu.usage', callbacks=[cpu_usage_callback], unit='%', description='CPU usage')
-    meter.create_observable_gauge('system.ram.usage', callbacks=[ram_usage_callback], unit='%', description='RAM usage')
+    # we need to call uninstrument() otherwise instrument() will do nothing
+    # even if the meter provider is different
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
+    SystemMetricsInstrumentor().instrument(meter_provider=meter_provider)  # type: ignore
 
 
 # The following proxy classes are adapted from OTEL's SDK
-
-
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):
     provider: MeterProvider

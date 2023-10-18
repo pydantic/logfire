@@ -47,6 +47,7 @@ def configure(
     show_summary: Literal['always', 'never', 'new-project'] | None = None,
     logfire_dir: Path | None = None,
     logfire_api_root: str | None = None,
+    collect_system_metrics: bool | None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: Sequence[SpanProcessor] | None = None,
@@ -84,6 +85,7 @@ def configure(
         console_colors=console_colors,
         show_summary=show_summary,
         logfire_dir=logfire_dir,
+        collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
         processors=processors,
@@ -143,28 +145,43 @@ class _LogfireConfigData:
 
     logfire_api_root: str
     """The root URL of the Logfire API"""
+
     send_to_logfire: bool
     """Whether to send logs and spans to Logfire"""
+
     logfire_token: str | None
     """The Logfire API token to use"""
+
     project_name: str | None
     """The Logfire project name to use"""
+
     service_name: str
     """The name of this service"""
+
     console_print: _ConsolePrintValues
     """How to print logs to the console"""
+
     console_colors: _ConsoleColorsValues
     """Whether to use colors when printing logs to the console"""
+
     show_summary: _ShowSummaryValues
     """Whether to show the summary when starting a new project"""
+
     logfire_dir: Path
     """The directory to store Logfire config in"""
+
+    collect_system_metrics: bool
+    """Whether to collect system metrics like CPU and memory usage"""
+
     id_generator: IdGenerator
     """The ID generator to use"""
+
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
+
     processors: Sequence[SpanProcessor]
     """Additional span processors"""
+
     default_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
@@ -182,6 +199,7 @@ class _LogfireConfigData:
         console_colors: _ConsoleColorsValues | None,
         show_summary: _ShowSummaryValues | None,
         logfire_dir: Path | None,
+        collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         processors: Sequence[SpanProcessor] | None,
@@ -209,6 +227,9 @@ class _LogfireConfigData:
                 self.logfire_dir = Path(dir)
             else:
                 self.logfire_dir = Path('.logfire')
+        self.collect_system_metrics = (
+            collect_system_metrics or _get_bool_from_env('LOGFIRE_COLLECT_SYSTEM_METRICS') or True
+        )
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.processors = list(processors or ())
@@ -228,12 +249,19 @@ class LogfireConfig(_LogfireConfigData):
         console_colors: _ConsoleColorsValues | None = None,
         show_summary: _ShowSummaryValues | None = None,
         logfire_dir: Path | None = None,
+        collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
         processors: Sequence[SpanProcessor] | None = None,
         default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
     ) -> None:
+        """Create a new LogfireConfig.
+
+        Users should never need to call this directly, instead use `logfire.configure`.
+
+        See `_LogfireConfigData` for parameter documentation.
+        """
         # merge_with_env is it's own method so that it can be called on an existing config object
         # in particular the global config object
         self.merge_with_env(
@@ -246,6 +274,7 @@ class LogfireConfig(_LogfireConfigData):
             console_colors=console_colors,
             show_summary=show_summary,
             logfire_dir=logfire_dir,
+            collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
             processors=processors,
@@ -274,12 +303,13 @@ class LogfireConfig(_LogfireConfigData):
 
     def initialize(self) -> ProxyTracerProvider:
         """Configure internals to start exporting traces and metrics."""
+        resource = Resource.create(
+            {
+                'service.name': self.service_name,
+            }
+        )
         tracer_provider = SDKTracerProvider(
-            resource=Resource.create(
-                {
-                    'service.name': self.service_name,
-                }
-            ),
+            resource=resource,
             id_generator=self.id_generator,
         )
 
@@ -341,8 +371,9 @@ class LogfireConfig(_LogfireConfigData):
         if self.show_summary == 'always' and credentials_from_local_file:
             credentials_from_local_file.print_existing_token_summary(self.logfire_dir)
 
-        meter_provider = MeterProvider(metric_readers=metric_readers)
-        configure_metrics(meter_provider)
+        meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
+        if self.collect_system_metrics:
+            configure_metrics(meter_provider)
         self._tracer_provider.set_provider(tracer_provider)
         self._meter_provider.set_meter_provider(meter_provider)
 
