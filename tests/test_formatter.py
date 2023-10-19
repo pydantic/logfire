@@ -1,7 +1,7 @@
 from collections import ChainMap
 
 from logfire import flatten
-from logfire.formatter import chunks_formatter
+from logfire._formatter import chunks_formatter
 
 
 def test_simple_render():

@@ -1,7 +1,7 @@
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
+from ._config import configure
 from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
-from .config import configure
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()

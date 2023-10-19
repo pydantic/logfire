@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from logfire._config import LogfireCredentials
 from logfire.cli import app
-from logfire.config import LogfireCredentials
 from logfire.version import VERSION
 
 

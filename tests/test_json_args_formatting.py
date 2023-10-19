@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 
-from logfire.json_encoder import DataType
-from logfire.json_formatter import json_args_value_formatter, json_args_value_formatter_compact
+from logfire._json_encoder import DataType
+from logfire._json_formatter import json_args_value_formatter, json_args_value_formatter_compact
 
 
 @pytest.mark.parametrize(

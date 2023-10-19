@@ -25,7 +25,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 
-from logfire.config import GLOBAL_CONFIG, LogfireConfig
+from logfire._config import GLOBAL_CONFIG, LogfireConfig
 
 try:
     from pydantic import ValidationError
@@ -33,7 +33,7 @@ except ImportError:
     ValidationError = None
 from typing_extensions import ParamSpec
 
-from logfire.formatter import logfire_format
+from logfire._formatter import logfire_format
 
 from ._constants import (
     ATTRIBUTES_LOG_LEVEL_KEY,
@@ -47,8 +47,8 @@ from ._constants import (
     LevelName,
 )
 from ._flatten import Flatten
+from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
-from .json_encoder import json_dumps_traceback, logfire_json_dumps
 
 _CDW = Path('.').resolve()
 

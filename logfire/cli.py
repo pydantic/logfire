@@ -5,7 +5,7 @@ from pathlib import Path
 from rich.console import Console
 from typer import Exit, Option, Typer, confirm, echo
 
-from logfire.config import LogfireCredentials
+from logfire._config import LogfireCredentials
 from logfire.version import VERSION
 
 app = Typer(help='The CLI for Logfire. 🚀')

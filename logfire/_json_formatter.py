@@ -6,7 +6,7 @@ from typing import Any, Callable, cast
 
 from typing_extensions import Literal
 
-from .json_encoder import DataType
+from ._json_encoder import DataType
 
 
 class JsonArgsValueFormatter:

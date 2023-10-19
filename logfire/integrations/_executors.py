@@ -33,12 +33,12 @@ def submit_t(s: ThreadPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwa
 
 def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
     """A wrapper around ProcessPoolExecutor.submit() that carries over OTEL context across processes."""
-    from logfire import config
+    from logfire import _config  # type: ignore
 
     # note: since `logfire.config._LogfireConfigData` is a dataclass
     # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
     # which is what we want here!
-    new_config = asdict(config.GLOBAL_CONFIG)
+    new_config = asdict(_config.GLOBAL_CONFIG)
 
     fn = partial(fn, *args, **kwargs)
     carrier: dict[str, Any] = {}
@@ -52,9 +52,9 @@ def _run_with_context(carrier: dict[str, Any], fn: Callable[[], Any], parent_con
     This gets run from within a process / thread.
     """
     if parent_config is not None:
-        from logfire import config
+        from logfire import _config  # type: ignore
 
-        config.configure(**parent_config)
+        _config.configure(**parent_config)
 
     # capture the current context to restore it later
     old_context = context.get_current()

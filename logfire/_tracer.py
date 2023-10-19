@@ -27,7 +27,7 @@ from ._constants import (
 )
 
 if TYPE_CHECKING:
-    from logfire.config import LogfireConfig
+    from logfire._config import LogfireConfig
 
 
 @dataclass

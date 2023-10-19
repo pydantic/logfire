@@ -3,7 +3,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-from logfire.config import configure
+from logfire._config import configure
 from logfire.testing import (
     IncrementalIdGenerator,
     TestExporter,
