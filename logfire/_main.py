@@ -90,7 +90,7 @@ class Logfire:
             span_name_ = span_name
         else:
             span_name_ = msg_template
-        log_message = logfire_format(msg_template, {'span_name': span_name, **attributes})
+        log_message = logfire_format(msg_template, {'span_name': span_name, **merged_attributes})
 
         otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 

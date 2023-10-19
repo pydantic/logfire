@@ -1489,3 +1489,70 @@ def test_config_preserved_across_thread_or_process(
     with executor_factory() as executor:
         executor.submit(check_project_name, 'foobar!')
         executor.shutdown(wait=True)
+
+
+def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
+    logfire.info('{http.status}', **{'http.status': 123})
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': '123',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': '{http.status}',
+                'logfire.msg': '123',
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_kwarg_with_dot_in_name',
+                'http.status': 123,
+            },
+        }
+    ]
+
+    exporter.exported_spans.clear()
+
+    with logfire.span('{http.status} - {code.lineno}', **{'http.status': 123}):
+        pass
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': '{http.status} - {code.lineno} (start)',
+            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_kwarg_with_dot_in_name',
+                'http.status': 123,
+                'logfire.msg_template': '{http.status} - {code.lineno}',
+                'logfire.msg': IsStr(regex=r'123 - \d+'),
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': '{http.status} - {code.lineno}',
+            'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+            'parent': None,
+            'start_time': 2000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_kwarg_with_dot_in_name',
+                'http.status': 123,
+                'logfire.msg_template': '{http.status} - {code.lineno}',
+                'logfire.msg': IsStr(regex=r'123 - \d+'),
+                'logfire.span_type': 'span',
+            },
+        },
+    ]

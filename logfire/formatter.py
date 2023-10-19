@@ -79,7 +79,11 @@ class ChunksFormatter(Formatter):
 
                 # given the field_name, find the object it references
                 #  and the argument it came from
-                obj, _arg_used = self.get_field(field_name, args, kwargs)
+                try:
+                    obj, _arg_used = self.get_field(field_name, args, kwargs)
+                except KeyError:
+                    # fall back to getting a key with the dots in the name
+                    obj = kwargs[field_name]
 
                 # do any conversion on the resulting object
                 if conversion is not None:
