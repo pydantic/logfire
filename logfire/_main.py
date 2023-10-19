@@ -80,9 +80,9 @@ class Logfire:
         stack_info = _get_caller_stack_info()
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
-        otlp_attributes = user_attributes(merged_attributes)
-        otlp_attributes = _merge_tags_into_attributes(otlp_attributes, self._tags)
-        otlp_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+        merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+
+        tags = _merge_tags_into_attributes(merged_attributes, self._tags)
 
         span_name_: str
         log_message: str = msg_template
@@ -90,14 +90,18 @@ class Logfire:
             span_name_ = span_name
         else:
             span_name_ = msg_template
-        log_message = logfire_format(msg_template, {'span_name': span_name, **merged_attributes})
+        log_message = logfire_format(msg_template, {'span_name': span_name, **merged_attributes}, fallback='...')
 
-        otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
+        merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
         if self._spans_tracer is None:
             self._spans_tracer = self._get_tracer_provider().get_tracer(
                 'logfire',  # the name here is really not important, logfire itself doesn't use it
             )
+
+        otlp_attributes = user_attributes(merged_attributes)
+        if tags:
+            otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
         span = self._spans_tracer.start_span(
             name=span_name_,
@@ -107,7 +111,18 @@ class Logfire:
         with trace_api.use_span(span, end_on_exit=False, record_exception=False):
             logfire_span = LogfireSpan(span)
             with logfire_span.activate():
-                yield logfire_span
+                try:
+                    yield logfire_span
+                finally:
+                    current_attributes: Mapping[str, Any] = getattr(span, 'attributes', None) or {}
+                    log_message = logfire_format(
+                        # note that current_attributes may contain some of our json encoded attributes from user_attributes()
+                        # which really should not exist as far as users are concerned, but users could
+                        # technically grab these into their message template, we're not going to go our of our way to prevent that
+                        msg_template,
+                        {'span_name': span_name, **merged_attributes, **current_attributes},
+                    )
+                    span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
     def span(
         self,
@@ -210,9 +225,18 @@ class Logfire:
         stack_info = _get_caller_stack_info()
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
+        tags = _merge_tags_into_attributes(merged_attributes, self._tags) or []
         msg = logfire_format(msg_template, merged_attributes)
         otlp_attributes = user_attributes(merged_attributes)
-        otlp_attributes = _merge_tags_into_attributes(otlp_attributes, self._tags)
+        otlp_attributes = {
+            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+            ATTRIBUTES_LOG_LEVEL_KEY: level,
+            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+            ATTRIBUTES_MESSAGE_KEY: msg,
+            **otlp_attributes,
+        }
+        if tags:
+            otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
         start_time = self._config.ns_timestamp_generator()
 
@@ -224,13 +248,7 @@ class Logfire:
 
         span = self._logs_tracer.start_span(
             msg,
-            attributes={
-                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-                ATTRIBUTES_LOG_LEVEL_KEY: level,
-                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
-                ATTRIBUTES_MESSAGE_KEY: msg,
-                **otlp_attributes,
-            },
+            attributes=otlp_attributes,
             start_time=start_time,
         )
         with trace_api.use_span(span, end_on_exit=False, record_exception=False):
@@ -459,6 +477,15 @@ class LogfireSpan(ReadableSpan):
             if end_on_exit_:
                 self._span.end()
 
+    def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
+        """Sets an attribute on the span.
+
+        Args:
+            key: The key of the attribute.
+            value: The value of the attribute.
+        """
+        self._span.set_attribute(key, value)
+
 
 ATTRIBUTES: ContextVar[dict[str, Any]] = ContextVar('logfire.attributes', default={})
 
@@ -502,7 +529,9 @@ def with_tags(*tags: str) -> Iterator[None]:
     ```
     """
     old_attributes = ATTRIBUTES.get()
-    ATTRIBUTES.set(_merge_tags_into_attributes(old_attributes, tags))
+    merged_tags = _merge_tags_into_attributes(old_attributes, list(tags))
+    if merged_tags:
+        ATTRIBUTES.set({**old_attributes, ATTRIBUTES_TAGS_KEY: merged_tags})
     try:
         yield
     finally:
@@ -512,15 +541,13 @@ def with_tags(*tags: str) -> Iterator[None]:
 AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
 
 
-def _merge_tags_into_attributes(
-    attributes: dict[str, AttributesValueType], tags: Sequence[str]
-) -> dict[str, AttributesValueType]:
+def _merge_tags_into_attributes(attributes: dict[str, Any], tags: list[str]) -> list[str] | None:
     # merge tags into attributes preserving any existing tags
-    old_tags = cast('list[str]', attributes.get(ATTRIBUTES_TAGS_KEY, None) or []).copy()
-    old_tags.extend(tags)
-    if old_tags:
-        return {**attributes, ATTRIBUTES_TAGS_KEY: old_tags}  # type: ignore
-    return attributes
+    if not tags:
+        return None
+    if ATTRIBUTES_TAGS_KEY in attributes:
+        return cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags
+    return tags
 
 
 def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, otel_types.AttributeValue]:

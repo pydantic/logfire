@@ -23,13 +23,14 @@ class ArgChunk(TypedDict):
 class ChunksFormatter(Formatter):
     NONE_REPR: Final[str] = 'null'
 
-    def chunks(
+    def chunks(  # noqa: C901
         self,
         format_string: str,
         kwargs: Mapping[str, Any],
         *,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
+        fallback: str | None = None,
     ) -> list[LiteralChunk | ArgChunk]:
         """
         Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247
@@ -82,8 +83,15 @@ class ChunksFormatter(Formatter):
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except KeyError:
-                    # fall back to getting a key with the dots in the name
-                    obj = kwargs[field_name]
+                    try:
+                        # fall back to getting a key with the dots in the name
+                        obj = kwargs[field_name]
+                    except KeyError:
+                        if fallback:
+                            # allow it to be missing, in particular for start spans
+                            obj = fallback
+                        else:
+                            raise
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -119,5 +127,5 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any]) -> str:
-    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, kwargs))
+def logfire_format(format_string: str, kwargs: dict[str, Any], fallback: str | None = None) -> str:
+    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, kwargs, fallback=fallback))

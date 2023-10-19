@@ -1467,6 +1467,51 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
     ]
 
 
+def test_format_attribute_added_after_start_span_sent(exporter: TestExporter) -> None:
+    with logfire.span('{missing}') as s:
+        s.set_attribute('missing', 'value')
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': '{missing} (start)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_format_attribute_added_after_start_span_sent',
+                'logfire.msg_template': '{missing}',
+                'logfire.msg': '...',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': '{missing}',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_format_attribute_added_after_start_span_sent',
+                'logfire.msg_template': '{missing}',
+                'logfire.span_type': 'span',
+                'missing': 'value',
+                'logfire.msg': 'value',
+            },
+        },
+    ]
+
+    with pytest.raises(KeyError, match=r'missing'):
+        with logfire.span('{missing}') as s:
+            pass
+
+
 def check_project_name(expected_project_name: str) -> None:
     from logfire.config import GLOBAL_CONFIG
 
