@@ -509,19 +509,26 @@ But you can see project details by running `logfire whoami`, or by viewing the c
             min_content_width=len(self.dashboard_url),
         )
 
-    def print_existing_token_summary(self, creds_dir: Path) -> None:
+    def print_existing_token_summary(self, creds_dir: Path, from_cli: bool = False) -> None:
         """
         Print a summary of the existing project.
         """
         if self.project_name and self.dashboard_url:
-            creds_file = _get_creds_file(creds_dir)
+            if from_cli:
+                creds_file = _get_creds_file(creds_dir)
+                last_sentence = f'You can also see project details by viewing the credentials file at `{creds_file}`.'
+            else:
+                last_sentence = (
+                    'You can also see project details by running `logfire whoami`, '
+                    'or by viewing the credentials file at `{creds_file}`.'
+                )
             _print_summary(
                 f"""\
 A project called **{self.project_name}** was found and has been configured for this service, to view it go to:
 
 [{self.dashboard_url}]({self.dashboard_url})
 
-But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
+{last_sentence}
 """,
                 min_content_width=len(self.dashboard_url),
             )

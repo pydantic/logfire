@@ -43,8 +43,7 @@ def whoami(logfire_dir: Path = Path('.logfire')):
     if credentials is None:
         console.print('Data not found.')
     else:
-        console.print(f'Your dashboard url is: {credentials.dashboard_url}')
-        console.print(f'Your project name is: [bold]{credentials.project_name}.')
+        credentials.print_existing_token_summary(logfire_dir, from_cli=True)
 
 
 @app.command(help='Clean logfire data.')
