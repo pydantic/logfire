@@ -27,6 +27,7 @@ from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
+from logfire.version import VERSION
 
 try:
     from pydantic import ValidationError
@@ -99,6 +100,7 @@ class Logfire:
         if self._spans_tracer is None:
             self._spans_tracer = self._get_tracer_provider().get_tracer(
                 'logfire',  # the name here is really not important, logfire itself doesn't use it
+                VERSION,
             )
 
         otlp_attributes = user_attributes(merged_attributes)
@@ -246,6 +248,7 @@ class Logfire:
         if self._logs_tracer is None:
             self._logs_tracer = self._get_tracer_provider().get_tracer(
                 'logfire',  # the name here is really not important, logfire itself doesn't use it
+                VERSION,
                 wrap_with_start_span_tracer=False,  # logs don't need a start span
             )
 
