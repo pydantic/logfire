@@ -303,9 +303,9 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
             'start_time': 1000000000,
             'end_time': 1000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_json_args.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument_generator_arg',
                 'var__JSON': '{"$__datatype__":"unknown","data":"Generator()","cls":"Generator"}',
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': 'test message var=Generator()',
@@ -320,13 +320,13 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
             'start_time': 1000000000,
             'end_time': 2000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_json_args.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument_generator_arg',
                 'var__JSON': '{"$__datatype__":"unknown","data":"Generator()","cls":"Generator"}',
                 'logfire.msg_template': 'test message {var=}',
-                'logfire.msg': 'test message var=Generator()',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test message var=Generator()',
             },
         },
     ]

@@ -25,10 +25,35 @@ from logfire._constants import (
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
+@pytest.mark.parametrize('method', ['info', 'debug', 'warning', 'error', 'critical'])
+def test_log_methods_without_kwargs(method: str):
+    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+        getattr(logfire, method)('{foo}', bar=2)
+
+    warning = warnings.pop()
+    assert warning.filename.endswith('test_logfire.py')
+
+
+def test_instrument_without_kwargs():
+    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+
+        @logfire.instrument('{foo}')
+        def home() -> None:
+            ...
+
+        home()
+
+    warning = warnings.pop()
+    assert warning.filename.endswith('test_logfire.py')
+
+
 def test_span_without_kwargs(exporter: TestExporter) -> None:
-    with pytest.raises(KeyError, match="'name'"):
-        with logfire.span('test {name}', span_name='test span'):
+    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+        with logfire.span('test {foo}', span_name='test span'):
             pass  # pragma: no cover
+
+    warning = warnings.pop()
+    assert warning.filename.endswith('test_logfire.py')
 
 
 def test_span_with_kwargs(exporter: TestExporter) -> None:
@@ -583,9 +608,9 @@ def test_instrument(exporter: TestExporter):
             'start_time': 1000000000,
             'end_time': 1000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument',
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
@@ -600,13 +625,13 @@ def test_instrument(exporter: TestExporter):
             'start_time': 1000000000,
             'end_time': 2000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument',
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
-                'logfire.msg': 'hello-world a=123',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'hello-world a=123',
             },
         },
     ]
@@ -628,9 +653,9 @@ def test_instrument_extract_false(exporter: TestExporter):
             'start_time': 1000000000,
             'end_time': 1000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument_extract_false',
                 'logfire.msg_template': 'hello-world',
                 'logfire.msg': 'hello-world',
                 'logfire.span_type': 'start_span',
@@ -644,12 +669,12 @@ def test_instrument_extract_false(exporter: TestExporter):
             'start_time': 1000000000,
             'end_time': 2000000000,
             'attributes': {
-                'code.filepath': '_main.py',
+                'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': '_instrument_wrapper',
+                'code.function': 'test_instrument_extract_false',
                 'logfire.msg_template': 'hello-world',
-                'logfire.msg': 'hello-world',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'hello-world',
             },
         },
     ]
@@ -1507,9 +1532,12 @@ def test_format_attribute_added_after_start_span_sent(exporter: TestExporter) ->
         },
     ]
 
-    with pytest.raises(KeyError, match=r'missing'):
+    with pytest.warns(UserWarning, match=r'missing') as warnings:
         with logfire.span('{missing}') as s:
             pass
+
+    assert len(warnings) == 1
+    assert warnings[0].filename == __file__
 
 
 def check_project_name(expected_project_name: str) -> None:

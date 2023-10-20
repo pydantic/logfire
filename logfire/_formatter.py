@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Mapping
 from string import Formatter
 from typing import Any, Final, Literal, Sequence, cast
@@ -31,6 +32,7 @@ class ChunksFormatter(Formatter):
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
         fallback: str | None = None,
+        stacklevel: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """
         Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247
@@ -82,7 +84,7 @@ class ChunksFormatter(Formatter):
                 #  and the argument it came from
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
-                except KeyError:
+                except KeyError as exc:
                     try:
                         # fall back to getting a key with the dots in the name
                         obj = kwargs[field_name]
@@ -91,7 +93,9 @@ class ChunksFormatter(Formatter):
                             # allow it to be missing, in particular for start spans
                             obj = fallback
                         else:
-                            raise
+                            obj = None
+                            field = exc.args[0]
+                            warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -127,5 +131,13 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], fallback: str | None = None) -> str:
-    return ''.join(chunk['v'] for chunk in chunks_formatter.chunks(format_string, kwargs, fallback=fallback))
+def logfire_format(format_string: str, kwargs: dict[str, Any], fallback: str | None = None, stacklevel: int = 3) -> str:
+    return ''.join(
+        chunk['v']
+        for chunk in chunks_formatter.chunks(
+            format_string,
+            kwargs,
+            fallback=fallback,
+            stacklevel=stacklevel,
+        )
+    )

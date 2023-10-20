@@ -15,6 +15,7 @@ from typing import (
     LiteralString,
     Mapping,
     Sequence,
+    TypedDict,
     TypeVar,
     cast,
 )
@@ -75,9 +76,10 @@ class Logfire:
         msg_template: LiteralString,
         *,
         span_name: str | None = None,
+        stacklevel: int = 3,
         **attributes: Any,
     ) -> Iterator[LogfireSpan]:
-        stack_info = _get_caller_stack_info()
+        stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
@@ -121,6 +123,7 @@ class Logfire:
                         # technically grab these into their message template, we're not going to go our of our way to prevent that
                         msg_template,
                         {'span_name': span_name, **merged_attributes, **current_attributes},
+                        stacklevel=stacklevel + 2,
                     )
                     span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
@@ -200,7 +203,7 @@ class Logfire:
                 else:
                     extracted_kwargs = {}
 
-                with self._span(msg_template=msg_template, span_name=span_name_, **extracted_kwargs):  # type: ignore
+                with self._span(msg_template=msg_template, span_name=span_name_, stacklevel=4, **extracted_kwargs):  # type: ignore
                     return func(*args, **kwargs)
 
             return _instrument_wrapper
@@ -226,7 +229,7 @@ class Logfire:
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
         tags = _merge_tags_into_attributes(merged_attributes, self._tags) or []
-        msg = logfire_format(msg_template, merged_attributes)
+        msg = logfire_format(msg_template, merged_attributes, stacklevel=5)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
@@ -405,7 +408,7 @@ class LogfireSpan(ReadableSpan):
         Args:
             end_on_exit: Whether to end the span when the context manager exits, if `None` will use the value
                 of self.end_on_exit.
-                By setting end_on_exit=False when creating the span or assigning the attribute you can
+                By setting `end_on_exit=False` when creating the span or assigning the attribute you can
                 later use `activate` to manually activate and end the span.
         """
         with trace_api.use_span(self._span, end_on_exit=False, record_exception=False):
@@ -579,10 +582,16 @@ def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> 
     return prepared
 
 
-def _get_caller_stack_info() -> dict[str, otel_types.AttributeValue]:
+StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
+
+
+def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
     """Get the stack info of the caller.
 
     This is used to bind the caller's stack info to logs and spans.
+
+    Args:
+        stacklevel: The stack level to get the info from.
 
     Returns:
         A dictionary of stack info attributes.
@@ -594,7 +603,7 @@ def _get_caller_stack_info() -> dict[str, otel_types.AttributeValue]:
         stack = inspect.getouterframes(frame, 3)
         if len(stack) < 4:
             return {}
-        caller_frame = stack[3]
+        caller_frame = stack[stacklevel]
         file = Path(caller_frame.filename)
         if file.is_absolute():
             try:
@@ -612,9 +621,7 @@ def _get_caller_stack_info() -> dict[str, otel_types.AttributeValue]:
 
 
 def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
-    """
-    filter out the record_exception call itself.
-    """
+    """Filter out the `record_exception` call itself."""
     stack.frames = [f for f in stack.frames if not (f.filename.endswith('logfire/_main.py') and f.name.startswith('_'))]
     return stack
 
