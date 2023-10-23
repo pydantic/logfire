@@ -2,7 +2,7 @@ Here you'll find an example of how to use `logfire` with [FastAPI][fastapi].
 
 ??? note "See source code! 🔎"
     ```py
-    --8<-- "docs/src/app/main.py"
+    --8<-- "src/packages/logfire/docs/src/app/main.py"
     ```
 
     1. Importing `logfire` is the only thing needed to use it!
@@ -15,7 +15,7 @@ Here you'll find an example of how to use `logfire` with [FastAPI][fastapi].
 To install the dependencies, you can copy the following dependencies to a `requirements.txt` file:
 
 ```txt
---8<-- "docs/src/app/requirements.txt"
+--8<-- "src/packages/logfire/docs/src/app/requirements.txt"
 ```
 
 Then run the following command:
