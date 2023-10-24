@@ -14,9 +14,11 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
 from structlog.typing import EventDict, WrappedLogger
+from typing_extensions import Literal
 
 from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
 
+ConsoleColorsValues = Literal['auto', 'always', 'never']
 _NANOSECONDS_PER_SECOND = 1_000_000_000
 
 
@@ -52,6 +54,7 @@ class ConsoleSpanExporter(SpanExporter):
         output: TextIO = sys.stdout,
         verbose: bool = True,
         max_spans_in_state: int = 50_000,
+        colors: ConsoleColorsValues | None = 'auto',
     ) -> None:
         self._verbose = verbose
         self._log = structlog.wrap_logger(
@@ -59,7 +62,9 @@ class ConsoleSpanExporter(SpanExporter):
             processors=[
                 _DefaultProcessor(),
                 structlog.processors.StackInfoRenderer(),
-                _ConsoleRenderer(sort_keys=False),
+                _ConsoleRenderer(
+                    sort_keys=False, colors=(colors == 'always') or (colors == 'auto' and output.isatty())
+                ),
             ],
             context_class=dict,
         ).info

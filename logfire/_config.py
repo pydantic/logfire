@@ -28,7 +28,7 @@ from typing_extensions import Self, get_args, get_origin
 from ._constants import LOGFIRE_API_ROOT
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import ProxyTracerProvider
-from .exporters.console import ConsoleSpanExporter
+from .exporters.console import ConsoleColorsValues, ConsoleSpanExporter
 from .integrations._executors import instrument_executors
 from .version import VERSION
 
@@ -36,15 +36,18 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
+_ConsolePrintValues = Literal['off', 'concise', 'verbose']
+_ShowSummaryValues = Literal['always', 'never', 'new-project']
+
 
 def configure(
     send_to_logfire: bool | None = None,
     logfire_token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
-    console_print: Literal['off', 'concise', 'verbose'] | None = None,
-    console_colors: Literal['auto', 'always', 'never'] | None = None,
-    show_summary: Literal['always', 'never', 'new-project'] | None = None,
+    console_print: _ConsolePrintValues | None = None,
+    console_colors: ConsoleColorsValues | None = None,
+    show_summary: _ShowSummaryValues | None = None,
     logfire_dir: Path | None = None,
     logfire_api_root: str | None = None,
     collect_system_metrics: bool | None = None,
@@ -102,11 +105,6 @@ def _get_bool_from_env(env_var: str) -> bool | None:
     return value.lower() in ('1', 'true', 't')
 
 
-_ConsolePrintValues = Literal['off', 'concise', 'verbose']
-_ConsoleColorsValues = Literal['auto', 'always', 'never']
-_ShowSummaryValues = Literal['always', 'never', 'new-project']
-
-
 T = TypeVar('T')
 
 
@@ -161,7 +159,7 @@ class _LogfireConfigData:
     console_print: _ConsolePrintValues
     """How to print logs to the console"""
 
-    console_colors: _ConsoleColorsValues
+    console_colors: ConsoleColorsValues
     """Whether to use colors when printing logs to the console"""
 
     show_summary: _ShowSummaryValues
@@ -196,7 +194,7 @@ class _LogfireConfigData:
         project_name: str | None,
         service_name: str | None,
         console_print: _ConsolePrintValues | None,
-        console_colors: _ConsoleColorsValues | None,
+        console_colors: ConsoleColorsValues | None,
         show_summary: _ShowSummaryValues | None,
         logfire_dir: Path | None,
         collect_system_metrics: bool | None,
@@ -217,7 +215,7 @@ class _LogfireConfigData:
         self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME')
         self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or 'unknown'
         self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or 'concise'  # type: ignore
-        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', _ConsoleColorsValues) or 'auto'  # type: ignore
+        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', ConsoleColorsValues) or 'auto'  # type: ignore
         self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
         if logfire_dir:
             self.logfire_dir = logfire_dir
@@ -246,7 +244,7 @@ class LogfireConfig(_LogfireConfigData):
         project_name: str | None = None,
         service_name: str | None = None,
         console_print: _ConsolePrintValues | None = None,
-        console_colors: _ConsoleColorsValues | None = None,
+        console_colors: ConsoleColorsValues | None = None,
         show_summary: _ShowSummaryValues | None = None,
         logfire_dir: Path | None = None,
         collect_system_metrics: bool | None = None,
@@ -319,7 +317,7 @@ class LogfireConfig(_LogfireConfigData):
         if self.console_print != 'off':
             tracer_provider.add_span_processor(
                 self.default_processor(
-                    ConsoleSpanExporter(verbose=self.console_print == 'verbose'),
+                    ConsoleSpanExporter(verbose=self.console_print == 'verbose', colors=self.console_colors),
                 )
             )
 
