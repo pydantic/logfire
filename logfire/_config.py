@@ -348,14 +348,9 @@ class LogfireConfig(_LogfireConfigData):
                 self.logfire_api_root = self.logfire_api_root or credentials_to_save.logfire_api_url
 
             headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.logfire_token}
-            tracer_provider.add_span_processor(
-                self.default_processor(
-                    OTLPSpanExporter(
-                        endpoint=f'{self.logfire_api_root}/v1/traces',
-                        headers=headers,
-                    )
-                )
-            )
+            span_exporter = OTLPSpanExporter(endpoint=f'{self.logfire_api_root}/v1/traces')
+            span_exporter._session.headers.update(headers)  # type: ignore
+            tracer_provider.add_span_processor(self.default_processor(span_exporter))
 
             metric_readers.append(
                 PeriodicExportingMetricReader(
