@@ -114,5 +114,4 @@ def test_console_exporter_colors_colors(colors: ConsoleColorsValues, expected: l
 
     # insert_assert(out.getvalue().splitlines())
     s = out.getvalue().splitlines()
-    print(s)
-    assert s == expected
+    assert s == expected, s

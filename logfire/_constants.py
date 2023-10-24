@@ -7,7 +7,7 @@ ATTRIBUTES_ATTRIBUTES_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.attributes'
 """The key within OTEL attributes where logfire puts serialized attributes"""
 
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
-"""Level names for logs"""
+"""Level names for records"""
 
 ATTRIBUTES_LOG_LEVEL_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level'
 """The key within OTEL attributes where logfire puts the log level"""
