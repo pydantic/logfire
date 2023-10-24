@@ -21,7 +21,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from typing_extensions import Self, get_args, get_origin
 
@@ -316,7 +316,7 @@ class LogfireConfig(_LogfireConfigData):
 
         if self.console_print != 'off':
             tracer_provider.add_span_processor(
-                self.default_processor(
+                SimpleSpanProcessor(
                     ConsoleSpanExporter(verbose=self.console_print == 'verbose', colors=self.console_colors),
                 )
             )
