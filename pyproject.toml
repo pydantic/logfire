@@ -3,7 +3,7 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.5.9"
+version = "0.5.10"
 description = "The observability framework focused on developer experience! 🚀"
 authors = ["Pydantic Team <hello@pydantic.dev>"]
 license = "MIT"
@@ -13,7 +13,8 @@ python = ">=3.8"
 opentelemetry-api = ">=1.19.0"
 opentelemetry-sdk = ">=1.19.0"
 opentelemetry-exporter-otlp = ">=1.19.0"
-opentelemetry-instrumentation-system-metrics = {version = ">=0.40b0" }
+opentelemetry-instrumentation-system-metrics = ">=0.40b0"
+opentelemetry-instrumentation = ">=0.41b0"
 rich = ">=13.4.2"
 typer = ">=0.9.0"
 structlog = ">=23.1.0"
