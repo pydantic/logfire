@@ -28,8 +28,7 @@ To install the latest version of Logfire, run the following command:
 
 You can also add it to your project requirements:
 
-<!-- TODO(Marcelo): Recommend people to pin the logfire version. -->
-=== "pip"
+=== "requirements.txt"
 
     ```txt title='requirements.txt'
     --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
@@ -39,9 +38,20 @@ You can also add it to your project requirements:
 === "poetry"
 
     ```toml title='pyproject.toml'
+    [[tool.poetry.source]]
+    name = "logfire-source"
+    url = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/"
+
     [tool.poetry.dependencies]
-    logfire = { index = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/" }
+    python = "^3.9"
+    pydantic = "^2.0"
+    python-dotenv = "^1.0.0"
+    requests = "^2.31.0"
+    pytest = "^7.4.2"
+    logfire = {version = "*", source = "logfire-source"}
     ```
+
+We recommend you pin the version to a minor version to minimize breaking changes.
 
 ## Usage
 
