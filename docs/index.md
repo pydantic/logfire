@@ -1,57 +1,25 @@
-The Pydantic Logfire is the observability tool focused on developer experience.
+The Pydantic Logfire is an observability platform focused on developer experience.
 
-<!-- TODO(Marcelo): Add some images here. -->
+Starting with Python, we're building a platform to let developers understand their software in a radically simpler and more enjoyable way.
 
-## Features
+## Why use Pydantic Logfire?
 
-<!-- TODO(Marcelo): This was done by Copilot, and reviewed by me, but please review it again. -->
+- Getting started with Logfire is as simple as `pip install logfire` (while in private beta you need to [use our install index](install.md)), `import logfire; logfire.info(...)`; Logfire's SDK is easier and faster to use than alternatives from the first line of code to production
+- Logfire's dashboard is (and will remain) brutally simple, meaning your whole engineering team will use it (not just one guy in the corner called Keith who's currently on holiday)
+- Simplicity doesn't come at the expense of power - you can write SQL and Python to query and visualise your data from within the platform and with the SDK
+- Logfire is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can use a wealth of existing tooling and infrastructure, including [instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html)
 
-- **Easy to use**: Logfire is easy to use, and configure.
-- **Fast**: Logfire is fast, and doesn't add any overhead to your application.
-- **Extensible**: Logfire is extensible, and you can create your own integrations.
+![Screenshot](screenshot.png)
 
 ## Installation
 
-To install the latest version of Logfire, run the following command:
+Using `pip` run (**Note:** for now the Logfire SDK requires python 3.11):
 
-=== "pip"
+```bash
+pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+```
 
-    ```bash
-    pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-    ```
-
-=== "poetry"
-
-    ```bash
-    poetry add logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-    ```
-
-You can also add it to your project requirements:
-
-=== "requirements.txt"
-
-    ```txt title='requirements.txt'
-    --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-    logfire
-    ```
-
-=== "poetry"
-
-    ```toml title='pyproject.toml'
-    [[tool.poetry.source]]
-    name = "logfire-source"
-    url = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/"
-
-    [tool.poetry.dependencies]
-    python = "^3.9"
-    pydantic = "^2.0"
-    python-dotenv = "^1.0.0"
-    requests = "^2.31.0"
-    pytest = "^7.4.2"
-    logfire = {version = "*", source = "logfire-source"}
-    ```
-
-We recommend you pin the version to a minor version to minimize breaking changes.
+For other installation methods, including using `poetry` or `requirements.txt`, see [Installation](install.md).
 
 ## Usage
 

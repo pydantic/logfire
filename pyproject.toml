@@ -3,13 +3,13 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.5.8"
+version = "0.5.9"
 description = "The observability framework focused on developer experience! 🚀"
 authors = ["Pydantic Team <hello@pydantic.dev>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.11"
 opentelemetry-api = ">=1.19.0"
 opentelemetry-sdk = ">=1.19.0"
 opentelemetry-exporter-otlp = ">=1.19.0"

@@ -35,6 +35,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Installation: install.md
   - Configuration: configuration.md
   - Integrations: integrations.md
   - Examples:
@@ -64,6 +65,7 @@ markdown_extensions:
 
 plugins:
 - search
+- glightbox
 - mkdocstrings:
     handlers:
       python:
