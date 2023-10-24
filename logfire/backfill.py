@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Dict, Literal, Union
 
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from typing_extensions import Annotated, Self
@@ -34,11 +34,11 @@ class RecordLog(BaseModel):
     msg_template: str
     level: LevelName
     service_name: str
-    attributes: dict[str, Any]
+    attributes: Dict[str, Any]
     trace_id: int = Field(default_factory=generate_trace_id)
-    parent_span_id: int | None = None
-    timestamp: datetime | None = None
-    formatted_msg: str | None = None
+    parent_span_id: Union[int, None] = None
+    timestamp: Union[datetime, None] = None
+    formatted_msg: Union[str, None] = None
 
 
 class StartSpan(BaseModel):
@@ -47,23 +47,23 @@ class StartSpan(BaseModel):
     span_name: str
     msg_template: str
     service_name: str
-    log_attributes: dict[str, Any]
+    log_attributes: Dict[str, Any]
     span_id: int = Field(default_factory=generate_span_id)
     trace_id: int = Field(default_factory=generate_trace_id)
-    parent_span_id: int | None = None
-    start_timestamp: datetime | None = None
-    formatted_msg: str | None = None
+    parent_span_id: Union[int, None] = None
+    start_timestamp: Union[datetime, None] = None
+    formatted_msg: Union[str, None] = None
 
 
 class EndSpan(BaseModel):
     model_config = pydantic_config
     type: Literal['end_span'] = 'end_span'
     span_id: int
-    end_timestamp: datetime | None = None
+    end_timestamp: Union[datetime, None] = None
 
 
 class PrepareBackfill:
-    def __init__(self, store_path: Path | str):
+    def __init__(self, store_path: Union[Path, str]):
         self.store_path = Path(store_path)
         self.write_file = None
         self.open_spans: set[int] = set()
@@ -74,8 +74,8 @@ class PrepareBackfill:
 
     @validate_call(config=pydantic_config)
     def write(
-        self, data: Annotated[RecordLog | StartSpan | EndSpan, Field(discriminator='type')]
-    ) -> RecordLog | StartSpan | EndSpan:
+        self, data: Annotated[Union[RecordLog, StartSpan, EndSpan], Field(discriminator='type')]
+    ) -> Union[RecordLog, StartSpan, EndSpan]:
         assert self.write_file is not None, 'PrepareBackfill must be used as a context manager'
         if data.type == 'start_span':
             assert data.span_id not in self.open_spans, f'start span ID {data.span_id} found in open spans'

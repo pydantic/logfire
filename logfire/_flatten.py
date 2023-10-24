@@ -1,5 +1,6 @@
+import sys
 from dataclasses import dataclass
-from typing import Any, Generic, Mapping, Sequence
+from typing import Any, Generic, Mapping, Sequence, Union
 
 from typing_extensions import TypeVar
 
@@ -7,10 +8,16 @@ KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 
-FlattenValue = TypeVar('FlattenValue', bound=Mapping[Any, Any] | Sequence[Any])
+FlattenValue = TypeVar('FlattenValue', bound=Union[Mapping[Any, Any], Sequence[Any]])
+
+# `slots` is available on Python >= 3.10
+if sys.version_info >= (3, 10):
+    slots_true = {'slots': True}
+else:
+    slots_true = {}
 
 
-@dataclass(slots=True)
+@dataclass(**slots_true)
 class Flatten(Generic[FlattenValue]):
     value: FlattenValue
 

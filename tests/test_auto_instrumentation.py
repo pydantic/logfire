@@ -1,5 +1,8 @@
 import math
+import sys
 from contextlib import ExitStack
+
+from dirty_equals import IsStr
 
 from logfire import install_automatic_instrumentation, uninstall_automatic_instrumentation
 from logfire.testing import TestExporter
@@ -30,8 +33,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
 
         wrap(foo, 1)
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    expected_spans = [
         {
             'name': 'tests.module_used_for_tests.wrap (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -103,7 +105,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.Foo.bar (start)',
+            'name': IsStr(regex=r'tests.test_auto_instrumentation(\.Foo)?.bar \(start\)'),
             'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
             'start_time': 5000000000,
@@ -111,17 +113,17 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_auto_instrumentation.py',
                 'code.lineno': 123,
-                'code.function': 'Foo.bar',
+                'code.function': IsStr(regex=r'(Foo\.)?bar'),
                 'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'Foo.bar',
+                'function_name': IsStr(regex=r'(Foo\.)?bar'),
                 'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function Foo.bar() called',
+                'logfire.msg': IsStr(regex=r'function (Foo\.)?bar\(\) called'),
                 'logfire.span_type': 'start_span',
                 'logfire.start_parent_id': '0',
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.Foo.bar',
+            'name': IsStr(regex=r'tests.test_auto_instrumentation.(Foo\.)?bar'),
             'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
             'parent': None,
             'start_time': 5000000000,
@@ -129,50 +131,56 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_auto_instrumentation.py',
                 'code.lineno': 123,
-                'code.function': 'Foo.bar',
+                'code.function': IsStr(regex=r'(Foo\.)?bar'),
                 'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'Foo.bar',
+                'function_name': IsStr(regex=r'(Foo\.)?bar'),
                 'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function Foo.bar() called',
-                'logfire.span_type': 'span',
-            },
-        },
-        {
-            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp> (start)',
-            'context': {'trace_id': 4, 'span_id': 8, 'is_remote': False},
-            'parent': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
-            'start_time': 7000000000,
-            'end_time': 7000000000,
-            'attributes': {
-                'code.filepath': 'test_auto_instrumentation.py',
-                'code.lineno': 123,
-                'code.function': 'foo.<locals>.<listcomp>',
-                'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'foo.<locals>.<listcomp>',
-                'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function foo.<locals>.<listcomp>() called',
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '0',
-            },
-        },
-        {
-            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp>',
-            'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
-            'parent': None,
-            'start_time': 7000000000,
-            'end_time': 8000000000,
-            'attributes': {
-                'code.filepath': 'test_auto_instrumentation.py',
-                'code.lineno': 123,
-                'code.function': 'foo.<locals>.<listcomp>',
-                'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'foo.<locals>.<listcomp>',
-                'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function foo.<locals>.<listcomp>() called',
+                'logfire.msg': IsStr(regex=r'function (Foo\.)?bar\(\) called'),
                 'logfire.span_type': 'span',
             },
         },
     ]
+    if sys.version_info < (3, 12):
+        expected_spans += [
+            {
+                'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(start\)'),
+                'context': {'trace_id': 4, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_auto_instrumentation.py',
+                    'code.lineno': 123,
+                    'code.function': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'code.namespace': 'tests.test_auto_instrumentation',
+                    'function_name': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'logfire.msg_template': 'function {function_name}() called',
+                    'logfire.msg': IsStr(regex=r'function (foo.\<locals\>.)?\<listcomp\>\(\) called'),
+                    'logfire.span_type': 'start_span',
+                    'logfire.start_parent_id': '0',
+                },
+            },
+            {
+                'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\>'),
+                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                'parent': None,
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_auto_instrumentation.py',
+                    'code.lineno': 123,
+                    'code.function': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'code.namespace': 'tests.test_auto_instrumentation',
+                    'function_name': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'logfire.msg_template': 'function {function_name}() called',
+                    'logfire.msg': IsStr(regex=r'function (foo.\<locals\>.)?\<listcomp\>\(\) called'),
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == expected_spans
 
 
 def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
@@ -183,8 +191,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
 
         wrap(foo, 1)
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    expected_spans = [
         {
             'name': 'tests.test_auto_instrumentation.foo (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -221,7 +228,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.Foo.bar (start)',
+            'name': IsStr(regex=r'tests.test_auto_instrumentation.(Foo.)?bar \(start\)'),
             'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
             'start_time': 3000000000,
@@ -229,17 +236,17 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_auto_instrumentation.py',
                 'code.lineno': 123,
-                'code.function': 'Foo.bar',
+                'code.function': IsStr(regex=r'(Foo.)?bar'),
                 'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'Foo.bar',
+                'function_name': IsStr(regex=r'(Foo.)?bar'),
                 'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function Foo.bar() called',
+                'logfire.msg': IsStr(regex=r'function (Foo.)?bar\(\) called'),
                 'logfire.span_type': 'start_span',
                 'logfire.start_parent_id': '0',
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.Foo.bar',
+            'name': IsStr(regex=r'tests.test_auto_instrumentation.(Foo.)?bar'),
             'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
             'parent': None,
             'start_time': 3000000000,
@@ -247,47 +254,52 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_auto_instrumentation.py',
                 'code.lineno': 123,
-                'code.function': 'Foo.bar',
+                'code.function': IsStr(regex=r'(Foo.)?bar'),
                 'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'Foo.bar',
+                'function_name': IsStr(regex=r'(Foo.)?bar'),
                 'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function Foo.bar() called',
-                'logfire.span_type': 'span',
-            },
-        },
-        {
-            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp> (start)',
-            'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
-            'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-            'start_time': 5000000000,
-            'end_time': 5000000000,
-            'attributes': {
-                'code.filepath': 'test_auto_instrumentation.py',
-                'code.lineno': 123,
-                'code.function': 'foo.<locals>.<listcomp>',
-                'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'foo.<locals>.<listcomp>',
-                'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function foo.<locals>.<listcomp>() called',
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '0',
-            },
-        },
-        {
-            'name': 'tests.test_auto_instrumentation.foo.<locals>.<listcomp>',
-            'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-            'parent': None,
-            'start_time': 5000000000,
-            'end_time': 6000000000,
-            'attributes': {
-                'code.filepath': 'test_auto_instrumentation.py',
-                'code.lineno': 123,
-                'code.function': 'foo.<locals>.<listcomp>',
-                'code.namespace': 'tests.test_auto_instrumentation',
-                'function_name': 'foo.<locals>.<listcomp>',
-                'logfire.msg_template': 'function {function_name}() called',
-                'logfire.msg': 'function foo.<locals>.<listcomp>() called',
+                'logfire.msg': IsStr(regex=r'function (Foo.)?bar\(\) called'),
                 'logfire.span_type': 'span',
             },
         },
     ]
+    if sys.version_info < (3, 12):
+        expected_spans += [
+            {
+                'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(start\)'),
+                'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_auto_instrumentation.py',
+                    'code.lineno': 123,
+                    'code.function': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'code.namespace': 'tests.test_auto_instrumentation',
+                    'function_name': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'logfire.msg_template': 'function {function_name}() called',
+                    'logfire.msg': IsStr(regex=r'function (foo.\<locals\>.)?\<listcomp\>\(\) called'),
+                    'logfire.span_type': 'start_span',
+                    'logfire.start_parent_id': '0',
+                },
+            },
+            {
+                'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\>'),
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_auto_instrumentation.py',
+                    'code.lineno': 123,
+                    'code.function': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'code.namespace': 'tests.test_auto_instrumentation',
+                    'function_name': IsStr(regex=r'(foo.\<locals\>.)?\<listcomp\>'),
+                    'logfire.msg_template': 'function {function_name}() called',
+                    'logfire.msg': IsStr(regex=r'function (foo.\<locals\>.)?\<listcomp\>\(\) called'),
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == expected_spans

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import warnings
-from collections.abc import Mapping
 from string import Formatter
-from typing import Any, Final, Literal, Sequence, cast
+from typing import Any, Final, Literal, Mapping, Sequence, cast
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -123,7 +124,7 @@ class ChunksFormatter(Formatter):
         if value is None:
             value = self.NONE_REPR
         if isinstance(value, Flatten):
-            value = cast(Flatten[Mapping[Any, Any] | Sequence[Any]], value)
+            value = cast('Flatten[Mapping[Any, Any] | Sequence[Any]]', value)
             value = value.value
         return super().format_field(value, format_spec)
 

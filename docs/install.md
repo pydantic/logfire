@@ -1,6 +1,3 @@
-!!! note
-    For now the Logfire SDK requires python 3.11!
-
 To install the latest version of Logfire using `pip`, run the following command:
 
 ```bash
@@ -28,7 +25,7 @@ name = "logfire-source"
 url = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 pydantic = "^2.0"
 python-dotenv = "^1.0.0"
 requests = "^2.31.0"

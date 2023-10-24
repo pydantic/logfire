@@ -96,7 +96,7 @@ class ConsoleSpanExporter(SpanExporter):
 
 
 def _get_span_parent_id(span: ReadableSpan) -> int | None:
-    return cast(int | None, span.parent.span_id) if span.parent else None
+    return cast('int | None', span.parent.span_id) if span.parent else None
 
 
 def _get_span_type(span: ReadableSpan) -> SpanTypeType:
@@ -106,5 +106,5 @@ def _get_span_type(span: ReadableSpan) -> SpanTypeType:
 def _get_span_name(span: ReadableSpan) -> str:
     if not span.attributes:
         return span.name
-    formatted_message = cast(str | None, span.attributes.get(ATTRIBUTES_MESSAGE_KEY))
+    formatted_message = cast('str | None', span.attributes.get(ATTRIBUTES_MESSAGE_KEY))
     return formatted_message or span.name

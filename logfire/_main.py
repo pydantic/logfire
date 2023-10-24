@@ -14,12 +14,11 @@ from typing import (
     Callable,
     ContextManager,
     Iterator,
-    LiteralString,
     Mapping,
-    Self,
     Sequence,
     TypedDict,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -29,6 +28,7 @@ import rich.traceback
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
+from typing_extensions import LiteralString
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire.version import VERSION
@@ -398,7 +398,7 @@ class LogfireSpan(ReadableSpan):
         if self._span.is_recording():
             self._span.end()
 
-    def activate(self, end_on_exit: bool | None = None) -> ContextManager[Self]:
+    def activate(self, end_on_exit: bool | None = None) -> ContextManager[LogfireSpan]:
         """
         Activates this span in the current context.
 
@@ -562,7 +562,7 @@ def with_tags(*tags: str) -> Iterator[None]:
         ATTRIBUTES.set(old_attributes)
 
 
-AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
+AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
 
 
 def _merge_tags_into_attributes(attributes: dict[str, Any], tags: list[str]) -> list[str] | None:
@@ -588,7 +588,7 @@ def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> 
         elif isinstance(value, (str, bool, int, float)):
             prepared[key] = value
         elif isinstance(value, Flatten) and should_flatten:
-            value = cast(Flatten[Mapping[Any, Any] | Sequence[Any]], value).value
+            value = cast('Flatten[Mapping[Any, Any] | Sequence[Any]]', value).value
             iter = value.items() if isinstance(value, Mapping) else enumerate(value)
             for k, v in iter:
                 inner_prepared = user_attributes({str(k): v}, should_flatten=False)
