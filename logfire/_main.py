@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from functools import wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
@@ -14,12 +16,14 @@ from typing import (
     Iterator,
     LiteralString,
     Mapping,
+    Self,
     Sequence,
     TypedDict,
     TypeVar,
     cast,
 )
 
+import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 import rich.traceback
 from opentelemetry.sdk.trace import ReadableSpan
@@ -71,7 +75,6 @@ class Logfire:
             self.__tracer_provider = self._config.get_tracer_provider()
         return self.__tracer_provider
 
-    @contextmanager
     def _span(
         self,
         msg_template: LiteralString,
@@ -79,7 +82,7 @@ class Logfire:
         span_name: str | None = None,
         stacklevel: int = 3,
         **attributes: Any,
-    ) -> Iterator[LogfireSpan]:
+    ) -> ContextManager[LogfireSpan]:
         stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
@@ -93,7 +96,8 @@ class Logfire:
             span_name_ = span_name
         else:
             span_name_ = msg_template
-        log_message = logfire_format(msg_template, {'span_name': span_name, **merged_attributes}, fallback='...')
+        format_kwargs = {'span_name': span_name_, **merged_attributes}
+        log_message = logfire_format(msg_template, format_kwargs, fallback='...')
 
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -112,22 +116,12 @@ class Logfire:
             attributes=otlp_attributes,
         )
 
-        with trace_api.use_span(span, end_on_exit=False, record_exception=False):
-            logfire_span = LogfireSpan(span)
-            with logfire_span.activate():
-                try:
-                    yield logfire_span
-                finally:
-                    current_attributes: Mapping[str, Any] = getattr(span, 'attributes', None) or {}
-                    log_message = logfire_format(
-                        # note that current_attributes may contain some of our json encoded attributes from user_attributes()
-                        # which really should not exist as far as users are concerned, but users could
-                        # technically grab these into their message template, we're not going to go our of our way to prevent that
-                        msg_template,
-                        {'span_name': span_name, **merged_attributes, **current_attributes},
-                        stacklevel=stacklevel + 2,
-                    )
-                    span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
+        return _PendingSpan(
+            LogfireSpan(
+                span,
+                format_args={'format_string': msg_template, 'kwargs': format_kwargs, 'stacklevel': stacklevel},
+            )
+        )
 
     def span(
         self,
@@ -205,7 +199,7 @@ class Logfire:
                 else:
                     extracted_kwargs = {}
 
-                with self._span(msg_template=msg_template, span_name=span_name_, stacklevel=4, **extracted_kwargs):  # type: ignore
+                with self.span(msg_template=msg_template, span_name=span_name_, stacklevel=4, **extracted_kwargs):  # type: ignore
                     return func(*args, **kwargs)
 
             return _instrument_wrapper
@@ -364,8 +358,9 @@ class Logfire:
 
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span: trace_api.Span) -> None:
+    def __init__(self, span: trace_api.Span, format_args: _FormatArgs) -> None:
         self._span = span
+        self._format_args = format_args
         self.end_on_exit = True
 
     if not TYPE_CHECKING:
@@ -403,8 +398,7 @@ class LogfireSpan(ReadableSpan):
         if self._span.is_recording():
             self._span.end()
 
-    @contextmanager
-    def activate(self, end_on_exit: bool | None = None) -> Iterator[None]:
+    def activate(self, end_on_exit: bool | None = None) -> ContextManager[Self]:
         """
         Activates this span in the current context.
 
@@ -414,74 +408,7 @@ class LogfireSpan(ReadableSpan):
                 By setting `end_on_exit=False` when creating the span or assigning the attribute you can
                 later use `activate` to manually activate and end the span.
         """
-        with trace_api.use_span(self._span, end_on_exit=False, record_exception=False):
-            with self._maybe_exit(end_on_exit):
-                yield
-
-    @staticmethod
-    @contextmanager
-    def _record_exception(span: trace_api.Span) -> Iterator[None]:
-        """Context manager for recording an exception on a span.
-
-        This will record the exception on the span and re-raise it.
-
-        Args:
-            span: The span to record the exception on.
-
-        Raises:
-            Any: The exception that was raised.
-        """
-        try:
-            yield
-        # NOTE: We don't want to catch `BaseException` here, since that would catch
-        # things like `KeyboardInterrupt` and `SystemExit`. Also, `Exception` is the one caught
-        # by the `tracer.use_span` context manager internally.
-        except Exception as exc:
-            if span.is_recording():
-                # stolen from OTEL's codebase
-                span.set_status(
-                    trace_api.Status(
-                        status_code=trace_api.StatusCode.ERROR,
-                        description=f'{type(exc).__name__}: {exc}',
-                    )
-                )
-                # insert a more detailed breakdown of pydantic errors
-                tb = rich.traceback.Traceback.from_exception(
-                    exc_type=type(exc), exc_value=exc, traceback=exc.__traceback__
-                )
-                tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
-                attributes: dict[str, otel_types.AttributeValue] = {
-                    'exception.logfire.trace': json_dumps_traceback(tb.trace),
-                }
-                if ValidationError is not None and isinstance(exc, ValidationError):
-                    err_json = exc.json(include_url=False)
-                    span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc.json(include_url=False))
-                    attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
-                span.record_exception(exc, attributes=attributes, escaped=True)
-            raise
-        else:
-            if span.is_recording():
-                span.set_status(
-                    trace_api.Status(
-                        status_code=trace_api.StatusCode.OK,
-                    )
-                )
-
-    @contextmanager
-    def _maybe_exit(self, end_on_exit: bool | None = None) -> Iterator[None]:
-        """Context manager that ends a span on exit.
-
-        Args:
-            end_on_exit: Whether to end the span when the context manager exits, if `None` will use
-                the value of self.end_on_exit.
-        """
-        try:
-            with self._record_exception(self._span):
-                yield
-        finally:
-            end_on_exit_ = self.end_on_exit if end_on_exit is None else end_on_exit
-            if end_on_exit_:
-                self._span.end()
+        return _PendingSpan(self, end_on_exit=end_on_exit)
 
     def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
         """Sets an attribute on the span.
@@ -491,9 +418,100 @@ class LogfireSpan(ReadableSpan):
             value: The value of the attribute.
         """
         self._span.set_attribute(key, value)
+        self._format_args['kwargs'][key] = value
 
 
 ATTRIBUTES: ContextVar[dict[str, Any]] = ContextVar('logfire.attributes', default={})
+
+
+class _FormatArgs(TypedDict):
+    format_string: LiteralString
+    kwargs: dict[str, Any]
+    stacklevel: int
+
+
+@dataclass(**({'slots': True} if sys.version_info >= (3, 10) else {}))
+class _PendingSpan:
+    """Context manager for applying a span into the current context.
+
+    By using a class instead of `@contextmanager` we avoid stack frames
+    from the SDK in the tracebacks captured by logfire (contextlib's
+    implementation starts injecting additional stack frames into the
+    traceback).
+    """
+
+    span: LogfireSpan
+    end_on_exit: bool | None = None
+    token: None | object = field(init=False, default=None)
+    # past tokens, in case of reentrant entry
+    tokens_stack: None | list[object] = field(init=False, default=None)
+
+    def __enter__(self) -> LogfireSpan:
+        sdk_span = self.span._span  # type: ignore[reportPrivateUsage]
+        token = context_api.attach(trace_api.set_span_in_context(sdk_span))
+        if self.token is not None:
+            if self.tokens_stack is None:
+                self.tokens_stack = [self.token]
+            else:
+                self.tokens_stack.append(self.token)
+        self.token = token
+
+        return self.span
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        context_api.detach(self.token)
+
+        if self.tokens_stack:
+            self.token = self.tokens_stack.pop()
+        else:
+            self.token = None
+
+        sdk_span = self.span._span  # type: ignore[reportPrivateUsage]
+
+        if sdk_span.is_recording():
+            # record exception if present
+            # isinstance is to ignore BaseException
+            if exc_type is not None and isinstance(exc_value, Exception):
+                # stolen from OTEL's codebase
+                sdk_span.set_status(
+                    trace_api.Status(
+                        status_code=trace_api.StatusCode.ERROR,
+                        description=f'{exc_type.__name__}: {exc_value}',
+                    )
+                )
+                # insert a more detailed breakdown of pydantic errors
+                tb = rich.traceback.Traceback.from_exception(exc_type, exc_value, traceback)
+                tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
+                attributes: dict[str, otel_types.AttributeValue] = {
+                    'exception.logfire.trace': json_dumps_traceback(tb.trace),
+                }
+                if ValidationError is not None and isinstance(exc_value, ValidationError):
+                    err_json = exc_value.json(include_url=False)
+                    sdk_span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc_value.json(include_url=False))
+                    attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
+                sdk_span.record_exception(exc_value, attributes=attributes, escaped=True)
+            else:
+                sdk_span.set_status(
+                    trace_api.Status(
+                        status_code=trace_api.StatusCode.OK,
+                    )
+                )
+
+        # We allow attributes to be set while the span is active, so we need to
+        # reformat the message in case any new attributes were added.
+        format_args = self.span._format_args  # type: ignore[reportPrivateUsage]
+        log_message = logfire_format(
+            format_string=format_args['format_string'],
+            kwargs=format_args['kwargs'],
+            stacklevel=format_args['stacklevel'] + 1,
+        )
+        sdk_span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
+
+        end_on_exit_ = self.span.end_on_exit if self.end_on_exit is None else self.end_on_exit
+        if end_on_exit_:
+            self.span.end()
+
+        self.token = None
 
 
 @contextmanager

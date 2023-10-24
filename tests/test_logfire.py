@@ -732,13 +732,6 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                 'is_cause': False,
                 'frames': [
                     {
-                        'filename': IsStr(regex=r'.*/logfire/_main.py'),
-                        'lineno': IsPositive(),
-                        'name': 'activate',
-                        'line': '',
-                        'locals': None,
-                    },
-                    {
                         'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
                         'lineno': IsPositive(),
                         'name': 'run',
@@ -809,13 +802,6 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                 'syntax_error': None,
                 'is_cause': False,
                 'frames': [
-                    {
-                        'filename': IsStr(regex=r'.*/logfire/_main.py'),
-                        'lineno': IsPositive(),
-                        'name': 'activate',
-                        'line': '',
-                        'locals': None,
-                    },
                     {
                         'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
                         'lineno': IsPositive(),
