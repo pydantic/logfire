@@ -1,4 +1,3 @@
-import re
 import sys
 from functools import cache
 from pathlib import Path
@@ -30,7 +29,6 @@ def configure(
     logfire_token: str | None = None,
     logfire_dir: Path = Path('.logfire'),
     logfire_api_root: str | None = None,
-    named_queries_path: Path = Path('logfire_queries.sql'),
 ) -> None:
     """
     This function sets the arguments used to obtain the logfire token used in the `logfire.dash` module.
@@ -41,31 +39,14 @@ def configure(
         # Alternatively, we could raise an error:
         # raise RuntimeError(_PYODIDE_NOT_ALLOWED_MESSAGE)
 
-    global _configured, _logfire_token, _logfire_dir, _logfire_api_root, _named_queries_path
+    global _configured, _logfire_token, _logfire_dir, _logfire_api_root
     _logfire_token = logfire_token
     _logfire_dir = logfire_dir
     _logfire_api_root = logfire_api_root
-    _named_queries_path = named_queries_path
 
     _get_token.cache_clear()
 
     _configured = True
-
-
-async def named_query(name: str) -> list[dict[str, Any]]:
-    """
-    Accepts a query name, and attempts to obtain it from the named queries SQL file.
-    If successful, uses the `query` function to execute the query and return the results.
-    """
-    named_queries_sql = _get_named_queries_sql()
-    named_queries = _get_named_queries(named_queries_sql)
-
-    q = named_queries.get(name)
-    if q is None:
-        names = list(named_queries.keys())
-        raise ValueError(f'No such named query: {name!r}. Allowed values: {names}.')
-
-    return await query(q)
 
 
 async def query(q: str) -> list[dict[str, Any]]:
@@ -105,16 +86,6 @@ _configured: bool = False
 _logfire_token: str | None = None
 _logfire_dir: Path = Path('.logfire')
 _logfire_api_root: str | None = None
-_named_queries_path: Path = Path('logfire_queries.sql')
-
-
-def _get_named_queries(raw_sql: str) -> dict[str, str]:
-    split_items = re.split(r'^--\s*(logfire-query:)\s*([a-zA-Z-_]+)$', raw_sql, flags=re.MULTILINE)
-    named_queries: dict[str, str] = {}
-    for i, item in enumerate(split_items):
-        if item == 'logfire-query:' and i < len(split_items) - 2:
-            named_queries[split_items[i + 1]] = split_items[i + 2].strip('\n')
-    return named_queries
 
 
 @cache
@@ -135,13 +106,3 @@ def _get_token() -> str:
             ' or with a call to `logfire.dash.configure`.'
         )
     return token
-
-
-def _get_named_queries_sql() -> str:
-    if _in_pyodide:
-        raise RuntimeError(_PYODIDE_MUST_INJECT_MESSAGE)
-
-    if not _named_queries_path.exists():
-        return ''
-
-    return _named_queries_path.read_text()
