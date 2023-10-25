@@ -33,8 +33,8 @@ def test_pydantic_plugin_python_success(exporter: TestExporter) -> None:
 
     MyModel(x=1)
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_python (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -99,8 +99,8 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
     with pytest.raises(ValidationError):
         MyModel(x='a')  # type: ignore
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_python (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -166,8 +166,8 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
 
     MyModel.model_validate_json('{"x":1}')
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_json (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -232,8 +232,8 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
     with pytest.raises(ValidationError):
         MyModel.model_validate({'x': 'a'})
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_python (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -299,8 +299,8 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
 
     MyModel.model_validate_strings({'x': '1'}, strict=True)
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_strings (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -365,8 +365,8 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
     with pytest.raises(ValidationError):
         MyModel.model_validate_strings({'x': 'a'})
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'pydantic.validate_strings (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},

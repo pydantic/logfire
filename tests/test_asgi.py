@@ -27,7 +27,7 @@ def test_fastapi_middleware(exporter: TestExporter) -> None:
     assert response.text == 'middleware test'
 
     # insert_assert(exporter.exported_spans_as_dict(map_times=False, map_span_ids=False, map_trace_ids=False))
-    assert exporter.exported_spans_as_dict() == [
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
             'name': 'GET / (start)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
@@ -126,4 +126,4 @@ def test_fastapi_middleware_with_lifespan(exporter: TestExporter):
     assert startup_complete
     assert cleanup_complete
 
-    assert exporter.exported_spans_as_dict() == []
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []

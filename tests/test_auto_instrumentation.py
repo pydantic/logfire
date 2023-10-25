@@ -179,8 +179,8 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
             },
         ]
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == expected_spans
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == expected_spans
 
 
 def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
@@ -301,5 +301,5 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 },
             },
         ]
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == expected_spans
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == expected_spans

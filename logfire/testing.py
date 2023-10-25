@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
+
+from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY
 
 
 class TestExporter(SpanExporter):
@@ -22,10 +25,11 @@ class TestExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
         self.exported_spans.extend(spans)
 
-    def exported_spans_as_dict(
+    def exported_spans_as_dict(  # noqa: C901
         self,
         fixed_line_number: int | None = 123,
         strip_filepaths: bool = True,
+        _include_start_spans: bool = False,
     ) -> list[dict[str, Any]]:
         def process_attribute(name: str, value: Any) -> Any:
             if name == 'code.filepath' and strip_filepaths:
@@ -43,11 +47,29 @@ class TestExporter(SpanExporter):
             return {k: process_attribute(k, v) for k, v in attributes.items()}
 
         def build_event(event: Event) -> dict[str, Any]:
-            return {
+            res: dict[str, Any] = {
                 'name': event.name,
-                'attributes': build_attributes(event.attributes),
                 'timestamp': event.timestamp,
             }
+            if event.attributes:
+                res['attributes'] = attributes = dict(event.attributes)
+                if 'exception.stacktrace' in attributes:
+                    last_line = next(
+                        line.strip()
+                        for line in reversed(cast(str, event.attributes['exception.stacktrace']).split('\n'))
+                        if line.strip()
+                    )
+                    attributes['exception.stacktrace'] = last_line
+                if 'exception.logfire.trace' in attributes:
+                    trace = json.loads(cast(str, attributes['exception.logfire.trace']))
+                    stacks = trace['stacks']
+                    for stack in stacks:
+                        for frame in stack['frames']:
+                            print(frame)
+                            frame['filename'] = Path(frame['filename']).name
+                            frame['lineno'] = fixed_line_number
+                    attributes['exception.logfire.trace'] = json.dumps(trace)
+            return res
 
         def build_span(span: ReadableSpan) -> dict[str, Any]:
             res: dict[str, Any] = {
@@ -72,7 +94,13 @@ class TestExporter(SpanExporter):
                 res['events'] = [build_event(event) for event in span.events]
             return res
 
-        return [build_span(span) for span in self.exported_spans]
+        spans = [build_span(span) for span in self.exported_spans]
+        return [
+            span
+            for span in spans
+            if _include_start_spans is True
+            or (span.get('attributes', {}).get(ATTRIBUTES_SPAN_TYPE_KEY, 'span') != 'start_span')
+        ]
 
 
 @dataclass(repr=True)
