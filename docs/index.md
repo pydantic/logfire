@@ -28,8 +28,13 @@ To use Logfire, it's simple as importing, and calling the desired function:
 ```py
 import logfire
 
-logfire.info("Hello, world!")
+logfire.info('Hello, {name}!', name='world') # (1)!
+
+logfire.debug('Payment details: {amount=}, {state=}', amount=100, state='OK') # (2)!
 ```
+
+1. This will log `Hello world!` with `info` level.
+2. This will log `Payment details: amount=100, state=OK` with `debug` level.
 
 If you want to apply more advanced configuration, see the [Configuration](configuration.md) section.
 
@@ -40,7 +45,7 @@ Logfire can automatically instrument all calls within specific modules.
 ```py
 import logfire
 
-logfire.install_automatic_instrumentation(modules=["app"])
+logfire.install_automatic_instrumentation(modules=['app'])
 ```
 
 ### CLI
