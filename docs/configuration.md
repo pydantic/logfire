@@ -14,16 +14,22 @@ For more details, you can see our [API reference][logfire.configure].
 
 ## Using environment variables
 
-You can use the following environment variables to configure LogFire:
+You can use the following environment variables to configure Logfire:
 
 <!-- TODO(Marcelo): We should generate this table from code. -->
 
 | Name | Description |
 | ---- | ----------- |
-| LOGFIRE_API_ROOT | Used to set the base URL of the LogFire backend. |
+| LOGFIRE_API_ROOT | Used to set the base URL of the Logfire backend. |
 | LOGFIRE_TOKEN | The token used to identify yourself. |
-| LOGFIRE_SEND | Whether to send data to the LogFire backend. |
+| LOGFIRE_SEND_TO_LOGFIRE | Whether to send data to the Logfire backend. |
 | LOGFIRE_PROJECT_NAME | The project name. |
 | LOGFIRE_SERVICE_NAME | The service name. |
+| LOGFIRE_CONSOLE_PRINT | Whether to print logs to the console. |
+| LOGFIRE_CONSOLE_COLORS | Whether to colorize console logs. |
+| LOGFIRE_SHOW_SUMMARY | Whether to show a summary of the logs at the end of the program. |
+| LOGFIRE_DIR | The directory where to store the configuration file. |
+| LOGFIRE_COLLECT_SYSTEM_METRICS | Whether to collect system metrics. |
+| LOGFIRE_DISABLE_PYDANTIC_PLUGIN | Whether to disable the Pydantic plugin. |
 
 When using environment variables, you don't need to call [`logfire.configure()`][logfire.configure].

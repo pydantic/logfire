@@ -1,1 +1,3 @@
 ::: logfire
+
+::: logfire.testing

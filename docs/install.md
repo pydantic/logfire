@@ -7,7 +7,8 @@ pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5
 Or if you're using `poetry`:
 
 ```bash
-poetry add logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+poetry add logfire
 ```
 
 You can also add it to your project requirements:

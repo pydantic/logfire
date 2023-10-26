@@ -31,6 +31,16 @@ class TestExporter(SpanExporter):
         strip_filepaths: bool = True,
         _include_start_spans: bool = False,
     ) -> list[dict[str, Any]]:
+        """The exported spans as a list of dicts.
+
+        Args:
+            fixed_line_number: The line number to use for all spans.
+            strip_filepaths: Whether to strip the filepaths from the exported spans.
+
+        Returns:
+            A list of dicts representing the exported spans.
+        """
+
         def process_attribute(name: str, value: Any) -> Any:
             if name == 'code.filepath' and strip_filepaths:
                 try:

@@ -43,6 +43,7 @@ nav:
     - FastAPI Application: examples/fastapi.md
     - Web Scraper: examples/web_scraper.md
     - Machine Learning: examples/machine_learning.md
+  - Testing: testing.md
   - API Reference: api.md
 
 markdown_extensions:

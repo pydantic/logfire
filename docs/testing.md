@@ -1,8 +1,10 @@
-# Testing with LogFire
+# Testing with Logfire
 
 You may want to check that your API is logging the data you expect, that spans correctly track the work they wrap, etc.
 This can often be difficult, including with Python's built in logging and OpenTelemetry's SDKs.
-Logfire makes it very easy to test the emitted logs and spans using the utilities in the `logfire.testing` module.
+
+Logfire makes it very easy to test the emitted logs and spans using the utilities in the
+[`logfire.testing`][logfire.testing] module.
 This is what Logfire uses internally to test itself as well.
 
 Here's an example of a pytest fixture that lets you assert against all captured logs/spans:
@@ -87,24 +89,27 @@ def test_observability(logfire_caplog: TestExporter) -> None:
 
 Let's walk through the utilities we used.
 
-## TestExporter
+## [`TestExporter`][logfire.testing.TestExporter]
 
 This is an OpenTelemetry SDK compatible span exporter that keeps exported spans in memory.
-The `exported_spans_as_dict()` method lets you get a plain dict representation of the exported spans that you can easily assert against and get nice diffs from.
+
+The [`exported_spans_as_dict()`][logfire.testing.TestExporter.exported_spans_as_dict] method lets you get
+a plain dict representation of the exported spans that you can easily assert against and get nice diffs from.
 This method does some data massaging to make the output more readable and deterministic, e.g. replacing line numbers with `123` and file paths with just the filename.
 
-## IncrementalIdGenerator
+## [`IncrementalIdGenerator`][logfire.testing.IncrementalIdGenerator]
 
 One of the most complicated things about comparing log output to expected results are sources of non-determinism.
 For OpenTelemetry spans the two biggest ones are the span & trace IDs and timestamps.
 
-The `IncrementalIdGenerator` generates sequentially increasing span and trace IDs so that test outputs are always the same.
+The [`IncrementalIdGenerator`][logfire.testing.IncrementalIdGenerator] generates sequentially increasing span
+and trace IDs so that test outputs are always the same.
 
-## TimeGenerator
+## [TimeGenerator][logfire.testing.TimeGenerator]
 
 This class generates nanosecond timestamps that increment by 1s every time a timestamp is generated.
 
-## logfire.configure
+## [`logfire.configure`][logfire.configure]
 
 This is the same configuration function you'd use for production and where everything comes together.
 
@@ -116,6 +121,6 @@ Note that we specifically configure:
 - `ns_timestamp_generator=TimeGenerator()` to make the timestamps deterministic
 - `processors=[SimpleSpanProcessor(exporter)]` to use our `TestExporter` to capture spans. We use `SimpleSpanProcessor` to export spans with no delay.
 
-## insert_assert
+## `insert_assert`
 
 This is a utility function provided by [devtools](https://github.com/samuelcolvin/python-devtools) that will automatically insert the output of the code it is called with into the test file when run via pytest. That is, if you comment that line out you'll see that the `assert logfire_caplog.exported_spans_as_dict() == [...]` line is replaced with the current output of `logfire_caplog.exported_spans_as_dict()`, which should be exactly the same given that our test is deterministic!
