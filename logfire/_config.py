@@ -14,6 +14,7 @@ from typing import (
 )
 
 import httpx
+import requests
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -56,6 +57,8 @@ def configure(
     processors: Sequence[SpanProcessor] | None = None,
     default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
+    default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
+    default_otlp_span_exporter_session: requests.Session | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -94,6 +97,8 @@ def configure(
         processors=processors,
         default_processor=default_processor,
         metric_readers=metric_readers,
+        default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
+        default_otlp_span_exporter_session=default_otlp_span_exporter_session,
     )
     GLOBAL_CONFIG.initialize()
 
@@ -183,6 +188,9 @@ class _LogfireConfigData:
     default_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
+    default_otlp_span_exporter_request_headers: dict[str, str] | None = None
+    """Additional headers to send with requests to the Logfire API"""
+
     def merge_with_env(
         self,
         # note that there are no defaults here so that the only place
@@ -203,6 +211,8 @@ class _LogfireConfigData:
         processors: Sequence[SpanProcessor] | None,
         default_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
+        default_otlp_span_exporter_request_headers: dict[str, str] | None,
+        default_otlp_span_exporter_session: requests.Session | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations"""
         self.logfire_api_root = logfire_api_root or os.getenv('LOGFIRE_API_ROOT') or LOGFIRE_API_ROOT
@@ -233,6 +243,8 @@ class _LogfireConfigData:
         self.processors = list(processors or ())
         self.default_processor = default_processor or BatchSpanProcessor
         self.metric_readers = metric_readers
+        self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
+        self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
 
 
 class LogfireConfig(_LogfireConfigData):
@@ -253,6 +265,8 @@ class LogfireConfig(_LogfireConfigData):
         processors: Sequence[SpanProcessor] | None = None,
         default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
+        default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
+        default_otlp_span_exporter_session: requests.Session | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -278,6 +292,8 @@ class LogfireConfig(_LogfireConfigData):
             processors=processors,
             default_processor=default_processor,
             metric_readers=metric_readers,
+            default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
+            default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -347,9 +363,14 @@ class LogfireConfig(_LogfireConfigData):
                 self.project_name = self.project_name or credentials_to_save.project_name
                 self.logfire_api_root = self.logfire_api_root or credentials_to_save.logfire_api_url
 
-            headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.logfire_token}
-            span_exporter = OTLPSpanExporter(endpoint=f'{self.logfire_api_root}/v1/traces')
-            span_exporter._session.headers.update(headers)  # type: ignore
+            headers = {
+                'User-Agent': f'logfire/{VERSION}',
+                'Authorization': self.logfire_token,
+                **(self.default_otlp_span_exporter_request_headers or {}),
+            }
+            session = self.default_otlp_span_exporter_session or requests.Session()
+            session.headers.update(headers)
+            span_exporter = OTLPSpanExporter(endpoint=f'{self.logfire_api_root}/v1/traces', session=session)
             tracer_provider.add_span_processor(self.default_processor(span_exporter))
 
             metric_readers.append(
