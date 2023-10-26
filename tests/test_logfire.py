@@ -46,7 +46,7 @@ def test_instrument_without_kwargs():
         home()
 
     warning = warnings.pop()
-    assert warning.filename.endswith('test_logfire.py')
+    assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
 
 
 def test_span_without_kwargs(exporter: TestExporter) -> None:

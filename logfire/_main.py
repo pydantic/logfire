@@ -56,7 +56,7 @@ from ._flatten import Flatten
 from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
 
-_CDW = Path('.').resolve()
+_CWD = Path('.').resolve()
 
 
 class Logfire:
@@ -78,10 +78,11 @@ class Logfire:
     def _span(
         self,
         msg_template: LiteralString,
+        attributes: dict[str, Any],
         *,
         span_name: str | None = None,
         stacklevel: int = 3,
-        **attributes: Any,
+        decorator: bool = False,
     ) -> ContextManager[LogfireSpan]:
         stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
@@ -91,13 +92,12 @@ class Logfire:
         tags = _merge_tags_into_attributes(merged_attributes, self._tags)
 
         span_name_: str
-        log_message: str = msg_template
         if span_name is not None:
             span_name_ = span_name
         else:
             span_name_ = msg_template
         format_kwargs = {'span_name': span_name_, **merged_attributes}
-        log_message = logfire_format(msg_template, format_kwargs, fallback='...')
+        log_message = logfire_format(msg_template, format_kwargs, fallback='...', stacklevel=stacklevel)
 
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -116,10 +116,11 @@ class Logfire:
             attributes=otlp_attributes,
         )
 
+        exit_stacklevel = stacklevel + (2 if decorator else 1)
         return _PendingSpan(
             LogfireSpan(
                 span,
-                format_args={'format_string': msg_template, 'kwargs': format_kwargs, 'stacklevel': stacklevel},
+                format_args={'format_string': msg_template, 'kwargs': format_kwargs, 'stacklevel': exit_stacklevel},
             )
         )
 
@@ -145,9 +146,9 @@ class Logfire:
         ```
         """
         return self._span(
-            msg_template=msg_template,
+            msg_template,
+            attributes,
             span_name=span_name,
-            **attributes,
         )
 
     def instrument(
@@ -195,37 +196,42 @@ class Logfire:
             def _instrument_wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
                 if extract_args:
                     pos_args = {k: v for k, v in zip(pos_params, args)}
-                    extracted_kwargs = {**pos_args, **kwargs}
+                    extracted_attributes = {**pos_args, **kwargs}
                 else:
-                    extracted_kwargs = {}
+                    extracted_attributes = {}
 
-                with self.span(msg_template=msg_template, span_name=span_name_, stacklevel=4, **extracted_kwargs):  # type: ignore
+                with self._span(msg_template, extracted_attributes, span_name=span_name_, decorator=True):  # type: ignore
                     return func(*args, **kwargs)
 
             return _instrument_wrapper
 
         return decorator
 
-    def log(self, msg_template: LiteralString, /, level: LevelName, **attributes: Any) -> None:
+    def log(
+        self, level: LevelName, msg_template: LiteralString, attributes: dict[str, Any], stack_offset: int = 0
+    ) -> None:
         """Log a message.
 
         Args:
-            msg_template: The message to log.
             level: The level of the log.
+            msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
+                message formatting might emit, defaults to `0` which means the stack info will be collected from the
+                position where `logfire.log` was called.
 
         ```py
         import logfire
 
-        logfire.log('This is a log', level='info')
+        logfire.log('This is a log {a}', 'info', {'a': 'Apple'})
         ```
         """
-
-        stack_info = _get_caller_stack_info()
+        stacklevel = stack_offset + 2
+        stack_info = _get_caller_stack_info(stacklevel)
 
         merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
         tags = _merge_tags_into_attributes(merged_attributes, self._tags) or []
-        msg = logfire_format(msg_template, merged_attributes, stacklevel=5)
+        msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
@@ -268,7 +274,7 @@ class Logfire:
         logfire.debug('This is a debug log')
         ```
         """
-        self.log(msg_template, 'debug', **attributes)
+        self.log('debug', msg_template, attributes, stack_offset=1)
 
     def info(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an info message.
@@ -283,7 +289,7 @@ class Logfire:
         logfire.info('This is an info log')
         ```
         """
-        self.log(msg_template, 'info', **attributes)
+        self.log('info', msg_template, attributes, stack_offset=1)
 
     def notice(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a notice message.
@@ -298,7 +304,7 @@ class Logfire:
         logfire.notice('This is a notice log')
         ```
         """
-        self.log(msg_template, 'notice', **attributes)
+        self.log('notice', msg_template, attributes, stack_offset=1)
 
     def warning(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a warning message.
@@ -313,7 +319,7 @@ class Logfire:
         logfire.warning('This is a warning log')
         ```
         """
-        self.log(msg_template, 'warning', **attributes)
+        self.log('warning', msg_template, attributes, stack_offset=1)
 
     def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an error message.
@@ -328,7 +334,7 @@ class Logfire:
         logfire.error('This is an error log')
         ```
         """
-        self.log(msg_template, 'error', **attributes)
+        self.log('error', msg_template, attributes, stack_offset=1)
 
     def critical(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a critical message.
@@ -343,7 +349,7 @@ class Logfire:
         logfire.critical('This is a critical log')
         ```
         """
-        self.log(msg_template, 'critical', **attributes)
+        self.log('critical', msg_template, attributes, stack_offset=1)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
@@ -503,7 +509,7 @@ class _PendingSpan:
         log_message = logfire_format(
             format_string=format_args['format_string'],
             kwargs=format_args['kwargs'],
-            stacklevel=format_args['stacklevel'] + 1,
+            stacklevel=format_args['stacklevel'],
         )
         sdk_span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
@@ -628,7 +634,7 @@ def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
         file = Path(caller_frame.filename)
         if file.is_absolute():
             try:
-                file = file.relative_to(_CDW)
+                file = file.relative_to(_CWD)
             except ValueError:
                 # happens if filename path is not within CWD
                 pass

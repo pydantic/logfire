@@ -5,7 +5,7 @@ from dataclasses import asdict
 from functools import partial
 from typing import Any, Callable
 
-from opentelemetry import context, propagate
+from ..propagate import ContextCarrier, attach_context, get_context
 
 submit_t_orig = ThreadPoolExecutor.submit
 submit_p_orig = ProcessPoolExecutor.submit
@@ -26,8 +26,7 @@ def instrument_executors() -> None:
 def submit_t(s: ThreadPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
     """A wrapper around ThreadPoolExecutor.submit() that carries over OTEL context across threads."""
     fn = partial(fn, *args, **kwargs)
-    carrier: dict[str, Any] = {}
-    propagate.inject(carrier)
+    carrier = get_context()
     return submit_t_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=None)
 
 
@@ -41,12 +40,11 @@ def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kw
     new_config = asdict(_config.GLOBAL_CONFIG)
 
     fn = partial(fn, *args, **kwargs)
-    carrier: dict[str, Any] = {}
-    propagate.inject(carrier)
+    carrier = get_context()
     return submit_p_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=new_config)
 
 
-def _run_with_context(carrier: dict[str, Any], fn: Callable[[], Any], parent_config: dict[str, Any] | None) -> Any:
+def _run_with_context(carrier: ContextCarrier, fn: Callable[[], Any], parent_config: dict[str, Any] | None) -> Any:
     """A wrapper around a function that restores OTEL context from a carrier and then calls the function.
 
     This gets run from within a process / thread.
@@ -56,11 +54,5 @@ def _run_with_context(carrier: dict[str, Any], fn: Callable[[], Any], parent_con
 
         _config.configure(**parent_config)
 
-    # capture the current context to restore it later
-    old_context = context.get_current()
-    new_context = propagate.extract(carrier=carrier)
-    try:
-        context.attach(new_context)
+    with attach_context(carrier):
         return fn()
-    finally:
-        context.attach(old_context)
