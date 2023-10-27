@@ -46,6 +46,3 @@ START_SPAN_NAME_SUFFIX = ' (start)'
 
 LOGFIRE_API_ROOT = 'https://api.logfire.dev'
 """The root URL for the Logfire API"""
-
-RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
-"""Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'"""

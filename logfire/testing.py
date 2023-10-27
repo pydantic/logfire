@@ -29,7 +29,6 @@ class TestExporter(SpanExporter):
         self,
         fixed_line_number: int | None = 123,
         strip_filepaths: bool = True,
-        include_resources: bool = False,
         _include_start_spans: bool = False,
     ) -> list[dict[str, Any]]:
         """The exported spans as a list of dicts.
@@ -103,10 +102,6 @@ class TestExporter(SpanExporter):
             }
             if span.events:
                 res['events'] = [build_event(event) for event in span.events]
-            if include_resources:
-                res['resource'] = {
-                    'attributes': build_attributes(span.resource.attributes),
-                }
             return res
 
         spans = [build_span(span) for span in self.exported_spans]
