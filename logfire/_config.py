@@ -67,7 +67,7 @@ def configure(
     Args:
         send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
         logfire_token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` it defaults to the value f the environment variable `LOGFIRE_LOGFIRE_TOKEN` if set, otherwise if
-            `send_to_logfire` is True a new `anon_` project will be created using `project_name`.
+            `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
         console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {indent} [message]` lines, or to output full details of every log message.
@@ -78,10 +78,14 @@ def configure(
         logfire_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_DIR` environment variable, otherwise defaults to `'.logfire'`.
         logfire_api_root: Root URL for the Logfire API. If `None` uses the `LOGFIRE_API_ROOT` environment variable, otherwise defaults to https://api.logfire.dev.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
-        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to `time.time_ns` from the Python standard library.
+        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
         processors: Span processors to use. Defaults to an empty sequence.
-        default_processor: Function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK.
-            You can configure the export delay for BatchSpanProcessor by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
+        default_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
+            [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
+            by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
+        metric_readers: Sequence of metric readers to be used.
+        default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
+        default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
     """
     GLOBAL_CONFIG.merge_with_env(
         logfire_api_root=logfire_api_root,
@@ -216,7 +220,7 @@ class _LogfireConfigData:
         default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
     ) -> None:
-        """Merge the given parameters with the environment variables file configurations"""
+        """Merge the given parameters with the environment variables file configurations."""
         self.logfire_api_root = logfire_api_root or os.getenv('LOGFIRE_API_ROOT') or LOGFIRE_API_ROOT
         self.send_to_logfire = _coalesce(
             send_to_logfire,
