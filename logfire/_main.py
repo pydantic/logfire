@@ -60,6 +60,8 @@ _CWD = Path('.').resolve()
 
 
 class Logfire:
+    """The main logfire class."""
+
     def __init__(self, tags: Sequence[str] = (), config: LogfireConfig = GLOBAL_CONFIG) -> None:
         self._tags = list(tags)
         self._config = config
@@ -68,6 +70,21 @@ class Logfire:
         self._spans_tracer: Tracer | None = None
 
     def tags(self, *tags: str) -> Logfire:
+        """A new Logfire instance with the given tags applied.
+
+        ```py
+        import logfire
+
+        with logfire.tags('tag1'):
+            logfire.info('new log 1')
+        ```
+
+        Args:
+            tags: The tags to bind.
+
+        Returns:
+            A new Logfire instance with the tags applied.
+        """
         return Logfire(self._tags + list(tags), self._config)
 
     def _get_tracer_provider(self) -> ProxyTracerProvider:
@@ -133,17 +150,17 @@ class Logfire:
     ) -> ContextManager[LogfireSpan]:
         """Context manager for creating a span.
 
-        Args:
-            msg_template: The template for the span message.
-            span_name: The span name. If not provided, the rendered message will be used.
-            attributes: The arguments to format the span message template with.
-
         ```py
         import logfire
 
         with logfire.span('This is a span {a=}', a='data'):
             logfire.info('new log 1')
         ```
+
+        Args:
+            msg_template: The template for the span message.
+            span_name: The span name. If not provided, the rendered message will be used.
+            attributes: The arguments to format the span message template with.
         """
         return self._span(
             msg_template,
@@ -160,12 +177,6 @@ class Logfire:
     ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
         """Decorator for instrumenting a function as a span.
 
-        Args:
-            msg_template: The template for the span message. If not provided, the span name will be used.
-            span_name: The name of the span. If not provided, the function name will be used.
-            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
-                If not provided, this will be enabled if `msg_template` is provided and contains `{}`.
-
         ```py
         import logfire
 
@@ -173,6 +184,12 @@ class Logfire:
         def my_function(a: int):
             logfire.info('new log {a=}', a=a)
         ```
+
+        Args:
+            msg_template: The template for the span message. If not provided, the span name will be used.
+            span_name: The name of the span. If not provided, the function name will be used.
+            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+                If not provided, this will be enabled if `msg_template` is provided and contains `{}`.
         """
         if extract_args is None:
             extract_args = bool(msg_template and '{' in msg_template)
@@ -212,6 +229,12 @@ class Logfire:
     ) -> None:
         """Log a message.
 
+        ```py
+        import logfire
+
+        logfire.log('info', 'This is a log {a}', {'a': 'Apple'})
+        ```
+
         Args:
             level: The level of the log.
             msg_template: The message to log.
@@ -219,12 +242,6 @@ class Logfire:
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
-
-        ```py
-        import logfire
-
-        logfire.log('This is a log {a}', 'info', {'a': 'Apple'})
-        ```
         """
         stacklevel = stack_offset + 2
         stack_info = _get_caller_stack_info(stacklevel)
@@ -264,90 +281,90 @@ class Logfire:
     def debug(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a debug message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.debug('This is a debug log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('debug', msg_template, attributes, stack_offset=1)
 
     def info(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an info message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.info('This is an info log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('info', msg_template, attributes, stack_offset=1)
 
     def notice(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a notice message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.notice('This is a notice log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('notice', msg_template, attributes, stack_offset=1)
 
     def warning(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a warning message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.warning('This is a warning log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('warning', msg_template, attributes, stack_offset=1)
 
     def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an error message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.error('This is an error log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('error', msg_template, attributes, stack_offset=1)
 
     def critical(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a critical message.
 
-        Args:
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-
         ```py
         import logfire
 
         logfire.critical('This is a critical log')
         ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
         """
         self.log('critical', msg_template, attributes, stack_offset=1)
 
@@ -525,15 +542,15 @@ class _PendingSpan:
 def with_attributes(**attributes: Any) -> Iterator[None]:
     """Context manager for binding attributes to all logs and traces.
 
-    Args:
-        attributes: The attributes to bind.
-
     ```py
     import logfire
 
     with logfire.with_attributes(user_id='123'):
         logfire.info('new log 1')
     ```
+
+    Args:
+        attributes: The attributes to bind.
     """
     old_attributes = ATTRIBUTES.get()
     ATTRIBUTES.set({**old_attributes, **attributes})
@@ -548,15 +565,15 @@ def with_attributes(**attributes: Any) -> Iterator[None]:
 def with_tags(*tags: str) -> Iterator[None]:
     """Context manager for binding tags to all logs and traces.
 
-    Args:
-        tags: The tags to bind.
-
     ```py
     import logfire
 
     with logfire.with_tags('tag1', 'tag2'):
         logfire.info('new log 1')
     ```
+
+    Args:
+        tags: The tags to bind.
     """
     old_attributes = ATTRIBUTES.get()
     merged_tags = _merge_tags_into_attributes(old_attributes, list(tags))
