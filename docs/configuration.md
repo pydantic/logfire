@@ -27,8 +27,11 @@ You can use the following environment variables to configure Logfire:
 | LOGFIRE_SEND_TO_LOGFIRE | Whether to send data to the Logfire backend. |
 | LOGFIRE_PROJECT_NAME | The project name. |
 | LOGFIRE_SERVICE_NAME | The service name. |
-| LOGFIRE_CONSOLE_PRINT | Whether to print logs to the console. |
-| LOGFIRE_CONSOLE_COLORS | Whether to colorize console logs. |
+| LOGFIRE_CONSOLE_ENABLED | Whether to enable terminal output. |
+| LOGFIRE_CONSOLE_COLORS | Whether to control terminal output color. Possible values are `auto`, `always`, `never`. |
+| LOGFIRE_CONSOLE_INDENT_SPAN | Whether to control span indent terminal output. |
+| LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP | Whether to show timestamp in terminal output. |
+| LOGFIRE_CONSOLE_VERBOSE | Whether to print logs in verbose mode. |
 | LOGFIRE_SHOW_SUMMARY | Whether to show a summary of the logs at the end of the program. |
 | LOGFIRE_DIR | The directory where to store the configuration file. |
 | LOGFIRE_COLLECT_SYSTEM_METRICS | Whether to collect system metrics. |
@@ -45,6 +48,7 @@ Here's an example:
 ```toml
 [tool.logfire]
 project_name = "My Project"
+logfire_console_colors = "never"
 ```
 
 The keys are the same as the parameters of [`logfire.configure()`][logfire.configure].

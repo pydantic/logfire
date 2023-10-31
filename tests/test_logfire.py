@@ -15,7 +15,7 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire, LogfireSpan
-from logfire._config import LogfireConfig, configure
+from logfire._config import ConsoleOptions, LogfireConfig, configure
 from logfire._constants import (
     ATTRIBUTES_LOG_LEVEL_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -861,7 +861,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
     exporter1 = TestExporter()
     config = LogfireConfig(
         send_to_logfire=False,
-        console_print='off',
+        console=ConsoleOptions(enabled=False),
         ns_timestamp_generator=TimeGenerator(),
         id_generator=IncrementalIdGenerator(),
         processors=[
@@ -1173,7 +1173,7 @@ def test_config_preserved_across_thread_or_process(
     executor_factory: Callable[[], ThreadPoolExecutor | ProcessPoolExecutor],
 ) -> None:
     """Check that we copy the current global configuration when moving execution to a thread or process."""
-    configure(send_to_logfire=False, console_print='off', project_name='foobar!')
+    configure(send_to_logfire=False, console=ConsoleOptions(enabled=False), project_name='foobar!')
 
     with executor_factory() as executor:
         executor.submit(check_project_name, 'foobar!')

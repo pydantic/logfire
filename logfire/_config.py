@@ -5,11 +5,11 @@ import json
 import os
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
     Callable,
-    Literal,
     Sequence,
     TypeVar,
 )
@@ -26,7 +26,7 @@ from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerPr
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from pydantic import TypeAdapter
-from typing_extensions import Self, get_args, get_origin
+from typing_extensions import Literal, Self, get_args, get_origin
 
 from ._collect_system_info import Packages, collect_package_info
 from ._constants import LOGFIRE_API_ROOT, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
@@ -40,8 +40,16 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
-_ConsolePrintValues = Literal['off', 'concise', 'verbose']
 _ShowSummaryValues = Literal['always', 'never', 'new-project']
+
+
+@dataclass
+class ConsoleOptions:
+    enabled: bool = True
+    colors: ConsoleColorsValues = 'auto'
+    indent_spans: bool = True
+    include_timestamps: bool = True
+    verbose: bool = False
 
 
 def configure(
@@ -49,8 +57,7 @@ def configure(
     logfire_token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
-    console_print: _ConsolePrintValues | None = None,
-    console_colors: ConsoleColorsValues | None = None,
+    console: ConsoleOptions | None = None,
     show_summary: _ShowSummaryValues | None = None,
     config_dir: Path | None = None,
     logfire_dir: Path | None = None,
@@ -72,9 +79,8 @@ def configure(
             `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
-        console_print: Whether to print to stderr and if so whether to use concise `[timestamp] {indent} [message]` lines, or to output full details of every log message.
-            If `None` uses the `LOGFIRE_CONSOLE_PRINT` environment variable, otherwise defaults to `'concise'`.
-        console_colors: Whether to color terminal output. If `None` uses the `LOGFIRE_CONSOLE_COLORS` environment variable, otherwise defaults to `'auto'`.
+        console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
+            otherwise defaults to `ConsoleOption(enabled=True, colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `'new-project'`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
@@ -97,8 +103,7 @@ def configure(
         logfire_token=logfire_token,
         project_name=project_name,
         service_name=service_name,
-        console_print=console_print,
-        console_colors=console_colors,
+        console=console,
         show_summary=show_summary,
         config_dir=config_dir,
         logfire_dir=logfire_dir,
@@ -168,11 +173,8 @@ class _LogfireConfigData:
     service_name: str
     """The name of this service"""
 
-    console_print: _ConsolePrintValues
-    """How to print logs to the console"""
-
-    console_colors: ConsoleColorsValues
-    """Whether to use colors when printing logs to the console"""
+    console: ConsoleOptions
+    """Whether to control terminal output"""
 
     show_summary: _ShowSummaryValues
     """Whether to show the summary when starting a new project"""
@@ -208,8 +210,7 @@ class _LogfireConfigData:
         logfire_token: str | None,
         project_name: str | None,
         service_name: str | None,
-        console_print: _ConsolePrintValues | None,
-        console_colors: ConsoleColorsValues | None,
+        console: ConsoleOptions | None,
         show_summary: _ShowSummaryValues | None,
         config_dir: Path | None,
         logfire_dir: Path | None,
@@ -243,8 +244,6 @@ class _LogfireConfigData:
         self.service_name = (
             service_name or os.getenv('LOGFIRE_SERVICE_NAME') or config_from_file.get('service_name') or 'unknown'
         )
-        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT') or config_from_file.get('console_print'), 'console_print', _ConsolePrintValues) or 'concise'  # type: ignore
-        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS') or config_from_file.get('console_colors'), 'console_colors', ConsoleColorsValues) or 'auto'  # type: ignore
         self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY') or config_from_file.get('show_summary'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
         self.logfire_dir = Path(
             logfire_dir or os.getenv('LOGFIRE_DIR') or config_from_file.get('logfire_dir') or '.logfire'
@@ -255,6 +254,42 @@ class _LogfireConfigData:
             config_from_file.get('collect_system_metrics'),
             default=True,
         )
+
+        if console:
+            self.console = console
+        else:
+            self.console = ConsoleOptions(
+                enabled=_coalesce(
+                    None,
+                    _get_bool_from_env('LOGFIRE_CONSOLE_ENABLED'),
+                    config_from_file.get('logfire_console_enabled'),
+                    default=True,
+                ),
+                colors=(  # type: ignore
+                    _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', ConsoleColorsValues)
+                    or config_from_file.get('logfire_console_colors')
+                    or 'auto'
+                ),
+                indent_spans=_coalesce(
+                    None,
+                    _get_bool_from_env('LOGFIRE_CONSOLE_INDENT_SPAN'),
+                    config_from_file.get('logfire_console_indent_span'),
+                    default=True,
+                ),
+                include_timestamps=_coalesce(
+                    None,
+                    _get_bool_from_env('LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'),
+                    config_from_file.get('logfire_console_include_timestamp'),
+                    default=True,
+                ),
+                verbose=_coalesce(
+                    None,
+                    _get_bool_from_env('LOGFIRE_CONSOLE_VERBOSE'),
+                    config_from_file.get('logfire_console_verbose'),
+                    default=False,
+                ),
+            )
+
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.processors = list(processors or ())
@@ -291,8 +326,7 @@ class LogfireConfig(_LogfireConfigData):
         logfire_token: str | None = None,
         project_name: str | None = None,
         service_name: str | None = None,
-        console_print: _ConsolePrintValues | None = None,
-        console_colors: ConsoleColorsValues | None = None,
+        console: ConsoleOptions | None = None,
         show_summary: _ShowSummaryValues | None = None,
         config_dir: Path | None = None,
         logfire_dir: Path | None = None,
@@ -319,8 +353,7 @@ class LogfireConfig(_LogfireConfigData):
             logfire_token=logfire_token,
             project_name=project_name,
             service_name=service_name,
-            console_print=console_print,
-            console_colors=console_colors,
+            console=console,
             show_summary=show_summary,
             config_dir=config_dir,
             logfire_dir=logfire_dir,
@@ -369,10 +402,15 @@ class LogfireConfig(_LogfireConfigData):
         for processor in self.processors:
             tracer_provider.add_span_processor(processor)
 
-        if self.console_print != 'off':
+        if self.console.enabled:
             tracer_provider.add_span_processor(
                 SimpleSpanProcessor(
-                    ConsoleSpanExporter(verbose=self.console_print == 'verbose', colors=self.console_colors),
+                    ConsoleSpanExporter(
+                        colors=self.console.colors,
+                        indent_spans=self.console.indent_spans,
+                        include_timestamp=self.console.include_timestamps,
+                        verbose=self.console.verbose,
+                    ),
                 )
             )
 

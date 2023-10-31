@@ -52,6 +52,8 @@ def _run_with_context(carrier: ContextCarrier, fn: Callable[[], Any], parent_con
     if parent_config is not None:
         from logfire import _config  # type: ignore
 
+        if 'console' in parent_config:
+            parent_config['console'] = _config.ConsoleOptions(**parent_config['console'])
         _config.configure(**parent_config)
 
     with attach_context(carrier):

@@ -83,23 +83,83 @@ def test_console_exporter() -> None:
     ]
 
 
+colored_spans = [
+    '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m \x1b[36mspan_type\x1b[0m=\x1b[35mspan\x1b[0m'
+]
+uncolored_spans = ['1970-01-01 00:00:02 rootSpan                       span_id=0000000000000002 span_type=span']
+uncolored_without_timestamp_spans = ['rootSpan                       span_id=0000000000000002 span_type=span']
+
+
 @pytest.mark.parametrize(
-    'colors,expected',
+    'colors,indent_spans,include_timestamp,verbose,expected',
     [
         (
             'always',
+            True,
+            True,
+            True,
             [
-                '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m \x1b[36mspan_type\x1b[0m=\x1b[35mspan\x1b[0m'
+                '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m \x1b[36mspan_type\x1b[0m=\x1b[35mspan\x1b[0m',
+                '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1                   \x1b[0m \x1b[36mspan_id\x1b[0m=\x1b[35m0000000000000004\x1b[0m \x1b[36mspan_type\x1b[0m=\x1b[35mspan\x1b[0m \x1b[36mparent_id\x1b[0m=\x1b[35m0000000000000002\x1b[0m',
             ],
         ),
-        ('auto', ['1970-01-01 00:00:02 rootSpan                       span_id=0000000000000002 span_type=span']),
-        ('never', ['1970-01-01 00:00:02 rootSpan                       span_id=0000000000000002 span_type=span']),
+        (
+            'always',
+            True,
+            True,
+            False,
+            [
+                '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan\x1b[0m',
+                '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1\x1b[0m',
+            ],
+        ),
+        (
+            'never',
+            True,
+            True,
+            False,
+            ['1970-01-01 00:00:02 rootSpan', '  1970-01-01 00:00:05 childSpan 1'],
+        ),
+        (
+            'never',
+            False,
+            True,
+            False,
+            ['1970-01-01 00:00:02 rootSpan', '1970-01-01 00:00:05 childSpan 1'],
+        ),
+        (
+            'never',
+            False,
+            False,
+            False,
+            ['rootSpan', 'childSpan 1'],
+        ),
     ],
 )
-def test_console_exporter_colors_colors(colors: ConsoleColorsValues, expected: list[str]) -> None:
+def test_console_exporter_options(
+    colors: ConsoleColorsValues,
+    indent_spans: bool,
+    include_timestamp: bool,
+    verbose: bool,
+    expected: list[str],
+) -> None:
     out = io.StringIO()
 
     spans = [
+        ReadableSpan(
+            name='childSpan',
+            context=trace.SpanContext(trace_id=0, span_id=4, is_remote=False),
+            parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
+            attributes={
+                'logfire.span_type': 'span',
+                'logfire.start_parent_id': '0',
+                'logfire.msg_template': 'childSpan',
+                'logfire.msg': 'childSpan 1',
+                'a': 1,
+            },
+            start_time=5 * NANOSECONDS_PER_SECOND,
+            end_time=6 * NANOSECONDS_PER_SECOND,
+        ),
         ReadableSpan(
             name='rootSpan',
             context=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
@@ -110,8 +170,9 @@ def test_console_exporter_colors_colors(colors: ConsoleColorsValues, expected: l
         ),
     ]
 
-    ConsoleSpanExporter(output=out, verbose=True, colors=colors).export(spans)
+    ConsoleSpanExporter(
+        output=out, colors=colors, indent_spans=indent_spans, include_timestamp=include_timestamp, verbose=verbose
+    ).export(spans)
 
     # insert_assert(out.getvalue().splitlines())
-    s = out.getvalue().splitlines()
-    assert s == expected, s
+    assert out.getvalue().splitlines() == expected

@@ -1,5 +1,5 @@
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
-from ._config import configure
+from ._config import ConsoleOptions, configure
 from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
 from .version import VERSION
@@ -24,6 +24,7 @@ __all__ = (
     'Logfire',
     'LogfireSpan',
     'LevelName',
+    'ConsoleOptions',
     'configure',
     'span',
     'instrument',

@@ -3,7 +3,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-from logfire._config import configure
+from logfire._config import ConsoleOptions, configure
 from logfire.testing import (
     IncrementalIdGenerator,
     TestExporter,
@@ -40,7 +40,7 @@ def config(
 ) -> None:
     configure(
         send_to_logfire=False,
-        console_print='off',
+        console=ConsoleOptions(enabled=False),
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],

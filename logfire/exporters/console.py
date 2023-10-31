@@ -7,62 +7,76 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Literal, TextIO, cast
+from typing import Any, TextIO, cast
 
 import structlog
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
+from structlog.dev import ConsoleRenderer
 from structlog.typing import EventDict, WrappedLogger
+from typing_extensions import Literal
 
 from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
 
-ConsoleColorsValues = Literal['auto', 'always', 'never']
 _NANOSECONDS_PER_SECOND = 1_000_000_000
+ConsoleColorsValues = Literal['auto', 'always', 'never']
 
 
 class _DefaultProcessor:
+    def __init__(self, include_timestamp: bool, verbose: bool) -> None:
+        self._include_timestamp = include_timestamp
+        self._verbose = verbose
+
     def __call__(self, _: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
         span = cast(ReadableSpan, event_dict.pop('span'))
 
-        if event_dict.pop('verbose', False):
+        if self._verbose:
             event_dict['span_id'] = format_span_id(span.context.span_id)
             if span.attributes and (span_type := span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY)):
                 event_dict['span_type'] = span_type
             if span.parent and (parent_id := span.parent.span_id):
                 event_dict['parent_id'] = format_span_id(parent_id)
         assert span.start_time is not None
-        start_time = datetime.fromtimestamp(span.start_time // _NANOSECONDS_PER_SECOND, tz=timezone.utc).strftime(
-            '%Y-%m-%d %H:%M:%S'
-        )
-        event_dict['timestamp'] = start_time
+        if self._include_timestamp:
+            start_time = datetime.fromtimestamp(span.start_time // _NANOSECONDS_PER_SECOND, tz=timezone.utc).strftime(
+                '%Y-%m-%d %H:%M:%S'
+            )
+            event_dict['timestamp'] = start_time
 
         return event_dict
 
 
-class _ConsoleRenderer(structlog.dev.ConsoleRenderer):
+class _ConsoleRenderer(ConsoleRenderer):
+    def __init__(self, *args: Any, indent_spans: bool, **kwargs: Any):
+        self._indent_spans = indent_spans
+        super().__init__(*args, **kwargs)
+
     def __call__(self, logger: WrappedLogger, name: str, event_dict: EventDict) -> str:
         indent = cast(int, event_dict.pop('indent', 0))
         message = super().__call__(logger, name, event_dict)
-        return indent * '  ' + message
+        return indent * '  ' + message if self._indent_spans else message
 
 
 class ConsoleSpanExporter(SpanExporter):
     def __init__(
         self,
         output: TextIO = sys.stdout,
-        verbose: bool = True,
-        max_spans_in_state: int = 50_000,
         colors: ConsoleColorsValues | None = 'auto',
+        indent_spans: bool = True,
+        include_timestamp: bool = True,
+        verbose: bool = False,
+        max_spans_in_state: int = 50_000,
     ) -> None:
-        self._verbose = verbose
         self._log = structlog.wrap_logger(
             structlog.PrintLogger(output),
             processors=[
-                _DefaultProcessor(),
+                _DefaultProcessor(include_timestamp=include_timestamp, verbose=verbose),
                 structlog.processors.StackInfoRenderer(),
                 _ConsoleRenderer(
-                    sort_keys=False, colors=(colors == 'always') or (colors == 'auto' and output.isatty())
+                    sort_keys=False,
+                    colors=(colors == 'always') or (colors == 'auto' and output.isatty()),
+                    indent_spans=indent_spans,
                 ),
             ],
             context_class=dict,
@@ -87,7 +101,7 @@ class ConsoleSpanExporter(SpanExporter):
                 del self._indent_level[next(iter(self._indent_level))]
 
             if span_type != 'start_span':
-                self._log(event=_get_span_name(span), span=span, verbose=self._verbose, indent=indent)
+                self._log(event=_get_span_name(span), span=span, indent=indent)
         return SpanExportResult.SUCCESS
 
     def force_flush(self, timeout_millis: int = 0) -> bool:

@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable, Mapping
 
+import pytest
 import requests
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from requests.adapters import HTTPAdapter
 
 import logfire
-from logfire._config import GLOBAL_CONFIG, configure
+from logfire._config import (
+    GLOBAL_CONFIG,
+    ConsoleOptions,
+    LogfireConfig,
+    LogfireConfigError,
+    configure,
+)
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -43,7 +51,7 @@ def test_propagate_config_to_tags() -> None:
 
     configure(
         send_to_logfire=False,
-        console_print='off',
+        console=ConsoleOptions(enabled=False),
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
         processors=[SimpleSpanProcessor(exporter)],
@@ -420,7 +428,7 @@ def test_set_request_headers() -> None:
 
     configure(
         send_to_logfire=True,
-        console_print='off',
+        console=ConsoleOptions(enabled=False),
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
         default_otlp_span_exporter_request_headers={'X-Test': 'test'},
@@ -444,7 +452,8 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         logfire_api_root = "https://api.logfire.io"
         send_to_logfire = false
         project_name = "test"
-        console_print = "off"
+        logfire_console_colors = "never"
+        logfire_console_include_timestamp = false
         console_colors = "never"
         logfire_dir = "{tmp_path}"
         collect_system_metrics = false
@@ -456,7 +465,32 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.logfire_api_root == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
     assert GLOBAL_CONFIG.project_name == 'test'
-    assert GLOBAL_CONFIG.console_print == 'off'
-    assert GLOBAL_CONFIG.console_colors == 'never'
+    assert GLOBAL_CONFIG.console.colors == 'never'
+    assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.logfire_dir == tmp_path
     assert GLOBAL_CONFIG.collect_system_metrics is False
+
+
+def test_logfire_config_console_options() -> None:
+    assert LogfireConfig().console == ConsoleOptions()
+    assert LogfireConfig(console=ConsoleOptions(enabled=False)).console == ConsoleOptions(enabled=False)
+    assert LogfireConfig(console=ConsoleOptions(colors='never', verbose=True)).console == ConsoleOptions(
+        colors='never', verbose=True
+    )
+
+    os.environ['LOGFIRE_CONSOLE_COLORS'] = 'never'
+    assert LogfireConfig().console == ConsoleOptions(colors='never')
+    os.environ['LOGFIRE_CONSOLE_COLORS'] = 'test'
+    with pytest.raises(
+        LogfireConfigError,
+        match="Expected console_colors to be one of \\('auto', 'always', 'never'\\), got 'test'",
+    ):
+        LogfireConfig()
+
+    os.environ.pop('LOGFIRE_CONSOLE_COLORS')
+
+    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = '1'
+    assert LogfireConfig().console == ConsoleOptions(verbose=True)
+    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = 'test'
+    assert LogfireConfig().console == ConsoleOptions(verbose=False)
+    os.environ.pop('LOGFIRE_CONSOLE_VERBOSE')
