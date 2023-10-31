@@ -1,4 +1,4 @@
-from typing_extensions import Literal
+from typing import Literal
 
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire"""

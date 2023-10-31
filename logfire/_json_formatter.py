@@ -4,9 +4,7 @@ import base64
 import io
 from datetime import timedelta
 from functools import partial
-from typing import Any, Callable, cast
-
-from typing_extensions import Literal
+from typing import Any, Callable, Literal, cast
 
 from ._json_encoder import DataType
 

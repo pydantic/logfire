@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable, Mapping
 
 import requests
@@ -7,7 +8,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from requests.adapters import HTTPAdapter
 
 import logfire
-from logfire._config import configure
+from logfire._config import GLOBAL_CONFIG, configure
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -434,3 +435,28 @@ def test_set_request_headers() -> None:
 
     # insert_assert([r.headers.get('X-Test', None) for r in adapter.requests])
     assert [r.headers.get('X-Test', None) for r in adapter.requests] == ['test', 'test', 'test', 'test', 'test']
+
+
+def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        f"""
+        [tool.logfire]
+        logfire_api_root = "https://api.logfire.io"
+        send_to_logfire = false
+        project_name = "test"
+        console_print = "off"
+        console_colors = "never"
+        logfire_dir = "{tmp_path}"
+        collect_system_metrics = false
+        """
+    )
+
+    configure(config_dir=tmp_path)
+
+    assert GLOBAL_CONFIG.logfire_api_root == 'https://api.logfire.io'
+    assert GLOBAL_CONFIG.send_to_logfire is False
+    assert GLOBAL_CONFIG.project_name == 'test'
+    assert GLOBAL_CONFIG.console_print == 'off'
+    assert GLOBAL_CONFIG.console_colors == 'never'
+    assert GLOBAL_CONFIG.logfire_dir == tmp_path
+    assert GLOBAL_CONFIG.collect_system_metrics is False

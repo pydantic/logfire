@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import dataclasses
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import (
@@ -51,6 +52,7 @@ def configure(
     console_print: _ConsolePrintValues | None = None,
     console_colors: ConsoleColorsValues | None = None,
     show_summary: _ShowSummaryValues | None = None,
+    config_dir: Path | None = None,
     logfire_dir: Path | None = None,
     logfire_api_root: str | None = None,
     collect_system_metrics: bool | None = None,
@@ -75,6 +77,8 @@ def configure(
         console_colors: Whether to color terminal output. If `None` uses the `LOGFIRE_CONSOLE_COLORS` environment variable, otherwise defaults to `'auto'`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `'new-project'`.
+        config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
+            current working directory.
         logfire_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_DIR` environment variable, otherwise defaults to `'.logfire'`.
         logfire_api_root: Root URL for the Logfire API. If `None` uses the `LOGFIRE_API_ROOT` environment variable, otherwise defaults to https://api.logfire.dev.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
@@ -87,7 +91,7 @@ def configure(
         default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
     """
-    GLOBAL_CONFIG.merge_with_env(
+    GLOBAL_CONFIG.load_configuration(
         logfire_api_root=logfire_api_root,
         send_to_logfire=send_to_logfire,
         logfire_token=logfire_token,
@@ -96,6 +100,7 @@ def configure(
         console_print=console_print,
         console_colors=console_colors,
         show_summary=show_summary,
+        config_dir=config_dir,
         logfire_dir=logfire_dir,
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
@@ -122,21 +127,17 @@ T = TypeVar('T')
 def _check_literal(value: Any | None, name: str, tp: type[T]) -> T | None:
     if value is None:
         return None
-    assert get_origin(tp) is Literal
+    assert get_origin(tp) is Literal, get_origin(tp)
     literals = get_args(tp)
     if value not in literals:
         raise LogfireConfigError(f'Expected {name} to be one of {literals}, got {value!r}')
     return value
 
 
-def _coalesce(runtime: T | None, env: T | None, default: T) -> T:
-    """
-    Return the first non-None value.
-    """
-    if runtime is not None:
-        return runtime
-    if env is not None:
-        return env
+def _coalesce(*args: Any, default: Any = None) -> Any:
+    for arg in args:
+        if arg is not None:
+            return arg
     return default
 
 
@@ -197,11 +198,11 @@ class _LogfireConfigData:
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None
     """Additional headers to send with requests to the Logfire API"""
 
-    def merge_with_env(
+    def load_configuration(
         self,
         # note that there are no defaults here so that the only place
         # defaults exist is `__init__` and we don't forgot a parameter when
-        # forwarding parameters from `__init__` to `merge_with_env
+        # forwarding parameters from `__init__` to `load_configuration`
         logfire_api_root: str | None,
         send_to_logfire: bool | None,
         logfire_token: str | None,
@@ -210,6 +211,7 @@ class _LogfireConfigData:
         console_print: _ConsolePrintValues | None,
         console_colors: ConsoleColorsValues | None,
         show_summary: _ShowSummaryValues | None,
+        config_dir: Path | None,
         logfire_dir: Path | None,
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
@@ -221,28 +223,37 @@ class _LogfireConfigData:
         default_otlp_span_exporter_session: requests.Session | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
-        self.logfire_api_root = logfire_api_root or os.getenv('LOGFIRE_API_ROOT') or LOGFIRE_API_ROOT
+        config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
+        config_from_file = self._load_config_from_file(config_dir)
+
+        self.logfire_api_root = (
+            logfire_api_root
+            or os.getenv('LOGFIRE_API_ROOT')
+            or config_from_file.get('logfire_api_root')
+            or LOGFIRE_API_ROOT
+        )
         self.send_to_logfire = _coalesce(
             send_to_logfire,
             _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'),
-            True,
+            config_from_file.get('send_to_logfire'),
+            default=True,
         )
         self.logfire_token = logfire_token or os.getenv('LOGFIRE_TOKEN')
-        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME')
-        self.service_name = service_name or os.getenv('LOGFIRE_SERVICE_NAME') or 'unknown'
-        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT'), 'console_print', _ConsolePrintValues) or 'concise'  # type: ignore
-        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', ConsoleColorsValues) or 'auto'  # type: ignore
-        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
-        if logfire_dir:
-            self.logfire_dir = logfire_dir
-        else:
-            dir = os.getenv('LOGFIRE_DIR')
-            if dir is not None:
-                self.logfire_dir = Path(dir)
-            else:
-                self.logfire_dir = Path('.logfire')
-        self.collect_system_metrics = (
-            collect_system_metrics or _get_bool_from_env('LOGFIRE_COLLECT_SYSTEM_METRICS') or True
+        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or config_from_file.get('project_name')
+        self.service_name = (
+            service_name or os.getenv('LOGFIRE_SERVICE_NAME') or config_from_file.get('service_name') or 'unknown'
+        )
+        self.console_print = console_print or _check_literal(os.getenv('LOGFIRE_CONSOLE_PRINT') or config_from_file.get('console_print'), 'console_print', _ConsolePrintValues) or 'concise'  # type: ignore
+        self.console_colors = console_colors or _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS') or config_from_file.get('console_colors'), 'console_colors', ConsoleColorsValues) or 'auto'  # type: ignore
+        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY') or config_from_file.get('show_summary'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
+        self.logfire_dir = Path(
+            logfire_dir or os.getenv('LOGFIRE_DIR') or config_from_file.get('logfire_dir') or '.logfire'
+        )
+        self.collect_system_metrics = _coalesce(
+            collect_system_metrics,
+            _get_bool_from_env('LOGFIRE_COLLECT_SYSTEM_METRICS'),
+            config_from_file.get('collect_system_metrics'),
+            default=True,
         )
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
@@ -251,6 +262,25 @@ class _LogfireConfigData:
         self.metric_readers = metric_readers
         self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
+
+    def _load_config_from_file(self, config_dir: Path) -> dict[str, Any]:
+        config_file = config_dir / 'pyproject.toml'
+        if not config_file.exists():
+            return {}
+        try:
+            if sys.version_info >= (3, 11):
+                import tomllib
+
+                with config_file.open('rb') as f:
+                    data = tomllib.load(f)
+            else:
+                import rtoml
+
+                with config_file.open() as f:
+                    data = rtoml.load(f)
+            return data.get('tool', {}).get('logfire', {})
+        except Exception as exc:
+            raise LogfireConfigError(f'Invalid config file: {config_file}') from exc
 
 
 class LogfireConfig(_LogfireConfigData):
@@ -264,6 +294,7 @@ class LogfireConfig(_LogfireConfigData):
         console_print: _ConsolePrintValues | None = None,
         console_colors: ConsoleColorsValues | None = None,
         show_summary: _ShowSummaryValues | None = None,
+        config_dir: Path | None = None,
         logfire_dir: Path | None = None,
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
@@ -280,9 +311,9 @@ class LogfireConfig(_LogfireConfigData):
 
         See `_LogfireConfigData` for parameter documentation.
         """
-        # merge_with_env is it's own method so that it can be called on an existing config object
-        # in particular the global config object
-        self.merge_with_env(
+        # The `load_configuration` is it's own method so that it can be called on an existing config object
+        # in particular the global config object.
+        self.load_configuration(
             logfire_api_root=logfire_api_root,
             send_to_logfire=send_to_logfire,
             logfire_token=logfire_token,
@@ -291,6 +322,7 @@ class LogfireConfig(_LogfireConfigData):
             console_print=console_print,
             console_colors=console_colors,
             show_summary=show_summary,
+            config_dir=config_dir,
             logfire_dir=logfire_dir,
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
