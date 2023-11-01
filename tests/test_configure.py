@@ -10,12 +10,12 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from requests.adapters import HTTPAdapter
 
 import logfire
+from logfire import configure
 from logfire._config import (
     GLOBAL_CONFIG,
     ConsoleOptions,
     LogfireConfig,
     LogfireConfigError,
-    configure,
 )
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -433,7 +433,7 @@ def test_set_request_headers() -> None:
         id_generator=IncrementalIdGenerator(),
         default_otlp_span_exporter_request_headers={'X-Test': 'test'},
         default_otlp_span_exporter_session=session,
-        default_processor=SimpleSpanProcessor,
+        default_span_processor=SimpleSpanProcessor,
         token='123',
     )
 

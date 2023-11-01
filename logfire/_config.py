@@ -19,6 +19,9 @@ import requests
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.environment_variables import (
+    OTEL_BSP_SCHEDULE_DELAY,
+)
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
@@ -68,7 +71,7 @@ def configure(
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: Sequence[SpanProcessor] | None = None,
-    default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
+    default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
     default_otlp_span_exporter_session: requests.Session | None = None,
@@ -92,7 +95,7 @@ def configure(
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
         processors: Span processors to use. Defaults to an empty sequence.
-        default_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
+        default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Sequence of metric readers to be used.
@@ -113,7 +116,7 @@ def configure(
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
         processors=processors,
-        default_processor=default_processor,
+        default_span_processor=default_span_processor,
         metric_readers=metric_readers,
         default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
@@ -123,9 +126,16 @@ def configure(
 
 def _get_bool_from_env(env_var: str) -> bool | None:
     value = os.getenv(env_var)
-    if value is None:
+    if not value:
         return None
     return value.lower() in ('1', 'true', 't')
+
+
+def _get_int_from_env(env_var: str) -> int | None:
+    value = os.getenv(env_var)
+    if not value:
+        return None
+    return int(value)
 
 
 T = TypeVar('T')
@@ -196,7 +206,7 @@ class _LogfireConfigData:
     processors: Sequence[SpanProcessor]
     """Additional span processors"""
 
-    default_processor: Callable[[SpanExporter], SpanProcessor]
+    default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None
@@ -220,7 +230,7 @@ class _LogfireConfigData:
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         processors: Sequence[SpanProcessor] | None,
-        default_processor: Callable[[SpanExporter], SpanProcessor] | None,
+        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
@@ -295,7 +305,7 @@ class _LogfireConfigData:
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.processors = list(processors or ())
-        self.default_processor = default_processor or BatchSpanProcessor
+        self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
         self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
@@ -336,7 +346,7 @@ class LogfireConfig(_LogfireConfigData):
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
         processors: Sequence[SpanProcessor] | None = None,
-        default_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
+        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
         default_otlp_span_exporter_session: requests.Session | None = None,
@@ -363,7 +373,7 @@ class LogfireConfig(_LogfireConfigData):
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
             processors=processors,
-            default_processor=default_processor,
+            default_span_processor=default_span_processor,
             metric_readers=metric_readers,
             default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
@@ -400,6 +410,7 @@ class LogfireConfig(_LogfireConfigData):
             resource=resource,
             id_generator=self.id_generator,
         )
+        self._tracer_provider.set_provider(tracer_provider)
 
         for processor in self.processors:
             tracer_provider.add_span_processor(processor)
@@ -450,7 +461,7 @@ class LogfireConfig(_LogfireConfigData):
             session = self.default_otlp_span_exporter_session or requests.Session()
             session.headers.update(headers)
             span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
-            tracer_provider.add_span_processor(self.default_processor(span_exporter))
+            self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
 
             metric_readers.append(
                 PeriodicExportingMetricReader(
@@ -467,7 +478,6 @@ class LogfireConfig(_LogfireConfigData):
         meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
         if self.collect_system_metrics:
             configure_metrics(meter_provider)
-        self._tracer_provider.set_provider(tracer_provider)
         self._meter_provider.set_meter_provider(meter_provider)
 
         if self is GLOBAL_CONFIG and not self._initialized:
@@ -489,6 +499,11 @@ class LogfireConfig(_LogfireConfigData):
         if not self._initialized:
             return self.initialize()
         return self._tracer_provider
+
+
+def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
+    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
+    return BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis)
 
 
 # The global config is the single global object in logfire
