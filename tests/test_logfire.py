@@ -8,6 +8,7 @@ from typing import Callable, cast
 
 import pytest
 from dirty_equals import IsPositive, IsStr
+from opentelemetry.exporter.otlp.proto.common._internal.trace_encoder import encode_spans
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel
@@ -1248,13 +1249,28 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
 
 
 def test_large_int(exporter: TestExporter) -> None:
-    with logfire.span('test {large_int=}', large_int=2**63 + 1):
+    with logfire.span(
+        'test {larger_int=} {max_int=} {small_int=}', larger_int=2**256 + 1, max_int=2**63, small_int=2**63 - 1
+    ):
         pass
+
+    # check the encoded spans, this is where the value used to get dropped before we encoded them as strings
+    span = encode_spans(exporter.exported_spans)
+    attributes = span.resource_spans[0].scope_spans[0].spans[0].attributes
+    for attr in attributes:
+        if attr.key == 'larger_int__LARGE_INT':
+            assert (
+                attr.value.string_value
+                == '115792089237316195423570985008687907853269984665640564039457584007913129639937'
+            )
+        elif attr.key == 'max_int__LARGE_INT':
+            assert attr.value.string_value == '9223372036854775808'
+    span.SerializeToString()  # make sure there's no errors converting the spans to a binary message
 
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'test {large_int=}',
+            'name': 'test {larger_int=} {max_int=} {small_int=}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -1263,10 +1279,12 @@ def test_large_int(exporter: TestExporter) -> None:
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
                 'code.function': 'test_large_int',
-                'large_int__LARGE_INT': '9223372036854775809',
-                'logfire.msg_template': 'test {large_int=}',
+                'larger_int__LARGE_INT': '115792089237316195423570985008687907853269984665640564039457584007913129639937',
+                'max_int__LARGE_INT': '9223372036854775808',
+                'small_int': 9223372036854775807,
+                'logfire.msg_template': 'test {larger_int=} {max_int=} {small_int=}',
                 'logfire.span_type': 'span',
-                'logfire.msg': 'test large_int=9223372036854775809',
+                'logfire.msg': 'test larger_int=115792089237316195423570985008687907853269984665640564039457584007913129639937 max_int=9223372036854775808 small_int=9223372036854775807',
             },
         }
     ]
