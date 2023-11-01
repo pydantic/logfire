@@ -37,19 +37,19 @@ def main(
 
 
 @app.command(help='Get your dashboard url and project name.')
-def whoami(logfire_dir: Path = Path('.logfire')):
-    credentials = LogfireCredentials.load_creds_file(logfire_dir)
+def whoami(credentials_dir: Path = Path('.logfire')):
+    credentials = LogfireCredentials.load_creds_file(credentials_dir)
 
     if credentials is None:
         console.print('Data not found.')
     else:
-        credentials.print_existing_token_summary(logfire_dir, from_cli=True)
+        credentials.print_existing_token_summary(credentials_dir, from_cli=True)
 
 
 @app.command(help='Clean logfire data.')
-def clean(logfire_dir: Path = Path('.logfire')):
-    if confirm(f'The folder {logfire_dir} will be deleted. Are you sure?'):
-        shutil.rmtree(logfire_dir)
+def clean(credentials_dir: Path = Path('.logfire')):
+    if confirm(f'The folder {credentials_dir} will be deleted. Are you sure?'):
+        shutil.rmtree(credentials_dir)
         echo('Cleaned logfire data.')
     else:
         echo('Clean aborted.')

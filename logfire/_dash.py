@@ -26,9 +26,9 @@ _PYODIDE_MUST_INJECT_MESSAGE = 'This function should be injected into pyodide by
 
 
 def configure(
-    logfire_token: str | None = None,
-    logfire_dir: Path = Path('.logfire'),
-    logfire_api_root: str | None = None,
+    token: str | None = None,
+    credentials_dir: Path = Path('.logfire'),
+    base_url: str | None = None,
 ) -> None:
     """
     This function sets the arguments used to obtain the logfire token used in the `logfire.dash` module.
@@ -39,10 +39,10 @@ def configure(
         # Alternatively, we could raise an error:
         # raise RuntimeError(_PYODIDE_NOT_ALLOWED_MESSAGE)
 
-    global _configured, _logfire_token, _logfire_dir, _logfire_api_root
-    _logfire_token = logfire_token
-    _logfire_dir = logfire_dir
-    _logfire_api_root = logfire_api_root
+    global _configured, _token, _credentials_dir, _base_url
+    _token = token
+    _credentials_dir = credentials_dir
+    _base_url = base_url
 
     _get_token.cache_clear()
 
@@ -59,13 +59,13 @@ async def query(q: str) -> list[dict[str, Any]]:
         raise RuntimeError(_PYODIDE_MUST_INJECT_MESSAGE)
 
     assert httpx is not None
-    from ._constants import LOGFIRE_API_ROOT
+    from ._constants import LOGFIRE_BASE_URL
 
     # Need to use a logfire configuration
     # Should we expose the token as part of the configuration
     token = _get_token()
     client = httpx.AsyncClient(headers={'Authorization': token})
-    route = (_logfire_api_root or LOGFIRE_API_ROOT) + '/dash/query'
+    route = (_base_url or LOGFIRE_BASE_URL) + '/dash/query'
     response = await client.get(route, params={'q': q})
     response.raise_for_status()
     return response.json()
@@ -83,9 +83,9 @@ def show(item: Any) -> None:
 
 
 _configured: bool = False
-_logfire_token: str | None = None
-_logfire_dir: Path = Path('.logfire')
-_logfire_api_root: str | None = None
+_token: str | None = None
+_credentials_dir: Path = Path('.logfire')
+_base_url: str | None = None
 
 
 @cache
@@ -98,7 +98,7 @@ def _get_token() -> str:
 
     from logfire._config import LogfireConfig, LogfireConfigError
 
-    token, _ = LogfireConfig.load_token(logfire_token=_logfire_token, logfire_dir=_logfire_dir)
+    token, _ = LogfireConfig.load_token(token=_token, credentials_dir=_credentials_dir)
     if token is None:
         raise LogfireConfigError(
             'No logfire token provided or found in the default locations.'

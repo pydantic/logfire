@@ -434,7 +434,7 @@ def test_set_request_headers() -> None:
         default_otlp_span_exporter_request_headers={'X-Test': 'test'},
         default_otlp_span_exporter_session=session,
         default_processor=SimpleSpanProcessor,
-        logfire_token='123',
+        token='123',
     )
 
     with logfire.span('root'):
@@ -449,25 +449,25 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     (tmp_path / 'pyproject.toml').write_text(
         f"""
         [tool.logfire]
-        logfire_api_root = "https://api.logfire.io"
+        base_url = "https://api.logfire.io"
         send_to_logfire = false
         project_name = "test"
         logfire_console_colors = "never"
         logfire_console_include_timestamp = false
         console_colors = "never"
-        logfire_dir = "{tmp_path}"
+        credentials_dir = "{tmp_path}"
         collect_system_metrics = false
         """
     )
 
     configure(config_dir=tmp_path)
 
-    assert GLOBAL_CONFIG.logfire_api_root == 'https://api.logfire.io'
+    assert GLOBAL_CONFIG.base_url == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
     assert GLOBAL_CONFIG.project_name == 'test'
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
-    assert GLOBAL_CONFIG.logfire_dir == tmp_path
+    assert GLOBAL_CONFIG.credentials_dir == tmp_path
     assert GLOBAL_CONFIG.collect_system_metrics is False
 
 

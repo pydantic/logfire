@@ -22,7 +22,7 @@ You can use the following environment variables to configure Logfire:
 
 | Name | Description |
 | ---- | ----------- |
-| LOGFIRE_API_ROOT | Used to set the base URL of the Logfire backend. |
+| LOGFIRE_BASE_URL | Used to set the base URL of the Logfire backend. |
 | LOGFIRE_TOKEN | The token used to identify yourself. |
 | LOGFIRE_SEND_TO_LOGFIRE | Whether to send data to the Logfire backend. |
 | LOGFIRE_PROJECT_NAME | The project name. |
@@ -33,7 +33,7 @@ You can use the following environment variables to configure Logfire:
 | LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP | Whether to show timestamp in terminal output. |
 | LOGFIRE_CONSOLE_VERBOSE | Whether to print logs in verbose mode. |
 | LOGFIRE_SHOW_SUMMARY | Whether to show a summary of the logs at the end of the program. |
-| LOGFIRE_DIR | The directory where to store the configuration file. |
+| LOGFIRE_CREDENTIALS_DIR | The directory where to store the configuration file. |
 | LOGFIRE_COLLECT_SYSTEM_METRICS | Whether to collect system metrics. |
 | LOGFIRE_DISABLE_PYDANTIC_PLUGIN | Whether to disable the Pydantic plugin. |
 
