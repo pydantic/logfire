@@ -39,6 +39,7 @@ from .version import VERSION
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
+"""Common request headers for requests to the Logfire API."""
 
 _ShowSummaryValues = Literal['always', 'never', 'new-project']
 
@@ -53,6 +54,7 @@ class ConsoleOptions:
 
 
 def configure(
+    *,
     send_to_logfire: bool | None = None,
     logfire_token: str | None = None,
     project_name: str | None = None,
@@ -174,7 +176,7 @@ class _LogfireConfigData:
     """The name of this service"""
 
     console: ConsoleOptions
-    """Whether to control terminal output"""
+    """Options for controlling console output"""
 
     show_summary: _ShowSummaryValues
     """Whether to show the summary when starting a new project"""
