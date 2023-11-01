@@ -1245,3 +1245,28 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
             },
         },
     ]
+
+
+def test_large_int(exporter: TestExporter) -> None:
+    with logfire.span('test {large_int=}', large_int=2**63 + 1):
+        pass
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'test {large_int=}',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'large_int__LARGE_INT': '9223372036854775809',
+                'logfire.msg_template': 'test {large_int=}',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'test large_int=9223372036854775809',
+            },
+        }
+    ]

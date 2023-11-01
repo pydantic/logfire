@@ -49,3 +49,9 @@ LOGFIRE_BASE_URL = 'https://api.logfire.dev'
 
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
+
+OTLP_MAX_INT_SIZE = 2**63 - 1
+"""OTLP only supports signed 64-bit integers, larger integers get sent as strings."""
+
+OTLP_LARGE_INT_SUFFIX = '__LARGE_INT'
+"""Suffix added to large integers to indicate they should be serialized as strings."""

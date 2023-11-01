@@ -50,6 +50,8 @@ from ._constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     NON_SCALAR_VAR_SUFFIX,
     NULL_ARGS_KEY,
+    OTLP_LARGE_INT_SUFFIX,
+    OTLP_MAX_INT_SIZE,
     LevelName,
 )
 from ._flatten import Flatten
@@ -608,7 +610,12 @@ def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> 
     for key, value in attributes.items():
         if value is None:
             null_args.append(key)
-        elif isinstance(value, (str, bool, int, float)):
+        elif isinstance(value, int):
+            if value > OTLP_MAX_INT_SIZE:
+                prepared[key + OTLP_LARGE_INT_SUFFIX] = str(value)
+            else:
+                prepared[key] = value
+        elif isinstance(value, (str, bool, float)):
             prepared[key] = value
         elif isinstance(value, Flatten) and should_flatten:
             value = cast('Flatten[Mapping[Any, Any] | Sequence[Any]]', value).value
