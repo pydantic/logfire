@@ -6,10 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, cast
 
+import pytest
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import Event, ReadableSpan
-from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 
+import logfire
 from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY
 
 
@@ -24,6 +27,9 @@ class TestExporter(SpanExporter):
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
         self.exported_spans.extend(spans)
+
+    def clear(self) -> None:
+        self.exported_spans = []
 
     def exported_spans_as_dict(  # noqa: C901
         self,
@@ -161,3 +167,25 @@ class TimeGenerator:
 
     def __repr__(self) -> str:
         return f'TimeGenerator(ns_time={self.ns_time})'
+
+
+@dataclass
+class LogfireTestExporter:
+    exporter: TestExporter
+    metrics_reader: InMemoryMetricReader
+
+
+@pytest.fixture
+def logfire_test_exporter() -> LogfireTestExporter:
+    exporter = TestExporter()
+    metrics_reader = InMemoryMetricReader()
+    logfire.configure(
+        send_to_logfire=False,
+        console=logfire.ConsoleOptions(enabled=False),
+        id_generator=IncrementalIdGenerator(),
+        ns_timestamp_generator=TimeGenerator(),
+        processors=[SimpleSpanProcessor(exporter)],
+        metric_readers=[metrics_reader],
+    )
+
+    return LogfireTestExporter(exporter=exporter, metrics_reader=metrics_reader)

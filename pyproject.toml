@@ -68,3 +68,6 @@ logfire-plugin = "logfire.integrations.pydantic_plugin:plugin"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins."pytest11"]
+logfire = "logfire.testing"
