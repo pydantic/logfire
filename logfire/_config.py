@@ -28,10 +28,9 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from pydantic import TypeAdapter
 from typing_extensions import Literal, Self, get_args, get_origin
 
-from ._collect_system_info import Packages, collect_package_info
+from ._collect_system_info import collect_package_info
 from ._constants import LOGFIRE_BASE_URL, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import ProxyTracerProvider
@@ -403,7 +402,7 @@ class LogfireConfig(_LogfireConfigData):
         resource = Resource.create(
             {
                 'service.name': self.service_name,
-                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: TypeAdapter(Packages).dump_json(collect_package_info()),
+                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
             }
         )
         tracer_provider = SDKTracerProvider(
