@@ -48,7 +48,7 @@ Here's an example:
 ```toml
 [tool.logfire]
 project_name = "My Project"
-logfire_console_colors = "never"
+console_colors = "never"
 ```
 
 The keys are the same as the parameters of [`logfire.configure()`][logfire.configure].
