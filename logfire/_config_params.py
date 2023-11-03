@@ -37,19 +37,33 @@ class ConfigParam:
 
 # fmt: off
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
+"""Use to set the base URL of the Logfire backend."""
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=True, tp=bool)
+"""Whether to send spans to Logfire."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
+"""Token for the Logfire API."""
 PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=True)
+"""Name of the project."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME'], allow_file_config=True, default='unknown')
+"""Name of the service."""
 SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=ShowSummaryValues)
+"""Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
+"""The directory where to store the configuration file."""
 EXPORTER_FALLBACK_FILE_PATH = ConfigParam(env_vars=['LOGFIRE_EXPORTER_FALLBACK_FILE_PATH'], allow_file_config=True, default=DEFAULT_FALLBACK_FILE_NAME, tp=Path)
+"""Path to the file where spans are stored when the exporter is disabled."""
 COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=True, tp=bool)
+"""Whether to collect system metrics."""
 CONSOLE_ENABLED = ConfigParam(env_vars=['LOGFIRE_CONSOLE_ENABLED'], allow_file_config=True, default=True, tp=bool)
+"""Whether to enable the console exporter."""
 CONSOLE_COLORS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_COLORS'], allow_file_config=True, default='auto', tp=ConsoleColorsValues)
+"""Whether to use colors in the console."""
 CONSOLE_INDENT_SPAN = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INDENT_SPAN'], allow_file_config=True, default=True, tp=bool)
+"""Whether to indent the spans in the console."""
 CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'], allow_file_config=True, default=True, tp=bool)
+"""Whether to include the timestamp in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
+"""Whether to include the timestamp in the console."""
 # fmt: on
 
 CONFIG_PARAMS = {

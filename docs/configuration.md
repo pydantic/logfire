@@ -18,24 +18,7 @@ For more details, you can see our [API reference][logfire.configure].
 
 You can use the following environment variables to configure Logfire:
 
-<!-- TODO(Marcelo): We should generate this table from code. -->
-
-| Name | Description |
-| ---- | ----------- |
-| LOGFIRE_BASE_URL | Used to set the base URL of the Logfire backend. |
-| LOGFIRE_TOKEN | The token used to identify yourself. |
-| LOGFIRE_SEND_TO_LOGFIRE | Whether to send data to the Logfire backend. |
-| LOGFIRE_PROJECT_NAME | The project name. |
-| LOGFIRE_SERVICE_NAME | The service name. |
-| LOGFIRE_CONSOLE_ENABLED | Whether to enable terminal output. |
-| LOGFIRE_CONSOLE_COLORS | Whether to control terminal output color. Possible values are `auto`, `always`, `never`. |
-| LOGFIRE_CONSOLE_INDENT_SPAN | Whether to control span indent terminal output. |
-| LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP | Whether to show timestamp in terminal output. |
-| LOGFIRE_CONSOLE_VERBOSE | Whether to print logs in verbose mode. |
-| LOGFIRE_SHOW_SUMMARY | Whether to show a summary of the logs at the end of the program. |
-| LOGFIRE_CREDENTIALS_DIR | The directory where to store the configuration file. |
-| LOGFIRE_COLLECT_SYSTEM_METRICS | Whether to collect system metrics. |
-| LOGFIRE_DISABLE_PYDANTIC_PLUGIN | Whether to disable the Pydantic plugin. |
+{{ env_var_table }}
 
 When using environment variables, you don't need to call [`logfire.configure()`][logfire.configure].
 
