@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import sys
+import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -28,7 +29,7 @@ import rich.traceback
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString
+from typing_extensions import LiteralString, get_args
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire.version import VERSION
@@ -59,6 +60,8 @@ from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
 
 _CWD = Path('.').resolve()
+
+ALLOWED_LOG_LEVELS: set[str] = set(get_args(LevelName))
 
 
 class Logfire:
@@ -245,6 +248,9 @@ class Logfire:
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
         """
+        if level not in ALLOWED_LOG_LEVELS:
+            warnings.warn('Invalid log level')
+            level = 'error'
         stacklevel = stack_offset + 2
         stack_info = _get_caller_stack_info(stacklevel)
 

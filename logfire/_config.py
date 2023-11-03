@@ -17,6 +17,7 @@ from typing import (
 import httpx
 import requests
 from opentelemetry import metrics, trace
+from opentelemetry.context import attach, detach, set_value
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.environment_variables import (
@@ -31,7 +32,12 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from typing_extensions import Literal, Self, get_args, get_origin
 
 from ._collect_system_info import collect_package_info
-from ._constants import DEFAULT_FALLBACK_FILE_NAME, LOGFIRE_BASE_URL, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
+from ._constants import (
+    DEFAULT_FALLBACK_FILE_NAME,
+    LOGFIRE_BASE_URL,
+    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+    SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
+)
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import ProxyTracerProvider
 from .exporters._fallback import FallbackSpanExporter
@@ -433,110 +439,114 @@ class LogfireConfig(_LogfireConfigData):
 
     def initialize(self) -> ProxyTracerProvider:
         """Configure internals to start exporting traces and metrics."""
-        resource = Resource.create(
-            {
-                'service.name': self.service_name,
-                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
-            }
-        )
-        tracer_provider = SDKTracerProvider(
-            resource=resource,
-            id_generator=self.id_generator,
-        )
-        self._tracer_provider.set_provider(tracer_provider)
-
-        for processor in self.processors:
-            tracer_provider.add_span_processor(processor)
-
-        if self.console.enabled:
-            tracer_provider.add_span_processor(
-                SimpleSpanProcessor(
-                    ConsoleSpanExporter(
-                        colors=self.console.colors,
-                        indent_spans=self.console.indent_spans,
-                        include_timestamp=self.console.include_timestamps,
-                        verbose=self.console.verbose,
-                    ),
-                )
+        backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
+        try:
+            resource = Resource.create(
+                {
+                    'service.name': self.service_name,
+                    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
+                }
             )
-
-        credentials_from_local_file = None
-
-        metric_readers = list(self.metric_readers or ())
-
-        if self.send_to_logfire:
-            if self.token is None:
-                credentials_from_local_file = LogfireCredentials.load_creds_file(self.credentials_dir)
-                credentials_to_save = credentials_from_local_file
-                if not credentials_from_local_file:
-                    # create a token by asking logfire.dev to create a new project
-                    new_credentials = LogfireCredentials.create_new_project(
-                        logfire_api_url=self.base_url,
-                        requested_project_name=self.project_name or self.service_name,
-                    )
-                    new_credentials.write_creds_file(self.credentials_dir)
-                    if self.show_summary != 'never':
-                        new_credentials.print_new_token_summary(self.credentials_dir)
-                    credentials_to_save = new_credentials
-                    # to avoid printing another summary
-                    credentials_from_local_file = None
-
-                assert credentials_to_save is not None
-                self.token = self.token or credentials_to_save.token
-                self.project_name = self.project_name or credentials_to_save.project_name
-                self.base_url = self.base_url or credentials_to_save.logfire_api_url
-
-            headers = {
-                'User-Agent': f'logfire/{VERSION}',
-                'Authorization': self.token,
-                **(self.default_otlp_span_exporter_request_headers or {}),
-            }
-            session = self.default_otlp_span_exporter_session or requests.Session()
-            session.headers.update(headers)
-            otel_traces_exporter_env = os.getenv('OTEL_TRACES_EXPORTER')
-            otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
-            if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
-                if self.otlp_span_exporter:
-                    span_exporter = self.otlp_span_exporter
-                else:
-                    span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
-                if self.exporter_fallback_file_path:
-                    span_exporter = FallbackSpanExporter(
-                        span_exporter, FileSpanExporter(self.exporter_fallback_file_path)
-                    )
-                self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
-            elif otel_traces_exporter_env != 'none':
-                raise ValueError(
-                    'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
-                )
-
-            metric_readers.append(
-                PeriodicExportingMetricReader(
-                    OTLPMetricExporter(
-                        endpoint=f'{self.base_url}/v1/metrics',
-                        headers=headers,
-                    )
-                )
+            tracer_provider = SDKTracerProvider(
+                resource=resource,
+                id_generator=self.id_generator,
             )
+            self._tracer_provider.set_provider(tracer_provider)
 
-        if self.show_summary == 'always' and credentials_from_local_file:
-            credentials_from_local_file.print_existing_token_summary(self.credentials_dir)
+            for processor in self.processors:
+                tracer_provider.add_span_processor(processor)
 
-        meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
-        if self.collect_system_metrics:
-            configure_metrics(meter_provider)
-        self._meter_provider.set_meter_provider(meter_provider)
+            if self.console.enabled:
+                tracer_provider.add_span_processor(
+                    SimpleSpanProcessor(
+                        ConsoleSpanExporter(
+                            colors=self.console.colors,
+                            indent_spans=self.console.indent_spans,
+                            include_timestamp=self.console.include_timestamps,
+                            verbose=self.console.verbose,
+                        ),
+                    )
+                )
 
-        if self is GLOBAL_CONFIG and not self._initialized:
-            trace.set_tracer_provider(self._tracer_provider)
-            metrics.set_meter_provider(self._meter_provider)
+            credentials_from_local_file = None
 
-        self._initialized = True
+            metric_readers = list(self.metric_readers or ())
 
-        # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
-        instrument_executors()
+            if self.send_to_logfire:
+                if self.token is None:
+                    credentials_from_local_file = LogfireCredentials.load_creds_file(self.credentials_dir)
+                    credentials_to_save = credentials_from_local_file
+                    if not credentials_from_local_file:
+                        # create a token by asking logfire.dev to create a new project
+                        new_credentials = LogfireCredentials.create_new_project(
+                            logfire_api_url=self.base_url,
+                            requested_project_name=self.project_name or self.service_name,
+                        )
+                        new_credentials.write_creds_file(self.credentials_dir)
+                        if self.show_summary != 'never':
+                            new_credentials.print_new_token_summary(self.credentials_dir)
+                        credentials_to_save = new_credentials
+                        # to avoid printing another summary
+                        credentials_from_local_file = None
 
-        return self._tracer_provider
+                    assert credentials_to_save is not None
+                    self.token = self.token or credentials_to_save.token
+                    self.project_name = self.project_name or credentials_to_save.project_name
+                    self.base_url = self.base_url or credentials_to_save.logfire_api_url
+
+                headers = {
+                    'User-Agent': f'logfire/{VERSION}',
+                    'Authorization': self.token,
+                    **(self.default_otlp_span_exporter_request_headers or {}),
+                }
+                session = self.default_otlp_span_exporter_session or requests.Session()
+                session.headers.update(headers)
+                otel_traces_exporter_env = os.getenv('OTEL_TRACES_EXPORTER')
+                otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
+                if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
+                    if self.otlp_span_exporter:
+                        span_exporter = self.otlp_span_exporter
+                    else:
+                        span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
+                    if self.exporter_fallback_file_path:
+                        span_exporter = FallbackSpanExporter(
+                            span_exporter, FileSpanExporter(self.exporter_fallback_file_path)
+                        )
+                    self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
+                elif otel_traces_exporter_env != 'none':
+                    raise ValueError(
+                        'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
+                    )
+
+                metric_readers.append(
+                    PeriodicExportingMetricReader(
+                        OTLPMetricExporter(
+                            endpoint=f'{self.base_url}/v1/metrics',
+                            headers=headers,
+                        )
+                    )
+                )
+
+            if self.show_summary == 'always' and credentials_from_local_file:
+                credentials_from_local_file.print_existing_token_summary(self.credentials_dir)
+
+            meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
+            if self.collect_system_metrics:
+                configure_metrics(meter_provider)
+            self._meter_provider.set_meter_provider(meter_provider)
+
+            if self is GLOBAL_CONFIG and not self._initialized:
+                trace.set_tracer_provider(self._tracer_provider)
+                metrics.set_meter_provider(self._meter_provider)
+
+            self._initialized = True
+
+            # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
+            instrument_executors()
+
+            return self._tracer_provider
+        finally:
+            detach(backup_context)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this LogfireConfig
