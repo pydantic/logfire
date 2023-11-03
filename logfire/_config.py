@@ -7,12 +7,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Sequence,
-    TypeVar,
-)
+from typing import Any, Callable, Literal, Sequence
 
 import httpx
 import requests
@@ -29,17 +24,17 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from typing_extensions import Literal, Self, get_args, get_origin
+from typing_extensions import Self
 
 from ._collect_system_info import collect_package_info
+from ._config_params import ParamManager, ShowSummaryValues
 from ._constants import (
-    DEFAULT_FALLBACK_FILE_NAME,
-    LOGFIRE_BASE_URL,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import ProxyTracerProvider
+from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
 from .exporters.console import ConsoleColorsValues, ConsoleSpanExporter
@@ -50,8 +45,6 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
-
-_ShowSummaryValues = Literal['always', 'never', 'new-project']
 
 
 @dataclass
@@ -70,7 +63,7 @@ def configure(
     project_name: str | None = None,
     service_name: str | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
-    show_summary: _ShowSummaryValues | None = None,
+    show_summary: ShowSummaryValues | None = None,
     config_dir: Path | str | None = None,
     exporter_fallback_file_path: Path | str | Literal[False] | None = None,
     credentials_dir: Path | str | None = None,
@@ -139,38 +132,11 @@ def configure(
     GLOBAL_CONFIG.initialize()
 
 
-def _get_bool_from_env(env_var: str) -> bool | None:
-    value = os.getenv(env_var)
-    if not value:
-        return None
-    return value.lower() in ('1', 'true', 't')
-
-
 def _get_int_from_env(env_var: str) -> int | None:
     value = os.getenv(env_var)
     if not value:
         return None
     return int(value)
-
-
-T = TypeVar('T')
-
-
-def _check_literal(value: Any | None, name: str, tp: type[T]) -> T | None:
-    if value is None:
-        return None
-    assert get_origin(tp) is Literal, get_origin(tp)
-    literals = get_args(tp)
-    if value not in literals:
-        raise LogfireConfigError(f'Expected {name} to be one of {literals}, got {value!r}')
-    return value
-
-
-def _coalesce(*args: Any, default: Any = None) -> Any:
-    for arg in args:
-        if arg is not None:
-            return arg
-    return default
 
 
 @dataclasses.dataclass
@@ -203,7 +169,7 @@ class _LogfireConfigData:
     console: ConsoleOptions
     """Options for controlling console output"""
 
-    show_summary: _ShowSummaryValues
+    show_summary: ShowSummaryValues
     """Whether to show the summary when starting a new project"""
 
     credentials_dir: Path
@@ -244,10 +210,10 @@ class _LogfireConfigData:
         project_name: str | None,
         service_name: str | None,
         console: ConsoleOptions | None,
-        show_summary: _ShowSummaryValues | None,
+        show_summary: ShowSummaryValues | None,
         config_dir: Path | None,
         credentials_dir: Path | None,
-        exporter_fallback_file_path: Path | Literal[False] | None,
+        exporter_fallback_file_path: Path | None,
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
@@ -261,43 +227,19 @@ class _LogfireConfigData:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
         config_from_file = self._load_config_from_file(config_dir)
+        param_manager = ParamManager(config_from_file=config_from_file)
 
-        self.base_url = (
-            base_url or os.getenv('LOGFIRE_BASE_URL') or config_from_file.get('base_url') or LOGFIRE_BASE_URL
+        self.base_url = param_manager.load_param('base_url', base_url)
+        self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
+        self.token = param_manager.load_param('token', token)
+        self.project_name = param_manager.load_param('project_name', project_name)
+        self.service_name = param_manager.load_param('service_name', service_name)
+        self.show_summary = param_manager.load_param('show_summary', show_summary)
+        self.credentials_dir = param_manager.load_param('credentials_dir', credentials_dir)
+        self.exporter_fallback_file_path = param_manager.load_param(
+            'exporter_fallback_file_path', exporter_fallback_file_path
         )
-        self.send_to_logfire = _coalesce(
-            send_to_logfire,
-            _get_bool_from_env('LOGFIRE_SEND_TO_LOGFIRE'),
-            config_from_file.get('send_to_logfire'),
-            default=True,
-        )
-        self.token = token or os.getenv('LOGFIRE_TOKEN')
-        self.project_name = project_name or os.getenv('LOGFIRE_PROJECT_NAME') or config_from_file.get('project_name')
-        self.service_name = (
-            service_name or os.getenv('LOGFIRE_SERVICE_NAME') or config_from_file.get('service_name') or 'unknown'
-        )
-        self.show_summary = show_summary or _check_literal(os.getenv('LOGFIRE_SHOW_SUMMARY') or config_from_file.get('show_summary'), 'show_summary', _ShowSummaryValues) or 'new-project'  # type: ignore
-        self.credentials_dir = Path(
-            credentials_dir
-            or os.getenv('LOGFIRE_CREDENTIALS_DIR')
-            or config_from_file.get('credentials_dir')
-            or '.logfire'
-        )
-        if exporter_fallback_file_path is False:
-            self.exporter_fallback_file_path = None
-        else:
-            self.exporter_fallback_file_path = Path(
-                exporter_fallback_file_path
-                or os.getenv('LOGFIRE_EXPORTER_FALLBACK_FILE_PATH')
-                or config_from_file.get('exporter_fallback_file_path')
-                or DEFAULT_FALLBACK_FILE_NAME
-            )
-        self.collect_system_metrics = _coalesce(
-            collect_system_metrics,
-            _get_bool_from_env('LOGFIRE_COLLECT_SYSTEM_METRICS'),
-            config_from_file.get('collect_system_metrics'),
-            default=True,
-        )
+        self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
 
         if console is False:
             self.console = ConsoleOptions(enabled=False)
@@ -305,35 +247,11 @@ class _LogfireConfigData:
             self.console = console
         else:
             self.console = ConsoleOptions(
-                enabled=_coalesce(
-                    None,
-                    _get_bool_from_env('LOGFIRE_CONSOLE_ENABLED'),
-                    config_from_file.get('logfire_console_enabled'),
-                    default=True,
-                ),
-                colors=(  # type: ignore
-                    _check_literal(os.getenv('LOGFIRE_CONSOLE_COLORS'), 'console_colors', ConsoleColorsValues)
-                    or config_from_file.get('logfire_console_colors')
-                    or 'auto'
-                ),
-                indent_spans=_coalesce(
-                    None,
-                    _get_bool_from_env('LOGFIRE_CONSOLE_INDENT_SPAN'),
-                    config_from_file.get('logfire_console_indent_span'),
-                    default=True,
-                ),
-                include_timestamps=_coalesce(
-                    None,
-                    _get_bool_from_env('LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'),
-                    config_from_file.get('logfire_console_include_timestamp'),
-                    default=True,
-                ),
-                verbose=_coalesce(
-                    None,
-                    _get_bool_from_env('LOGFIRE_CONSOLE_VERBOSE'),
-                    config_from_file.get('logfire_console_verbose'),
-                    default=False,
-                ),
+                enabled=param_manager.load_param('console_enabled'),
+                colors=param_manager.load_param('console_colors'),
+                indent_spans=param_manager.load_param('console_indent_span'),
+                include_timestamps=param_manager.load_param('console_include_timestamp'),
+                verbose=param_manager.load_param('console_verbose'),
             )
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -374,7 +292,7 @@ class LogfireConfig(_LogfireConfigData):
         project_name: str | None = None,
         service_name: str | None = None,
         console: ConsoleOptions | None = None,
-        show_summary: _ShowSummaryValues | None = None,
+        show_summary: ShowSummaryValues | None = None,
         config_dir: Path | None = None,
         credentials_dir: Path | None = None,
         exporter_fallback_file_path: Path | None = None,
@@ -728,9 +646,3 @@ def _get_creds_file(creds_dir: Path) -> Path:
     Get the path to the credentials file.
     """
     return creds_dir / CREDENTIALS_FILENAME
-
-
-class LogfireConfigError(ValueError):
-    """
-    Error raised when there is a problem with the Logfire configuration.
-    """

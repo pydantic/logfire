@@ -453,9 +453,8 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         base_url = "https://api.logfire.io"
         send_to_logfire = false
         project_name = "test"
-        logfire_console_colors = "never"
-        logfire_console_include_timestamp = false
         console_colors = "never"
+        console_include_timestamp = false
         credentials_dir = "{tmp_path}"
         collect_system_metrics = false
         """
@@ -492,7 +491,7 @@ def test_logfire_config_console_options() -> None:
 
     os.environ['LOGFIRE_CONSOLE_VERBOSE'] = '1'
     assert LogfireConfig().console == ConsoleOptions(verbose=True)
-    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = 'test'
+    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = 'false'
     assert LogfireConfig().console == ConsoleOptions(verbose=False)
     os.environ.pop('LOGFIRE_CONSOLE_VERBOSE')
 

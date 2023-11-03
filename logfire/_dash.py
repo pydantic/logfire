@@ -96,7 +96,8 @@ def _get_token() -> str:
     if not _configured:
         configure()
 
-    from logfire._config import LogfireConfig, LogfireConfigError
+    from logfire._config import LogfireConfig
+    from logfire.exceptions import LogfireConfigError
 
     token, _ = LogfireConfig.load_token(token=_token, credentials_dir=_credentials_dir)
     if token is None:

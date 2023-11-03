@@ -7,7 +7,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any, TextIO, cast
+from typing import Any, Literal, TextIO, cast
 
 import structlog
 from opentelemetry.sdk.trace import ReadableSpan
@@ -15,7 +15,6 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import format_span_id
 from structlog.dev import ConsoleRenderer
 from structlog.typing import EventDict, WrappedLogger
-from typing_extensions import Literal
 
 from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
 
