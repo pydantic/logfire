@@ -31,9 +31,11 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from typing_extensions import Literal, Self, get_args, get_origin
 
 from ._collect_system_info import collect_package_info
-from ._constants import LOGFIRE_BASE_URL, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
+from ._constants import DEFAULT_FALLBACK_FILE_NAME, LOGFIRE_BASE_URL, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import ProxyTracerProvider
+from .exporters._fallback import FallbackSpanExporter
+from .exporters._file import FileSpanExporter
 from .exporters.console import ConsoleColorsValues, ConsoleSpanExporter
 from .integrations._executors import instrument_executors
 from .version import VERSION
@@ -61,10 +63,11 @@ def configure(
     token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
-    console: ConsoleOptions | None = None,
+    console: ConsoleOptions | Literal[False] | None = None,
     show_summary: _ShowSummaryValues | None = None,
-    config_dir: Path | None = None,
-    credentials_dir: Path | None = None,
+    config_dir: Path | str | None = None,
+    exporter_fallback_file_path: Path | str | Literal[False] | None = None,
+    credentials_dir: Path | str | None = None,
     base_url: str | None = None,
     collect_system_metrics: bool | None = None,
     id_generator: IdGenerator | None = None,
@@ -74,6 +77,7 @@ def configure(
     metric_readers: Sequence[MetricReader] | None = None,
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
     default_otlp_span_exporter_session: requests.Session | None = None,
+    otlp_span_exporter: SpanExporter | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -85,11 +89,14 @@ def configure(
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(enabled=True, colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
+            If `False` disables console output.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `'new-project'`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
             current working directory.
         credentials_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
+        exporter_fallback_file_path: File to dump spans that failed to export to. This is a backup to avoid losing spans if the network or Logfire API go down. If `None` uses
+            the `LOGFIRE_EXPORTER_FALLBACK_FILE_PATH` environment variable, otherwise defaults to `logfire_spans.bin`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://api.logfire.dev.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
@@ -100,6 +107,7 @@ def configure(
         metric_readers: Sequence of metric readers to be used.
         default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
+        otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
     """
     GLOBAL_CONFIG.load_configuration(
         base_url=base_url,
@@ -107,10 +115,11 @@ def configure(
         token=token,
         project_name=project_name,
         service_name=service_name,
-        console=console,
+        console=console if console is not False else ConsoleOptions(enabled=False),
         show_summary=show_summary,
-        config_dir=config_dir,
-        credentials_dir=credentials_dir,
+        config_dir=Path(config_dir) if config_dir else None,
+        credentials_dir=Path(credentials_dir) if credentials_dir else None,
+        exporter_fallback_file_path=Path(exporter_fallback_file_path) if exporter_fallback_file_path else None,
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
@@ -119,6 +128,7 @@ def configure(
         metric_readers=metric_readers,
         default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
+        otlp_span_exporter=otlp_span_exporter,
     )
     GLOBAL_CONFIG.initialize()
 
@@ -193,6 +203,9 @@ class _LogfireConfigData:
     credentials_dir: Path
     """The directory to store Logfire config in"""
 
+    exporter_fallback_file_path: Path | None
+    """The file to write spans to if we can't reach the Logfire API"""
+
     collect_system_metrics: bool
     """Whether to collect system metrics like CPU and memory usage"""
 
@@ -211,6 +224,9 @@ class _LogfireConfigData:
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None
     """Additional headers to send with requests to the Logfire API"""
 
+    otlp_span_exporter: SpanExporter | None = None
+    """The OTLP span exporter to use"""
+
     def load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -225,6 +241,7 @@ class _LogfireConfigData:
         show_summary: _ShowSummaryValues | None,
         config_dir: Path | None,
         credentials_dir: Path | None,
+        exporter_fallback_file_path: Path | Literal[False] | None,
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
@@ -233,6 +250,7 @@ class _LogfireConfigData:
         metric_readers: Sequence[MetricReader] | None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
+        otlp_span_exporter: SpanExporter | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
@@ -259,6 +277,15 @@ class _LogfireConfigData:
             or config_from_file.get('credentials_dir')
             or '.logfire'
         )
+        if exporter_fallback_file_path is False:
+            self.exporter_fallback_file_path = None
+        else:
+            self.exporter_fallback_file_path = Path(
+                exporter_fallback_file_path
+                or os.getenv('LOGFIRE_EXPORTER_FALLBACK_FILE_PATH')
+                or config_from_file.get('exporter_fallback_file_path')
+                or DEFAULT_FALLBACK_FILE_NAME
+            )
         self.collect_system_metrics = _coalesce(
             collect_system_metrics,
             _get_bool_from_env('LOGFIRE_COLLECT_SYSTEM_METRICS'),
@@ -266,7 +293,9 @@ class _LogfireConfigData:
             default=True,
         )
 
-        if console:
+        if console is False:
+            self.console = ConsoleOptions(enabled=False)
+        elif console is not None:
             self.console = console
         else:
             self.console = ConsoleOptions(
@@ -308,6 +337,7 @@ class _LogfireConfigData:
         self.metric_readers = metric_readers
         self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
+        self.otlp_span_exporter = otlp_span_exporter
 
     def _load_config_from_file(self, config_dir: Path) -> dict[str, Any]:
         config_file = config_dir / 'pyproject.toml'
@@ -341,6 +371,7 @@ class LogfireConfig(_LogfireConfigData):
         show_summary: _ShowSummaryValues | None = None,
         config_dir: Path | None = None,
         credentials_dir: Path | None = None,
+        exporter_fallback_file_path: Path | None = None,
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
@@ -349,6 +380,7 @@ class LogfireConfig(_LogfireConfigData):
         metric_readers: Sequence[MetricReader] | None = None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
         default_otlp_span_exporter_session: requests.Session | None = None,
+        otlp_span_exporter: SpanExporter | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -368,6 +400,7 @@ class LogfireConfig(_LogfireConfigData):
             show_summary=show_summary,
             config_dir=config_dir,
             credentials_dir=credentials_dir,
+            exporter_fallback_file_path=exporter_fallback_file_path,
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
@@ -376,6 +409,7 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers=metric_readers,
             default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
+            otlp_span_exporter=otlp_span_exporter,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -459,8 +493,22 @@ class LogfireConfig(_LogfireConfigData):
             }
             session = self.default_otlp_span_exporter_session or requests.Session()
             session.headers.update(headers)
-            span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
-            self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
+            otel_traces_exporter_env = os.getenv('OTEL_TRACES_EXPORTER')
+            otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
+            if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
+                if self.otlp_span_exporter:
+                    span_exporter = self.otlp_span_exporter
+                else:
+                    span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
+                if self.exporter_fallback_file_path:
+                    span_exporter = FallbackSpanExporter(
+                        span_exporter, FileSpanExporter(self.exporter_fallback_file_path)
+                    )
+                self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
+            elif otel_traces_exporter_env != 'none':
+                raise ValueError(
+                    'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
+                )
 
             metric_readers.append(
                 PeriodicExportingMetricReader(

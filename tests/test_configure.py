@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Sequence
 
 import pytest
 import requests
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from requests.adapters import HTTPAdapter
 
 import logfire
@@ -494,3 +495,22 @@ def test_logfire_config_console_options() -> None:
     os.environ['LOGFIRE_CONSOLE_VERBOSE'] = 'test'
     assert LogfireConfig().console == ConsoleOptions(verbose=False)
     os.environ.pop('LOGFIRE_CONSOLE_VERBOSE')
+
+
+def test_configure_fallback_path(tmp_path: str) -> None:
+    class FailureExporter(SpanExporter):
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            return SpanExportResult.FAILURE
+
+    path = Path(tmp_path) / 'backup.log'
+    logfire.configure(
+        exporter_fallback_file_path=path,
+        token='abc',
+        default_span_processor=SimpleSpanProcessor,
+        otlp_span_exporter=FailureExporter(),
+    )
+
+    with logfire.span('test'):
+        pass
+
+    assert path.exists()

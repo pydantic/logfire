@@ -2,6 +2,7 @@ from ._auto_instrument import install_automatic_instrumentation, uninstall_autom
 from ._config import ConsoleOptions, configure
 from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
+from .exporters._file import load_file as load_spans_from_file
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -40,4 +41,5 @@ __all__ = (
     'flatten',
     'force_flush',
     'tags',
+    'load_spans_from_file',
 )
