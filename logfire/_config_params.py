@@ -46,9 +46,9 @@ PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=
 """Name of the project."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME'], allow_file_config=True, default='unknown')
 """Name of the service."""
-SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=ShowSummaryValues)
+SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default='new-project', tp=ShowSummaryValues)
 """Whether to show the summary when a new project is created."""
-CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default=Path('.logfire'), tp=Path)
+CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
 EXPORTER_FALLBACK_FILE_PATH = ConfigParam(env_vars=['LOGFIRE_EXPORTER_FALLBACK_FILE_PATH'], allow_file_config=True, default=DEFAULT_FALLBACK_FILE_NAME, tp=Path)
 """Path to the file where spans are stored when the exporter is disabled."""
@@ -122,7 +122,7 @@ class ParamManager:
             if value is not None:
                 return self._cast(value, name, param.tp)
 
-        return param.default
+        return self._cast(param.default, name, param.tp)
 
     def _cast(self, value: Any, name: str, tp: type[T]) -> T | None:
         if tp is str:
