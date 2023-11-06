@@ -44,7 +44,8 @@ TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
 PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=True)
 """Name of the project."""
-SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME'], allow_file_config=True, default='unknown')
+SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', 'OTEL_SERVICE_NAME'], allow_file_config=True, default='unknown')
+SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION'], allow_file_config=True)
 """Name of the service."""
 SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default='new-project', tp=ShowSummaryValues)
 """Whether to show the summary when a new project is created."""
@@ -78,6 +79,7 @@ CONFIG_PARAMS = {
     'token': TOKEN,
     'project_name': PROJECT_NAME,
     'service_name': SERVICE_NAME,
+    'service_version': SERVICE_VERSION,
     'show_summary': SHOW_SUMMARY,
     'credentials_dir': CREDENTIALS_DIR,
     'exporter_fallback_file_path': EXPORTER_FALLBACK_FILE_PATH,

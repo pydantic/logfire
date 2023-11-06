@@ -24,6 +24,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
+from opentelemetry.semconv.resource import ResourceAttributes
 from typing_extensions import Self
 
 from ._collect_system_info import collect_package_info
@@ -62,6 +63,7 @@ def configure(
     token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
+    service_version: str | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: ShowSummaryValues | None = None,
     config_dir: Path | str | None = None,
@@ -89,6 +91,7 @@ def configure(
             `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
+        service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(enabled=True, colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output.
@@ -124,6 +127,7 @@ def configure(
         token=token,
         project_name=project_name,
         service_name=service_name,
+        service_version=service_version,
         console=console if console is not False else ConsoleOptions(enabled=False),
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
@@ -231,6 +235,7 @@ class _LogfireConfigData:
         token: str | None,
         project_name: str | None,
         service_name: str | None,
+        service_version: str | None,
         console: ConsoleOptions | None,
         show_summary: ShowSummaryValues | None,
         config_dir: Path | None,
@@ -259,6 +264,7 @@ class _LogfireConfigData:
         self.token = param_manager.load_param('token', token)
         self.project_name = param_manager.load_param('project_name', project_name)
         self.service_name = param_manager.load_param('service_name', service_name)
+        self.service_version = param_manager.load_param('service_version', service_version)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.credentials_dir = param_manager.load_param('credentials_dir', credentials_dir)
         self.exporter_fallback_file_path = param_manager.load_param(
@@ -290,6 +296,13 @@ class _LogfireConfigData:
         self.disable_pydantic_plugin = param_manager.load_param('disable_pydantic_plugin', disable_pydantic_plugin)
         self.pydantic_plugin_include = param_manager.load_param('pydantic_plugin_include', pydantic_plugin_include)
         self.pydantic_plugin_exclude = param_manager.load_param('pydantic_plugin_exclude', pydantic_plugin_exclude)
+        if self.service_version is None:
+            try:
+                self.service_version = get_git_revision_hash()
+            except Exception:
+                # many things could go wrong here, e.g. git is not installed, etc.
+                # ignore them
+                pass
 
     def _load_config_from_file(self, config_dir: Path) -> dict[str, Any]:
         config_file = config_dir / 'pyproject.toml'
@@ -319,6 +332,7 @@ class LogfireConfig(_LogfireConfigData):
         token: str | None = None,
         project_name: str | None = None,
         service_name: str | None = None,
+        service_version: str | None = None,
         console: ConsoleOptions | None = None,
         show_summary: ShowSummaryValues | None = None,
         config_dir: Path | None = None,
@@ -351,6 +365,7 @@ class LogfireConfig(_LogfireConfigData):
             token=token,
             project_name=project_name,
             service_name=service_name,
+            service_version=service_version,
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
@@ -389,16 +404,17 @@ class LogfireConfig(_LogfireConfigData):
                 token = file_creds.token
         return token, file_creds
 
-    def initialize(self) -> ProxyTracerProvider:
+    def initialize(self) -> ProxyTracerProvider:  # noqa: C901
         """Configure internals to start exporting traces and metrics."""
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
         try:
-            resource = Resource.create(
-                {
-                    'service.name': self.service_name,
-                    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
-                }
-            )
+            resource_attributes: dict[str, Any] = {
+                ResourceAttributes.SERVICE_NAME: self.service_name,
+                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
+            }
+            if self.service_version:
+                resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+            resource = Resource.create(resource_attributes)
             tracer_provider = SDKTracerProvider(
                 resource=resource,
                 id_generator=self.id_generator,
@@ -680,3 +696,20 @@ def _get_creds_file(creds_dir: Path) -> Path:
     Get the path to the credentials file.
     """
     return creds_dir / CREDENTIALS_FILENAME
+
+
+try:
+    import git
+
+    def get_git_revision_hash() -> str:
+        repo = git.Repo(search_parent_directories=True)
+        return repo.head.object.hexsha
+
+except ImportError:
+    # gitpython is not installed
+    # fall back to using the git command line
+
+    def get_git_revision_hash() -> str:
+        import subprocess
+
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()

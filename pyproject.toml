@@ -38,6 +38,8 @@ opentelemetry-instrumentation-requests = { version = ">=0.40b0", optional = true
 opentelemetry-instrumentation-sqlalchemy = { version = ">=0.40b0", optional = true }
 requests = { version = ">=2.31.0", optional = true }
 sqlalchemy = { version = ">=2.0.22", optional = true }
+# gitpython is optionally used to get the current git commit hash without a subprocess call
+gitpython = { version = ">=3.1.40", optional = true }
 
 [tool.poetry.extras]
 test = [
@@ -54,7 +56,7 @@ test = [
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-instrumentation-wsgi",
-    "rtoml"
+    "gitpython",
 ]
 wsgi = ["opentelemetry-instrumentation-wsgi"]
 asgi = ["opentelemetry-instrumentation-asgi"]

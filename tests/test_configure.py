@@ -543,3 +543,26 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         pass
 
     assert path.exists()
+
+
+def test_configure_service_version(tmp_path: str) -> None:
+    import subprocess
+
+    git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
+    configure(token='abc', service_version='1.2.3')
+
+    assert GLOBAL_CONFIG.service_version == '1.2.3'
+
+    configure(token='abc')
+
+    assert GLOBAL_CONFIG.service_version == git_sha
+
+    dir = os.getcwd()
+
+    try:
+        os.chdir(tmp_path)
+        configure(token='abc')
+        assert GLOBAL_CONFIG.service_version is None
+    finally:
+        os.chdir(dir)
