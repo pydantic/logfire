@@ -3,8 +3,12 @@
 
 ## ASGI
 
-Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any ASGI framework.
+??? tip "Installation"
+    Install `pip install "logfire[asgi]"` to use this integration.
 
+    The `asgi` extras contains the [`opentelemetry-instrumentation-asgi`][open-telemetry-asgi-middleware] package.
+
+Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any ASGI framework.
 
 === "FastAPI"
 
@@ -60,7 +64,14 @@ Since Logfire is compliant with the OpenTelemetry specification, you can integra
     app = OpenTelemetryMiddleware(app)
     ```
 
+You can read more about the OpenTelemetry ASGI middleware [here][open-telemetry-asgi-middleware].
+
 ## WSGI
+
+??? tip "Installation"
+    Install `pip install "logfire[wsgi]"` to use this integration.
+
+    The `wsgi` extras contains the [`opentelemetry-instrumentation-wsgi`][open-telemetry-wsgi-middleware] package.
 
 Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any WSGI framework.
 
@@ -96,7 +107,6 @@ Since Logfire is compliant with the OpenTelemetry specification, you can integra
 
 You can read more about the OpenTelemetry WSGI middleware [here][open-telemetry-wsgi-middleware].
 
-[open-telemetry-wsgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 
 ## Standard Library Logging
 
@@ -113,3 +123,6 @@ logger = getLogger(__name__)
 
 logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
 ```
+
+[open-telemetry-wsgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
+[open-telemetry-asgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
