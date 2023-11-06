@@ -45,8 +45,9 @@ TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=True)
 """Name of the project."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', 'OTEL_SERVICE_NAME'], allow_file_config=True, default='unknown')
+"""Name of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION'], allow_file_config=True)
-"""Name of the service."""
+"""Version number of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""
 SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default='new-project', tp=ShowSummaryValues)
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
