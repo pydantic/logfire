@@ -35,12 +35,3 @@ console_colors = "never"
 ```
 
 The keys are the same as the parameters of [`logfire.configure()`][logfire.configure].
-
-## Configuration details
-
-### `exporter_fallback_file_path`
-
-When Logfire fails to send a log to the server, it will write the log to a file to avoid data loss.
-This parameter defines the path to the file where the logs will be written.
-You can then load this file using `logfire backfill` (see [Backfilling data](backfill.md)).
-If this file is locked by another process Logfire will add a random suffix to the file name.
