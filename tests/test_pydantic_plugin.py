@@ -4,7 +4,11 @@ import importlib.metadata
 
 import pytest
 from pydantic import BaseModel, ValidationError
+from pydantic.plugin import SchemaTypePath
+from pydantic_core import core_schema
 
+import logfire
+from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
 from logfire.testing import TestExporter
 
 
@@ -23,8 +27,56 @@ def test_check_plugin_installed():
     """Check Pydantic has found the logfire pydantic plugin."""
     from pydantic.plugin import _loader
 
-    print(_loader.__file__)
-    assert repr(next(iter(_loader.get_plugins()))) == 'LogfirePydanticPlugin(enabled=True)'
+    assert repr(next(iter(_loader.get_plugins()))) == 'LogfirePydanticPlugin()'
+
+
+def test_disable_logfire_pydantic_plugin() -> None:
+    logfire.configure(disable_pydantic_plugin=True, send_to_logfire=False)
+    plugin = LogfirePydanticPlugin()
+    assert plugin.new_schema_validator(
+        core_schema.int_schema(), None, SchemaTypePath(module='', name=''), 'BaseModel', None, {}
+    ) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    'include,exclude,module,name,expected_to_include',
+    (
+        # include
+        ({'MyModel'}, set(), '', 'MyModel', True),
+        ({'MyModel'}, set(), 'test_module', 'MyModel', True),
+        ({'MyModel'}, set(), '', 'TestMyModel', True),
+        ({'MyModel'}, set(), 'test_module', 'MyModel1', False),
+        ({'test_module::MyModel'}, set(), 'test_module', 'MyModel', True),
+        ({'test_module::MyModel'}, set(), '', 'MyModel', False),
+        ({'test_module::MyModel'}, set(), 'other_module', 'MyModel', False),
+        ({'.*test_module.*::MyModel'}, set(), 'my_test_module1', 'MyModel', True),
+        ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel1', True),
+        ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel3', False),
+        # exclude
+        (set(), {'MyModel'}, '', 'MyModel', False),
+        (set(), {'MyModel'}, '', 'MyModel1', True),
+        (set(), {'.*test_module.*::MyModel'}, 'my_test_module1', 'MyModel', False),
+        (set(), {'.*test_module.*::MyModel[1,2]'}, 'my_test_module1', 'MyModel3', True),
+        # include & exclude
+        ({'MyModel'}, {'MyModel'}, '', 'MyModel', False),
+        ({'MyModel'}, {'MyModel1'}, '', 'MyModel', True),
+        ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel2', True),
+        ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel1', False),
+    ),
+)
+def test_logfire_plugin_include_exclude_models(
+    include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
+) -> None:
+    logfire.configure(send_to_logfire=False, pydantic_plugin_include=include, pydantic_plugin_exclude=exclude)
+    plugin = LogfirePydanticPlugin()
+
+    result = plugin.new_schema_validator(
+        core_schema.int_schema(), None, SchemaTypePath(module=module, name=name), 'BaseModel', None, {}
+    )
+    if expected_to_include:
+        assert result != (None, None, None)
+    else:
+        assert result == (None, None, None)
 
 
 def test_pydantic_plugin_python_success(exporter: TestExporter) -> None:

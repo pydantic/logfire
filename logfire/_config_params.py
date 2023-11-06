@@ -4,7 +4,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, Set, TypeVar
 
 from typing_extensions import get_args, get_origin
 
@@ -63,7 +63,13 @@ CONSOLE_INDENT_SPAN = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INDENT_SPAN'], allo
 CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'], allow_file_config=True, default=True, tp=bool)
 """Whether to include the timestamp in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
-"""Whether to include the timestamp in the console."""
+"""Whether to log in verbose mode in the console."""
+DISABLE_PYDANTIC_PLUGIN = ConfigParam(env_vars=['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'], allow_file_config=True, default=False, tp=bool)
+"""Whether to disable the Logfire Pydantic plugin."""
+PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+"""Set of items that should be included in Logfire Pydantic plugin instrumentation."""
+PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+"""Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -81,6 +87,9 @@ CONFIG_PARAMS = {
     'console_indent_span': CONSOLE_INDENT_SPAN,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
     'console_verbose': CONSOLE_VERBOSE,
+    'disable_pydantic_plugin': DISABLE_PYDANTIC_PLUGIN,
+    'pydantic_plugin_include': PYDANTIC_PLUGIN_INCLUDE,
+    'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
 }
 
 
@@ -133,6 +142,8 @@ class ParamManager:
             return _check_bool(value, name)  # type: ignore
         if tp is Path:
             return Path(value)  # type: ignore
+        if get_origin(tp) is set and get_args(tp) == (str,):
+            return _extract_set_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')
 
 
@@ -156,3 +167,7 @@ def _check_bool(value: Any, name: str) -> bool | None:
         if value.lower() in ('0', 'false', 'f'):
             return False
     raise LogfireConfigError(f'Expected {name} to be a boolean, got {value!r}')
+
+
+def _extract_set_of_str(value: str | set[str]) -> set[str]:
+    return set(map(str.strip, value.split(','))) if isinstance(value, str) else value

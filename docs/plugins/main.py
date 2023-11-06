@@ -9,10 +9,6 @@ from mkdocs.structure.pages import Page
 
 from logfire import _config_params as config_params
 
-NON_CONFIG_PARAM_ENV_VARS = {
-    'LOGFIRE_DISABLE_PYDANTIC_PLUGIN': 'Whether to disable the Pydantic plugin.',
-}
-
 
 def build_environment_variables_table() -> str:
     module_lines = Path(config_params.__file__).read_text().splitlines()
@@ -32,10 +28,6 @@ def build_environment_variables_table() -> str:
         if not description.startswith('"""'):
             raise RuntimeError(f'Missing docstring on env var {env_var}.')
         description = description.strip('"')
-        table.append(f'| {env_var} | {description} |')
-
-    # Include non-config param env vars.
-    for env_var, description in NON_CONFIG_PARAM_ENV_VARS.items():
         table.append(f'| {env_var} | {description} |')
 
     return '\n'.join(table)

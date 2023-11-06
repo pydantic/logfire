@@ -446,6 +446,30 @@ def test_set_request_headers() -> None:
     assert [r.headers.get('X-Test', None) for r in adapter.requests] == ['test', 'test', 'test', 'test', 'test']
 
 
+def test_read_config_from_environment_variables() -> None:
+    assert LogfireConfig().disable_pydantic_plugin is False
+    os.environ['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'] = 'true'
+    assert LogfireConfig().disable_pydantic_plugin is True
+    os.environ['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'] = 'test'
+    with pytest.raises(LogfireConfigError, match="Expected disable_pydantic_plugin to be a boolean, got 'test'"):
+        LogfireConfig()
+    os.environ.pop('LOGFIRE_DISABLE_PYDANTIC_PLUGIN')
+
+    assert LogfireConfig().pydantic_plugin_include == set()
+    os.environ['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'] = 'test'
+    assert LogfireConfig().pydantic_plugin_include == {'test'}
+    os.environ['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'] = ' test1, test2'
+    assert LogfireConfig().pydantic_plugin_include == {'test1', 'test2'}
+    os.environ.pop('LOGFIRE_PYDANTIC_PLUGIN_INCLUDE')
+
+    assert LogfireConfig().pydantic_plugin_exclude == set()
+    os.environ['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'] = 'test'
+    assert LogfireConfig().pydantic_plugin_exclude == {'test'}
+    os.environ['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'] = 'test1, test2'
+    assert LogfireConfig().pydantic_plugin_exclude == {'test1', 'test2'}
+    os.environ.pop('LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE')
+
+
 def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     (tmp_path / 'pyproject.toml').write_text(
         f"""
@@ -457,6 +481,9 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         console_include_timestamp = false
         credentials_dir = "{tmp_path}"
         collect_system_metrics = false
+        disable_pydantic_plugin = true
+        pydantic_plugin_include = " test1, test2"
+        pydantic_plugin_exclude = "test3 ,test4"
         """
     )
 
@@ -469,6 +496,9 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.credentials_dir == tmp_path
     assert GLOBAL_CONFIG.collect_system_metrics is False
+    assert GLOBAL_CONFIG.disable_pydantic_plugin is True
+    assert GLOBAL_CONFIG.pydantic_plugin_include == {'test1', 'test2'}
+    assert GLOBAL_CONFIG.pydantic_plugin_exclude == {'test3', 'test4'}
 
 
 def test_logfire_config_console_options() -> None:

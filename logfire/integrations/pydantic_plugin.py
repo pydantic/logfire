@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import os
-import warnings
+import re
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic_core import CoreConfig, CoreSchema
 
 import logfire
+from logfire._config import GLOBAL_CONFIG
 
 if TYPE_CHECKING:
     from pydantic import ValidationError
     from pydantic.plugin import (
+        SchemaKind,
+        SchemaTypePath,
         ValidateJsonHandlerProtocol,
         ValidatePythonHandlerProtocol,
         ValidateStringsHandlerProtocol,
@@ -147,30 +149,20 @@ class LogfirePydanticPlugin:
             TODO(lig): Use PYDANTIC_DISABLE_PLUGINS instead. See https://github.com/pydantic/pydantic/issues/7709
     """
 
-    enabled: bool = True
-
-    def __init__(self) -> None:
-        disable_plugin = os.getenv('LOGFIRE_DISABLE_PYDANTIC_PLUGIN')
-        if disable_plugin:
-            if disable_plugin.casefold() in ('1', 'true'):
-                self.enabled = False
-            else:
-                warnings.warn(
-                    f'"LOGFIRE_DISABLE_PYDANTIC_PLUGIN" env var could be "1" or "true" only, got {disable_plugin}'
-                )
-
     def new_schema_validator(
         self,
         schema: CoreSchema,
+        schema_type: Any,
+        schema_type_path: SchemaTypePath,
+        schema_kind: SchemaKind,
         config: CoreConfig | None,
         plugin_settings: dict[str, object],
     ) -> tuple[
         ValidatePythonHandlerProtocol | None, ValidateJsonHandlerProtocol | None, ValidateStringsHandlerProtocol | None
     ]:
-        if self.enabled:
-            # TODO(Samuel) something more complete and robust
+        if not GLOBAL_CONFIG.disable_pydantic_plugin:
             logfire_settings = plugin_settings.get('logfire')
-            if logfire_settings != 'disable' and include_model(schema):
+            if logfire_settings != 'disable' and include_model(schema, schema_type_path):
                 return (
                     ValidatePythonHandler(schema, config, plugin_settings),
                     ValidateJsonHandler(schema, config, plugin_settings),
@@ -184,29 +176,35 @@ plugin = LogfirePydanticPlugin()
 
 # set of modules to ignore completed
 IGNORED_MODULE_PREFIXES: tuple[str, ...] = 'fastapi.', 'logfire_backend.'
-# set of tuples of (module, name) of models to ignore
-# IGNORED_MODELS: set[tuple[str, str]] = set()
 
 
-def include_model(schema: CoreSchema) -> bool:
+def include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
     """
     Check whether a model should be instrumented
     """
+    include = GLOBAL_CONFIG.pydantic_plugin_include
+    exclude = GLOBAL_CONFIG.pydantic_plugin_exclude
+
     schema_type = schema['type']
-    if schema_type in {'model', 'dataclass'}:
-        cls: type[Any] = schema['cls']  # type: ignore
-        module = cast(str, cls.__module__)  # type: ignore
-        if any(module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):
-            return False
-        # if (module, cls.__name__) in IGNORED_MODELS:
-        #     return False
-        else:
-            # print(module, cls.__name__)
-            return True
-    elif schema_type in {'function-after', 'function-before', 'function-wrap'}:
+    if schema_type in {'function-after', 'function-before', 'function-wrap'}:
         return include_model(schema['schema'])  # type: ignore
-    else:
-        return True
+
+    # check if the model is in ignored model
+    if any(schema_type_path.module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):
+        return False
+
+    # check if the model is in exclude models
+    if exclude and any(
+        re.search(f'{pattern}$', f'{schema_type_path.module}::{schema_type_path.name}') for pattern in exclude
+    ):
+        return False
+
+    # check if the model is in include models
+    if include:
+        return any(
+            re.search(f'{pattern}$', f'{schema_type_path.module}::{schema_type_path.name}') for pattern in include
+        )
+    return True
 
 
 if TYPE_CHECKING:

@@ -77,6 +77,9 @@ def configure(
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
     default_otlp_span_exporter_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
+    disable_pydantic_plugin: bool | None = None,
+    pydantic_plugin_include: set[str] | None = None,
+    pydantic_plugin_exclude: set[str] | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -97,6 +100,8 @@ def configure(
         exporter_fallback_file_path: File to dump spans that failed to export to. This is a backup to avoid losing spans if the network or Logfire API go down. If `None` uses
             the `LOGFIRE_EXPORTER_FALLBACK_FILE_PATH` environment variable, otherwise defaults to `logfire_spans.bin`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://api.logfire.dev.
+        collect_system_metrics: Whether to collect system metrics like CPU and memory usage. If `None` uses the `LOGFIRE_COLLECT_SYSTEM_METRICS` environment variable,
+            otherwise defaults to `True`.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
         processors: Span processors to use. Defaults to an empty sequence.
@@ -107,6 +112,11 @@ def configure(
         default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
+        disable_pydantic_plugin: Whether to disable the Logfire Pydantic plugin. If `None` uses the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable, otherwise defaults to `False`.
+        pydantic_plugin_include: Set of items that should be included in Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_INCLUDE` environment variable, otherwise defaults to `set()`.
+            It can contain a model name e.g. `MyModel`, module name and model name e.g. `test_module::MyModel` or regex in both module and model name e.g. `.*test_module.*::MyModel[1,2]`.
+        pydantic_plugin_exclude: Set of items that should be excluded from Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE` environment variable, otherwise defaults to `set()`.
+            It can contain a model name e.g. `MyModel`, module name and model name e.g. `test_module::MyModel` or regex in both module and model name e.g. `.*test_module.*::MyModel[1,2]`.
     """
     GLOBAL_CONFIG.load_configuration(
         base_url=base_url,
@@ -128,6 +138,9 @@ def configure(
         default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         otlp_span_exporter=otlp_span_exporter,
+        disable_pydantic_plugin=disable_pydantic_plugin,
+        pydantic_plugin_include=pydantic_plugin_include,
+        pydantic_plugin_exclude=pydantic_plugin_exclude,
     )
     GLOBAL_CONFIG.initialize()
 
@@ -199,6 +212,15 @@ class _LogfireConfigData:
     otlp_span_exporter: SpanExporter | None = None
     """The OTLP span exporter to use"""
 
+    disable_pydantic_plugin: bool | None = None
+    """Whether to disable the Logfire Pydantic plugin"""
+
+    pydantic_plugin_include: set[str] | None = None
+    """Set of items that should be included in Logfire Pydantic plugin instrumentation"""
+
+    pydantic_plugin_exclude: set[str] | None = None
+    """Set of items that should be excluded from Logfire Pydantic plugin instrumentation"""
+
     def load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -223,6 +245,9 @@ class _LogfireConfigData:
         default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
+        disable_pydantic_plugin: bool | None,
+        pydantic_plugin_include: set[str] | None,
+        pydantic_plugin_exclude: set[str] | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
@@ -262,6 +287,9 @@ class _LogfireConfigData:
         self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
         self.otlp_span_exporter = otlp_span_exporter
+        self.disable_pydantic_plugin = param_manager.load_param('disable_pydantic_plugin', disable_pydantic_plugin)
+        self.pydantic_plugin_include = param_manager.load_param('pydantic_plugin_include', pydantic_plugin_include)
+        self.pydantic_plugin_exclude = param_manager.load_param('pydantic_plugin_exclude', pydantic_plugin_exclude)
 
     def _load_config_from_file(self, config_dir: Path) -> dict[str, Any]:
         config_file = config_dir / 'pyproject.toml'
@@ -305,6 +333,9 @@ class LogfireConfig(_LogfireConfigData):
         default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
         default_otlp_span_exporter_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
+        disable_pydantic_plugin: bool | None = None,
+        pydantic_plugin_include: set[str] | None = None,
+        pydantic_plugin_exclude: set[str] | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -334,6 +365,9 @@ class LogfireConfig(_LogfireConfigData):
             default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
             otlp_span_exporter=otlp_span_exporter,
+            disable_pydantic_plugin=disable_pydantic_plugin,
+            pydantic_plugin_include=pydantic_plugin_include,
+            pydantic_plugin_exclude=pydantic_plugin_exclude,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
