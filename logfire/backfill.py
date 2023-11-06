@@ -1,11 +1,30 @@
-from datetime import datetime
+import warnings
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Literal, Union
+from typing import IO, Any, Dict, Literal, Union
 
+from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.sdk.util.instrumentation import (
+    InstrumentationScope,
+)
+from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
+from opentelemetry.trace.status import Status, StatusCode
 from typing_extensions import Annotated, Self
 
-from . import LevelName
+from ._constants import (
+    ATTRIBUTES_LOG_LEVEL_KEY,
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    LevelName,
+)
+from ._main import user_attributes
+from .exporters._file import FileSpanExporter
 
 try:
     from pydantic import BaseModel, ConfigDict, Field, validate_call
@@ -36,9 +55,11 @@ class RecordLog(BaseModel):
     service_name: str
     attributes: Dict[str, Any]
     trace_id: int = Field(default_factory=generate_trace_id)
+    span_id: int = Field(default_factory=generate_span_id)
     parent_span_id: Union[int, None] = None
     timestamp: Union[datetime, None] = None
     formatted_msg: Union[str, None] = None
+    resource_attributes: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StartSpan(BaseModel):
@@ -53,40 +74,130 @@ class StartSpan(BaseModel):
     parent_span_id: Union[int, None] = None
     start_timestamp: Union[datetime, None] = None
     formatted_msg: Union[str, None] = None
+    resource_attributes: Dict[str, Any] = Field(default_factory=dict)
 
 
 class EndSpan(BaseModel):
     model_config = pydantic_config
     type: Literal['end_span'] = 'end_span'
     span_id: int
+    trace_id: int
     end_timestamp: Union[datetime, None] = None
 
 
 class PrepareBackfill:
-    def __init__(self, store_path: Union[Path, str]):
-        self.store_path = Path(store_path)
-        self.write_file = None
-        self.open_spans: set[int] = set()
+    def __init__(self, file: Union[Path, str, IO[bytes]], batch: bool = True) -> None:
+        self.store_path = Path(file) if isinstance(file, str) else file
+        self.open_spans: dict[tuple[int, int], StartSpan] = {}
+        if batch:
+            self.processor = BatchSpanProcessor(
+                span_exporter=FileSpanExporter(self.store_path),
+            )
+        else:
+            self.processor = SimpleSpanProcessor(FileSpanExporter(self.store_path))
 
     def __enter__(self) -> Self:
-        self.write_file = self.store_path.open('wb')
         return self
 
     @validate_call(config=pydantic_config)
-    def write(
-        self, data: Annotated[Union[RecordLog, StartSpan, EndSpan], Field(discriminator='type')]
-    ) -> Union[RecordLog, StartSpan, EndSpan]:
-        assert self.write_file is not None, 'PrepareBackfill must be used as a context manager'
-        if data.type == 'start_span':
-            assert data.span_id not in self.open_spans, f'start span ID {data.span_id} found in open spans'
-            self.open_spans.add(data.span_id)
-        if data.type == 'end_span':
-            assert data.span_id in self.open_spans, f'end span ID {data.span_id} not found in open spans'
-            self.open_spans.remove(data.span_id)
+    def write(self, data: Annotated[Union[RecordLog, StartSpan, EndSpan], Field(discriminator='type')]) -> None:
+        if isinstance(data, StartSpan):
+            key = (data.trace_id, data.span_id)
+            assert key not in self.open_spans, f'start span ID {data.span_id} found in open spans'
+            data.start_timestamp = data.start_timestamp or datetime.now(tz=timezone.utc)
+            self.open_spans[key] = data
+            return
+        # convert the span to an otel span
+        if isinstance(data, RecordLog):
+            timestamp = data.timestamp or datetime.now(tz=timezone.utc)
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            timestamp = int(timestamp.timestamp() * 1e9)
+            if data.parent_span_id is not None:
+                parent_context = SpanContext(
+                    trace_id=data.trace_id,
+                    span_id=data.parent_span_id,
+                    is_remote=False,
+                )
+            else:
+                parent_context = None
+            otlp_attributes = user_attributes(data.attributes)
+            otlp_attributes = {
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+                ATTRIBUTES_LOG_LEVEL_KEY: data.level,
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: data.msg_template,
+                ATTRIBUTES_MESSAGE_KEY: data.formatted_msg,
+                **otlp_attributes,
+            }
+            span = ReadableSpan(
+                name=data.msg_template,
+                context=SpanContext(
+                    trace_id=data.trace_id,
+                    span_id=data.span_id,
+                    is_remote=False,
+                    trace_flags=TraceFlags(TraceFlags.SAMPLED),
+                ),
+                parent=parent_context,
+                resource=Resource.create(
+                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.resource_attributes}
+                ),
+                instrumentation_scope=InstrumentationScope(
+                    name='logfire',
+                ),
+                attributes=BoundedAttributes(attributes=data.attributes),
+                events=[],
+                links=[],
+                kind=SpanKind.INTERNAL,
+                start_time=timestamp,
+                end_time=timestamp,
+                status=Status(StatusCode.OK),
+            )
+        else:  # always an EndSpan
+            key = (data.trace_id, data.span_id)
+            assert key in self.open_spans, f'end span ID {data.span_id} not found in open spans'
+            start_span = self.open_spans.pop(key)
+            assert start_span.start_timestamp is not None
+            end_timestamp = data.end_timestamp or datetime.now(tz=timezone.utc)
+            if end_timestamp.tzinfo is None:
+                end_timestamp = end_timestamp.replace(tzinfo=timezone.utc)
+            start_timestamp = start_span.start_timestamp
+            if start_timestamp.tzinfo is None:
+                start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
+            otlp_attributes = user_attributes(start_span.log_attributes)
+            otlp_attributes = {
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: start_span.msg_template,
+                ATTRIBUTES_MESSAGE_KEY: start_span.formatted_msg,
+                **otlp_attributes,
+            }
+            span = ReadableSpan(
+                name=start_span.span_name,
+                context=SpanContext(
+                    trace_id=start_span.trace_id,
+                    span_id=data.span_id,
+                    is_remote=False,
+                    trace_flags=TraceFlags(TraceFlags.SAMPLED),
+                ),
+                parent=None,
+                resource=Resource.create(
+                    {ResourceAttributes.SERVICE_NAME: start_span.service_name, **start_span.resource_attributes}
+                ),
+                instrumentation_scope=InstrumentationScope(
+                    name='logfire',
+                ),
+                attributes=BoundedAttributes(attributes=start_span.log_attributes),
+                events=[],
+                links=[],
+                kind=SpanKind.INTERNAL,
+                start_time=int(start_timestamp.timestamp() * 1e9),
+                end_time=int(end_timestamp.timestamp() * 1e9),
+                status=Status(StatusCode.OK),
+            )
 
-        self.write_file.write(data.__pydantic_serializer__.to_json(data) + b'\n')
-        return data
+        self.processor.on_end(span)
 
     def __exit__(self, *_: Any) -> None:
-        if self.write_file is not None:
-            self.write_file.close()
+        self.processor.force_flush()
+        self.processor.shutdown()
+        if self.open_spans:
+            warnings.warn(f'closing backfill with {len(self.open_spans)} open spans')

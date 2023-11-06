@@ -1,10 +1,13 @@
 import platform
 import shutil
 from pathlib import Path
+from typing import Iterator
 
+import httpx
 from rich.console import Console
 from typer import Exit, Option, Typer, confirm, echo
 
+import logfire._config
 from logfire._config import LogfireCredentials
 from logfire.version import VERSION
 
@@ -53,3 +56,25 @@ def clean(credentials_dir: Path = Path('.logfire')):
         echo('Cleaned logfire data.')
     else:
         echo('Clean aborted.')
+
+
+@app.command(help='Bulk load logfire data.')
+def backfill(credentials_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans.bin')) -> None:
+    logfire._config.configure(credentials_dir=credentials_dir)
+    config = logfire._config.GLOBAL_CONFIG
+    config.initialize()
+    token, _ = config.load_token()
+    assert token is not None  # if no token was available a new project should have been created
+    with open(file, 'rb') as f:
+        with httpx.Client(headers={'Authorization': token}) as client:
+
+            def reader() -> Iterator[bytes]:
+                while True:
+                    data = f.read(1024 * 1024)
+                    if not data:
+                        return
+                    yield data
+
+            response = client.post(f'{config.base_url}/backfill/traces', content=reader())
+            response.raise_for_status()
+            echo('Backfill done.')
