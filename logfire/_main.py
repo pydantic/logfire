@@ -430,8 +430,7 @@ class LogfireSpan(ReadableSpan):
             self._span.end()
 
     def activate(self, end_on_exit: bool | None = None) -> ContextManager[LogfireSpan]:
-        """
-        Activates this span in the current context.
+        """Activates this span in the current context.
 
         Args:
             end_on_exit: Whether to end the span when the context manager exits, if `None` will use the value

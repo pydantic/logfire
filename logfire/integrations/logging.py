@@ -1,3 +1,4 @@
+"""Integration with the standard library logging module."""
 from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord
@@ -38,7 +39,14 @@ RESERVED_ATTRS: tuple[str, ...] = (
 
 
 class LogfireLoggingHandler(LoggingHandler):
+    """A logging handler that sends logs to Logfire."""
+
     def emit(self, record: LogRecord) -> None:
+        """Send the log to Logfire.
+
+        Args:
+            record: The log record to send.
+        """
         if get_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY):
             return
         id = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))

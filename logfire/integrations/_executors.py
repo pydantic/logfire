@@ -12,10 +12,9 @@ submit_p_orig = ProcessPoolExecutor.submit
 
 
 def instrument_executors() -> None:
-    """
-    Monkey-patch submit() methods of ThreadPoolExecutor and ProcessPoolExecutor to carry over OTEL context
-    across threads and processes.
-    """
+    """Monkey-patch `submit()` methods of `ThreadPoolExecutor` and `ProcessPoolExecutor`
+    to carry over OTEL context across threads and processes.
+    """  # noqa: D205
     global submit_t_orig, submit_p_orig
     if ThreadPoolExecutor.submit is submit_t_orig:
         ThreadPoolExecutor.submit = submit_t

@@ -23,9 +23,7 @@ class Flatten(Generic[FlattenValue]):
 
 
 def flatten(value: FlattenValue) -> Flatten[FlattenValue]:
-    """
-    A wrapper class that tells logfire to flatten the first level of a mapping or sequence into OTel
-    parameters so they can be easily queried.
+    """A wrapper class that tells Logfire to flatten the first level of a mapping or sequence into OTel parameters so they can be easily queried.
 
     Importantly, wrapping something in `flatten` doesn't affect how it's formatted in the log message.
 

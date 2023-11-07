@@ -1,3 +1,4 @@
+"""Backfill logfire logs and spans from a file or stream."""
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,10 +39,20 @@ ID_GENERATOR = RandomIdGenerator()
 
 
 def generate_trace_id() -> int:
+    """Generate a new trace ID.
+
+    Returns:
+        A new trace ID.
+    """
     return ID_GENERATOR.generate_trace_id()
 
 
 def generate_span_id() -> int:
+    """Generate a new span ID.
+
+    Returns:
+        A new span ID.
+    """
     return ID_GENERATOR.generate_span_id()
 
 
@@ -49,6 +60,8 @@ pydantic_config = ConfigDict(plugin_settings={'logfire': 'disable'})
 
 
 class RecordLog(BaseModel):
+    """A log record."""
+
     model_config = pydantic_config
     type: Literal['log'] = 'log'
     msg_template: str
@@ -64,6 +77,8 @@ class RecordLog(BaseModel):
 
 
 class StartSpan(BaseModel):
+    """The start of a span."""
+
     model_config = pydantic_config
     type: Literal['start_span'] = 'start_span'
     span_name: str
@@ -79,6 +94,8 @@ class StartSpan(BaseModel):
 
 
 class EndSpan(BaseModel):
+    """The end of a span."""
+
     model_config = pydantic_config
     type: Literal['end_span'] = 'end_span'
     span_id: int
@@ -87,6 +104,14 @@ class EndSpan(BaseModel):
 
 
 class PrepareBackfill:
+    """Prepare a backfill of logfire logs and spans from a file or stream.
+
+    Attributes:
+        store_path: The path to the file or stream to backfill.
+        open_spans: A mapping of open spans, keyed by (trace_id, span_id).
+        processor: The span processor to use for the backfill.
+    """
+
     def __init__(self, file: Union[Path, str, IO[bytes]], batch: bool = True) -> None:
         self.store_path = Path(file) if isinstance(file, str) else file
         self.open_spans: dict[tuple[int, int], StartSpan] = {}
@@ -102,6 +127,7 @@ class PrepareBackfill:
 
     @validate_call(config=pydantic_config)
     def write(self, data: Annotated[Union[RecordLog, StartSpan, EndSpan], Field(discriminator='type')]) -> None:
+        """Write the data to the backfill."""
         if isinstance(data, StartSpan):
             key = (data.trace_id, data.span_id)
             assert key not in self.open_spans, f'start span ID {data.span_id} found in open spans'

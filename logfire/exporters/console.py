@@ -58,6 +58,8 @@ class _ConsoleRenderer(ConsoleRenderer):
 
 
 class ConsoleSpanExporter(SpanExporter):
+    """The ConsoleSpanExporter exports spans to the console."""
+
     def __init__(
         self,
         output: TextIO = sys.stdout,
@@ -84,6 +86,7 @@ class ConsoleSpanExporter(SpanExporter):
         self._max_spans_in_state = max_spans_in_state
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        """Export the spans to the console."""
         sort_mapping = {'span': 2, 'start_span': 1, 'log': 0}
         spans_and_metadata = [(span, _get_span_type(span), _get_span_parent_id(span)) for span in spans]
         for span, span_type, parent_id in sorted(
@@ -104,6 +107,7 @@ class ConsoleSpanExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
     def force_flush(self, timeout_millis: int = 0) -> bool:
+        """Force flush all spans."""
         return True
 
 

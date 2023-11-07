@@ -1,3 +1,5 @@
+"""Logfire is the observability tool focused on developer experience."""
+
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
 from ._config import ConsoleOptions, configure
 from ._flatten import flatten

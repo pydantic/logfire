@@ -78,11 +78,18 @@ class BaseValidateHandler:
 
 
 def get_schema_name(schema: CoreSchema) -> str:
-    """
-    Find the best name to use for a schema, using the following rules:
+    """Find the best name to use for a schema.
+
+    The follow rules are used:
     * If the schema represents a model or dataclass, use the name of the class.
     * If the root schema is a wrap/before/after validator, look at its `schema` property.
     * Otherwise use the schema's `type` property.
+
+    Args:
+        schema: The schema to get the name for.
+
+    Returns:
+        The name of the schema.
     """
     schema_type = schema['type']
     if schema_type in {'model', 'dataclass'}:
@@ -94,7 +101,7 @@ def get_schema_name(schema: CoreSchema) -> str:
 
 
 class ValidatePythonHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidatePythonHandlerProtocol`"""
+    """Implements `pydantic.plugin.ValidatePythonHandlerProtocol`."""
 
     validation_method = 'validate_python'
 
@@ -113,7 +120,7 @@ class ValidatePythonHandler(BaseValidateHandler):
 
 
 class ValidateJsonHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidateJsonHandlerProtocol`"""
+    """Implements `pydantic.plugin.ValidateJsonHandlerProtocol`."""
 
     validation_method = 'validate_json'
 
@@ -129,7 +136,7 @@ class ValidateJsonHandler(BaseValidateHandler):
 
 
 class ValidateStringsHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidateStringsHandlerProtocol`"""
+    """Implements `pydantic.plugin.ValidateStringsHandlerProtocol`."""
 
     validation_method = 'validate_strings'
 
@@ -141,8 +148,7 @@ class ValidateStringsHandler(BaseValidateHandler):
 
 @dataclass
 class LogfirePydanticPlugin:
-    """Implements `pydantic.plugin.PydanticPluginProtocol`
-
+    """Implements `pydantic.plugin.PydanticPluginProtocol`.
 
     Environment Variables:
         LOGFIRE_DISABLE_PYDANTIC_PLUGIN: Set to `1` or `true` to disable the plugin.
@@ -179,9 +185,7 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = 'fastapi.', 'logfire_backend.'
 
 
 def include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
-    """
-    Check whether a model should be instrumented
-    """
+    """Check whether a model should be instrumented."""
     include = GLOBAL_CONFIG.pydantic_plugin_include
     exclude = GLOBAL_CONFIG.pydantic_plugin_exclude
 

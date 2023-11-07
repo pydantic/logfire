@@ -15,7 +15,11 @@ Packages = List[Package]
 
 
 def collect_package_info() -> Packages:
-    """Return package information for all installed packages"""
+    """Retrieve the package information for all installed packages.
+
+    Returns:
+        A list of dicts with the package name and version.
+    """
     distributions = metadata.distributions()
     distributions = sorted(distributions, key=lambda dist: (dist.name, dist.version))
     return [{'name': dist.name, 'version': dist.version} for dist in distributions]

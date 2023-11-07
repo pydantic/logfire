@@ -1,5 +1,4 @@
-"""
-This module provides a thin wrapper around the OpenTelemetry propagate API to allow
+"""This module provides a thin wrapper around the OpenTelemetry propagate API to allow
 the OpenTelemetry contexts (and therefore Logfire contexts) to be transferred between
 different code running in different threads, processes or even services.
 
@@ -8,7 +7,7 @@ patch `ThreadPoolExecutor` and `ProcessPoolExecutor` to carry over the context.
 And existing plugins exist to propagate the context with
 [requests](https://pypi.org/project/opentelemetry-instrumentation-requests/) and
 [httpx](https://pypi.org/project/opentelemetry-instrumentation-httpx/).
-"""
+"""  # noqa: D205
 
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping
@@ -62,7 +61,6 @@ def attach_context(carrier: ContextCarrier) -> Iterator[None]:
 
     Since `attach_context` is a context manager, it restores the previous context when exiting.
     """
-
     # capture the current context to restore it later
     old_context = context.get_current()
     new_context = propagate.extract(carrier=carrier)

@@ -517,9 +517,12 @@ class LogfireConfig(_LogfireConfigData):
             detach(backup_context)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
-        """Get a tracer provider from this LogfireConfig
+        """Get a tracer provider from this `LogfireConfig`.
 
         This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The tracer provider.
         """
         if not self._initialized:
             return self.initialize()
@@ -540,9 +543,7 @@ GLOBAL_CONFIG = LogfireConfig()
 
 @dataclasses.dataclass
 class LogfireCredentials:
-    """
-    Credentials for logfire.dev.
-    """
+    """Credentials for logfire.dev."""
 
     token: str
     """The Logfire API token to use."""
@@ -561,11 +562,10 @@ class LogfireCredentials:
 
     @classmethod
     def load_creds_file(cls, creds_dir: Path) -> Self | None:
-        """
-        Check if a credentials file exists and if so load it.
+        """Check if a credentials file exists and if so load it.
 
         Args:
-            creds_dir: Path to the credentials directory
+            creds_dir: Path to the credentials directory.
 
         Returns:
             The loaded credentials or `None` if the file does not exist.
@@ -588,8 +588,7 @@ class LogfireCredentials:
 
     @classmethod
     def create_new_project(cls, *, logfire_api_url: str, requested_project_name: str) -> Self:
-        """
-        Create a new project on logfire.dev requesting the given project name.
+        """Create a new project on logfire.dev requesting the given project name.
 
         Args:
             logfire_api_url: The Logfire API base URL.
@@ -598,6 +597,9 @@ class LogfireCredentials:
 
         Returns:
             The new credentials.
+
+        Raises:
+            LogfireConfigError: If there was an error creating the new project.
         """
         url = f'{logfire_api_url}/v1/projects/'
         try:
@@ -617,9 +619,7 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials, when creating project at {url}: {e}') from e
 
     def write_creds_file(self, creds_dir: Path) -> None:
-        """
-        Write a credentials file to the given path.
-        """
+        """Write a credentials file to the given path."""
         data = dataclasses.asdict(self)
         path = _get_creds_file(creds_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -628,9 +628,7 @@ class LogfireCredentials:
             f.write('\n')
 
     def print_new_token_summary(self, creds_dir: Path) -> None:
-        """
-        Print a summary of the new project.
-        """
+        """Print a summary of the new project."""
         creds_file = _get_creds_file(creds_dir)
         _print_summary(
             f"""\
@@ -644,9 +642,7 @@ But you can see project details by running `logfire whoami`, or by viewing the c
         )
 
     def print_existing_token_summary(self, creds_dir: Path, from_cli: bool = False) -> None:
-        """
-        Print a summary of the existing project.
-        """
+        """Print a summary of the existing project."""
         if self.project_name and self.dashboard_url:
             if from_cli:
                 creds_file = _get_creds_file(creds_dir)
@@ -692,9 +688,7 @@ def _print_summary(message: str, min_content_width: int) -> None:
 
 
 def _get_creds_file(creds_dir: Path) -> Path:
-    """
-    Get the path to the credentials file.
-    """
+    """Get the path to the credentials file."""
     return creds_dir / CREDENTIALS_FILENAME
 
 
@@ -710,6 +704,7 @@ except ImportError:
     # fall back to using the git command line
 
     def get_git_revision_hash() -> str:
+        """Get the current git commit hash."""
         import subprocess
 
         return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()

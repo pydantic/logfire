@@ -197,7 +197,5 @@ def _traceback_default(obj: Any):
 
 
 def json_dumps_traceback(obj: Any) -> str:
-    """
-    Specifically for converting rich tracebacks to JSON, where dataclasses need to be converted to dicts.
-    """
+    """Specifically for converting rich tracebacks to JSON, where dataclasses need to be converted to dicts."""
     return json.dumps(obj, default=_traceback_default)

@@ -105,7 +105,7 @@ class _ProxyMeter(Meter):
         self._instruments: WeakSet[_ProxyInstrumentT] = WeakSet()
 
     def set_meter(self, meter_provider: MeterProvider) -> None:
-        """Called when a real meter provider is set on the creating _ProxyMeterProvider
+        """Called when a real meter provider is set on the creating _ProxyMeterProvider.
 
         Creates a real backing meter for this instance and notifies all created
         instruments so they can create real backing instruments.
@@ -226,7 +226,7 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         self._instrument = instrument
 
     def on_meter_set(self, meter: Meter) -> None:
-        """Called when a real meter is set on the creating _ProxyMeter"""
+        """Called when a real meter is set on the creating _ProxyMeter."""
         # We don't need any locking on proxy instruments because it's OK if some
         # measurements get dropped while a real backing instrument is being
         # created.

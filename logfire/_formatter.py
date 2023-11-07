@@ -35,10 +35,7 @@ class ChunksFormatter(Formatter):
         fallback: str | None = None,
         stacklevel: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
-        """
-        Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247
-        then altered.
-        """
+        """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:
             raise ValueError('Max string recursion exceeded')
         result: list[LiteralChunk | ArgChunk] = []

@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ProxyTracerProvider(TracerProvider):
-    """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned"""
+    """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned."""
 
     provider: TracerProvider
     config: LogfireConfig
@@ -233,7 +233,7 @@ class _StartSpanTracer(trace_api.Tracer):
 
 @dataclass
 class _ProxyTracer(Tracer):
-    """A tracer that wraps another internal tracer allowing it to be re-assigned"""
+    """A tracer that wraps another internal tracer allowing it to be re-assigned."""
 
     tracer: Tracer
     provider: ProxyTracerProvider

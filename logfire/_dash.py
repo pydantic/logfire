@@ -30,9 +30,7 @@ def configure(
     data_dir: Path = Path('.logfire'),
     base_url: str | None = None,
 ) -> None:
-    """
-    This function sets the arguments used to obtain the logfire token used in the `logfire.dash` module.
-    """
+    """This function sets the arguments used to obtain the Logfire token used in the `logfire.dash` module."""
     if _in_pyodide:
         # Ignore this call in pyodide, to make it easier to copy/paste code that works outside pyodide.
         return
@@ -50,10 +48,9 @@ def configure(
 
 
 async def query(q: str) -> list[dict[str, Any]]:
-    """
-    Accepts a raw query string, and returns the results as a list of dicts mapping column-name to value.
+    """Accepts a raw query string, and returns the results as a list of dicts mapping column-name to value.
 
-    This can be converted into a pandas dataframe via `pd.DataFrame.from_records(results)`.
+    This can be converted into a pandas `DataFrame` via `pd.DataFrame.from_records(results)`.
     """
     if _in_pyodide:
         raise RuntimeError(_PYODIDE_MUST_INJECT_MESSAGE)

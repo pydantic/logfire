@@ -1,3 +1,4 @@
+"""The CLI for Logfire. 🚀"""  # noqa: D415
 import platform
 import shutil
 from pathlib import Path
@@ -18,6 +19,11 @@ console = Console()
 
 
 def version_callback(value: bool) -> None:
+    """Show the version and exit.
+
+    Args:
+        value: The value of the `--version` option.
+    """
     if value:
         py_impl = platform.python_implementation()
         py_version = platform.python_version()
@@ -36,11 +42,12 @@ def main(
         help='Show version and exit.',
     ),
 ):
-    ...
+    """The main entrypoint for the CLI."""
 
 
-@app.command(help='Get your dashboard url and project name.')
+@app.command()
 def whoami(data_dir: Path = Path('.logfire')):
+    """Get your dashboard url and project name."""
     credentials = LogfireCredentials.load_creds_file(data_dir)
 
     if credentials is None:
@@ -49,8 +56,9 @@ def whoami(data_dir: Path = Path('.logfire')):
         credentials.print_existing_token_summary(data_dir, from_cli=True)
 
 
-@app.command(help='Clean logfire data.')
+@app.command()
 def clean(data_dir: Path = Path('.logfire')):
+    """Clean logfire data."""
     if confirm(f'The folder {data_dir} will be deleted. Are you sure?'):
         shutil.rmtree(data_dir)
         echo('Cleaned logfire data.')
@@ -58,8 +66,9 @@ def clean(data_dir: Path = Path('.logfire')):
         echo('Clean aborted.')
 
 
-@app.command(help='Bulk load logfire data.')
+@app.command()
 def backfill(data_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans.bin')) -> None:
+    """Bulk load logfire data."""
     logfire._config.configure(data_dir=data_dir)
     config = logfire._config.GLOBAL_CONFIG
     config.initialize()
