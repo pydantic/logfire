@@ -260,6 +260,9 @@ class _LogfireConfigData:
         param_manager = ParamManager(config_from_file=config_from_file)
 
         self.base_url = param_manager.load_param('base_url', base_url)
+        self.metrics_endpoint = os.getenv('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT') or f'{self.base_url}/v1/metrics'
+        self.traces_endpoint = os.getenv('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT') or f'{self.base_url}/v1/traces'
+
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
         self.project_name = param_manager.load_param('project_name', project_name)
@@ -414,6 +417,11 @@ class LogfireConfig(_LogfireConfigData):
             }
             if self.service_version:
                 resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+            resource_attributes_from_env = os.getenv('OTEL_RESOURCE_ATTRIBUTES')
+            if resource_attributes_from_env:
+                for field in resource_attributes_from_env.split(','):
+                    key, value = field.split('=')
+                    resource_attributes[key.strip()] = value.strip()
             resource = Resource.create(resource_attributes)
             tracer_provider = SDKTracerProvider(
                 resource=resource,
@@ -475,7 +483,7 @@ class LogfireConfig(_LogfireConfigData):
                     if self.otlp_span_exporter:
                         span_exporter = self.otlp_span_exporter
                     else:
-                        span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
+                        span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
                     if self.exporter_fallback_to_local_file:
                         span_exporter = FallbackSpanExporter(
                             span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
@@ -489,7 +497,7 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers.append(
                     PeriodicExportingMetricReader(
                         OTLPMetricExporter(
-                            endpoint=f'{self.base_url}/v1/metrics',
+                            endpoint=self.metrics_endpoint,
                             headers=headers,
                         )
                     )

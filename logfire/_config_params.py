@@ -36,7 +36,7 @@ class ConfigParam:
 
 
 # fmt: off
-BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
+BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL', 'OTEL_EXPORTER_OTLP_ENDPOINT'], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """Use to set the base URL of the Logfire backend."""
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=True, tp=bool)
 """Whether to send spans to Logfire."""
@@ -46,7 +46,7 @@ PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=
 """Name of the project."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', 'OTEL_SERVICE_NAME'], allow_file_config=True, default='unknown')
 """Name of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""
-SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION'], allow_file_config=True)
+SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
 """Version number of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""
 SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default='new-project', tp=ShowSummaryValues)
 """Whether to show the summary when a new project is created."""

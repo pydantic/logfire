@@ -566,3 +566,147 @@ def test_configure_service_version(tmp_path: str) -> None:
         assert GLOBAL_CONFIG.service_version is None
     finally:
         os.chdir(dir)
+
+
+def test_otel_service_name_env_var() -> None:
+    time_generator = TimeGenerator()
+    exporter = TestExporter()
+
+    os.environ['OTEL_SERVICE_NAME'] = 'potato'
+
+    configure(
+        service_version='1.2.3',
+        send_to_logfire=False,
+        console=ConsoleOptions(enabled=False),
+        ns_timestamp_generator=time_generator,
+        id_generator=IncrementalIdGenerator(),
+        processors=[SimpleSpanProcessor(exporter)],
+    )
+    os.environ.pop('OTEL_SERVICE_NAME')
+
+    logfire.info('test1')
+
+    # insert_assert(exporter.exported_spans_as_dict(include_resources=True))
+    assert exporter.exported_spans_as_dict(include_resources=True) == [
+        {
+            'name': 'test1',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test1',
+                'logfire.msg': 'test1',
+                'code.filepath': 'test_configure.py',
+                'code.lineno': 123,
+                'code.function': 'test_otel_service_name_env_var',
+            },
+            'resource': {
+                'attributes': {
+                    'telemetry.sdk.language': 'python',
+                    'telemetry.sdk.name': 'opentelemetry',
+                    'telemetry.sdk.version': '1.20.0',
+                    'service.name': 'potato',
+                    'service.version': '1.2.3',
+                }
+            },
+        }
+    ]
+
+
+def test_otel_resource_attributes_env_var() -> None:
+    time_generator = TimeGenerator()
+    exporter = TestExporter()
+
+    os.environ['OTEL_RESOURCE_ATTRIBUTES'] = 'service.name=banana,service.version=1.2.3'
+
+    configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(enabled=False),
+        ns_timestamp_generator=time_generator,
+        id_generator=IncrementalIdGenerator(),
+        processors=[SimpleSpanProcessor(exporter)],
+    )
+    os.environ.pop('OTEL_RESOURCE_ATTRIBUTES')
+
+    logfire.info('test1')
+
+    # insert_assert(exporter.exported_spans_as_dict(include_resources=True))
+    assert exporter.exported_spans_as_dict(include_resources=True) == [
+        {
+            'name': 'test1',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test1',
+                'logfire.msg': 'test1',
+                'code.filepath': 'test_configure.py',
+                'code.lineno': 123,
+                'code.function': 'test_otel_resource_attributes_env_var',
+            },
+            'resource': {
+                'attributes': {
+                    'telemetry.sdk.language': 'python',
+                    'telemetry.sdk.name': 'opentelemetry',
+                    'telemetry.sdk.version': '1.20.0',
+                    'service.name': 'banana',
+                    'service.version': '1.2.3',
+                }
+            },
+        }
+    ]
+
+
+def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_var() -> None:
+    time_generator = TimeGenerator()
+    exporter = TestExporter()
+
+    os.environ['OTEL_SERVICE_NAME'] = 'potato'
+    os.environ['OTEL_RESOURCE_ATTRIBUTES'] = 'service.name=banana,service.version=1.2.3'
+
+    configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(enabled=False),
+        ns_timestamp_generator=time_generator,
+        id_generator=IncrementalIdGenerator(),
+        processors=[SimpleSpanProcessor(exporter)],
+    )
+    os.environ.pop('OTEL_SERVICE_NAME')
+    os.environ.pop('OTEL_RESOURCE_ATTRIBUTES')
+
+    logfire.info('test1')
+
+    # insert_assert(exporter.exported_spans_as_dict(include_resources=True))
+    assert exporter.exported_spans_as_dict(include_resources=True) == [
+        {
+            'name': 'test1',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'info',
+                'logfire.msg_template': 'test1',
+                'logfire.msg': 'test1',
+                'code.filepath': 'test_configure.py',
+                'code.lineno': 123,
+                'code.function': 'test_otel_service_name_has_priority_on_resource_attributes_service_name_env_var',
+            },
+            'resource': {
+                'attributes': {
+                    'telemetry.sdk.language': 'python',
+                    'telemetry.sdk.name': 'opentelemetry',
+                    'telemetry.sdk.version': '1.20.0',
+                    'service.name': 'banana',
+                    'service.version': '1.2.3',
+                }
+            },
+        }
+    ]

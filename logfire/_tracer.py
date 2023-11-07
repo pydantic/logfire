@@ -16,6 +16,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider, use_span
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
@@ -87,7 +88,7 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 return self.provider.resource
-            return Resource.create({'service.name': 'unknown'})
+            return Resource.create({ResourceAttributes.SERVICE_NAME: 'unknown'})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:

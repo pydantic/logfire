@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import logfire
-from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY
+from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
 
 
 class TestExporter(SpanExporter):
@@ -37,6 +37,7 @@ class TestExporter(SpanExporter):
         fixed_line_number: int | None = 123,
         strip_filepaths: bool = True,
         include_resources: bool = False,
+        include_package_versions: bool = False,
         _include_start_spans: bool = False,
     ) -> list[dict[str, Any]]:
         """The exported spans as a list of dicts.
@@ -44,6 +45,8 @@ class TestExporter(SpanExporter):
         Args:
             fixed_line_number: The line number to use for all spans.
             strip_filepaths: Whether to strip the filepaths from the exported spans.
+            include_resources: Whether to include the resource attributes in the exported spans.
+            include_package_versions: Whether to include the package versions in the exported spans.
 
         Returns:
             A list of dicts representing the exported spans.
@@ -62,7 +65,11 @@ class TestExporter(SpanExporter):
         def build_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:
             if attributes is None:
                 return None
-            return {k: process_attribute(k, v) for k, v in attributes.items()}
+            return {
+                k: process_attribute(k, v)
+                for k, v in attributes.items()
+                if k != RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS or include_package_versions
+            }
 
         def build_event(event: Event) -> dict[str, Any]:
             res: dict[str, Any] = {
@@ -83,7 +90,6 @@ class TestExporter(SpanExporter):
                     stacks = trace['stacks']
                     for stack in stacks:
                         for frame in stack['frames']:
-                            print(frame)
                             frame['filename'] = Path(frame['filename']).name
                             frame['lineno'] = fixed_line_number
                     attributes['exception.logfire.trace'] = json.dumps(trace)
