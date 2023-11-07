@@ -30,6 +30,7 @@ from typing_extensions import Self
 from ._collect_system_info import collect_package_info
 from ._config_params import ParamManager, ShowSummaryValues
 from ._constants import (
+    DEFAULT_FALLBACK_FILE_NAME,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
@@ -67,8 +68,8 @@ def configure(
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: ShowSummaryValues | None = None,
     config_dir: Path | str | None = None,
-    exporter_fallback_file_path: Path | str | Literal[False] | None = None,
-    credentials_dir: Path | str | None = None,
+    exporter_fallback_to_local_file: bool | None = None,
+    data_dir: Path | str | None = None,
     base_url: str | None = None,
     collect_system_metrics: bool | None = None,
     id_generator: IdGenerator | None = None,
@@ -99,9 +100,8 @@ def configure(
             defaults to `'new-project'`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
             current working directory.
-        credentials_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
-        exporter_fallback_file_path: File to dump spans that failed to export to. This is a backup to avoid losing spans if the network or Logfire API go down. If `None` uses
-            the `LOGFIRE_EXPORTER_FALLBACK_FILE_PATH` environment variable, otherwise defaults to `logfire_spans.bin`.
+        data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
+        exporter_fallback_to_local_file: Determines if we should dump data to a local file when we can't reach the Logfire API. If `None` uses the `LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE` or defaults to True.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://api.logfire.dev.
         collect_system_metrics: Whether to collect system metrics like CPU and memory usage. If `None` uses the `LOGFIRE_COLLECT_SYSTEM_METRICS` environment variable,
             otherwise defaults to `True`.
@@ -131,8 +131,8 @@ def configure(
         console=console if console is not False else ConsoleOptions(enabled=False),
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
-        credentials_dir=Path(credentials_dir) if credentials_dir else None,
-        exporter_fallback_file_path=Path(exporter_fallback_file_path) if exporter_fallback_file_path else None,
+        data_dir=Path(data_dir) if data_dir else None,
+        exporter_fallback_to_local_file=exporter_fallback_to_local_file,
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
@@ -189,10 +189,10 @@ class _LogfireConfigData:
     show_summary: ShowSummaryValues
     """Whether to show the summary when starting a new project"""
 
-    credentials_dir: Path
+    data_dir: Path
     """The directory to store Logfire config in"""
 
-    exporter_fallback_file_path: Path | None
+    exporter_fallback_to_local_file: bool
     """The file to write spans to if we can't reach the Logfire API"""
 
     collect_system_metrics: bool
@@ -239,8 +239,8 @@ class _LogfireConfigData:
         console: ConsoleOptions | None,
         show_summary: ShowSummaryValues | None,
         config_dir: Path | None,
-        credentials_dir: Path | None,
-        exporter_fallback_file_path: Path | None,
+        data_dir: Path | None,
+        exporter_fallback_to_local_file: bool | None,
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
@@ -266,9 +266,9 @@ class _LogfireConfigData:
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
-        self.credentials_dir = param_manager.load_param('credentials_dir', credentials_dir)
-        self.exporter_fallback_file_path = param_manager.load_param(
-            'exporter_fallback_file_path', exporter_fallback_file_path
+        self.data_dir = param_manager.load_param('data_dir', data_dir)
+        self.exporter_fallback_to_local_file = param_manager.load_param(
+            'exporter_fallback_to_local_file', exporter_fallback_to_local_file
         )
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
 
@@ -336,8 +336,8 @@ class LogfireConfig(_LogfireConfigData):
         console: ConsoleOptions | None = None,
         show_summary: ShowSummaryValues | None = None,
         config_dir: Path | None = None,
-        credentials_dir: Path | None = None,
-        exporter_fallback_file_path: Path | None = None,
+        data_dir: Path | None = None,
+        exporter_fallback_to_local_file: bool | None = None,
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
@@ -369,8 +369,8 @@ class LogfireConfig(_LogfireConfigData):
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
-            credentials_dir=credentials_dir,
-            exporter_fallback_file_path=exporter_fallback_file_path,
+            data_dir=data_dir,
+            exporter_fallback_to_local_file=exporter_fallback_to_local_file,
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
@@ -395,9 +395,9 @@ class LogfireConfig(_LogfireConfigData):
     @staticmethod
     def load_token(
         token: str | None = None,
-        credentials_dir: Path = Path('.logfire'),
+        data_dir: Path = Path('.logfire'),
     ) -> tuple[str | None, LogfireCredentials | None]:
-        file_creds = LogfireCredentials.load_creds_file(credentials_dir)
+        file_creds = LogfireCredentials.load_creds_file(data_dir)
         if token is None:
             token = os.getenv('LOGFIRE_TOKEN')
             if token is None and file_creds:
@@ -442,7 +442,7 @@ class LogfireConfig(_LogfireConfigData):
 
             if self.send_to_logfire:
                 if self.token is None:
-                    credentials_from_local_file = LogfireCredentials.load_creds_file(self.credentials_dir)
+                    credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
                     if not credentials_from_local_file:
                         # create a token by asking logfire.dev to create a new project
@@ -450,9 +450,9 @@ class LogfireConfig(_LogfireConfigData):
                             logfire_api_url=self.base_url,
                             requested_project_name=self.project_name or self.service_name,
                         )
-                        new_credentials.write_creds_file(self.credentials_dir)
+                        new_credentials.write_creds_file(self.data_dir)
                         if self.show_summary != 'never':
-                            new_credentials.print_new_token_summary(self.credentials_dir)
+                            new_credentials.print_new_token_summary(self.data_dir)
                         credentials_to_save = new_credentials
                         # to avoid printing another summary
                         credentials_from_local_file = None
@@ -476,9 +476,9 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter = self.otlp_span_exporter
                     else:
                         span_exporter = OTLPSpanExporter(endpoint=f'{self.base_url}/v1/traces', session=session)
-                    if self.exporter_fallback_file_path:
+                    if self.exporter_fallback_to_local_file:
                         span_exporter = FallbackSpanExporter(
-                            span_exporter, FileSpanExporter(self.exporter_fallback_file_path)
+                            span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                         )
                     self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
                 elif otel_traces_exporter_env != 'none':
@@ -496,7 +496,7 @@ class LogfireConfig(_LogfireConfigData):
                 )
 
             if self.show_summary == 'always' and credentials_from_local_file:
-                credentials_from_local_file.print_existing_token_summary(self.credentials_dir)
+                credentials_from_local_file.print_existing_token_summary(self.data_dir)
 
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:

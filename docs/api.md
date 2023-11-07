@@ -5,3 +5,7 @@
 # Propagate
 
 ::: logfire.propagate
+
+# Backfill
+
+::: logfire.backfill

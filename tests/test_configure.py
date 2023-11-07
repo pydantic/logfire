@@ -479,7 +479,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         project_name = "test"
         console_colors = "never"
         console_include_timestamp = false
-        credentials_dir = "{tmp_path}"
+        data_dir = "{tmp_path}"
         collect_system_metrics = false
         disable_pydantic_plugin = true
         pydantic_plugin_include = " test1, test2"
@@ -494,7 +494,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.project_name == 'test'
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
-    assert GLOBAL_CONFIG.credentials_dir == tmp_path
+    assert GLOBAL_CONFIG.data_dir == tmp_path
     assert GLOBAL_CONFIG.collect_system_metrics is False
     assert GLOBAL_CONFIG.disable_pydantic_plugin is True
     assert GLOBAL_CONFIG.pydantic_plugin_include == {'test1', 'test2'}
@@ -531,9 +531,9 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
             return SpanExportResult.FAILURE
 
-    path = Path(tmp_path) / 'backup.log'
+    path = Path(tmp_path) / 'logfire_spans.bin'
     logfire.configure(
-        exporter_fallback_file_path=path,
+        data_dir=Path(tmp_path),
         token='abc',
         default_span_processor=SimpleSpanProcessor,
         otlp_span_exporter=FailureExporter(),

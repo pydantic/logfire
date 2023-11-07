@@ -1,10 +1,13 @@
 import platform
 import shutil
 from pathlib import Path
+from typing import Iterator
 
+import httpx
 from rich.console import Console
 from typer import Exit, Option, Typer, confirm, echo
 
+import logfire._config
 from logfire._config import LogfireCredentials
 from logfire.version import VERSION
 
@@ -37,19 +40,41 @@ def main(
 
 
 @app.command(help='Get your dashboard url and project name.')
-def whoami(credentials_dir: Path = Path('.logfire')):
-    credentials = LogfireCredentials.load_creds_file(credentials_dir)
+def whoami(data_dir: Path = Path('.logfire')):
+    credentials = LogfireCredentials.load_creds_file(data_dir)
 
     if credentials is None:
         console.print('Data not found.')
     else:
-        credentials.print_existing_token_summary(credentials_dir, from_cli=True)
+        credentials.print_existing_token_summary(data_dir, from_cli=True)
 
 
 @app.command(help='Clean logfire data.')
-def clean(credentials_dir: Path = Path('.logfire')):
-    if confirm(f'The folder {credentials_dir} will be deleted. Are you sure?'):
-        shutil.rmtree(credentials_dir)
+def clean(data_dir: Path = Path('.logfire')):
+    if confirm(f'The folder {data_dir} will be deleted. Are you sure?'):
+        shutil.rmtree(data_dir)
         echo('Cleaned logfire data.')
     else:
         echo('Clean aborted.')
+
+
+@app.command(help='Bulk load logfire data.')
+def backfill(data_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans.bin')) -> None:
+    logfire._config.configure(data_dir=data_dir)
+    config = logfire._config.GLOBAL_CONFIG
+    config.initialize()
+    token, _ = config.load_token()
+    assert token is not None  # if no token was available a new project should have been created
+    with open(file, 'rb') as f:
+        with httpx.Client(headers={'Authorization': token}) as client:
+
+            def reader() -> Iterator[bytes]:
+                while True:
+                    data = f.read(1024 * 1024)
+                    if not data:
+                        return
+                    yield data
+
+            response = client.post(f'{config.base_url}/backfill/traces', content=reader())
+            response.raise_for_status()
+            echo('Backfill done.')

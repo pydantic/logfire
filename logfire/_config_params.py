@@ -10,7 +10,7 @@ from typing_extensions import get_args, get_origin
 
 from logfire.exporters.console import ConsoleColorsValues
 
-from ._constants import DEFAULT_FALLBACK_FILE_NAME, LOGFIRE_BASE_URL
+from ._constants import LOGFIRE_BASE_URL
 from .exceptions import LogfireConfigError
 
 T = TypeVar('T')
@@ -52,7 +52,7 @@ SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
-EXPORTER_FALLBACK_FILE_PATH = ConfigParam(env_vars=['LOGFIRE_EXPORTER_FALLBACK_FILE_PATH'], allow_file_config=True, default=DEFAULT_FALLBACK_FILE_NAME, tp=Path)
+LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE = ConfigParam(env_vars=['LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE'], allow_file_config=True, default=True, tp=bool)
 """Path to the file where spans are stored when the exporter is disabled."""
 COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=True, tp=bool)
 """Whether to collect system metrics."""
@@ -82,8 +82,8 @@ CONFIG_PARAMS = {
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'show_summary': SHOW_SUMMARY,
-    'credentials_dir': CREDENTIALS_DIR,
-    'exporter_fallback_file_path': EXPORTER_FALLBACK_FILE_PATH,
+    'data_dir': CREDENTIALS_DIR,
+    'exporter_fallback_to_local_file': LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE,
     'collect_system_metrics': COLLECT_SYSTEM_METRICS,
     'console_enabled': CONSOLE_ENABLED,
     'console_colors': CONSOLE_COLORS,

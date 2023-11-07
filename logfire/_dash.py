@@ -27,7 +27,7 @@ _PYODIDE_MUST_INJECT_MESSAGE = 'This function should be injected into pyodide by
 
 def configure(
     token: str | None = None,
-    credentials_dir: Path = Path('.logfire'),
+    data_dir: Path = Path('.logfire'),
     base_url: str | None = None,
 ) -> None:
     """
@@ -39,9 +39,9 @@ def configure(
         # Alternatively, we could raise an error:
         # raise RuntimeError(_PYODIDE_NOT_ALLOWED_MESSAGE)
 
-    global _configured, _token, _credentials_dir, _base_url
+    global _configured, _token, _data_dir, _base_url
     _token = token
-    _credentials_dir = credentials_dir
+    _data_dir = data_dir
     _base_url = base_url
 
     _get_token.cache_clear()
@@ -84,7 +84,7 @@ def show(item: Any) -> None:
 
 _configured: bool = False
 _token: str | None = None
-_credentials_dir: Path = Path('.logfire')
+_data_dir: Path = Path('.logfire')
 _base_url: str | None = None
 
 
@@ -99,7 +99,7 @@ def _get_token() -> str:
     from logfire._config import LogfireConfig
     from logfire.exceptions import LogfireConfigError
 
-    token, _ = LogfireConfig.load_token(token=_token, credentials_dir=_credentials_dir)
+    token, _ = LogfireConfig.load_token(token=_token, data_dir=_data_dir)
     if token is None:
         raise LogfireConfigError(
             'No logfire token provided or found in the default locations.'
