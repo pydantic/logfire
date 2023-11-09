@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import contextlib
 import os
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, Sequence
+from typing import Iterable, Mapping, Sequence
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -20,17 +20,6 @@ from logfire._config import (
     LogfireConfigError,
 )
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
-
-
-@contextlib.contextmanager
-def set_env_vars(**kwargs: str) -> Iterator[None]:
-    old_env = os.environ.copy()
-    os.environ.update(kwargs)
-    try:
-        yield
-    finally:
-        os.environ.clear()
-        os.environ.update(old_env)
 
 
 class StubAdapter(HTTPAdapter):
@@ -461,22 +450,22 @@ def test_set_request_headers() -> None:
 def test_read_config_from_environment_variables() -> None:
     assert LogfireConfig().disable_pydantic_plugin is False
 
-    with set_env_vars(LOGFIRE_DISABLE_PYDANTIC_PLUGIN='true'):
+    with patch.dict(os.environ, {'LOGFIRE_DISABLE_PYDANTIC_PLUGIN': 'true'}):
         assert LogfireConfig().disable_pydantic_plugin is True
-    with set_env_vars(LOGFIRE_DISABLE_PYDANTIC_PLUGIN='test'):
+    with patch.dict(os.environ, {'LOGFIRE_DISABLE_PYDANTIC_PLUGIN': 'test'}):
         with pytest.raises(LogfireConfigError, match="Expected disable_pydantic_plugin to be a boolean, got 'test'"):
             LogfireConfig()
 
     assert LogfireConfig().pydantic_plugin_include == set()
-    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_INCLUDE='test'):
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': 'test'}):
         assert LogfireConfig().pydantic_plugin_include == {'test'}
-    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_INCLUDE='test1, test2'):
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': 'test1, test2'}):
         assert LogfireConfig().pydantic_plugin_include == {'test1', 'test2'}
 
     assert LogfireConfig().pydantic_plugin_exclude == set()
-    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE='test'):
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test'}):
         assert LogfireConfig().pydantic_plugin_exclude == {'test'}
-    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE='test1, test2'):
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, test2'}):
         assert LogfireConfig().pydantic_plugin_exclude == {'test1', 'test2'}
 
 
@@ -518,18 +507,18 @@ def test_logfire_config_console_options() -> None:
         colors='never', verbose=True
     )
 
-    with set_env_vars(LOGFIRE_CONSOLE_COLORS='never'):
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE_COLORS': 'never'}):
         assert LogfireConfig().console == ConsoleOptions(colors='never')
-    with set_env_vars(LOGFIRE_CONSOLE_COLORS='test'):
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE_COLORS': 'test'}):
         with pytest.raises(
             LogfireConfigError,
             match="Expected console_colors to be one of \\('auto', 'always', 'never'\\), got 'test'",
         ):
             LogfireConfig()
 
-    with set_env_vars(LOGFIRE_CONSOLE_VERBOSE='1'):
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE_VERBOSE': '1'}):
         assert LogfireConfig().console == ConsoleOptions(verbose=True)
-    with set_env_vars(LOGFIRE_CONSOLE_VERBOSE='false'):
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE_VERBOSE': 'false'}):
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
@@ -579,7 +568,7 @@ def test_otel_service_name_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    with set_env_vars(OTEL_SERVICE_NAME='potato'):
+    with patch.dict(os.environ, {'OTEL_SERVICE_NAME': 'potato'}):
         configure(
             service_version='1.2.3',
             send_to_logfire=False,
@@ -625,7 +614,7 @@ def test_otel_resource_attributes_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    with set_env_vars(OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'):
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.name=banana,service.version=1.2.3'}):
         configure(
             send_to_logfire=False,
             console=ConsoleOptions(enabled=False),
@@ -670,7 +659,10 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    with set_env_vars(OTEL_SERVICE_NAME='potato', OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'):
+    with patch.dict(
+        os.environ,
+        dict(OTEL_SERVICE_NAME='potato', OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'),
+    ):
         configure(
             send_to_logfire=False,
             console=ConsoleOptions(enabled=False),
