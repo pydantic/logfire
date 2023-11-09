@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Iterator, Mapping, Sequence
 
 import pytest
 import requests
@@ -19,6 +20,17 @@ from logfire._config import (
     LogfireConfigError,
 )
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+
+
+@contextlib.contextmanager
+def set_env_vars(**kwargs: str) -> Iterator[None]:
+    old_env = os.environ.copy()
+    os.environ.update(kwargs)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_env)
 
 
 class StubAdapter(HTTPAdapter):
@@ -448,26 +460,24 @@ def test_set_request_headers() -> None:
 
 def test_read_config_from_environment_variables() -> None:
     assert LogfireConfig().disable_pydantic_plugin is False
-    os.environ['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'] = 'true'
-    assert LogfireConfig().disable_pydantic_plugin is True
-    os.environ['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'] = 'test'
-    with pytest.raises(LogfireConfigError, match="Expected disable_pydantic_plugin to be a boolean, got 'test'"):
-        LogfireConfig()
-    os.environ.pop('LOGFIRE_DISABLE_PYDANTIC_PLUGIN')
+
+    with set_env_vars(LOGFIRE_DISABLE_PYDANTIC_PLUGIN='true'):
+        assert LogfireConfig().disable_pydantic_plugin is True
+    with set_env_vars(LOGFIRE_DISABLE_PYDANTIC_PLUGIN='test'):
+        with pytest.raises(LogfireConfigError, match="Expected disable_pydantic_plugin to be a boolean, got 'test'"):
+            LogfireConfig()
 
     assert LogfireConfig().pydantic_plugin_include == set()
-    os.environ['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'] = 'test'
-    assert LogfireConfig().pydantic_plugin_include == {'test'}
-    os.environ['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'] = ' test1, test2'
-    assert LogfireConfig().pydantic_plugin_include == {'test1', 'test2'}
-    os.environ.pop('LOGFIRE_PYDANTIC_PLUGIN_INCLUDE')
+    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_INCLUDE='test'):
+        assert LogfireConfig().pydantic_plugin_include == {'test'}
+    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_INCLUDE='test1, test2'):
+        assert LogfireConfig().pydantic_plugin_include == {'test1', 'test2'}
 
     assert LogfireConfig().pydantic_plugin_exclude == set()
-    os.environ['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'] = 'test'
-    assert LogfireConfig().pydantic_plugin_exclude == {'test'}
-    os.environ['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'] = 'test1, test2'
-    assert LogfireConfig().pydantic_plugin_exclude == {'test1', 'test2'}
-    os.environ.pop('LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE')
+    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE='test'):
+        assert LogfireConfig().pydantic_plugin_exclude == {'test'}
+    with set_env_vars(LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE='test1, test2'):
+        assert LogfireConfig().pydantic_plugin_exclude == {'test1', 'test2'}
 
 
 def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
@@ -508,22 +518,19 @@ def test_logfire_config_console_options() -> None:
         colors='never', verbose=True
     )
 
-    os.environ['LOGFIRE_CONSOLE_COLORS'] = 'never'
-    assert LogfireConfig().console == ConsoleOptions(colors='never')
-    os.environ['LOGFIRE_CONSOLE_COLORS'] = 'test'
-    with pytest.raises(
-        LogfireConfigError,
-        match="Expected console_colors to be one of \\('auto', 'always', 'never'\\), got 'test'",
-    ):
-        LogfireConfig()
+    with set_env_vars(LOGFIRE_CONSOLE_COLORS='never'):
+        assert LogfireConfig().console == ConsoleOptions(colors='never')
+    with set_env_vars(LOGFIRE_CONSOLE_COLORS='test'):
+        with pytest.raises(
+            LogfireConfigError,
+            match="Expected console_colors to be one of \\('auto', 'always', 'never'\\), got 'test'",
+        ):
+            LogfireConfig()
 
-    os.environ.pop('LOGFIRE_CONSOLE_COLORS')
-
-    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = '1'
-    assert LogfireConfig().console == ConsoleOptions(verbose=True)
-    os.environ['LOGFIRE_CONSOLE_VERBOSE'] = 'false'
-    assert LogfireConfig().console == ConsoleOptions(verbose=False)
-    os.environ.pop('LOGFIRE_CONSOLE_VERBOSE')
+    with set_env_vars(LOGFIRE_CONSOLE_VERBOSE='1'):
+        assert LogfireConfig().console == ConsoleOptions(verbose=True)
+    with set_env_vars(LOGFIRE_CONSOLE_VERBOSE='false'):
+        assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
 def test_configure_fallback_path(tmp_path: str) -> None:
@@ -572,17 +579,15 @@ def test_otel_service_name_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    os.environ['OTEL_SERVICE_NAME'] = 'potato'
-
-    configure(
-        service_version='1.2.3',
-        send_to_logfire=False,
-        console=ConsoleOptions(enabled=False),
-        ns_timestamp_generator=time_generator,
-        id_generator=IncrementalIdGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-    )
-    os.environ.pop('OTEL_SERVICE_NAME')
+    with set_env_vars(OTEL_SERVICE_NAME='potato'):
+        configure(
+            service_version='1.2.3',
+            send_to_logfire=False,
+            console=ConsoleOptions(enabled=False),
+            ns_timestamp_generator=time_generator,
+            id_generator=IncrementalIdGenerator(),
+            processors=[SimpleSpanProcessor(exporter)],
+        )
 
     logfire.info('test1')
 
@@ -620,16 +625,14 @@ def test_otel_resource_attributes_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    os.environ['OTEL_RESOURCE_ATTRIBUTES'] = 'service.name=banana,service.version=1.2.3'
-
-    configure(
-        send_to_logfire=False,
-        console=ConsoleOptions(enabled=False),
-        ns_timestamp_generator=time_generator,
-        id_generator=IncrementalIdGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-    )
-    os.environ.pop('OTEL_RESOURCE_ATTRIBUTES')
+    with set_env_vars(OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'):
+        configure(
+            send_to_logfire=False,
+            console=ConsoleOptions(enabled=False),
+            ns_timestamp_generator=time_generator,
+            id_generator=IncrementalIdGenerator(),
+            processors=[SimpleSpanProcessor(exporter)],
+        )
 
     logfire.info('test1')
 
@@ -667,18 +670,14 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    os.environ['OTEL_SERVICE_NAME'] = 'potato'
-    os.environ['OTEL_RESOURCE_ATTRIBUTES'] = 'service.name=banana,service.version=1.2.3'
-
-    configure(
-        send_to_logfire=False,
-        console=ConsoleOptions(enabled=False),
-        ns_timestamp_generator=time_generator,
-        id_generator=IncrementalIdGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-    )
-    os.environ.pop('OTEL_SERVICE_NAME')
-    os.environ.pop('OTEL_RESOURCE_ATTRIBUTES')
+    with set_env_vars(OTEL_SERVICE_NAME='potato', OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'):
+        configure(
+            send_to_logfire=False,
+            console=ConsoleOptions(enabled=False),
+            ns_timestamp_generator=time_generator,
+            id_generator=IncrementalIdGenerator(),
+            processors=[SimpleSpanProcessor(exporter)],
+        )
 
     logfire.info('test1')
 
