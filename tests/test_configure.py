@@ -612,7 +612,7 @@ def test_otel_service_name_env_var() -> None:
                 'attributes': {
                     'telemetry.sdk.language': 'python',
                     'telemetry.sdk.name': 'opentelemetry',
-                    'telemetry.sdk.version': '1.20.0',
+                    'telemetry.sdk.version': '1.21.0',
                     'service.name': 'potato',
                     'service.version': '1.2.3',
                 }
@@ -657,7 +657,7 @@ def test_otel_resource_attributes_env_var() -> None:
                 'attributes': {
                     'telemetry.sdk.language': 'python',
                     'telemetry.sdk.name': 'opentelemetry',
-                    'telemetry.sdk.version': '1.20.0',
+                    'telemetry.sdk.version': '1.21.0',
                     'service.name': 'banana',
                     'service.version': '1.2.3',
                 }
@@ -702,7 +702,7 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
                 'attributes': {
                     'telemetry.sdk.language': 'python',
                     'telemetry.sdk.name': 'opentelemetry',
-                    'telemetry.sdk.version': '1.20.0',
+                    'telemetry.sdk.version': '1.21.0',
                     'service.name': 'banana',
                     'service.version': '1.2.3',
                 }
