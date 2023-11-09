@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from typing import IO, Iterator, Literal, Sequence
@@ -36,6 +37,7 @@ class FileSpanExporter(SpanExporter):
                     self._file = self.file_path.open('ab')
                 else:
                     self._file = self.file_path
+                self._file.seek(0, os.SEEK_END)
                 if self._file.tell() == 0:
                     self._file.write(HEADER)
                     self._file.write(VERSION)
