@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Set, TypeVar
 
+from opentelemetry.sdk.environment_variables import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
 
 from logfire.exporters.console import ConsoleColorsValues
@@ -36,7 +37,7 @@ class ConfigParam:
 
 
 # fmt: off
-BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL', 'OTEL_EXPORTER_OTLP_ENDPOINT'], allow_file_config=True, default=LOGFIRE_BASE_URL)
+BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL', OTEL_EXPORTER_OTLP_ENDPOINT], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """Use to set the base URL of the Logfire backend."""
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=True, tp=bool)
 """Whether to send spans to Logfire."""
@@ -44,7 +45,7 @@ TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
 PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=True)
 """Name of the project."""
-SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', 'OTEL_SERVICE_NAME'], allow_file_config=True, default='unknown')
+SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='unknown')
 """Name of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
 """Version number of the service emitting spans. See https://opentelemetry.io/docs/specs/semconv/resource/#service"""

@@ -13,10 +13,14 @@ import httpx
 import requests
 from opentelemetry import metrics, trace
 from opentelemetry.context import attach, detach, set_value
+from opentelemetry.environment_variables import OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+    OTEL_RESOURCE_ATTRIBUTES,
 )
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
@@ -260,8 +264,8 @@ class _LogfireConfigData:
         param_manager = ParamManager(config_from_file=config_from_file)
 
         self.base_url = param_manager.load_param('base_url', base_url)
-        self.metrics_endpoint = os.getenv('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT') or f'{self.base_url}/v1/metrics'
-        self.traces_endpoint = os.getenv('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT') or f'{self.base_url}/v1/traces'
+        self.metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) or f'{self.base_url}/v1/metrics'
+        self.traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or f'{self.base_url}/v1/traces'
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
@@ -417,7 +421,7 @@ class LogfireConfig(_LogfireConfigData):
             }
             if self.service_version:
                 resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
-            resource_attributes_from_env = os.getenv('OTEL_RESOURCE_ATTRIBUTES')
+            resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if resource_attributes_from_env:
                 for field in resource_attributes_from_env.split(','):
                     key, value = field.split('=')
@@ -477,7 +481,7 @@ class LogfireConfig(_LogfireConfigData):
                 }
                 session = self.default_otlp_span_exporter_session or requests.Session()
                 session.headers.update(headers)
-                otel_traces_exporter_env = os.getenv('OTEL_TRACES_EXPORTER')
+                otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
                 otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
                 if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
                     if self.otlp_span_exporter:
