@@ -72,7 +72,7 @@ class TestExporter(SpanExporter):
                 if k != RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS or include_package_versions
             }
             if 'telemetry.sdk.version' in attributes:
-                attributes['telemetry.sdk.version'] = '1.21.0'  # TODO: make this 0.0.0
+                attributes['telemetry.sdk.version'] = '0.0.0'
             return attributes
 
         def build_event(event: Event) -> dict[str, Any]:
