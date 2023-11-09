@@ -719,4 +719,4 @@ except ImportError:
         """Get the current git commit hash."""
         import subprocess
 
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
