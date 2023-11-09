@@ -3,8 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 import warnings
-from contextlib import contextmanager
-from contextvars import ContextVar
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from functools import wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
@@ -14,7 +13,6 @@ from typing import (
     Any,
     Callable,
     ContextManager,
-    Iterator,
     Mapping,
     Sequence,
     TypedDict,
@@ -56,6 +54,7 @@ from ._constants import (
     OTLP_MAX_INT_SIZE,
     LevelName,
 )
+from ._context import get_attributes_from_context, with_attributes, with_tags
 from ._flatten import Flatten
 from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
@@ -72,7 +71,7 @@ class Logfire:
         self,
         tags: Sequence[str] = (),
         config: LogfireConfig = GLOBAL_CONFIG,
-        sample_rate: float = 1.0,
+        sample_rate: float | None = None,
     ) -> None:
         self._tags = list(tags)
         self._config = config
@@ -135,10 +134,12 @@ class Logfire:
     ) -> ContextManager[LogfireSpan]:
         stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
-        merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
+        context_attributes = get_attributes_from_context() or {}
+
+        merged_attributes = {**stack_info, **context_attributes, **attributes}
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
 
-        tags = _merge_tags_into_attributes(merged_attributes, self._tags)
+        tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
 
         span_name_: str
         if span_name is not None:
@@ -157,10 +158,11 @@ class Logfire:
             )
 
         otlp_attributes = user_attributes(merged_attributes)
+
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
-        if self._sample_rate != 1.0:
+        if self._sample_rate is not None:
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
 
         span = self._spans_tracer.start_span(
@@ -259,6 +261,17 @@ class Logfire:
 
         return decorator
 
+    def __enter__(self) -> Logfire:
+        self._stack = ExitStack()
+        if self._tags:
+            self._stack.enter_context(with_tags(*self._tags))
+        if self._sample_rate is not None:
+            self._stack.enter_context(with_attributes(**{ATTRIBUTES_SAMPLE_RATE_KEY: self._sample_rate}))
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        self._stack.close()
+
     def log(
         self, level: LevelName, msg_template: LiteralString, attributes: dict[str, Any], stack_offset: int = 0
     ) -> None:
@@ -284,8 +297,10 @@ class Logfire:
         stacklevel = stack_offset + 2
         stack_info = _get_caller_stack_info(stacklevel)
 
-        merged_attributes = {**stack_info, **ATTRIBUTES.get(), **attributes}
-        tags = _merge_tags_into_attributes(merged_attributes, self._tags) or []
+        context_attributes = get_attributes_from_context() or {}
+
+        merged_attributes = {**stack_info, **context_attributes, **attributes}
+        tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
         msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
@@ -297,6 +312,9 @@ class Logfire:
         }
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
+
+        if self._sample_rate is not None:
+            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
 
         start_time = self._config.ns_timestamp_generator()
 
@@ -481,9 +499,6 @@ class LogfireSpan(ReadableSpan):
         self._format_args['kwargs'][key] = value
 
 
-ATTRIBUTES: ContextVar[dict[str, Any]] = ContextVar('logfire.attributes', default={})
-
-
 class _FormatArgs(TypedDict):
     format_string: LiteralString
     kwargs: dict[str, Any]
@@ -574,64 +589,22 @@ class _PendingSpan:
         self.token = None
 
 
-@contextmanager
-@staticmethod
-def with_attributes(**attributes: Any) -> Iterator[None]:
-    """Context manager for binding attributes to all logs and traces.
-
-    ```py
-    import logfire
-
-    with logfire.with_attributes(user_id='123'):
-        logfire.info('new log 1')
-    ```
-
-    Args:
-        attributes: The attributes to bind.
-    """
-    old_attributes = ATTRIBUTES.get()
-    ATTRIBUTES.set({**old_attributes, **attributes})
-    try:
-        yield
-    finally:
-        ATTRIBUTES.set(old_attributes)
-
-
-@contextmanager
-@staticmethod
-def with_tags(*tags: str) -> Iterator[None]:
-    """Context manager for binding tags to all logs and traces.
-
-    ```py
-    import logfire
-
-    with logfire.with_tags('tag1', 'tag2'):
-        logfire.info('new log 1')
-    ```
-
-    Args:
-        tags: The tags to bind.
-    """
-    old_attributes = ATTRIBUTES.get()
-    merged_tags = _merge_tags_into_attributes(old_attributes, list(tags))
-    if merged_tags:
-        ATTRIBUTES.set({**old_attributes, ATTRIBUTES_TAGS_KEY: merged_tags})
-    try:
-        yield
-    finally:
-        ATTRIBUTES.set(old_attributes)
-
-
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
 
 
-def _merge_tags_into_attributes(attributes: dict[str, Any], tags: list[str]) -> list[str] | None:
+def _merge_tags_into_attributes(
+    attributes: dict[str, Any], tags: list[str]
+) -> tuple[Sequence[str] | None, dict[str, Any]]:
     # merge tags into attributes preserving any existing tags
-    if not tags:
-        return None
     if ATTRIBUTES_TAGS_KEY in attributes:
-        return cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags
-    return tags
+        res, attributes = cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags, {
+            k: v for k, v in attributes.items() if k != ATTRIBUTES_TAGS_KEY
+        }
+    else:
+        res = tags
+    if res:
+        return uniquify_sequence(res), attributes
+    return None, attributes
 
 
 def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, otel_types.AttributeValue]:
@@ -715,3 +688,12 @@ def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
 _RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
 _POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
+
+T = TypeVar('T')
+
+
+def uniquify_sequence(seq: Sequence[T]) -> list[T]:
+    """Remove duplicates from a sequence preserving order."""
+    seen: set[T] = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]

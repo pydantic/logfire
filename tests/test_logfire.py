@@ -1288,3 +1288,98 @@ def test_large_int(exporter: TestExporter) -> None:
             },
         }
     ]
+
+
+def test_with_tags_as_context_manager(exporter: TestExporter) -> None:
+    with logfire.span('1'):
+        with logfire.with_tags('tag1', 'tag2') as tagged:
+            with logfire.span('2'):
+                pass
+
+    with logfire.span('3'):
+        with logfire.with_tags('tag3', 'tag4'):
+            with logfire.span('4'):
+                with tagged.span('5'):
+                    pass
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': '2',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_with_tags_as_context_manager',
+                'logfire.msg_template': '2',
+                'logfire.tags': ('tag1', 'tag2'),
+                'logfire.span_type': 'span',
+                'logfire.msg': '2',
+            },
+        },
+        {
+            'name': '1',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_with_tags_as_context_manager',
+                'logfire.msg_template': '1',
+                'logfire.span_type': 'span',
+                'logfire.msg': '1',
+            },
+        },
+        {
+            'name': '5',
+            'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
+            'start_time': 7000000000,
+            'end_time': 8000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_with_tags_as_context_manager',
+                'logfire.msg_template': '5',
+                'logfire.tags': ('tag3', 'tag4', 'tag1', 'tag2'),
+                'logfire.span_type': 'span',
+                'logfire.msg': '5',
+            },
+        },
+        {
+            'name': '4',
+            'context': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+            'start_time': 6000000000,
+            'end_time': 9000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_with_tags_as_context_manager',
+                'logfire.msg_template': '4',
+                'logfire.tags': ('tag3', 'tag4'),
+                'logfire.span_type': 'span',
+                'logfire.msg': '4',
+            },
+        },
+        {
+            'name': '3',
+            'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+            'parent': None,
+            'start_time': 5000000000,
+            'end_time': 10000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_with_tags_as_context_manager',
+                'logfire.msg_template': '3',
+                'logfire.span_type': 'span',
+                'logfire.msg': '3',
+            },
+        },
+    ]

@@ -64,4 +64,8 @@ SUPPRESS_INSTRUMENTATION_CONTEXT_KEY = 'suppress_instrumentation'
 """Key in OTEL context that indicates whether instrumentation should be suppressed."""
 
 ATTRIBUTES_SAMPLE_RATE_KEY = 'logfire.sample_rate'
-"""Key in OTEL context that indicates the sample rate for this span."""
+"""Key in attributes that indicates the sample rate for this span."""
+
+
+CONTEXT_ATTRIBUTES_KEY = 'logfire.attributes'
+"""Key in the OTEL context that contains the logfire attributes."""
