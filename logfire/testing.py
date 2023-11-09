@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import random
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -153,6 +154,26 @@ class IncrementalIdGenerator(IdGenerator):
     def generate_trace_id(self) -> int:
         self.trace_id_counter += 1
         return self.trace_id_counter
+
+
+@dataclass(repr=True)
+class SeededRandomIdGenerator(IdGenerator):
+    """Generate random span/trace IDs from a random seed for deterministic tests.
+
+    Trace IDs are 64-bit integers.
+    Span IDs are 32-bit integers.
+    """
+
+    seed: int = 0
+
+    def __post_init__(self) -> None:
+        self.random = random.Random(self.seed)
+
+    def generate_span_id(self) -> int:
+        return self.random.getrandbits(32)
+
+    def generate_trace_id(self) -> int:
+        return self.random.getrandbits(64)
 
 
 ONE_NANOSECOND = 1_000_000_000

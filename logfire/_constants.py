@@ -62,3 +62,6 @@ DEFAULT_FALLBACK_FILE_NAME = 'logfire_spans.bin'
 # see https://github.com/open-telemetry/opentelemetry-python/blob/d054dff47d2da663a39b9656d106c3d15f344269/opentelemetry-api/src/opentelemetry/context/__init__.py#L171
 SUPPRESS_INSTRUMENTATION_CONTEXT_KEY = 'suppress_instrumentation'
 """Key in OTEL context that indicates whether instrumentation should be suppressed."""
+
+ATTRIBUTES_SAMPLE_RATE_KEY = 'logfire.sample_rate'
+"""Key in OTEL context that indicates the sample rate for this span."""

@@ -60,7 +60,7 @@ def test_propagate_config_to_tags() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    tags1 = logfire.tags('tag1', 'tag2')
+    tags1 = logfire.with_tags('tag1', 'tag2')
 
     configure(
         send_to_logfire=False,
@@ -70,7 +70,7 @@ def test_propagate_config_to_tags() -> None:
         processors=[SimpleSpanProcessor(exporter)],
     )
 
-    tags2 = logfire.tags('tag3', 'tag4')
+    tags2 = logfire.with_tags('tag3', 'tag4')
 
     for lf in (logfire, tags1, tags2):
         with lf.span('root'):

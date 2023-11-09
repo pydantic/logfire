@@ -201,7 +201,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
 
 
 def test_span_with_tags(exporter: TestExporter) -> None:
-    with logfire.tags('tag1', 'tag2').span(
+    with logfire.with_tags('tag1', 'tag2').span(
         'test {name} {number}', span_name='test span', name='foo', number=3, extra='extra'
     ) as s:
         pass
@@ -544,7 +544,7 @@ def test_log_equals(exporter: TestExporter) -> None:
 
 
 def test_log_with_tags(exporter: TestExporter):
-    logfire.tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
+    logfire.with_tags('tag1', 'tag2').info('test {name} {number}', name='foo', number=2)
 
     s = exporter.exported_spans[0]
 
@@ -580,14 +580,14 @@ def test_log_with_tags(exporter: TestExporter):
 
 
 def test_log_with_multiple_tags(exporter: TestExporter):
-    logfire_with_2_tags = logfire.tags('tag1').tags('tag2')
+    logfire_with_2_tags = logfire.with_tags('tag1').with_tags('tag2')
     logfire_with_2_tags.info('test {name} {number}', name='foo', number=2)
     assert len(exporter.exported_spans) == 1
     s = exporter.exported_spans[0]
     assert s.attributes is not None
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2')
 
-    logfire_with_4_tags = logfire_with_2_tags.tags('tag3', 'tag4')
+    logfire_with_4_tags = logfire_with_2_tags.with_tags('tag3', 'tag4')
     logfire_with_4_tags.info('test {name} {number}', name='foo', number=2)
     assert len(exporter.exported_spans) == 2
     s = exporter.exported_spans[1]
@@ -871,7 +871,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
     )
 
     logfire = Logfire(config=config)
-    logfire1 = logfire.tags('tag1', 'tag2')
+    logfire1 = logfire.with_tags('tag1', 'tag2')
 
     with logfire.span('root'):
         with logfire.span('child'):

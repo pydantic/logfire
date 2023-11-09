@@ -220,15 +220,16 @@ class _StartSpanTracer(trace_api.Tracer):
             record_exception,
             set_status_on_exception,
         )
-        assert isinstance(span, ReadableSpan)  # in practice always true since we are wrapping a real tracer
-        # this start span may never be used but we send it anyway since we can just ignore it if it is not used
-        _emit_start_span(
-            tracer=self.tracer,
-            name=name,
-            start_time=start_time or self.provider.config.ns_timestamp_generator(),
-            attributes=attributes,
-            real_span=span,
-        )
+        if span.is_recording():
+            assert isinstance(span, ReadableSpan)  # in practice always true since we are wrapping a real tracer
+            # this start span may never be used but we send it anyway since we can just ignore it if it is not used
+            _emit_start_span(
+                tracer=self.tracer,
+                name=name,
+                start_time=start_time or self.provider.config.ns_timestamp_generator(),
+                attributes=attributes,
+                real_span=span,
+            )
         return span
 
 

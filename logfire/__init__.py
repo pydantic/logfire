@@ -8,7 +8,8 @@ from .exporters._file import load_file as load_spans_from_file
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
-tags = DEFAULT_LOGFIRE_INSTANCE.tags
+with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
+with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -42,6 +43,7 @@ __all__ = (
     'uninstall_automatic_instrumentation',
     'flatten',
     'force_flush',
-    'tags',
+    'with_tags',
+    'with_trace_sample_rate',
     'load_spans_from_file',
 )

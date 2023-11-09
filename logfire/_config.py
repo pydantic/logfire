@@ -39,6 +39,7 @@ from ._constants import (
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
 from ._metrics import ProxyMeterProvider, configure_metrics
+from ._sampling import LogfireSampler
 from ._tracer import ProxyTracerProvider
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
@@ -69,6 +70,7 @@ def configure(
     project_name: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
+    trace_sample_rate: float | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: ShowSummaryValues | None = None,
     config_dir: Path | str | None = None,
@@ -97,6 +99,7 @@ def configure(
         project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
         service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
+        trace_sample_rate: Sampling ratio for spans, if `None` uses the `LOGFIRE_SAMPLING_RATIO` environment variable or the `OTEL_TRACES_SAMPLER_ARG` env variable, or defaults to `1.0`.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(enabled=True, colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output.
@@ -132,6 +135,7 @@ def configure(
         project_name=project_name,
         service_name=service_name,
         service_version=service_version,
+        trace_sample_rate=trace_sample_rate,
         console=console if console is not False else ConsoleOptions(enabled=False),
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
@@ -187,6 +191,9 @@ class _LogfireConfigData:
     service_name: str
     """The name of this service"""
 
+    trace_sample_rate: float
+    """The sampling ratio for spans"""
+
     console: ConsoleOptions
     """Options for controlling console output"""
 
@@ -240,6 +247,7 @@ class _LogfireConfigData:
         project_name: str | None,
         service_name: str | None,
         service_version: str | None,
+        trace_sample_rate: float | None,
         console: ConsoleOptions | None,
         show_summary: ShowSummaryValues | None,
         config_dir: Path | None,
@@ -272,6 +280,7 @@ class _LogfireConfigData:
         self.project_name = param_manager.load_param('project_name', project_name)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
+        self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.exporter_fallback_to_local_file = param_manager.load_param(
@@ -340,6 +349,7 @@ class LogfireConfig(_LogfireConfigData):
         project_name: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
+        trace_sample_rate: float | None = None,
         console: ConsoleOptions | None = None,
         show_summary: ShowSummaryValues | None = None,
         config_dir: Path | None = None,
@@ -373,6 +383,7 @@ class LogfireConfig(_LogfireConfigData):
             project_name=project_name,
             service_name=service_name,
             service_version=service_version,
+            trace_sample_rate=trace_sample_rate,
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
@@ -426,8 +437,10 @@ class LogfireConfig(_LogfireConfigData):
                 for field in resource_attributes_from_env.split(','):
                     key, value = field.split('=')
                     resource_attributes[key.strip()] = value.strip()
+
             resource = Resource.create(resource_attributes)
             tracer_provider = SDKTracerProvider(
+                sampler=LogfireSampler(sample_rate=self.trace_sample_rate),
                 resource=resource,
                 id_generator=self.id_generator,
             )

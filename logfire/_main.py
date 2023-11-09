@@ -46,6 +46,7 @@ from ._constants import (
     ATTRIBUTES_LOG_LEVEL_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
@@ -67,20 +68,26 @@ ALLOWED_LOG_LEVELS: set[str] = set(get_args(LevelName))
 class Logfire:
     """The main logfire class."""
 
-    def __init__(self, tags: Sequence[str] = (), config: LogfireConfig = GLOBAL_CONFIG) -> None:
+    def __init__(
+        self,
+        tags: Sequence[str] = (),
+        config: LogfireConfig = GLOBAL_CONFIG,
+        sample_rate: float = 1.0,
+    ) -> None:
         self._tags = list(tags)
         self._config = config
         self.__tracer_provider: ProxyTracerProvider | None = None
         self._logs_tracer: Tracer | None = None
         self._spans_tracer: Tracer | None = None
+        self._sample_rate = sample_rate
 
-    def tags(self, *tags: str) -> Logfire:
+    def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance with the given tags applied.
 
         ```py
         import logfire
 
-        with logfire.tags('tag1'):
+        with logfire.with_tags('tag1'):
             logfire.info('new log 1')
         ```
 
@@ -90,7 +97,27 @@ class Logfire:
         Returns:
             A new Logfire instance with the tags applied.
         """
-        return Logfire(self._tags + list(tags), self._config)
+        return Logfire(self._tags + list(tags), self._config, self._sample_rate)
+
+    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:
+        """A new Logfire instance with the given sampling ratio applied.
+
+        ```py
+        import logfire
+
+        with logfire.with_sample_rate(0.5):
+            logfire.info('new log 1')
+        ```
+
+        Args:
+            sample_rate: The sampling ratio to use.
+
+        Returns:
+            A new Logfire instance with the sampling ratio applied.
+        """
+        if sample_rate > 1 or sample_rate < 0:
+            raise ValueError('sample_rate must be between 0 and 1')
+        return Logfire(self._tags, self._config, sample_rate)
 
     def _get_tracer_provider(self) -> ProxyTracerProvider:
         if self.__tracer_provider is None:
@@ -132,6 +159,9 @@ class Logfire:
         otlp_attributes = user_attributes(merged_attributes)
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
+
+        if self._sample_rate != 1.0:
+            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
 
         span = self._spans_tracer.start_span(
             name=span_name_,

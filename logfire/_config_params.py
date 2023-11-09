@@ -73,6 +73,8 @@ PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE
 """Set of items that should be included in Logfire Pydantic plugin instrumentation."""
 PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
+TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
+"""Default sampling ratio for traces. Can be overridden by the `logfire.sample_rate` attribute of a span."""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -82,6 +84,7 @@ CONFIG_PARAMS = {
     'project_name': PROJECT_NAME,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
+    'trace_sample_rate': TRACE_SAMPLE_RATE,
     'show_summary': SHOW_SUMMARY,
     'data_dir': CREDENTIALS_DIR,
     'exporter_fallback_to_local_file': LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE,
@@ -144,6 +147,8 @@ class ParamManager:
             return _check_literal(value, name, tp)
         if tp is bool:
             return _check_bool(value, name)  # type: ignore
+        if tp is float:
+            return float(value)  # type: ignore
         if tp is Path:
             return Path(value)  # type: ignore
         if get_origin(tp) is set and get_args(tp) == (str,):
