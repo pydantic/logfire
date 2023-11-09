@@ -1,7 +1,13 @@
+"""This module provides functions for interacting with the Logfire "Explore" page.
+
+The public functions in this module can be used both locally and in the Logfire "Explore" page,
+and should behave similarly in both. This allows you to develop and test your code locally,
+and then use it in the Logfire "Explore" page without changes.
+"""
 import sys
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 _in_pyodide = 'pyodide' in sys.modules
 
@@ -47,7 +53,27 @@ def configure(
     _configured = True
 
 
-async def query(q: str) -> list[dict[str, Any]]:
+async def query(sql: str) -> list[dict[str, Any]]:
+    """Accepts a raw SQL query string, and executes it directly."""
+    data = await _raw_query(sql)
+    if data['status'] == 'success':
+        return data['clickhouse_data']
+    else:
+        error_details = data['error_details']
+        raise ValueError(f'Error running query:\n{error_details}')
+
+
+class _Success(TypedDict):
+    status: Literal['success']
+    clickhouse_data: list[dict[str, Any]]
+
+
+class _Error(TypedDict):
+    status: Literal['error']
+    error_details: str
+
+
+async def _raw_query(q: str) -> _Success | _Error:
     """Accepts a raw query string, and returns the results as a list of dicts mapping column-name to value.
 
     This can be converted into a pandas `DataFrame` via `pd.DataFrame.from_records(results)`.
@@ -69,6 +95,11 @@ async def query(q: str) -> list[dict[str, Any]]:
 
 
 def show(item: Any) -> None:
+    """Display the provided item in the UI appropriately.
+
+    In a jupyter notebook, this will show the item under the cell as usual, and in the Logfire "Explore" page, this will
+    show the item in the "Display" area. When called in a standard python script, this function behaves as `print`.
+    """
     if _in_pyodide:
         raise RuntimeError(_PYODIDE_MUST_INJECT_MESSAGE)
     elif _in_jupyter:
@@ -93,8 +124,8 @@ def _get_token() -> str:
     if not _configured:
         configure()
 
-    from logfire._config import LogfireConfig
-    from logfire.exceptions import LogfireConfigError
+    from ._config import LogfireConfig
+    from .exceptions import LogfireConfigError
 
     token, _ = LogfireConfig.load_token(token=_token, data_dir=_data_dir)
     if token is None:
