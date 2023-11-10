@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import random
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,7 @@ class TestExporter(SpanExporter):
         include_resources: bool = False,
         include_package_versions: bool = False,
         _include_start_spans: bool = False,
+        _strip_function_qualname: bool = True,
     ) -> list[dict[str, Any]]:
         """The exported spans as a list of dicts.
 
@@ -61,6 +63,9 @@ class TestExporter(SpanExporter):
                     return value
             if name == 'code.lineno' and fixed_line_number is not None:
                 return fixed_line_number
+            if name == 'code.function':
+                if sys.version_info >= (3, 11) and _strip_function_qualname:
+                    return value.split('.')[-1]
             return value
 
         def build_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:

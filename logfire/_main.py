@@ -654,22 +654,29 @@ def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
         frame = inspect.currentframe()
         if frame is None:
             return {}
-        stack = inspect.getouterframes(frame, 3)
-        if len(stack) < 4:
-            return {}
-        caller_frame = stack[stacklevel]
-        file = Path(caller_frame.filename)
+        # traverse stack_level frames up
+        for _ in range(stacklevel):
+            frame = frame.f_back
+            if frame is None:
+                return {}
+        file = Path(frame.f_code.co_filename)
         if file.is_absolute():
             try:
                 file = file.relative_to(_CWD)
             except ValueError:
                 # happens if filename path is not within CWD
                 pass
-        return {
-            'code.filepath': str(file),
-            'code.lineno': caller_frame.lineno,
-            'code.function': caller_frame.function,
-        }
+        if frame.f_code.co_name == '<module>':
+            return {
+                'code.filepath': str(file),
+                'code.lineno': frame.f_lineno,
+            }
+        else:
+            return {
+                'code.filepath': str(file),
+                'code.lineno': frame.f_lineno,
+                'code.function': frame.f_code.co_qualname if sys.version_info >= (3, 11) else frame.f_code.co_name,
+            }
     except Exception:
         return {}
 

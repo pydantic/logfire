@@ -32,46 +32,8 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    # insert_assert(exporter.exported_spans_as_dict(map_times=False, map_span_ids=False, map_trace_ids=False))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
-        {
-            'name': 'outside request handler (start)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_asgi.py',
-                'code.lineno': 123,
-                'code.function': 'test_asgi_middleware',
-                'logfire.msg_template': 'outside request handler',
-                'logfire.msg': 'outside request handler',
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '0',
-            },
-        },
-        {
-            'name': 'GET / (start)',
-            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'http.scheme': 'http',
-                'http.host': 'testserver',
-                'net.host.port': 80,
-                'http.flavor': '1.1',
-                'http.target': '/',
-                'http.url': 'http://testserver/',
-                'http.method': 'GET',
-                'http.server_name': 'testserver',
-                'http.user_agent': 'testclient',
-                'net.peer.ip': 'testclient',
-                'net.peer.port': 50000,
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '1',
-            },
-        },
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
             'name': 'inside request handler',
             'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
@@ -89,38 +51,12 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'GET / http send (start)',
-            'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-            'start_time': 4000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '3',
-            },
-        },
-        {
             'name': 'GET / http send',
             'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 4000000000,
             'end_time': 5000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'http.status_code': 200,
-                'type': 'http.response.start',
-            },
-        },
-        {
-            'name': 'GET / http send (start)',
-            'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
-            'start_time': 6000000000,
-            'end_time': 6000000000,
-            'attributes': {
-                'logfire.span_type': 'start_span',
-                'logfire.start_parent_id': '3',
-            },
+            'attributes': {'logfire.span_type': 'span', 'http.status_code': 200, 'type': 'http.response.start'},
         },
         {
             'name': 'GET / http send',
