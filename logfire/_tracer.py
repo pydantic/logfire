@@ -9,6 +9,7 @@ from typing import (
     Callable,
     Iterator,
     Sequence,
+    cast,
 )
 from weakref import WeakKeyDictionary, WeakSet
 
@@ -22,6 +23,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 
 from ._constants import (
+    ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_START_SPAN_REAL_PARENT_KEY,
     START_SPAN_NAME_SUFFIX,
@@ -263,17 +265,17 @@ class _ProxyTracer(Tracer):
         end_on_exit: bool = True,
     ) -> Iterator[Span]:
         start_time = start_time or self.provider.config.ns_timestamp_generator()
-        with self.tracer.start_as_current_span(
-            name,
+        span = self.start_span(
+            name=name,
             context=context,
             kind=kind,
             attributes=attributes,
-            links=links or (),
+            links=links,
             start_time=start_time,
             record_exception=record_exception,
             set_status_on_exception=set_status_on_exception,
-            end_on_exit=end_on_exit,
-        ) as span:
+        )
+        with trace_api.use_span(span, end_on_exit=end_on_exit):
             yield _MaybeDeterministicTimestampSpan(
                 span, ns_timestamp_generator=self.provider.config.ns_timestamp_generator
             )
@@ -290,10 +292,23 @@ class _ProxyTracer(Tracer):
         set_status_on_exception: bool = True,
     ) -> Span:
         start_time = start_time or self.provider.config.ns_timestamp_generator()
+        span = self.tracer.start_span(
+            name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
+        )
+        sample_rate = get_sample_rate_from_attributes(attributes)
+        if sample_rate is not None and not should_sample(span.get_span_context().span_id, sample_rate):
+            span = trace_api.NonRecordingSpan(
+                SpanContext(
+                    trace_id=span.get_span_context().trace_id,
+                    span_id=span.get_span_context().span_id,
+                    is_remote=False,
+                    trace_flags=trace_api.TraceFlags(
+                        span.get_span_context().trace_flags & ~trace_api.TraceFlags.SAMPLED
+                    ),
+                )
+            )
         return _MaybeDeterministicTimestampSpan(
-            self.tracer.start_span(
-                name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
-            ),
+            span,
             ns_timestamp_generator=self.provider.config.ns_timestamp_generator,
         )
 
@@ -338,3 +353,17 @@ def _emit_start_span(
         start_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         start_span.end(start_time)
     return start_span
+
+
+def should_sample(span_id: int, sample_rate: float | None) -> bool:
+    """Determine if a span should be sampled.
+
+    This is used to sample spans that are not sampled by the OTEL sampler.
+    """
+    return span_id <= round(sample_rate * 2**64)
+
+
+def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None:
+    if not attributes:
+        return None
+    return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))

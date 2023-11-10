@@ -54,7 +54,6 @@ from ._constants import (
     OTLP_MAX_INT_SIZE,
     LevelName,
 )
-from ._context import get_attributes_from_context, with_attributes, with_tags
 from ._flatten import Flatten
 from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
@@ -134,9 +133,7 @@ class Logfire:
     ) -> ContextManager[LogfireSpan]:
         stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
-        context_attributes = get_attributes_from_context() or {}
-
-        merged_attributes = {**stack_info, **context_attributes, **attributes}
+        merged_attributes = {**stack_info, **attributes}
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
 
         tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
@@ -162,8 +159,13 @@ class Logfire:
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
-        if self._sample_rate is not None:
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
+        sample_rate = (
+            self._sample_rate
+            if self._sample_rate is not None
+            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
+        )
+        if sample_rate is not None and sample_rate != 1:
+            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         span = self._spans_tracer.start_span(
             name=span_name_,
@@ -261,17 +263,6 @@ class Logfire:
 
         return decorator
 
-    def __enter__(self) -> Logfire:
-        self._stack = ExitStack()
-        if self._tags:
-            self._stack.enter_context(with_tags(*self._tags))
-        if self._sample_rate is not None:
-            self._stack.enter_context(with_attributes(**{ATTRIBUTES_SAMPLE_RATE_KEY: self._sample_rate}))
-        return self
-
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        self._stack.close()
-
     def log(
         self, level: LevelName, msg_template: LiteralString, attributes: dict[str, Any], stack_offset: int = 0
     ) -> None:
@@ -297,9 +288,7 @@ class Logfire:
         stacklevel = stack_offset + 2
         stack_info = _get_caller_stack_info(stacklevel)
 
-        context_attributes = get_attributes_from_context() or {}
-
-        merged_attributes = {**stack_info, **context_attributes, **attributes}
+        merged_attributes = {**stack_info, **attributes}
         tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
         msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
@@ -313,8 +302,13 @@ class Logfire:
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
-        if self._sample_rate is not None:
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
+        sample_rate = (
+            self._sample_rate
+            if self._sample_rate is not None
+            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
+        )
+        if sample_rate is not None and sample_rate != 1:
+            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         start_time = self._config.ns_timestamp_generator()
 
@@ -520,6 +514,7 @@ class _PendingSpan:
     token: None | object = field(init=False, default=None)
     # past tokens, in case of reentrant entry
     tokens_stack: None | list[object] = field(init=False, default=None)
+    _stack: ExitStack = field(init=False, default_factory=ExitStack)
 
     def __enter__(self) -> LogfireSpan:
         sdk_span = self.span._span  # type: ignore[reportPrivateUsage]
@@ -530,10 +525,10 @@ class _PendingSpan:
             else:
                 self.tokens_stack.append(self.token)
         self.token = token
-
         return self.span
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        self._stack.__exit__(exc_type, exc_value, traceback)
         context_api.detach(self.token)
 
         if self.tokens_stack:

@@ -27,6 +27,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
+from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.semconv.resource import ResourceAttributes
 from typing_extensions import Self
 
@@ -38,7 +39,6 @@ from ._constants import (
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
 from ._metrics import ProxyMeterProvider, configure_metrics
-from ._sampling import LogfireSampler
 from ._tracer import ProxyTracerProvider
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
@@ -452,7 +452,7 @@ class LogfireConfig(_LogfireConfigData):
 
             resource = Resource.create(resource_attributes)
             tracer_provider = SDKTracerProvider(
-                sampler=LogfireSampler(sample_rate=self.trace_sample_rate),
+                sampler=ParentBasedTraceIdRatio(self.trace_sample_rate),
                 resource=resource,
                 id_generator=self.id_generator,
             )

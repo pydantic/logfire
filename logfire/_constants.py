@@ -1,5 +1,7 @@
 from typing import Literal
 
+from opentelemetry.context import create_key
+
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
 
@@ -66,6 +68,8 @@ SUPPRESS_INSTRUMENTATION_CONTEXT_KEY = 'suppress_instrumentation'
 ATTRIBUTES_SAMPLE_RATE_KEY = 'logfire.sample_rate'
 """Key in attributes that indicates the sample rate for this span."""
 
-
-CONTEXT_ATTRIBUTES_KEY = 'logfire.attributes'
+CONTEXT_ATTRIBUTES_KEY = create_key('logfire.attributes')  # note this has a random suffix that OTEL adds
 """Key in the OTEL context that contains the logfire attributes."""
+
+CONTEXT_SAMPLE_RATE_KEY = create_key('logfire.sample-rate')  # note this has a random suffix that OTEL adds
+"""Key in the OTEL context that contains the current sample rate."""

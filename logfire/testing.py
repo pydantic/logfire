@@ -152,10 +152,14 @@ class IncrementalIdGenerator(IdGenerator):
 
     def generate_span_id(self) -> int:
         self.span_id_counter += 1
+        if self.span_id_counter > 2**64 - 1:
+            raise OverflowError('Span ID overflow')
         return self.span_id_counter
 
     def generate_trace_id(self) -> int:
         self.trace_id_counter += 1
+        if self.trace_id_counter > 2**128 - 1:
+            raise OverflowError('Trace ID overflow')
         return self.trace_id_counter
 
 
@@ -173,10 +177,10 @@ class SeededRandomIdGenerator(IdGenerator):
         self.random = random.Random(self.seed)
 
     def generate_span_id(self) -> int:
-        return self.random.getrandbits(32)
+        return self.random.getrandbits(64)
 
     def generate_trace_id(self) -> int:
-        return self.random.getrandbits(64)
+        return self.random.getrandbits(128)
 
 
 ONE_NANOSECOND = 1_000_000_000
