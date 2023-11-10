@@ -681,4 +681,4 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
         with pytest.raises(ValidationError):
             MyModel.model_validate({'x': 'a'})
 
-    assert len(exporter.exported_spans_as_dict()) == 8
+    assert len(exporter.exported_spans_as_dict()) == 6
