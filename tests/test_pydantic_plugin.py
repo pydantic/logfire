@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 from dirty_equals import IsInt
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ValidationError
 from pydantic.plugin import SchemaTypePath
 from pydantic_core import core_schema
@@ -14,7 +15,7 @@ from pydantic_core import core_schema
 import logfire
 from logfire._config import GLOBAL_CONFIG
 from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
-from logfire.testing import TestExporter
+from logfire.testing import SeededRandomIdGenerator, TestExporter
 
 
 def _get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
@@ -756,3 +757,42 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
             },
         },
     ]
+
+
+def test_pydantic_plugin_sample_rate_config() -> None:
+    exporter = TestExporter()
+
+    logfire.configure(
+        send_to_logfire=False,
+        trace_sample_rate=0.1,
+        processors=[SimpleSpanProcessor(exporter)],
+        id_generator=SeededRandomIdGenerator(),
+    )
+
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
+        x: int
+
+    for _ in range(10):
+        with pytest.raises(ValidationError):
+            MyModel.model_validate({'x': 'a'})
+
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+
+def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> None:
+    exporter = TestExporter()
+
+    logfire.configure(
+        send_to_logfire=False,
+        processors=[SimpleSpanProcessor(exporter)],
+        id_generator=SeededRandomIdGenerator(),
+    )
+
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
+        x: int
+
+    for _ in range(10):
+        with pytest.raises(ValidationError):
+            MyModel.model_validate({'x': 'a'})
+
+    assert len(exporter.exported_spans_as_dict()) == 8

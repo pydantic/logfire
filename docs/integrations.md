@@ -18,8 +18,7 @@ about model validation, and it's disabled by default. You can enable it using th
 You can blacklist or whitelist modules and models by using [`pydantic_plugin_include`](configuration.md)
 and [`pydantic_plugin_exclude`](configuration.md) configurations.
 
-You can also change Logfire Pydantic plugin configuration by using
-[plugin_settings](https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings) config.
+You can also change Logfire Pydantic plugin configuration by using [`plugin_settings`][plugin_settings] config.
 
 ```py
 from pydantic import BaseModel
@@ -35,6 +34,17 @@ The `record` config accepts following values:
   * `all`: Send traces and metrics for all events.
   * `failure`: Send metrics for all validations and traces only for validation failures.
   * `metrics`: Send only metrics.
+
+
+[Sampling](advanced/sampling.md) can be configured by `trace_sample_rate` key in [`plugin_settings`][plugin_settings].
+
+```py
+from pydantic import BaseModel
+
+
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
+    ...
+```
 
 ## ASGI
 
@@ -161,3 +171,4 @@ logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
 
 [open-telemetry-wsgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 [open-telemetry-asgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
+[plugin_settings]: https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings

@@ -30,7 +30,14 @@ METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type
 class BaseValidateHandler:
     validation_method: ClassVar[str]
     span_stack: ExitStack
-    __slots__ = 'schema_name', 'span_stack', '_record', '_successful_validation_counter', '_failed_validation_counter'
+    __slots__ = (
+        'schema_name',
+        'span_stack',
+        '_record',
+        '_successful_validation_counter',
+        '_failed_validation_counter',
+        '_logfire',
+    )
 
     def __init__(
         self,
@@ -51,6 +58,11 @@ class BaseValidateHandler:
         failed_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-failed-validation'
         self._failed_validation_counter = METER.create_counter(name=failed_validation_counter_name)
 
+        self._logfire = logfire
+        trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
+        if trace_sample_rate:
+            self._logfire = logfire.with_trace_sample_rate(float(trace_sample_rate))
+
     def _on_enter(
         self,
         input_data: Any,
@@ -63,7 +75,7 @@ class BaseValidateHandler:
         self.span_stack = ExitStack()
         if self._record == 'all':
             self.span_stack.enter_context(
-                logfire.span(
+                self._logfire.span(
                     'Pydantic {schema_name} {validation_method}',
                     schema_name=self.schema_name,
                     validation_method=self.validation_method,
@@ -74,7 +86,7 @@ class BaseValidateHandler:
 
     def on_success(self, result: Any) -> None:
         if self._record == 'all':
-            logfire.debug('Validation successful {result=!r}', result=result)
+            self._logfire.debug('Validation successful {result=!r}', result=result)
 
         self._successful_validation_counter.add(1)
 
@@ -83,7 +95,7 @@ class BaseValidateHandler:
     def on_error(self, error: ValidationError) -> None:
         error_count = error.error_count()
         plural = '' if error_count == 1 else 's'
-        logfire.warning(
+        self._logfire.warning(
             '{error_count} validation error{plural}',
             error_count=error_count,
             plural=plural,
@@ -93,7 +105,7 @@ class BaseValidateHandler:
         self.span_stack.close()
 
     def on_exception(self, exception: Exception) -> None:
-        logfire.error(
+        self._logfire.error(
             '{exception_type=}: {exception_msg=}', exception=type(exception).__name__, exception_msg=exception
         )
         self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
