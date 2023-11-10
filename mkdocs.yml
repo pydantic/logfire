@@ -3,9 +3,10 @@ site_description: Logfire
 strict: true
 site_url: https://logfire.dev/
 
-repo_name: pydantic/logfire
-repo_url: https://github.com/pydantic/logfire
-edit_uri: edit/main/docs/
+# TODO(Marcelo): Uncomment the following when the package gets its own repository.
+# repo_name: pydantic/logfire
+# repo_url: https://github.com/pydantic/logfire
+# edit_uri: edit/main/docs/
 
 theme:
   name: "material"
@@ -33,6 +34,12 @@ theme:
   # logo: 'logo-white.svg'
   # favicon: 'favicon.png'
 
+# https://www.mkdocs.org/user-guide/configuration/#validation
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+
 nav:
   - Home: index.md
   - Installation: install.md
@@ -43,6 +50,9 @@ nav:
     - FastAPI Application: examples/fastapi.md
     - Web Scraper: examples/web_scraper.md
     - Machine Learning: examples/machine_learning.md
+  - Advanced:
+    - Backfill: advanced/backfill.md
+    - Sampling: advanced/sampling.md
   - Testing: testing.md
   - API Reference: api.md
 
