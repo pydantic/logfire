@@ -45,6 +45,7 @@ nav:
   - Installation: install.md
   - Configuration: configuration.md
   - Integrations: integrations.md
+  - Backfill: backfill.md
   - Examples:
     - Image Transformation: examples/image_transformation.md
     - FastAPI Application: examples/fastapi.md

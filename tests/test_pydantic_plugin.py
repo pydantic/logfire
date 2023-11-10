@@ -1,15 +1,32 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
+from typing import Any, cast
 
 import pytest
+from dirty_equals import IsInt
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
 from pydantic import BaseModel, ValidationError
 from pydantic.plugin import SchemaTypePath
 from pydantic_core import core_schema
 
 import logfire
+from logfire._config import GLOBAL_CONFIG
 from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
 from logfire.testing import TestExporter
+
+
+def _get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
+    collected_metrics = []
+    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
+
+    for resource_metric in exported_metrics['resource_metrics']:
+        for scope_metric in resource_metric['scope_metrics']:
+            for metric in scope_metric['metrics']:
+                if metric['name'].endswith('-successful-validation') or metric['name'].endswith('-failed-validation'):
+                    collected_metrics.append(metric)
+    return collected_metrics
 
 
 def test_plugin_listed():
@@ -31,11 +48,45 @@ def test_check_plugin_installed():
 
 
 def test_disable_logfire_pydantic_plugin() -> None:
-    logfire.configure(disable_pydantic_plugin=True, send_to_logfire=False)
+    logfire.configure(send_to_logfire=False, pydantic_plugin_record='off')
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
         core_schema.int_schema(), None, SchemaTypePath(module='', name=''), 'BaseModel', None, {}
     ) == (None, None, None)
+
+
+def test_logfire_pydantic_plugin_settings_record_off() -> None:
+    plugin = LogfirePydanticPlugin()
+    assert plugin.new_schema_validator(
+        core_schema.int_schema(),
+        None,
+        SchemaTypePath(module='', name=''),
+        'BaseModel',
+        None,
+        {'logfire': {'record': 'off'}},
+    ) == (None, None, None)
+
+
+def test_logfire_pydantic_plugin_settings_record_off_on_model(exporter: TestExporter) -> None:
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'off'}}):
+        x: int
+
+    MyModel(x=1)
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
+
+
+def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporter: TestExporter) -> None:
+    GLOBAL_CONFIG.pydantic_plugin_record = 'all'
+
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'off'}}):
+        x: int
+
+    MyModel(x=1)
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
 
 
 @pytest.mark.parametrize(
@@ -67,7 +118,12 @@ def test_disable_logfire_pydantic_plugin() -> None:
 def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
-    logfire.configure(send_to_logfire=False, pydantic_plugin_include=include, pydantic_plugin_exclude=exclude)
+    logfire.configure(
+        send_to_logfire=False,
+        pydantic_plugin_record='all',
+        pydantic_plugin_include=include,
+        pydantic_plugin_exclude=exclude,
+    )
     plugin = LogfirePydanticPlugin()
 
     result = plugin.new_schema_validator(
@@ -79,8 +135,133 @@ def test_logfire_plugin_include_exclude_models(
         assert result == (None, None, None)
 
 
-def test_pydantic_plugin_python_success(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_reader: InMemoryMetricReader) -> None:
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'failure'}}):
+        x: int
+
+    MyModel(x=1)
+
+    with pytest.raises(ValidationError):
+        MyModel(x='a')  # type: ignore
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+        {
+            'name': '1 validation error',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'warning',
+                'logfire.msg_template': '{error_count} validation error{plural}',
+                'logfire.msg': '1 validation error',
+                'code.filepath': 'pydantic_plugin.py',
+                'code.lineno': 123,
+                'code.function': 'on_error',
+                'error_count': 1,
+                'plural': '',
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+            },
+        }
+    ]
+    metrics_collected = _get_collected_metrics(metrics_reader)
+    # insert_assert(metrics_collected)
+    assert metrics_collected == [
+        {
+            'name': 'mymodel-successful-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 1,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        },
+        {
+            'name': 'mymodel-failed-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 1,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        },
+    ]
+
+
+def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'metric'}}):
+        x: int
+
+    MyModel(x=1)
+    MyModel(x=2)
+    MyModel(x=3)
+
+    with pytest.raises(ValidationError):
+        MyModel(x='a')  # type: ignore
+
+    with pytest.raises(ValidationError):
+        MyModel(x='a')  # type: ignore
+
+    metrics_collected = _get_collected_metrics(metrics_reader)
+    # insert_assert(metrics_collected)
+    assert metrics_collected == [
+        {
+            'name': 'mymodel-successful-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 3,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        },
+        {
+            'name': 'mymodel-failed-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 2,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        },
+    ]
+
+
+def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: InMemoryMetricReader) -> None:
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     MyModel(x=1)
@@ -143,9 +324,108 @@ def test_pydantic_plugin_python_success(exporter: TestExporter) -> None:
         },
     ]
 
+    metrics_collected = _get_collected_metrics(metrics_reader)
+    # insert_assert(metrics_collected)
+    assert metrics_collected == [
+        {
+            'name': 'mymodel-successful-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 1,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        }
+    ]
+
+
+def test_pydantic_plugin_python_error_record_failure(
+    exporter: TestExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'failure'}}):
+        x: int
+
+    with pytest.raises(ValidationError):
+        MyModel(x='a')  # type: ignore
+
+    with pytest.raises(ValidationError):
+        MyModel(x='a')  # type: ignore
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+        {
+            'name': '1 validation error',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'warning',
+                'logfire.msg_template': '{error_count} validation error{plural}',
+                'logfire.msg': '1 validation error',
+                'code.filepath': 'pydantic_plugin.py',
+                'code.lineno': 123,
+                'code.function': 'on_error',
+                'error_count': 1,
+                'plural': '',
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+            },
+        },
+        {
+            'name': '1 validation error',
+            'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+            'parent': None,
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level': 'warning',
+                'logfire.msg_template': '{error_count} validation error{plural}',
+                'logfire.msg': '1 validation error',
+                'code.filepath': 'pydantic_plugin.py',
+                'code.lineno': 123,
+                'code.function': 'on_error',
+                'error_count': 1,
+                'plural': '',
+                'errors__JSON': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+            },
+        },
+    ]
+
+    metrics_collected = _get_collected_metrics(metrics_reader)
+    # insert_assert(metrics_collected)
+    assert metrics_collected == [
+        {
+            'name': 'mymodel-failed-validation',
+            'description': '',
+            'unit': '',
+            'data': {
+                'data_points': [
+                    {
+                        'attributes': {},
+                        'start_time_unix_nano': IsInt(gt=0),
+                        'time_unix_nano': IsInt(gt=0),
+                        'value': 2,
+                    }
+                ],
+                'aggregation_temporality': 2,
+                'is_monotonic': True,
+            },
+        }
+    ]
+
 
 def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     with pytest.raises(ValidationError):
@@ -213,7 +493,7 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
 
 
 def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     MyModel.model_validate_json('{"x":1}')
@@ -278,7 +558,7 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
 
 
 def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     with pytest.raises(ValidationError):
@@ -346,7 +626,7 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
 
 
 def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     MyModel.model_validate_strings({'x': '1'}, strict=True)
@@ -411,7 +691,7 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
 
 
 def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
-    class MyModel(BaseModel):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int
 
     with pytest.raises(ValidationError):

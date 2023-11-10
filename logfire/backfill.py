@@ -56,7 +56,7 @@ def generate_span_id() -> int:
     return ID_GENERATOR.generate_span_id()
 
 
-pydantic_config = ConfigDict(plugin_settings={'logfire': 'disable'})
+pydantic_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}})
 
 
 class RecordLog(BaseModel):

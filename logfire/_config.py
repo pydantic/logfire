@@ -31,7 +31,7 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from typing_extensions import Self
 
 from ._collect_system_info import collect_package_info
-from ._config_params import ParamManager, ShowSummaryValues
+from ._config_params import ParamManager, PydanticPluginRecordValues, ShowSummaryValues
 from ._constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
@@ -86,7 +86,7 @@ def configure(
     default_otlp_span_exporter_session: requests.Session | None = None,
     logfire_api_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
-    disable_pydantic_plugin: bool | None = None,
+    pydantic_plugin_record: PydanticPluginRecordValues | None = None,
     pydantic_plugin_include: set[str] | None = None,
     pydantic_plugin_exclude: set[str] | None = None,
 ) -> None:
@@ -123,7 +123,7 @@ def configure(
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
-        disable_pydantic_plugin: Whether to disable the Logfire Pydantic plugin. If `None` uses the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable, otherwise defaults to `False`.
+        pydantic_plugin_record: Whether instrument Pydantic validation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_RECORD` environment variable, otherwise defaults to `off`.
         pydantic_plugin_include: Set of items that should be included in Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_INCLUDE` environment variable, otherwise defaults to `set()`.
             It can contain a model name e.g. `MyModel`, module name and model name e.g. `test_module::MyModel` or regex in both module and model name e.g. `.*test_module.*::MyModel[1,2]`.
         pydantic_plugin_exclude: Set of items that should be excluded from Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE` environment variable, otherwise defaults to `set()`.
@@ -152,7 +152,7 @@ def configure(
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         logfire_api_session=logfire_api_session,
         otlp_span_exporter=otlp_span_exporter,
-        disable_pydantic_plugin=disable_pydantic_plugin,
+        pydantic_plugin_record=pydantic_plugin_record,
         pydantic_plugin_include=pydantic_plugin_include,
         pydantic_plugin_exclude=pydantic_plugin_exclude,
     )
@@ -235,8 +235,8 @@ class _LogfireConfigData:
     otlp_span_exporter: SpanExporter | None = None
     """The OTLP span exporter to use"""
 
-    disable_pydantic_plugin: bool | None = None
-    """Whether to disable the Logfire Pydantic plugin"""
+    pydantic_plugin_record: PydanticPluginRecordValues | None = None
+    """Whether instrument Pydantic validation"""
 
     pydantic_plugin_include: set[str] | None = None
     """Set of items that should be included in Logfire Pydantic plugin instrumentation"""
@@ -271,7 +271,7 @@ class _LogfireConfigData:
         default_otlp_span_exporter_session: requests.Session | None,
         logfire_api_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
-        disable_pydantic_plugin: bool | None,
+        pydantic_plugin_record: PydanticPluginRecordValues | None,
         pydantic_plugin_include: set[str] | None,
         pydantic_plugin_exclude: set[str] | None,
     ) -> None:
@@ -319,7 +319,7 @@ class _LogfireConfigData:
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
         self.logfire_api_session = logfire_api_session
         self.otlp_span_exporter = otlp_span_exporter
-        self.disable_pydantic_plugin = param_manager.load_param('disable_pydantic_plugin', disable_pydantic_plugin)
+        self.pydantic_plugin_record = param_manager.load_param('pydantic_plugin_record', pydantic_plugin_record)
         self.pydantic_plugin_include = param_manager.load_param('pydantic_plugin_include', pydantic_plugin_include)
         self.pydantic_plugin_exclude = param_manager.load_param('pydantic_plugin_exclude', pydantic_plugin_exclude)
         if self.service_version is None:
@@ -375,7 +375,7 @@ class LogfireConfig(_LogfireConfigData):
         default_otlp_span_exporter_session: requests.Session | None = None,
         logfire_api_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
-        disable_pydantic_plugin: bool | None = None,
+        pydantic_plugin_record: PydanticPluginRecordValues | None = None,
         pydantic_plugin_include: set[str] | None = None,
         pydantic_plugin_exclude: set[str] | None = None,
     ) -> None:
@@ -410,7 +410,7 @@ class LogfireConfig(_LogfireConfigData):
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
             logfire_api_session=logfire_api_session,
             otlp_span_exporter=otlp_span_exporter,
-            disable_pydantic_plugin=disable_pydantic_plugin,
+            pydantic_plugin_record=pydantic_plugin_record,
             pydantic_plugin_include=pydantic_plugin_include,
             pydantic_plugin_exclude=pydantic_plugin_exclude,
         )

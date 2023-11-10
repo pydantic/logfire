@@ -455,12 +455,15 @@ def test_set_request_headers() -> None:
 
 
 def test_read_config_from_environment_variables() -> None:
-    assert LogfireConfig().disable_pydantic_plugin is False
+    assert LogfireConfig().pydantic_plugin_record == 'off'
 
-    with patch.dict(os.environ, {'LOGFIRE_DISABLE_PYDANTIC_PLUGIN': 'true'}):
-        assert LogfireConfig().disable_pydantic_plugin is True
-    with patch.dict(os.environ, {'LOGFIRE_DISABLE_PYDANTIC_PLUGIN': 'test'}):
-        with pytest.raises(LogfireConfigError, match="Expected disable_pydantic_plugin to be a boolean, got 'test'"):
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'all'}):
+        assert LogfireConfig().pydantic_plugin_record == 'all'
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'test'}):
+        with pytest.raises(
+            LogfireConfigError,
+            match="Expected pydantic_plugin_record to be one of \\('off', 'all', 'failure', 'metrics'\\), got 'test'",
+        ):
             LogfireConfig()
 
     assert LogfireConfig().pydantic_plugin_include == set()
@@ -487,7 +490,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         console_include_timestamp = false
         data_dir = "{tmp_path}"
         collect_system_metrics = false
-        disable_pydantic_plugin = true
+        pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
         """
@@ -502,7 +505,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
     assert GLOBAL_CONFIG.collect_system_metrics is False
-    assert GLOBAL_CONFIG.disable_pydantic_plugin is True
+    assert GLOBAL_CONFIG.pydantic_plugin_record == 'metrics'
     assert GLOBAL_CONFIG.pydantic_plugin_include == {'test1', 'test2'}
     assert GLOBAL_CONFIG.pydantic_plugin_exclude == {'test3', 'test4'}
 

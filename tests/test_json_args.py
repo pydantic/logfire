@@ -20,7 +20,7 @@ import logfire
 from logfire._flatten import Flatten
 from logfire.testing import TestExporter
 
-pydantic_model_config = ConfigDict(plugin_settings={'logfire': 'disable'})
+pydantic_model_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}})
 
 
 class MyModel(BaseModel):

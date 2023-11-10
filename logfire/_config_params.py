@@ -21,6 +21,9 @@ slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
 ShowSummaryValues = Literal['always', 'never', 'new-project']
 """Possible values for the `show_summary` parameter."""
 
+PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
+"""Possible values for the `pydantic_plugin_record` parameter."""
+
 
 @dataclass(**slots_true)
 class ConfigParam:
@@ -67,8 +70,8 @@ CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMES
 """Whether to include the timestamp in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
 """Whether to log in verbose mode in the console."""
-DISABLE_PYDANTIC_PLUGIN = ConfigParam(env_vars=['LOGFIRE_DISABLE_PYDANTIC_PLUGIN'], allow_file_config=True, default=False, tp=bool)
-"""Whether to disable the Logfire Pydantic plugin."""
+PYDANTIC_PLUGIN_RECORD = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_RECORD'], allow_file_config=True, default='off', tp=PydanticPluginRecordValues)
+"""Whether instrument Pydantic validation.."""
 PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
 """Set of items that should be included in Logfire Pydantic plugin instrumentation."""
 PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
@@ -94,7 +97,7 @@ CONFIG_PARAMS = {
     'console_indent_span': CONSOLE_INDENT_SPAN,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
     'console_verbose': CONSOLE_VERBOSE,
-    'disable_pydantic_plugin': DISABLE_PYDANTIC_PLUGIN,
+    'pydantic_plugin_record': PYDANTIC_PLUGIN_RECORD,
     'pydantic_plugin_include': PYDANTIC_PLUGIN_INCLUDE,
     'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
 }

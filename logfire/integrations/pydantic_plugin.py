@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from pydantic_core import CoreConfig, CoreSchema
 
@@ -24,16 +24,32 @@ if TYPE_CHECKING:
     # It might make sense to export the following type alias from `pydantic.plugin`, rather than redefining it here.
     StringInput: TypeAlias = 'dict[str, StringInput]'
 
+METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
+
 
 class BaseValidateHandler:
     validation_method: ClassVar[str]
     span_stack: ExitStack
-    __slots__ = 'schema_name', 'span_stack'
+    __slots__ = 'schema_name', 'span_stack', '_record', '_successful_validation_counter', '_failed_validation_counter'
 
-    def __init__(self, schema: CoreSchema, _config: CoreConfig | None, _plugin_settings: dict[str, object]) -> None:
+    def __init__(
+        self,
+        schema: CoreSchema,
+        _config: CoreConfig | None,
+        _plugin_settings: dict[str, dict[str, Any]],
+        schema_type_path: SchemaTypePath,
+        record: Literal['all', 'failure', 'metrics'],
+    ) -> None:
         # We accept the schema, config, and plugin_settings in the init since these are the things
         # that are currently exposed by the plugin to potentially configure the validation handlers.
         self.schema_name = get_schema_name(schema)
+        self._record = record
+
+        # As the counter name should be less than 63 chars, we only get the last 40 chars of model name
+        successful_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-successful-validation'
+        self._successful_validation_counter = METER.create_counter(name=successful_validation_counter_name)
+        failed_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-failed-validation'
+        self._failed_validation_counter = METER.create_counter(name=failed_validation_counter_name)
 
     def _on_enter(
         self,
@@ -45,18 +61,23 @@ class BaseValidateHandler:
         self_instance: Any | None = None,
     ) -> None:
         self.span_stack = ExitStack()
-        self.span_stack.enter_context(
-            logfire.span(
-                'Pydantic {schema_name} {validation_method}',
-                schema_name=self.schema_name,
-                validation_method=self.validation_method,
-                input_data=input_data,
-                span_name=f'pydantic.{self.validation_method}',
+        if self._record == 'all':
+            self.span_stack.enter_context(
+                logfire.span(
+                    'Pydantic {schema_name} {validation_method}',
+                    schema_name=self.schema_name,
+                    validation_method=self.validation_method,
+                    input_data=input_data,
+                    span_name=f'pydantic.{self.validation_method}',
+                )
             )
-        )
 
     def on_success(self, result: Any) -> None:
-        logfire.debug('Validation successful {result=!r}', result=result)
+        if self._record == 'all':
+            logfire.debug('Validation successful {result=!r}', result=result)
+
+        self._successful_validation_counter.add(1)
+
         self.span_stack.close()
 
     def on_error(self, error: ValidationError) -> None:
@@ -68,6 +89,7 @@ class BaseValidateHandler:
             plural=plural,
             errors=error.errors(include_url=False),
         )
+        self._failed_validation_counter.add(1)
         self.span_stack.close()
 
     def on_exception(self, exception: Exception) -> None:
@@ -162,18 +184,28 @@ class LogfirePydanticPlugin:
         schema_type_path: SchemaTypePath,
         schema_kind: SchemaKind,
         config: CoreConfig | None,
-        plugin_settings: dict[str, object],
+        plugin_settings: dict[str, Any],
     ) -> tuple[
         ValidatePythonHandlerProtocol | None, ValidateJsonHandlerProtocol | None, ValidateStringsHandlerProtocol | None
     ]:
-        if not GLOBAL_CONFIG.disable_pydantic_plugin:
-            logfire_settings = plugin_settings.get('logfire')
-            if logfire_settings != 'disable' and include_model(schema, schema_type_path):
-                return (
-                    ValidatePythonHandler(schema, config, plugin_settings),
-                    ValidateJsonHandler(schema, config, plugin_settings),
-                    ValidateStringsHandler(schema, config, plugin_settings),
-                )
+        record = 'off'
+
+        logfire_settings = plugin_settings.get('logfire')
+        if logfire_settings and logfire_settings.get('record'):
+            record = logfire_settings['record']
+        else:
+            record = GLOBAL_CONFIG.pydantic_plugin_record
+
+        if record == 'off':
+            return None, None, None
+
+        if include_model(schema, schema_type_path):
+            record = cast(Literal['all', 'failure', 'metrics'], record)
+            return (
+                ValidatePythonHandler(schema, config, plugin_settings, schema_type_path, record),
+                ValidateJsonHandler(schema, config, plugin_settings, schema_type_path, record),
+                ValidateStringsHandler(schema, config, plugin_settings, schema_type_path, record),
+            )
 
         return None, None, None
 

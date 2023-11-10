@@ -1,6 +1,41 @@
 !!! note
     We are going to have more integrations, this is just the beginning!
 
+## Pydantic
+
+??? tip "Installation"
+    Install `pip install "logfire[pydantic]"` to use this integration.
+
+    The `pydantic` optional install group contains the [`pydantic`](https://docs.pydantic.dev/latest/) package.
+
+Pydantic allows users to create [plugins](https://docs.pydantic.dev/latest/concepts/plugins/) that
+can be used to extend the functionality of the library.
+
+Logfire has a Pydantic plugin to instrument Pydantic models. The plugin provides logs and metrics
+about model validation, and it's disabled by default. You can enable it using the
+[`pydantic_plugin_record`](configuration.md) configuration.
+
+You can blacklist or whitelist modules and models by using [`pydantic_plugin_include`](configuration.md)
+and [`pydantic_plugin_exclude`](configuration.md) configurations.
+
+You can also change Logfire Pydantic plugin configuration by using
+[plugin_settings](https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings) config.
+
+```py
+from pydantic import BaseModel
+
+
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'failure'}}):
+    ...
+```
+
+The `record` config accepts following values:
+
+  * `off`: Disable instrumentation. This is default value.
+  * `all`: Send traces and metrics for all events.
+  * `failure`: Send metrics for all validations and traces only for validation failures.
+  * `metrics`: Send only metrics.
+
 ## ASGI
 
 ??? tip "Installation"
