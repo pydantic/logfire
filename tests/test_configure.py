@@ -428,6 +428,12 @@ def test_set_request_headers() -> None:
     adapter = StubAdapter(requests=[], responses=responses)
     session.adapters['https://'] = adapter
 
+    logfire_api_session = requests.Session()
+    response = requests.Response()
+    response.status_code = 200
+    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response])
+    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
+
     configure(
         send_to_logfire=True,
         console=ConsoleOptions(enabled=False),
@@ -435,6 +441,7 @@ def test_set_request_headers() -> None:
         id_generator=IncrementalIdGenerator(),
         default_otlp_span_exporter_request_headers={'X-Test': 'test'},
         default_otlp_span_exporter_session=session,
+        logfire_api_session=logfire_api_session,
         default_span_processor=SimpleSpanProcessor,
         token='123',
     )
@@ -523,6 +530,12 @@ def test_logfire_config_console_options() -> None:
 
 
 def test_configure_fallback_path(tmp_path: str) -> None:
+    logfire_api_session = requests.Session()
+    response = requests.Response()
+    response.status_code = 200
+    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response])
+    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
+
     class FailureExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
             return SpanExportResult.FAILURE
@@ -533,6 +546,7 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         token='abc',
         default_span_processor=SimpleSpanProcessor,
         otlp_span_exporter=FailureExporter(),
+        logfire_api_session=logfire_api_session,
     )
 
     with logfire.span('test'):
@@ -542,15 +556,21 @@ def test_configure_fallback_path(tmp_path: str) -> None:
 
 
 def test_configure_service_version(tmp_path: str) -> None:
+    logfire_api_session = requests.Session()
+    response = requests.Response()
+    response.status_code = 200
+    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response] * 3)
+    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
+
     import subprocess
 
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-    configure(token='abc', service_version='1.2.3')
+    configure(token='abc', service_version='1.2.3', logfire_api_session=logfire_api_session)
 
     assert GLOBAL_CONFIG.service_version == '1.2.3'
 
-    configure(token='abc')
+    configure(token='abc', logfire_api_session=logfire_api_session)
 
     assert GLOBAL_CONFIG.service_version == git_sha
 
@@ -558,7 +578,7 @@ def test_configure_service_version(tmp_path: str) -> None:
 
     try:
         os.chdir(tmp_path)
-        configure(token='abc')
+        configure(token='abc', logfire_api_session=logfire_api_session)
         assert GLOBAL_CONFIG.service_version is None
     finally:
         os.chdir(dir)

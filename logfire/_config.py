@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
 
-import httpx
 import requests
 from opentelemetry import metrics, trace
 from opentelemetry.context import attach, detach, set_value
@@ -85,6 +84,7 @@ def configure(
     metric_readers: Sequence[MetricReader] | None = None,
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
     default_otlp_span_exporter_session: requests.Session | None = None,
+    logfire_api_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
     disable_pydantic_plugin: bool | None = None,
     pydantic_plugin_include: set[str] | None = None,
@@ -121,6 +121,7 @@ def configure(
         metric_readers: Sequence of metric readers to be used.
         default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
+        logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
         disable_pydantic_plugin: Whether to disable the Logfire Pydantic plugin. If `None` uses the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable, otherwise defaults to `False`.
         pydantic_plugin_include: Set of items that should be included in Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_INCLUDE` environment variable, otherwise defaults to `set()`.
@@ -149,6 +150,7 @@ def configure(
         metric_readers=metric_readers,
         default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
+        logfire_api_session=logfire_api_session,
         otlp_span_exporter=otlp_span_exporter,
         disable_pydantic_plugin=disable_pydantic_plugin,
         pydantic_plugin_include=pydantic_plugin_include,
@@ -224,6 +226,12 @@ class _LogfireConfigData:
     default_otlp_span_exporter_request_headers: dict[str, str] | None = None
     """Additional headers to send with requests to the Logfire API"""
 
+    default_otlp_span_exporter_session: requests.Session | None = None
+    """The session to use when sending requests to the Logfire API"""
+
+    logfire_api_session: requests.Session | None = None
+    """The session to use when checking the Logfire backend"""
+
     otlp_span_exporter: SpanExporter | None = None
     """The OTLP span exporter to use"""
 
@@ -261,6 +269,7 @@ class _LogfireConfigData:
         metric_readers: Sequence[MetricReader] | None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
+        logfire_api_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
         disable_pydantic_plugin: bool | None,
         pydantic_plugin_include: set[str] | None,
@@ -308,6 +317,7 @@ class _LogfireConfigData:
         self.metric_readers = metric_readers
         self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
+        self.logfire_api_session = logfire_api_session
         self.otlp_span_exporter = otlp_span_exporter
         self.disable_pydantic_plugin = param_manager.load_param('disable_pydantic_plugin', disable_pydantic_plugin)
         self.pydantic_plugin_include = param_manager.load_param('pydantic_plugin_include', pydantic_plugin_include)
@@ -363,6 +373,7 @@ class LogfireConfig(_LogfireConfigData):
         metric_readers: Sequence[MetricReader] | None = None,
         default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
         default_otlp_span_exporter_session: requests.Session | None = None,
+        logfire_api_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
         disable_pydantic_plugin: bool | None = None,
         pydantic_plugin_include: set[str] | None = None,
@@ -397,6 +408,7 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers=metric_readers,
             default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
+            logfire_api_session=logfire_api_session,
             otlp_span_exporter=otlp_span_exporter,
             disable_pydantic_plugin=disable_pydantic_plugin,
             pydantic_plugin_include=pydantic_plugin_include,
@@ -466,6 +478,7 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers = list(self.metric_readers or ())
 
             if self.send_to_logfire:
+                new_credentials: LogfireCredentials | None = None
                 if self.token is None:
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
@@ -474,6 +487,7 @@ class LogfireConfig(_LogfireConfigData):
                         new_credentials = LogfireCredentials.create_new_project(
                             logfire_api_url=self.base_url,
                             requested_project_name=self.project_name or self.service_name,
+                            session=self.logfire_api_session,
                         )
                         new_credentials.write_creds_file(self.data_dir)
                         if self.show_summary != 'never':
@@ -492,6 +506,12 @@ class LogfireConfig(_LogfireConfigData):
                     'Authorization': self.token,
                     **(self.default_otlp_span_exporter_request_headers or {}),
                 }
+                # NOTE: Only check the backend if we didn't call it already.
+                if new_credentials is None:
+                    logfire_api_session = self.logfire_api_session or requests.Session()
+                    logfire_api_session.headers.update(headers)
+                    self.check_logfire_backend(logfire_api_session)
+
                 session = self.default_otlp_span_exporter_session or requests.Session()
                 session.headers.update(headers)
                 otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
@@ -553,6 +573,20 @@ class LogfireConfig(_LogfireConfigData):
             return self.initialize()
         return self._tracer_provider
 
+    def check_logfire_backend(self, session: requests.Session) -> None:
+        """Check that the token is valid, and the Logfire API is reachable.
+
+        Raises:
+            LogfireConfigError: If the token is invalid or the Logfire API is not reachable.
+        """
+        try:
+            response = session.get(f'{self.base_url}/v1/health')
+            if response.status_code == 404:
+                raise LogfireConfigError('Invalid Logfire token.')
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            raise LogfireConfigError('Logfire API is not healthy.') from e
+
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
@@ -578,12 +612,6 @@ class LogfireCredentials:
     """The URL to the project dashboard."""
     logfire_api_url: str
     """The Logfire API base URL."""
-
-    def __post_init__(self):
-        for attr, value in dataclasses.asdict(self).items():
-            value = getattr(self, attr)
-            if not isinstance(value, str):
-                raise TypeError(f'`{attr}` must be a string, got {value!r}')
 
     @classmethod
     def load_creds_file(cls, creds_dir: Path) -> Self | None:
@@ -612,13 +640,16 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def create_new_project(cls, *, logfire_api_url: str, requested_project_name: str) -> Self:
+    def create_new_project(
+        cls, *, logfire_api_url: str, requested_project_name: str, session: requests.Session | None = None
+    ) -> Self:
         """Create a new project on logfire.dev requesting the given project name.
 
         Args:
             logfire_api_url: The Logfire API base URL.
             requested_project_name: Name to request for the project, the actual returned name may include a random
                 suffix to make it unique.
+            session: HTTP client session used to communicate with the Logfire API.
 
         Returns:
             The new credentials.
@@ -628,13 +659,13 @@ class LogfireCredentials:
         """
         url = f'{logfire_api_url}/v1/projects/'
         try:
-            response = httpx.post(
+            response = (session or requests).post(
                 url,
                 params={'requested_project_name': requested_project_name},
                 headers=COMMON_REQUEST_HEADERS,
             )
             response.raise_for_status()
-        except httpx.HTTPError as e:
+        except requests.ConnectionError as e:
             raise LogfireConfigError(f'Error creating new project at {url}') from e
         else:
             json_data = response.json()
