@@ -421,6 +421,7 @@ def test_set_request_headers() -> None:
     time_generator = TimeGenerator()
 
     session = requests.Session()
+    session.headers.update({'X-Test': 'test'})
     response = requests.Response()
     response._content = b'\n\x00'
     response.status_code = 200
@@ -439,7 +440,6 @@ def test_set_request_headers() -> None:
         console=ConsoleOptions(enabled=False),
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
-        default_otlp_span_exporter_request_headers={'X-Test': 'test'},
         default_otlp_span_exporter_session=session,
         logfire_api_session=logfire_api_session,
         default_span_processor=SimpleSpanProcessor,

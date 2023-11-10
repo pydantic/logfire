@@ -82,7 +82,6 @@ def configure(
     processors: Sequence[SpanProcessor] | None = None,
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
-    default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
     default_otlp_span_exporter_session: requests.Session | None = None,
     logfire_api_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
@@ -119,7 +118,6 @@ def configure(
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Sequence of metric readers to be used.
-        default_otlp_span_exporter_request_headers: Request headers for the OTLP span exporter.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
@@ -148,7 +146,6 @@ def configure(
         processors=processors,
         default_span_processor=default_span_processor,
         metric_readers=metric_readers,
-        default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         logfire_api_session=logfire_api_session,
         otlp_span_exporter=otlp_span_exporter,
@@ -223,9 +220,6 @@ class _LogfireConfigData:
     default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
-    default_otlp_span_exporter_request_headers: dict[str, str] | None = None
-    """Additional headers to send with requests to the Logfire API"""
-
     default_otlp_span_exporter_session: requests.Session | None = None
     """The session to use when sending requests to the Logfire API"""
 
@@ -267,7 +261,6 @@ class _LogfireConfigData:
         processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
-        default_otlp_span_exporter_request_headers: dict[str, str] | None,
         default_otlp_span_exporter_session: requests.Session | None,
         logfire_api_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
@@ -315,7 +308,6 @@ class _LogfireConfigData:
         self.processors = list(processors or ())
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
-        self.default_otlp_span_exporter_request_headers = default_otlp_span_exporter_request_headers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
         self.logfire_api_session = logfire_api_session
         self.otlp_span_exporter = otlp_span_exporter
@@ -371,7 +363,6 @@ class LogfireConfig(_LogfireConfigData):
         processors: Sequence[SpanProcessor] | None = None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
-        default_otlp_span_exporter_request_headers: dict[str, str] | None = None,
         default_otlp_span_exporter_session: requests.Session | None = None,
         logfire_api_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
@@ -406,7 +397,6 @@ class LogfireConfig(_LogfireConfigData):
             processors=processors,
             default_span_processor=default_span_processor,
             metric_readers=metric_readers,
-            default_otlp_span_exporter_request_headers=default_otlp_span_exporter_request_headers,
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
             logfire_api_session=logfire_api_session,
             otlp_span_exporter=otlp_span_exporter,
@@ -504,7 +494,6 @@ class LogfireConfig(_LogfireConfigData):
                 headers = {
                     'User-Agent': f'logfire/{VERSION}',
                     'Authorization': self.token,
-                    **(self.default_otlp_span_exporter_request_headers or {}),
                 }
                 # NOTE: Only check the backend if we didn't call it already.
                 if new_credentials is None:
