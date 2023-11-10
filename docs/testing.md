@@ -188,7 +188,6 @@ This is the same configuration function you'd use for production and where every
 Note that we specifically configure:
 
 - `send_to_logfire=False` because we don't want to hit the actual production service
-- `console=logfire.ConsoleOptions(enabled=False)` to avoid adding bloat to stdout
 - `id_generator=IncrementalIdGenerator()` to make the span IDs deterministic
 - `ns_timestamp_generator=TimeGenerator()` to make the timestamps deterministic
 - `processors=[SimpleSpanProcessor(exporter)]` to use our `TestExporter` to capture spans. We use `SimpleSpanProcessor` to export spans with no delay.

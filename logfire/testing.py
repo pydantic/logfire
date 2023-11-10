@@ -221,7 +221,7 @@ def logfire_test_exporter() -> LogfireTestExporter:
     metrics_reader = InMemoryMetricReader()
     logfire.configure(
         send_to_logfire=False,
-        console=logfire.ConsoleOptions(enabled=False),
+        console=False,
         id_generator=IncrementalIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         processors=[SimpleSpanProcessor(exporter)],

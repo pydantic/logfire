@@ -55,7 +55,6 @@ COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
 @dataclass
 class ConsoleOptions:
-    enabled: bool = True
     colors: ConsoleColorsValues = 'auto'
     indent_spans: bool = True
     include_timestamps: bool = True
@@ -100,8 +99,8 @@ def configure(
         service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
         trace_sample_rate: Sampling ratio for spans, if `None` uses the `LOGFIRE_SAMPLING_RATIO` environment variable or the `OTEL_TRACES_SAMPLER_ARG` env variable, or defaults to `1.0`.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
-            otherwise defaults to `ConsoleOption(enabled=True, colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
-            If `False` disables console output.
+            otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
+            If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `'new-project'`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
@@ -135,7 +134,7 @@ def configure(
         service_name=service_name,
         service_version=service_version,
         trace_sample_rate=trace_sample_rate,
-        console=console if console is not False else ConsoleOptions(enabled=False),
+        console=console,
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
@@ -193,7 +192,7 @@ class _LogfireConfigData:
     trace_sample_rate: float
     """The sampling ratio for spans"""
 
-    console: ConsoleOptions
+    console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
 
     show_summary: ShowSummaryValues
@@ -250,7 +249,7 @@ class _LogfireConfigData:
         service_name: str | None,
         service_version: str | None,
         trace_sample_rate: float | None,
-        console: ConsoleOptions | None,
+        console: ConsoleOptions | Literal[False] | None,
         show_summary: ShowSummaryValues | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -290,13 +289,12 @@ class _LogfireConfigData:
         )
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
 
-        if console is False:
-            self.console = ConsoleOptions(enabled=False)
-        elif console is not None:
+        if console is not None:
             self.console = console
+        elif param_manager.load_param('console') is False:
+            self.console = False
         else:
             self.console = ConsoleOptions(
-                enabled=param_manager.load_param('console_enabled'),
                 colors=param_manager.load_param('console_colors'),
                 indent_spans=param_manager.load_param('console_indent_span'),
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
@@ -352,7 +350,7 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None = None,
         service_version: str | None = None,
         trace_sample_rate: float | None = None,
-        console: ConsoleOptions | None = None,
+        console: ConsoleOptions | Literal[False] | None = None,
         show_summary: ShowSummaryValues | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
@@ -451,7 +449,7 @@ class LogfireConfig(_LogfireConfigData):
             for processor in self.processors:
                 tracer_provider.add_span_processor(processor)
 
-            if self.console.enabled:
+            if self.console:
                 tracer_provider.add_span_processor(
                     SimpleSpanProcessor(
                         ConsoleSpanExporter(

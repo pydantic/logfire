@@ -53,7 +53,7 @@ def test_propagate_config_to_tags() -> None:
 
     configure(
         send_to_logfire=False,
-        console=ConsoleOptions(enabled=False),
+        console=False,
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
         processors=[SimpleSpanProcessor(exporter)],
@@ -437,7 +437,7 @@ def test_set_request_headers() -> None:
 
     configure(
         send_to_logfire=True,
-        console=ConsoleOptions(enabled=False),
+        console=False,
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
         default_otlp_span_exporter_session=session,
@@ -512,11 +512,17 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
 
 def test_logfire_config_console_options() -> None:
     assert LogfireConfig().console == ConsoleOptions()
-    assert LogfireConfig(console=ConsoleOptions(enabled=False)).console == ConsoleOptions(enabled=False)
+    assert LogfireConfig(console=False).console is False
     assert LogfireConfig(console=ConsoleOptions(colors='never', verbose=True)).console == ConsoleOptions(
         colors='never', verbose=True
     )
 
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE': 'false'}):
+        assert LogfireConfig().console is False
+    with patch.dict(os.environ, {'LOGFIRE_CONSOLE': 'true'}):
+        assert LogfireConfig().console == ConsoleOptions(
+            colors='auto', indent_spans=True, include_timestamps=True, verbose=False
+        )
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_COLORS': 'never'}):
         assert LogfireConfig().console == ConsoleOptions(colors='never')
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_COLORS': 'test'}):
@@ -595,7 +601,7 @@ def test_otel_service_name_env_var() -> None:
         configure(
             service_version='1.2.3',
             send_to_logfire=False,
-            console=ConsoleOptions(enabled=False),
+            console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             processors=[SimpleSpanProcessor(exporter)],
@@ -640,7 +646,7 @@ def test_otel_resource_attributes_env_var() -> None:
     with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.name=banana,service.version=1.2.3'}):
         configure(
             send_to_logfire=False,
-            console=ConsoleOptions(enabled=False),
+            console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             processors=[SimpleSpanProcessor(exporter)],
@@ -688,7 +694,7 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
     ):
         configure(
             send_to_logfire=False,
-            console=ConsoleOptions(enabled=False),
+            console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             processors=[SimpleSpanProcessor(exporter)],

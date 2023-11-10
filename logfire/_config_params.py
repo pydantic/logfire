@@ -60,8 +60,8 @@ LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE = ConfigParam(env_vars=['LOGFIRE_EXPORTE
 """Path to the file where spans are stored when the exporter is disabled."""
 COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=True, tp=bool)
 """Whether to collect system metrics."""
-CONSOLE_ENABLED = ConfigParam(env_vars=['LOGFIRE_CONSOLE_ENABLED'], allow_file_config=True, default=True, tp=bool)
-"""Whether to enable the console exporter."""
+CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
+"""Whether to enable/disable the console exporter."""
 CONSOLE_COLORS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_COLORS'], allow_file_config=True, default='auto', tp=ConsoleColorsValues)
 """Whether to use colors in the console."""
 CONSOLE_INDENT_SPAN = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INDENT_SPAN'], allow_file_config=True, default=True, tp=bool)
@@ -92,7 +92,7 @@ CONFIG_PARAMS = {
     'data_dir': CREDENTIALS_DIR,
     'exporter_fallback_to_local_file': LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE,
     'collect_system_metrics': COLLECT_SYSTEM_METRICS,
-    'console_enabled': CONSOLE_ENABLED,
+    'console': CONSOLE,
     'console_colors': CONSOLE_COLORS,
     'console_indent_span': CONSOLE_INDENT_SPAN,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
