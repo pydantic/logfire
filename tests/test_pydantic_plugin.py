@@ -13,7 +13,7 @@ from pydantic.plugin import SchemaTypePath
 from pydantic_core import core_schema
 
 import logfire
-from logfire._config import GLOBAL_CONFIG
+from logfire._config import GLOBAL_CONFIG, PydanticPluginOptions
 from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 
@@ -49,7 +49,7 @@ def test_check_plugin_installed():
 
 
 def test_disable_logfire_pydantic_plugin() -> None:
-    logfire.configure(send_to_logfire=False, pydantic_plugin_record='off')
+    logfire.configure(send_to_logfire=False, pydantic_plugin=PydanticPluginOptions(record='off'))
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
         core_schema.int_schema(), None, SchemaTypePath(module='', name=''), 'BaseModel', None, {}
@@ -79,7 +79,7 @@ def test_logfire_pydantic_plugin_settings_record_off_on_model(exporter: TestExpo
 
 
 def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporter: TestExporter) -> None:
-    GLOBAL_CONFIG.pydantic_plugin_record = 'all'
+    GLOBAL_CONFIG.pydantic_plugin.record = 'all'
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'off'}}):
         x: int
@@ -120,10 +120,7 @@ def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
     logfire.configure(
-        send_to_logfire=False,
-        pydantic_plugin_record='all',
-        pydantic_plugin_include=include,
-        pydantic_plugin_exclude=exclude,
+        send_to_logfire=False, pydantic_plugin=PydanticPluginOptions(record='all', include=include, exclude=exclude)
     )
     plugin = LogfirePydanticPlugin()
 

@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
 
@@ -61,6 +61,13 @@ class ConsoleOptions:
     verbose: bool = False
 
 
+@dataclass
+class PydanticPluginOptions:
+    record: PydanticPluginRecordValues = 'off'
+    include: set[str] = field(default_factory=set)
+    exclude: set[str] = field(default_factory=set)
+
+
 def configure(
     *,
     send_to_logfire: bool | None = None,
@@ -84,9 +91,7 @@ def configure(
     default_otlp_span_exporter_session: requests.Session | None = None,
     logfire_api_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
-    pydantic_plugin_record: PydanticPluginRecordValues | None = None,
-    pydantic_plugin_include: set[str] | None = None,
-    pydantic_plugin_exclude: set[str] | None = None,
+    pydantic_plugin: PydanticPluginOptions | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -120,11 +125,8 @@ def configure(
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
-        pydantic_plugin_record: Whether instrument Pydantic validation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_RECORD` environment variable, otherwise defaults to `off`.
-        pydantic_plugin_include: Set of items that should be included in Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_INCLUDE` environment variable, otherwise defaults to `set()`.
-            It can contain a model name e.g. `MyModel`, module name and model name e.g. `test_module::MyModel` or regex in both module and model name e.g. `.*test_module.*::MyModel[1,2]`.
-        pydantic_plugin_exclude: Set of items that should be excluded from Logfire Pydantic plugin instrumentation. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE` environment variable, otherwise defaults to `set()`.
-            It can contain a model name e.g. `MyModel`, module name and model name e.g. `test_module::MyModel` or regex in both module and model name e.g. `.*test_module.*::MyModel[1,2]`.
+        pydantic_plugin: Options for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
+            variables, otherwise defaults to `PydanticPluginOptions(record='off', include=set(), exclude=set())`.
     """
     GLOBAL_CONFIG.load_configuration(
         base_url=base_url,
@@ -148,9 +150,7 @@ def configure(
         default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         logfire_api_session=logfire_api_session,
         otlp_span_exporter=otlp_span_exporter,
-        pydantic_plugin_record=pydantic_plugin_record,
-        pydantic_plugin_include=pydantic_plugin_include,
-        pydantic_plugin_exclude=pydantic_plugin_exclude,
+        pydantic_plugin=pydantic_plugin,
     )
     GLOBAL_CONFIG.initialize()
 
@@ -216,6 +216,9 @@ class _LogfireConfigData:
     processors: Sequence[SpanProcessor]
     """Additional span processors"""
 
+    pydantic_plugin: PydanticPluginOptions
+    """Options for the Pydantic plugin"""
+
     default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
@@ -227,15 +230,6 @@ class _LogfireConfigData:
 
     otlp_span_exporter: SpanExporter | None = None
     """The OTLP span exporter to use"""
-
-    pydantic_plugin_record: PydanticPluginRecordValues | None = None
-    """Whether instrument Pydantic validation"""
-
-    pydantic_plugin_include: set[str] | None = None
-    """Set of items that should be included in Logfire Pydantic plugin instrumentation"""
-
-    pydantic_plugin_exclude: set[str] | None = None
-    """Set of items that should be excluded from Logfire Pydantic plugin instrumentation"""
 
     def load_configuration(
         self,
@@ -263,9 +257,7 @@ class _LogfireConfigData:
         default_otlp_span_exporter_session: requests.Session | None,
         logfire_api_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
-        pydantic_plugin_record: PydanticPluginRecordValues | None,
-        pydantic_plugin_include: set[str] | None,
-        pydantic_plugin_exclude: set[str] | None,
+        pydantic_plugin: PydanticPluginOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
@@ -301,6 +293,12 @@ class _LogfireConfigData:
                 verbose=param_manager.load_param('console_verbose'),
             )
 
+        self.pydantic_plugin = pydantic_plugin or PydanticPluginOptions(
+            record=param_manager.load_param('pydantic_plugin_record'),
+            include=param_manager.load_param('pydantic_plugin_include'),
+            exclude=param_manager.load_param('pydantic_plugin_exclude'),
+        )
+
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.processors = list(processors or ())
@@ -309,9 +307,6 @@ class _LogfireConfigData:
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
         self.logfire_api_session = logfire_api_session
         self.otlp_span_exporter = otlp_span_exporter
-        self.pydantic_plugin_record = param_manager.load_param('pydantic_plugin_record', pydantic_plugin_record)
-        self.pydantic_plugin_include = param_manager.load_param('pydantic_plugin_include', pydantic_plugin_include)
-        self.pydantic_plugin_exclude = param_manager.load_param('pydantic_plugin_exclude', pydantic_plugin_exclude)
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -364,9 +359,7 @@ class LogfireConfig(_LogfireConfigData):
         default_otlp_span_exporter_session: requests.Session | None = None,
         logfire_api_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
-        pydantic_plugin_record: PydanticPluginRecordValues | None = None,
-        pydantic_plugin_include: set[str] | None = None,
-        pydantic_plugin_exclude: set[str] | None = None,
+        pydantic_plugin: PydanticPluginOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -398,9 +391,7 @@ class LogfireConfig(_LogfireConfigData):
             default_otlp_span_exporter_session=default_otlp_span_exporter_session,
             logfire_api_session=logfire_api_session,
             otlp_span_exporter=otlp_span_exporter,
-            pydantic_plugin_record=pydantic_plugin_record,
-            pydantic_plugin_include=pydantic_plugin_include,
-            pydantic_plugin_exclude=pydantic_plugin_exclude,
+            pydantic_plugin=pydantic_plugin,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -434,8 +425,8 @@ class LogfireConfig(_LogfireConfigData):
                 resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if resource_attributes_from_env:
-                for field in resource_attributes_from_env.split(','):
-                    key, value = field.split('=')
+                for _field in resource_attributes_from_env.split(','):
+                    key, value = _field.split('=')
                     resource_attributes[key.strip()] = value.strip()
 
             resource = Resource.create(resource_attributes)

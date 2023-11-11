@@ -206,7 +206,7 @@ class LogfirePydanticPlugin:
         if logfire_settings and logfire_settings.get('record'):
             record = logfire_settings['record']
         else:
-            record = GLOBAL_CONFIG.pydantic_plugin_record
+            record = GLOBAL_CONFIG.pydantic_plugin.record
 
         if record == 'off':
             return None, None, None
@@ -230,8 +230,8 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = 'fastapi.', 'logfire_backend.'
 
 def include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
-    include = GLOBAL_CONFIG.pydantic_plugin_include
-    exclude = GLOBAL_CONFIG.pydantic_plugin_exclude
+    include = GLOBAL_CONFIG.pydantic_plugin.include
+    exclude = GLOBAL_CONFIG.pydantic_plugin.exclude
 
     schema_type = schema['type']
     if schema_type in {'function-after', 'function-before', 'function-wrap'}:
