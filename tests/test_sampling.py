@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire
@@ -58,6 +59,7 @@ def test_sample_rate_config() -> None:
         trace_sample_rate=0.05,
         processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(100):
@@ -78,6 +80,7 @@ def test_sample_rate_runtime() -> None:
         trace_sample_rate=1,
         processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(100):
@@ -99,6 +102,7 @@ def test_outer_sampled_inner_not() -> None:
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         processors=[SimpleSpanProcessor(exporter)],
+        metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):
@@ -122,6 +126,7 @@ def test_outer_and_inner_sampled() -> None:
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         processors=[SimpleSpanProcessor(exporter)],
+        metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):
@@ -149,6 +154,7 @@ def test_sampling_rate_does_not_get_overwritten() -> None:
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         processors=[SimpleSpanProcessor(exporter)],
+        metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):

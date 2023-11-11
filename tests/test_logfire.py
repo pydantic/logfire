@@ -10,6 +10,7 @@ import pytest
 from dirty_equals import IsPositive, IsStr
 from opentelemetry.exporter.otlp.proto.common._internal.trace_encoder import encode_spans
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel
 from pydantic_core import ValidationError
@@ -1174,7 +1175,12 @@ def test_config_preserved_across_thread_or_process(
     executor_factory: Callable[[], ThreadPoolExecutor | ProcessPoolExecutor],
 ) -> None:
     """Check that we copy the current global configuration when moving execution to a thread or process."""
-    configure(send_to_logfire=False, console=False, project_name='foobar!')
+    configure(
+        send_to_logfire=False,
+        console=False,
+        project_name='foobar!',
+        metric_readers=[InMemoryMetricReader()],
+    )
 
     with executor_factory() as executor:
         executor.submit(check_project_name, 'foobar!')

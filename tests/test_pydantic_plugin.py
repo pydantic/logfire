@@ -49,7 +49,11 @@ def test_check_plugin_installed():
 
 
 def test_disable_logfire_pydantic_plugin() -> None:
-    logfire.configure(send_to_logfire=False, pydantic_plugin=PydanticPluginOptions(record='off'))
+    logfire.configure(
+        send_to_logfire=False,
+        pydantic_plugin=PydanticPluginOptions(record='off'),
+        metric_readers=[InMemoryMetricReader()],
+    )
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
         core_schema.int_schema(), None, SchemaTypePath(module='', name=''), 'BaseModel', None, {}
@@ -120,7 +124,9 @@ def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
     logfire.configure(
-        send_to_logfire=False, pydantic_plugin=PydanticPluginOptions(record='all', include=include, exclude=exclude)
+        send_to_logfire=False,
+        pydantic_plugin=PydanticPluginOptions(record='all', include=include, exclude=exclude),
+        metric_readers=[InMemoryMetricReader()],
     )
     plugin = LogfirePydanticPlugin()
 
@@ -650,6 +656,7 @@ def test_pydantic_plugin_sample_rate_config() -> None:
         trace_sample_rate=0.1,
         processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
     )
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
@@ -669,6 +676,7 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
         send_to_logfire=False,
         processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
     )
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
