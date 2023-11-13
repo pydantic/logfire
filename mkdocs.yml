@@ -30,7 +30,8 @@ theme:
     - content.code.annotate
     - content.code.copy
     - announce.dismiss
-    # - navigation.tabs
+    # - navigation.sections
+    - navigation.tabs
   # logo: 'logo-white.svg'
   # favicon: 'favicon.png'
 
@@ -41,20 +42,26 @@ validation:
   unrecognized_links: warn
 
 nav:
-  - Home: index.md
-  - Installation: install.md
-  - Configuration: configuration.md
-  - Integrations: integrations.md
+  - Get Started:
+    - Home: index.md
+    - Installation: install.md
+    - Configuration: configuration.md
+    - Integrations: integrations.md
+    - Advanced:
+      - Backfill: advanced/backfill.md
+      - Sampling: advanced/sampling.md
+    - Testing: testing.md
   - Examples:
     - Image Transformation: examples/image_transformation.md
     - FastAPI Application: examples/fastapi.md
     - Web Scraper: examples/web_scraper.md
     - Machine Learning: examples/machine_learning.md
-  - Advanced:
-    - Backfill: advanced/backfill.md
-    - Sampling: advanced/sampling.md
-  - Testing: testing.md
-  - API Reference: api.md
+  - API Documentation:
+    - Logfire: api/logfire.md
+    - Testing: api/testing.md
+    - Backfill: api/backfill.md
+    - Propagate: api/propagate.md
+    - Exceptions: api/exceptions.md
 
 markdown_extensions:
 - tables

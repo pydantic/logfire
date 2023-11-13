@@ -1,0 +1,1 @@
+::: logfire.propagate

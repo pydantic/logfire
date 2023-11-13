@@ -7,7 +7,7 @@ Logfire makes it very easy to test the emitted logs and spans using the utilitie
 [`logfire.testing`][logfire.testing] module.
 This is what Logfire uses internally to test itself as well.
 
-## `logfire_test_exporter` Fixture
+## `logfire_test_exporter` fixture
 
 This has two attributes `exporter` and `metrics_reader`.
 

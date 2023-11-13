@@ -1,7 +1,7 @@
 """Logfire is the observability tool focused on developer experience."""
 
 from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
-from ._config import ConsoleOptions, configure
+from ._config import ConsoleOptions, PydanticPluginOptions, configure
 from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
 from .exporters._file import load_file as load_spans_from_file
@@ -29,6 +29,7 @@ __all__ = (
     'LogfireSpan',
     'LevelName',
     'ConsoleOptions',
+    'PydanticPluginOptions',
     'configure',
     'span',
     'instrument',

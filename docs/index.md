@@ -1,4 +1,4 @@
-The Pydantic Logfire is an observability platform focused on developer experience.
+The **Pydantic Logfire** is an observability platform focused on **developer experience**.
 
 Starting with Python, we're building a platform to let developers understand their software in a radically simpler and more enjoyable way.
 

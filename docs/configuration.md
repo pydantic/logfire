@@ -1,20 +1,14 @@
 You can use the following ways to configure Logfire:
 
-- [Programmatically via `configure`](#programmatically-via-configure)
-- [Using environment variables](#using-environment-variables)
-- [Using a configuration file (`pyproject.toml`)](#using-a-configuration-file-pyprojecttoml)
-- [Configuration details](#configuration-details)
-  - [`exporter_fallback_to_local_file`](#exporter_fallback_to_local_file)
+1. Programmatically via [`logfire.configure()`][logfire.configure]
+2. Using environment variables
+3. Using a configuration file (`pyproject.toml`)
 
-!!! note
-    Settings passed programmatically have precedence over environment variables, and
-    environment variables have precedence over the configuration file.
+The order of precedence is as above.
 
 ## Programmatically via `configure`
 
-<!-- TODO(Marcelo): Need to add an explanation, and example on how to do this. -->
-
-For more details, you can see our [API reference][logfire.configure].
+For more details, please refer to our [API documentation][logfire.configure].
 
 ## Using environment variables
 

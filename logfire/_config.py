@@ -55,6 +55,8 @@ COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 
 @dataclass
 class ConsoleOptions:
+    """Options for controlling console output."""
+
     colors: ConsoleColorsValues = 'auto'
     indent_spans: bool = True
     include_timestamps: bool = True
@@ -63,6 +65,8 @@ class ConsoleOptions:
 
 @dataclass
 class PydanticPluginOptions:
+    """Options for the Pydantic plugin."""
+
     record: PydanticPluginRecordValues = 'off'
     include: set[str] = field(default_factory=set)
     exclude: set[str] = field(default_factory=set)

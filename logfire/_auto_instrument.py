@@ -143,7 +143,7 @@ def install_automatic_instrumentation(modules: list[str] | None = None, logfire:
     Calling this function multiple times will overwrite the previous modules.
 
     Args:
-        modules: List of module names to trace. Defaults to None.
+        modules: List of module names to trace. Defaults to the calling module.
         logfire: The logfire instance to use. Defaults to the default logfire instance.
     """
     # if modules is None then use the filename of the module of the caller

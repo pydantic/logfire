@@ -217,6 +217,7 @@ class LogfireTestExporter:
 
 @pytest.fixture
 def logfire_test_exporter() -> LogfireTestExporter:
+    """A fixture that returns a LogfireTestExporter instance."""
     exporter = TestExporter()
     metrics_reader = InMemoryMetricReader()
     logfire.configure(

@@ -1,5 +1,4 @@
-!!! note
-    We are going to have more integrations, this is just the beginning!
+You can integrate Logfire with other libraries and frameworks.
 
 ## Pydantic
 
