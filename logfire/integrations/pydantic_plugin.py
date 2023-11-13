@@ -63,6 +63,12 @@ class BaseValidateHandler:
         if trace_sample_rate:
             self._logfire = logfire.with_trace_sample_rate(float(trace_sample_rate))
 
+        tags = _plugin_settings.get('logfire', {}).get('tags')
+        if tags:
+            if isinstance(tags, str):
+                tags = map(str.strip, tags.split(','))
+            self._logfire = self._logfire.with_tags(*tags)
+
     def _on_enter(
         self,
         input_data: Any,

@@ -687,3 +687,49 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
             MyModel.model_validate({'x': 'a'})
 
     assert len(exporter.exported_spans_as_dict()) == 6
+
+
+@pytest.mark.parametrize('tags', ['tag1,tag2', 'tag1 , tag2 ', ['tag1', 'tag2'], ('tag1', 'tag2')])
+def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any) -> None:
+    exporter = TestExporter()
+
+    logfire.configure(
+        send_to_logfire=False,
+        processors=[SimpleSpanProcessor(exporter)],
+        id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
+    )
+
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'failure', 'tags': tags}}):
+        x: int
+
+    with pytest.raises(ValidationError):
+        MyModel.model_validate({'x': 'test'})
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['attributes']['logfire.tags'] == ('tag1', 'tag2')
+
+
+def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExporter) -> None:
+    exporter = TestExporter()
+
+    logfire.configure(
+        send_to_logfire=False,
+        processors=[SimpleSpanProcessor(exporter)],
+        id_generator=SeededRandomIdGenerator(),
+        metric_readers=[InMemoryMetricReader()],
+    )
+
+    class MyModel(
+        BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4, 'tags': 'test_tag'}}
+    ):
+        x: int
+
+    for _ in range(10):
+        with pytest.raises(ValidationError):
+            MyModel.model_validate({'x': 'a'})
+
+    assert len(exporter.exported_spans_as_dict()) == 6
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['attributes']['logfire.tags'] == ('test_tag',)

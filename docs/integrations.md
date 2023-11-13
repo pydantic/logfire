@@ -45,6 +45,22 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample
     ...
 ```
 
+Tags can be included by adding the `tags` key in [`plugin_settings`][plugin_settings].
+
+```py
+from pydantic import BaseModel
+
+
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}):
+    ...
+```
+
+`tags` value can be one of the following options:
+
+  * List of strings. e.g. `['tag1', 'tag2']`
+  * Tuple of strings. e.g. `('tag1', 'tag2')`
+  * Comma separated string. e.g. `'tag1,tag2'`
+
 ## ASGI
 
 ??? tip "Installation"
