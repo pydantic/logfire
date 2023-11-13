@@ -90,7 +90,7 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 return self.provider.resource
-            return Resource.create({ResourceAttributes.SERVICE_NAME: 'unknown'})
+            return Resource.create({ResourceAttributes.SERVICE_NAME: self.config.service_name})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:
