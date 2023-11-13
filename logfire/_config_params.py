@@ -18,9 +18,6 @@ T = TypeVar('T')
 
 slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
 
-ShowSummaryValues = Literal['always', 'never', 'new-project']
-"""Possible values for the `show_summary` parameter."""
-
 PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
 """Possible values for the `pydantic_plugin_record` parameter."""
 
@@ -52,7 +49,7 @@ SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME],
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
 """Version number of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
-SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default='new-project', tp=ShowSummaryValues)
+SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=bool)
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""

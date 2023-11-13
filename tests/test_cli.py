@@ -31,8 +31,8 @@ def test_whoami(logfire_credentials: LogfireCredentials) -> None:
         logfire_credentials.write_creds_file(Path(tmp_dir))
         result = runner.invoke(app, ['whoami', '--data-dir', tmp_dir])
         assert result.exit_code == 0
-        assert logfire_credentials.dashboard_url in result.stdout
-        assert logfire_credentials.project_name in result.stdout
+        # insert_assert(result.stdout)
+        assert result.stdout == 'Logfire dashboard: https://dashboard.logfire.dev.\n'
 
 
 def test_whoami_without_data() -> None:
@@ -40,7 +40,8 @@ def test_whoami_without_data() -> None:
     with runner.isolated_filesystem() as tmp_dir:
         result = runner.invoke(app, ['whoami', '--data-dir', tmp_dir])
         assert result.exit_code == 0
-        assert 'Data not found.' in result.stdout
+        # insert_assert(result.stdout)
+        assert result.stdout == 'Data not found.\n'
 
 
 def test_whoami_default_dir(logfire_credentials: LogfireCredentials) -> None:
@@ -49,8 +50,8 @@ def test_whoami_default_dir(logfire_credentials: LogfireCredentials) -> None:
         logfire_credentials.write_creds_file(Path(tmp_dir) / '.logfire')
         result = runner.invoke(app, ['whoami'])
         assert result.exit_code == 0
-        assert logfire_credentials.dashboard_url in result.stdout
-        assert logfire_credentials.project_name in result.stdout
+        # insert_assert(result.stdout)
+        assert result.stdout == 'Logfire dashboard: https://dashboard.logfire.dev.\n'
 
 
 def test_clean(logfire_credentials: LogfireCredentials) -> None:

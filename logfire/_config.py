@@ -32,7 +32,7 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from typing_extensions import Self
 
 from ._collect_system_info import collect_package_info
-from ._config_params import ParamManager, PydanticPluginRecordValues, ShowSummaryValues
+from ._config_params import ParamManager, PydanticPluginRecordValues
 from ._constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
@@ -81,7 +81,7 @@ def configure(
     service_version: str | None = None,
     trace_sample_rate: float | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
-    show_summary: ShowSummaryValues | None = None,
+    show_summary: bool | None = None,
     config_dir: Path | str | None = None,
     exporter_fallback_to_local_file: bool | None = None,
     data_dir: Path | str | None = None,
@@ -111,7 +111,7 @@ def configure(
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
-            defaults to `'new-project'`.
+            defaults to `True`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
             current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
@@ -199,7 +199,7 @@ class _LogfireConfigData:
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
 
-    show_summary: ShowSummaryValues
+    show_summary: bool
     """Whether to show the summary when starting a new project"""
 
     data_dir: Path
@@ -248,7 +248,7 @@ class _LogfireConfigData:
         service_version: str | None,
         trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
-        show_summary: ShowSummaryValues | None,
+        show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
         exporter_fallback_to_local_file: bool | None,
@@ -350,7 +350,7 @@ class LogfireConfig(_LogfireConfigData):
         service_version: str | None = None,
         trace_sample_rate: float | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
-        show_summary: ShowSummaryValues | None = None,
+        show_summary: bool | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
         exporter_fallback_to_local_file: bool | None = None,
@@ -473,8 +473,8 @@ class LogfireConfig(_LogfireConfigData):
                             session=self.logfire_api_session,
                         )
                         new_credentials.write_creds_file(self.data_dir)
-                        if self.show_summary != 'never':
-                            new_credentials.print_new_token_summary(self.data_dir)
+                        if self.show_summary:
+                            new_credentials.print_token_summary()
                         credentials_to_save = new_credentials
                         # to avoid printing another summary
                         credentials_from_local_file = None
@@ -522,8 +522,8 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
-            if self.show_summary == 'always' and credentials_from_local_file:
-                credentials_from_local_file.print_existing_token_summary(self.data_dir)
+            if self.show_summary and credentials_from_local_file:
+                credentials_from_local_file.print_token_summary()
 
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:
@@ -665,64 +665,26 @@ class LogfireCredentials:
             json.dump(data, f, indent=2)
             f.write('\n')
 
-    def print_new_token_summary(self, creds_dir: Path) -> None:
-        """Print a summary of the new project."""
-        creds_file = _get_creds_file(creds_dir)
-        _print_summary(
-            f"""\
-A new anonymous project called **{self.project_name}** has been created on logfire.dev, to view it go to:
-
-[{self.dashboard_url}]({self.dashboard_url})
-
-But you can see project details by running `logfire whoami`, or by viewing the credentials file at `{creds_file}`.
-""",
-            min_content_width=len(self.dashboard_url),
-        )
-
-    def print_existing_token_summary(self, creds_dir: Path, from_cli: bool = False) -> None:
+    def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
-        if self.project_name and self.dashboard_url:
-            if from_cli:
-                creds_file = _get_creds_file(creds_dir)
-                last_sentence = f'You can also see project details by viewing the credentials file at `{creds_file}`.'
-            else:
-                last_sentence = (
-                    'You can also see project details by running `logfire whoami`, '
-                    'or by viewing the credentials file at `{creds_file}`.'
-                )
+        if self.dashboard_url:
             _print_summary(
-                f"""\
-A project called **{self.project_name}** was found and has been configured for this service, to view it go to:
-
-[{self.dashboard_url}]({self.dashboard_url})
-
-{last_sentence}
-""",
+                f'[bold]Logfire[/bold] dashboard: [link={self.dashboard_url} cyan]{self.dashboard_url}[/link].',
                 min_content_width=len(self.dashboard_url),
             )
 
 
 def _print_summary(message: str, min_content_width: int) -> None:
     from rich.console import Console
-    from rich.markdown import Markdown
-    from rich.panel import Panel
     from rich.style import Style
     from rich.theme import Theme
-
-    panel = Panel.fit(
-        Markdown(message),
-        title='Logfire',
-        subtitle=f'logfire SDK v{VERSION}',
-        subtitle_align='right',
-        border_style='green',
-    )
 
     # customise the link color since the default `blue` is too dark for me to read.
     custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
     console = Console(stderr=True, theme=custom_theme)
     if console.width < min_content_width + 4:
         console.width = min_content_width + 4
-    console.print(panel)
+    console.print(message)
 
 
 def _get_creds_file(creds_dir: Path) -> Path:

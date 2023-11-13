@@ -53,7 +53,7 @@ def whoami(data_dir: Path = Path('.logfire')):
     if credentials is None:
         console.print('Data not found.')
     else:
-        credentials.print_existing_token_summary(data_dir, from_cli=True)
+        credentials.print_token_summary()
 
 
 @app.command()
