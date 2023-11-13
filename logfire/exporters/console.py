@@ -16,7 +16,7 @@ from opentelemetry.trace import format_span_id
 from structlog.dev import ConsoleRenderer
 from structlog.typing import EventDict, WrappedLogger
 
-from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, SpanTypeType
+from .._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY, SpanTypeType
 
 _NANOSECONDS_PER_SECOND = 1_000_000_000
 ConsoleColorsValues = Literal['auto', 'always', 'never']
@@ -29,11 +29,13 @@ class _DefaultProcessor:
 
     def __call__(self, _: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
         span = cast(ReadableSpan, event_dict.pop('span'))
-
         if self._verbose:
             event_dict['span_id'] = format_span_id(span.context.span_id)
-            if span.attributes and (span_type := span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY)):
-                event_dict['span_type'] = span_type
+            if span.attributes:
+                if span_type := span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY):
+                    event_dict['span_type'] = span_type
+                if tags := span.attributes.get(ATTRIBUTES_TAGS_KEY):
+                    event_dict['tags'] = tags
             if span.parent and (parent_id := span.parent.span_id):
                 event_dict['parent_id'] = format_span_id(parent_id)
         assert span.start_time is not None

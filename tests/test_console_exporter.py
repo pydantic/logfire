@@ -176,3 +176,29 @@ def test_console_exporter_options(
 
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == expected
+
+
+def test_console_exporter_verbose_tags() -> None:
+    out = io.StringIO()
+
+    spans = [
+        ReadableSpan(
+            name='rootSpan',
+            context=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
+            parent=None,
+            attributes={
+                'logfire.span_type': 'span',
+                'logfire.msg_template': 'rootSpan',
+                'logfire.tags': ('tag1', 'tag2'),
+            },
+            start_time=2 * NANOSECONDS_PER_SECOND,
+            end_time=7 * NANOSECONDS_PER_SECOND,
+        ),
+    ]
+
+    ConsoleSpanExporter(output=out, verbose=True).export(spans)
+
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        "1970-01-01 00:00:02 rootSpan                       span_id=0000000000000002 span_type=span tags=('tag1', 'tag2')"
+    ]
