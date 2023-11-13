@@ -1,6 +1,9 @@
 # Backfilling data
 
-Logfire supports bulk loading data, either to import data from another system or to load data that was dumped to disk due to a network failure (see the [File Fallback](../configuration.md#exporter_fallback_to_local_file) section of the configuration documentation).
+When Logfire fails to send a log to the server, it will dump data to the disk to avoid data loss.
+
+Logfire supports bulk loading data, either to import data from another system or to load data that
+was dumped to disk.
 
 To backfill data, you can use the `logfire backfill` command:
 

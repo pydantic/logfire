@@ -53,8 +53,6 @@ SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
-LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE = ConfigParam(env_vars=['LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE'], allow_file_config=True, default=True, tp=bool)
-"""Path to the file where spans are stored when the exporter is disabled."""
 COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=True, tp=bool)
 """Whether to collect system metrics."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
@@ -87,7 +85,6 @@ CONFIG_PARAMS = {
     'trace_sample_rate': TRACE_SAMPLE_RATE,
     'show_summary': SHOW_SUMMARY,
     'data_dir': CREDENTIALS_DIR,
-    'exporter_fallback_to_local_file': LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE,
     'collect_system_metrics': COLLECT_SYSTEM_METRICS,
     'console': CONSOLE,
     'console_colors': CONSOLE_COLORS,

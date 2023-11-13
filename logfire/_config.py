@@ -83,7 +83,6 @@ def configure(
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: bool | None = None,
     config_dir: Path | str | None = None,
-    exporter_fallback_to_local_file: bool | None = None,
     data_dir: Path | str | None = None,
     base_url: str | None = None,
     collect_system_metrics: bool | None = None,
@@ -115,7 +114,6 @@ def configure(
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
             current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
-        exporter_fallback_to_local_file: Determines if we should dump data to a local file when we can't reach the Logfire API. If `None` uses the `LOGFIRE_EXPORTER_FALLBACK_TO_LOCAL_FILE` or defaults to True.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://api.logfire.dev.
         collect_system_metrics: Whether to collect system metrics like CPU and memory usage. If `None` uses the `LOGFIRE_COLLECT_SYSTEM_METRICS` environment variable,
             otherwise defaults to `True`.
@@ -144,7 +142,6 @@ def configure(
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
-        exporter_fallback_to_local_file=exporter_fallback_to_local_file,
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
@@ -205,9 +202,6 @@ class _LogfireConfigData:
     data_dir: Path
     """The directory to store Logfire config in"""
 
-    exporter_fallback_to_local_file: bool
-    """The file to write spans to if we can't reach the Logfire API"""
-
     collect_system_metrics: bool
     """Whether to collect system metrics like CPU and memory usage"""
 
@@ -251,7 +245,6 @@ class _LogfireConfigData:
         show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
-        exporter_fallback_to_local_file: bool | None,
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
@@ -280,9 +273,6 @@ class _LogfireConfigData:
         self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
-        self.exporter_fallback_to_local_file = param_manager.load_param(
-            'exporter_fallback_to_local_file', exporter_fallback_to_local_file
-        )
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
 
         if console is not None:
@@ -353,7 +343,6 @@ class LogfireConfig(_LogfireConfigData):
         show_summary: bool | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
-        exporter_fallback_to_local_file: bool | None = None,
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
@@ -385,7 +374,6 @@ class LogfireConfig(_LogfireConfigData):
             show_summary=show_summary,
             config_dir=config_dir,
             data_dir=data_dir,
-            exporter_fallback_to_local_file=exporter_fallback_to_local_file,
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
@@ -503,10 +491,9 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter = self.otlp_span_exporter
                     else:
                         span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
-                    if self.exporter_fallback_to_local_file:
-                        span_exporter = FallbackSpanExporter(
-                            span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
-                        )
+                    span_exporter = FallbackSpanExporter(
+                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
+                    )
                     self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
                 elif otel_traces_exporter_env != 'none':
                     raise ValueError(
