@@ -1,3 +1,4 @@
+"""Integration for instrumenting Pydantic models."""
 from __future__ import annotations
 
 import re
@@ -28,6 +29,8 @@ METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type
 
 
 class BaseValidateHandler:
+    """Base class for validation event handler classes."""
+
     validation_method: ClassVar[str]
     span_stack: ExitStack
     __slots__ = (
@@ -91,6 +94,11 @@ class BaseValidateHandler:
             )
 
     def on_success(self, result: Any) -> None:
+        """Callback to be notified of successful validation.
+
+        Args:
+            result: The result of the validation.
+        """
         if self._record == 'all':
             self._logfire.debug('Validation successful {result=!r}', result=result)
 
@@ -99,6 +107,11 @@ class BaseValidateHandler:
         self.span_stack.close()
 
     def on_error(self, error: ValidationError) -> None:
+        """Callback to be notified of validation errors.
+
+        Args:
+            error: The validation error.
+        """
         error_count = error.error_count()
         plural = '' if error_count == 1 else 's'
         self._logfire.warning(
@@ -111,6 +124,11 @@ class BaseValidateHandler:
         self.span_stack.close()
 
     def on_exception(self, exception: Exception) -> None:
+        """Callback to be notified of validation exceptions.
+
+        Args:
+            exception: The exception raised during validation.
+        """
         self._logfire.error(
             '{exception_type=}: {exception_msg=}', exception=type(exception).__name__, exception_msg=exception
         )
@@ -145,7 +163,7 @@ class ValidatePythonHandler(BaseValidateHandler):
 
     validation_method = 'validate_python'
 
-    def on_enter(
+    def on_enter(  # noqa: D102
         self,
         input: Any,
         *,
@@ -164,7 +182,7 @@ class ValidateJsonHandler(BaseValidateHandler):
 
     validation_method = 'validate_json'
 
-    def on_enter(
+    def on_enter(  # noqa: D102
         self,
         input: str | bytes | bytearray,
         *,
@@ -180,7 +198,7 @@ class ValidateStringsHandler(BaseValidateHandler):
 
     validation_method = 'validate_strings'
 
-    def on_enter(
+    def on_enter(  # noqa: D102
         self, input: StringInput, *, strict: bool | None = None, context: dict[str, Any] | None = None
     ) -> None:
         self._on_enter(input, strict=strict, context=context)
@@ -206,6 +224,21 @@ class LogfirePydanticPlugin:
     ) -> tuple[
         ValidatePythonHandlerProtocol | None, ValidateJsonHandlerProtocol | None, ValidateStringsHandlerProtocol | None
     ]:
+        """This method is called every time a new `SchemaValidator` is created.
+
+        Args:
+            schema: The schema to validate against.
+            schema_type: The original type which the schema was created from, e.g. the model class.
+            schema_type_path: Path defining where `schema_type` was defined, or where `TypeAdapter` was called.
+            schema_kind: The kind of schema to validate against.
+            config: The config to use for validation.
+            plugin_settings: The plugin settings.
+
+        Returns:
+            A tuple of event handlers for each of the three validation methods -
+                `validate_python`, `validate_json`, `validate_strings` or a tuple of
+                three `None` if recording is `off`.
+        """
         record = 'off'
 
         logfire_settings = plugin_settings.get('logfire')
@@ -265,7 +298,7 @@ if TYPE_CHECKING:
     # This is just to ensure we get type checking that the plugin actually implements the expected protocol.
     from pydantic.plugin import PydanticPluginProtocol
 
-    def check_plugin_protocol(_plugin: PydanticPluginProtocol) -> None:
+    def check_plugin_protocol(_plugin: PydanticPluginProtocol) -> None:  # noqa: D103
         pass
 
     check_plugin_protocol(plugin)

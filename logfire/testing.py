@@ -29,9 +29,11 @@ class TestExporter(SpanExporter):
         self.exported_spans: list[ReadableSpan] = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
+        """Exports a batch of telemetry data."""
         self.exported_spans.extend(spans)
 
     def clear(self) -> None:
+        """Clears the collected spans."""
         self.exported_spans = []
 
     def exported_spans_as_dict(  # noqa: C901
@@ -152,16 +154,19 @@ class IncrementalIdGenerator(IdGenerator):
     span_id_counter = 0
 
     def reset_trace_span_ids(self) -> None:
+        """Resets the trace and span ids."""
         self.trace_id_counter = 0
         self.span_id_counter = 0
 
     def generate_span_id(self) -> int:
+        """Generates a span id."""
         self.span_id_counter += 1
         if self.span_id_counter > 2**64 - 1:
             raise OverflowError('Span ID overflow')
         return self.span_id_counter
 
     def generate_trace_id(self) -> int:
+        """Generates a trace id."""
         self.trace_id_counter += 1
         if self.trace_id_counter > 2**128 - 1:
             raise OverflowError('Trace ID overflow')
@@ -182,9 +187,11 @@ class SeededRandomIdGenerator(IdGenerator):
         self.random = random.Random(self.seed)
 
     def generate_span_id(self) -> int:
+        """Generates a random span id."""
         return self.random.getrandbits(64)
 
     def generate_trace_id(self) -> int:
+        """Generates a random trace id."""
         return self.random.getrandbits(128)
 
 
@@ -201,7 +208,7 @@ class TimeGenerator:
     def __init__(self, ns_time: int = 0):
         self.ns_time = ns_time
 
-    def __call__(self) -> int:
+    def __call__(self) -> int:  # noqa: D102
         self.ns_time += ONE_NANOSECOND
         return self.ns_time
 
@@ -211,6 +218,11 @@ class TimeGenerator:
 
 @dataclass
 class LogfireTestExporter:
+    """A dataclass that is holds both span exporter and metric renderer.
+
+    This is used as the return type of `logfire_test_exporter` fixture.
+    """
+
     exporter: TestExporter
     metrics_reader: InMemoryMetricReader
 
