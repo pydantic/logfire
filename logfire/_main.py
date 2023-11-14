@@ -3,8 +3,6 @@ from __future__ import annotations
 import inspect
 import sys
 import warnings
-from contextlib import ExitStack
-from dataclasses import dataclass, field
 from functools import wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
@@ -12,7 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    ContextManager,
     Mapping,
     Sequence,
     TypedDict,
@@ -102,11 +99,9 @@ class Logfire:
 
         ```py
         import logfire
-
         with logfire.with_sample_rate(0.5):
             logfire.info('new log 1')
         ```
-
         Args:
             sample_rate: The sampling ratio to use.
 
@@ -130,7 +125,7 @@ class Logfire:
         span_name: str | None = None,
         stacklevel: int = 3,
         decorator: bool = False,
-    ) -> ContextManager[LogfireSpan]:
+    ) -> LogfireSpan:
         stack_info = _get_caller_stack_info(stacklevel=stacklevel)
 
         merged_attributes = {**stack_info, **attributes}
@@ -167,17 +162,16 @@ class Logfire:
         if sample_rate is not None and sample_rate != 1:
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        span = self._spans_tracer.start_span(
-            name=span_name_,
-            attributes=otlp_attributes,
-        )
-
         exit_stacklevel = stacklevel + (2 if decorator else 1)
-        return _PendingSpan(
-            LogfireSpan(
-                span,
-                format_args={'format_string': msg_template, 'kwargs': format_kwargs, 'stacklevel': exit_stacklevel},
-            )
+        return LogfireSpan(
+            span_name_,
+            otlp_attributes,
+            self._spans_tracer,
+            {
+                'format_string': msg_template,
+                'kwargs': merged_attributes,
+                'stacklevel': exit_stacklevel,
+            },
         )
 
     def span(
@@ -186,7 +180,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         **attributes: Any,
-    ) -> ContextManager[LogfireSpan]:
+    ) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -431,9 +425,20 @@ class Logfire:
 
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span: trace_api.Span, format_args: _FormatArgs) -> None:
-        self._span = span
+    def __init__(
+        self,
+        span_name: str,
+        otlp_attributes: dict[str, otel_types.AttributeValue],
+        tracer: Tracer,
+        format_args: _FormatArgs,
+    ) -> None:
+        self._span_name = span_name
+        self._otlp_attributes = otlp_attributes
+        self._tracer = tracer
+        self._end_on_exit: bool | None = None
+        self._token: None | object = None
         self._format_args = format_args
+        self._span: None | trace_api.Span = None
         self.end_on_exit = True
 
     if not TYPE_CHECKING:
@@ -441,102 +446,26 @@ class LogfireSpan(ReadableSpan):
         def __getattr__(self, name: str) -> Any:
             return getattr(self._span, name)
 
-    @property
-    def message_template(self) -> str | None:
-        attributes = getattr(self._span, 'attributes')
-        if not attributes:
-            return None
-        if ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes:
-            return None
-        return str(attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY])
-
-    @property
-    def tags(self) -> Sequence[str]:
-        attributes = getattr(self._span, 'attributes')
-        if not attributes:
-            return []
-        if ATTRIBUTES_TAGS_KEY not in attributes:
-            return []
-        return cast(Sequence[str], attributes[ATTRIBUTES_TAGS_KEY])
-
-    def end(self) -> None:
-        """Sets the current time as the span's end time.
-
-        The span's end time is the wall time at which the operation finished.
-
-        Only the first call to this method is recorded, further calls are ignored so you
-        can call this within the span's context manager to end it before the context manager
-        exits.
-        """
-        if self._span.is_recording():
-            self._span.end()
-
-    def activate(self, end_on_exit: bool | None = None) -> ContextManager[LogfireSpan]:
-        """Activates this span in the current context.
-
-        Args:
-            end_on_exit: Whether to end the span when the context manager exits, if `None` will use the value
-                of self.end_on_exit.
-                By setting `end_on_exit=False` when creating the span or assigning the attribute you can
-                later use `activate` to manually activate and end the span.
-        """
-        return _PendingSpan(self, end_on_exit=end_on_exit)
-
-    def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
-        """Sets an attribute on the span.
-
-        Args:
-            key: The key of the attribute.
-            value: The value of the attribute.
-        """
-        self._span.set_attribute(key, value)
-        self._format_args['kwargs'][key] = value
-
-
-class _FormatArgs(TypedDict):
-    format_string: LiteralString
-    kwargs: dict[str, Any]
-    stacklevel: int
-
-
-@dataclass(**({'slots': True} if sys.version_info >= (3, 10) else {}))
-class _PendingSpan:
-    """Context manager for applying a span into the current context.
-
-    By using a class instead of `@contextmanager` we avoid stack frames
-    from the SDK in the tracebacks captured by logfire (contextlib's
-    implementation starts injecting additional stack frames into the
-    traceback).
-    """
-
-    span: LogfireSpan
-    end_on_exit: bool | None = None
-    token: None | object = field(init=False, default=None)
-    # past tokens, in case of reentrant entry
-    tokens_stack: None | list[object] = field(init=False, default=None)
-    _stack: ExitStack = field(init=False, default_factory=ExitStack)
-
     def __enter__(self) -> LogfireSpan:
-        sdk_span = self.span._span  # type: ignore[reportPrivateUsage]
-        token = context_api.attach(trace_api.set_span_in_context(sdk_span))
-        if self.token is not None:
-            if self.tokens_stack is None:
-                self.tokens_stack = [self.token]
-            else:
-                self.tokens_stack.append(self.token)
-        self.token = token
-        return self.span
+        self.end_on_exit = True
+        if self._span is None:
+            self._span = self._tracer.start_span(
+                name=self._span_name,
+                attributes=self._otlp_attributes,
+            )
+        if self._token is None:
+            self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+        return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        self._stack.__exit__(exc_type, exc_value, traceback)
-        context_api.detach(self.token)
+        if self._token is None:
+            return
 
-        if self.tokens_stack:
-            self.token = self.tokens_stack.pop()
-        else:
-            self.token = None
+        context_api.detach(self._token)
+        self._token = None
 
-        sdk_span = self.span._span  # type: ignore[reportPrivateUsage]
+        assert self._span is not None
+        sdk_span = self._span
 
         if sdk_span.is_recording():
             # record exception if present
@@ -569,19 +498,70 @@ class _PendingSpan:
 
         # We allow attributes to be set while the span is active, so we need to
         # reformat the message in case any new attributes were added.
-        format_args = self.span._format_args  # type: ignore[reportPrivateUsage]
+        format_args = self._format_args
         log_message = logfire_format(
             format_string=format_args['format_string'],
-            kwargs=format_args['kwargs'],
+            kwargs={'span_name': self._span_name, **format_args['kwargs']},
             stacklevel=format_args['stacklevel'],
         )
         sdk_span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
-        end_on_exit_ = self.span.end_on_exit if self.end_on_exit is None else self.end_on_exit
+        end_on_exit_ = self.end_on_exit
         if end_on_exit_:
-            self.span.end()
+            self._span.end()
 
-        self.token = None
+        self._token = None
+
+    @property
+    def message_template(self) -> str | None:
+        attributes = getattr(self._span, 'attributes')
+        if not attributes:
+            return None
+        if ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes:
+            return None
+        return str(attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY])
+
+    @property
+    def tags(self) -> Sequence[str]:
+        attributes = getattr(self._span, 'attributes')
+        if not attributes:
+            return []
+        if ATTRIBUTES_TAGS_KEY not in attributes:
+            return []
+        return cast(Sequence[str], attributes[ATTRIBUTES_TAGS_KEY])
+
+    def end(self) -> None:
+        """Sets the current time as the span's end time.
+
+        The span's end time is the wall time at which the operation finished.
+
+        Only the first call to this method is recorded, further calls are ignored so you
+        can call this within the span's context manager to end it before the context manager
+        exits.
+        """
+        if self._span is None:
+            raise RuntimeError('Span has not been started')
+        if self._span.is_recording():
+            self._span.end()
+
+    def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
+        """Sets an attribute on the span.
+
+        Args:
+            key: The key of the attribute.
+            value: The value of the attribute.
+        """
+        if self._span is None:
+            self._otlp_attributes[key] = value
+        else:
+            self._span.set_attribute(key, value)
+        self._format_args['kwargs'][key] = value
+
+
+class _FormatArgs(TypedDict):
+    format_string: LiteralString
+    kwargs: dict[str, Any]
+    stacklevel: int
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])

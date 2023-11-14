@@ -416,7 +416,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
         }
     ]
 
-    with s.activate(end_on_exit=True):
+    with s:
         pass
 
     assert isinstance(s.end_time, int)
