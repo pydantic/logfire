@@ -24,31 +24,37 @@ This same mechanism can be used to bulk load data, for example if you are import
 First create a dump file:
 
 ```python
-from logfire.backfill import EndSpan, PrepareBackfill, RecordLog, StartSpan
+from datetime import datetime
 
-with PrepareBackfill("logfire_spans123.bin") as backfill:
-    start = StartSpan(
-        span_name="session",
-        msg_template="session {user_id=} {path=}",
-        service_name="docs.pydantic.dev",
-        log_attributes={"user_id": "123", "path": "/test"},
+from logfire.backfill import Log, PrepareBackfill, StartSpan
+
+with PrepareBackfill('logfire_spans123.bin') as backfill:
+    span = StartSpan(
+        start_timestamp=datetime(2023, 1, 1, 0, 0, 0),
+        span_name='session',
+        msg_template='session {user_id=} {path=}',
+        service_name='docs.pydantic.dev',
+        log_attributes={'user_id': '123', 'path': '/test'},
     )
-    backfill.write(start)
+    child = StartSpan(
+        start_timestamp=datetime(2023, 1, 1, 0, 0, 1),
+        span_name='query',
+        msg_template='ran db query',
+        service_name='docs.pydantic.dev',
+        log_attributes={'query': 'SELECT * FROM users'},
+        parent=span,
+    )
     backfill.write(
-        RecordLog(
-            msg_template="GET {path=}",
-            level="info",
-            service_name="docs.pydantic.dev",
-            attributes={"path": "/test"},
+        Log(
+            timestamp=datetime(2023, 1, 1, 0, 0, 2),
+            msg_template='GET {path=}',
+            level='info',
+            service_name='docs.pydantic.dev',
+            attributes={'path': '/test'},
         )
     )
-    backfill.write(
-        EndSpan(
-            span_id=start.span_id,
-            trace_id=start.trace_id,
-        )
-    )
-
+    backfill.write(child.end(end_timestamp=datetime(2023, 1, 1, 0, 0, 3)))
+    backfill.write(span.end(end_timestamp=datetime(2023, 1, 1, 0, 0, 4)))
 ```
 
 This will create a `logfire_spans123.bin` file with the data.

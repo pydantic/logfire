@@ -1,8 +1,7 @@
 """Backfill logfire logs and spans from a file or stream."""
-import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Any, Dict, Literal, Union
+from typing import IO, Any, Dict, Union
 
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.resources import Resource
@@ -15,7 +14,6 @@ from opentelemetry.sdk.util.instrumentation import (
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 from opentelemetry.trace.status import Status, StatusCode
-from typing_extensions import Annotated, Self
 
 from ._constants import (
     ATTRIBUTES_LOG_LEVEL_KEY,
@@ -29,13 +27,13 @@ from ._main import user_attributes
 from .exporters._file import FileSpanExporter
 
 try:
-    from pydantic import BaseModel, ConfigDict, Field, validate_call
+    from pydantic import BaseModel, ConfigDict, Field
 except ImportError as e:
     raise ImportError('pydantic is required to use logfire.import, run `pip install logfire[backfill]`') from e
 
 
-__all__ = 'generate_trace_id', 'generate_span_id', 'RecordLog', 'StartSpan', 'EndSpan', 'PrepareBackfill'
-ID_GENERATOR = RandomIdGenerator()
+__all__ = 'generate_trace_id', 'generate_span_id', 'Log', 'StartSpan', 'PrepareBackfill'
+_ID_GENERATOR = RandomIdGenerator()
 
 
 def generate_trace_id() -> int:
@@ -44,7 +42,7 @@ def generate_trace_id() -> int:
     Returns:
         A new trace ID.
     """
-    return ID_GENERATOR.generate_trace_id()
+    return _ID_GENERATOR.generate_trace_id()
 
 
 def generate_span_id() -> int:
@@ -53,17 +51,16 @@ def generate_span_id() -> int:
     Returns:
         A new span ID.
     """
-    return ID_GENERATOR.generate_span_id()
+    return _ID_GENERATOR.generate_span_id()
 
 
 pydantic_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}})
 
 
-class RecordLog(BaseModel):
+class Log(BaseModel):
     """A log record."""
 
     model_config = pydantic_config
-    type: Literal['log'] = 'log'
     msg_template: str
     level: LevelName
     service_name: str
@@ -77,13 +74,14 @@ class RecordLog(BaseModel):
 
 
 class StartSpan(BaseModel):
-    """The start of a span."""
+    """A span."""
 
     model_config = pydantic_config
-    type: Literal['start_span'] = 'start_span'
     span_name: str
     msg_template: str
     service_name: str
+    parent: Union['StartSpan', int, None] = None
+    """The parent span or span ID."""
     log_attributes: Dict[str, Any]
     span_id: int = Field(default_factory=generate_span_id)
     trace_id: int = Field(default_factory=generate_trace_id)
@@ -92,14 +90,24 @@ class StartSpan(BaseModel):
     formatted_msg: Union[str, None] = None
     resource_attributes: Dict[str, Any] = Field(default_factory=dict)
 
+    def end(self, end_timestamp: datetime) -> 'Span':
+        """End the span at a given timestamp."""
+        return Span(
+            span_name=self.span_name,
+            msg_template=self.msg_template,
+            service_name=self.service_name,
+            log_attributes=self.log_attributes,
+            span_id=self.span_id,
+            trace_id=self.trace_id,
+            parent_span_id=self.parent_span_id,
+            start_timestamp=self.start_timestamp,
+            end_timestamp=end_timestamp,
+            formatted_msg=self.formatted_msg,
+            resource_attributes=self.resource_attributes,
+        )
 
-class EndSpan(BaseModel):
-    """The end of a span."""
 
-    model_config = pydantic_config
-    type: Literal['end_span'] = 'end_span'
-    span_id: int
-    trace_id: int
+class Span(StartSpan):
     end_timestamp: Union[datetime, None] = None
 
 
@@ -114,7 +122,6 @@ class PrepareBackfill:
 
     def __init__(self, file: Union[Path, str, IO[bytes]], batch: bool = True) -> None:
         self.store_path = Path(file) if isinstance(file, str) else file
-        self.open_spans: dict[tuple[int, int], StartSpan] = {}
         if batch:
             self.processor = BatchSpanProcessor(
                 span_exporter=FileSpanExporter(self.store_path),
@@ -122,20 +129,13 @@ class PrepareBackfill:
         else:
             self.processor = SimpleSpanProcessor(FileSpanExporter(self.store_path))
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> 'PrepareBackfill':
         return self
 
-    @validate_call(config=pydantic_config)
-    def write(self, data: Annotated[Union[RecordLog, StartSpan, EndSpan], Field(discriminator='type')]) -> None:
+    def write(self, data: Union[Log, Span]) -> None:
         """Write the data to the backfill."""
-        if isinstance(data, StartSpan):
-            key = (data.trace_id, data.span_id)
-            assert key not in self.open_spans, f'start span ID {data.span_id} found in open spans'
-            data.start_timestamp = data.start_timestamp or datetime.now(tz=timezone.utc)
-            self.open_spans[key] = data
-            return
         # convert the span to an otel span
-        if isinstance(data, RecordLog):
+        if isinstance(data, Log):
             timestamp = data.timestamp or datetime.now(tz=timezone.utc)
             if timestamp.tzinfo is None:
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -184,41 +184,38 @@ class PrepareBackfill:
                 end_time=timestamp,
                 status=Status(StatusCode.OK),
             )
-        else:  # always an EndSpan
-            key = (data.trace_id, data.span_id)
-            assert key in self.open_spans, f'end span ID {data.span_id} not found in open spans'
-            start_span = self.open_spans.pop(key)
-            assert start_span.start_timestamp is not None
+        else:  # always a Span
+            assert isinstance(data, Span)
+            assert data.start_timestamp is not None
+            assert data.end_timestamp is not None
             end_timestamp = data.end_timestamp or datetime.now(tz=timezone.utc)
             if end_timestamp.tzinfo is None:
                 end_timestamp = end_timestamp.replace(tzinfo=timezone.utc)
-            start_timestamp = start_span.start_timestamp
+            start_timestamp = data.start_timestamp
             if start_timestamp.tzinfo is None:
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
-            otlp_attributes = user_attributes(start_span.log_attributes)
-            if start_span.formatted_msg is None:
-                formatted_message = logfire_format(
-                    start_span.msg_template, start_span.log_attributes, fallback='...', stacklevel=2
-                )
+            otlp_attributes = user_attributes(data.log_attributes)
+            if data.formatted_msg is None:
+                formatted_message = logfire_format(data.msg_template, data.log_attributes, fallback='...', stacklevel=2)
             else:
-                formatted_message = start_span.formatted_msg
+                formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: start_span.msg_template,
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: data.msg_template,
                 ATTRIBUTES_MESSAGE_KEY: formatted_message,
                 **otlp_attributes,
             }
             span = ReadableSpan(
-                name=start_span.span_name,
+                name=data.span_name,
                 context=SpanContext(
-                    trace_id=start_span.trace_id,
+                    trace_id=data.trace_id,
                     span_id=data.span_id,
                     is_remote=False,
                     trace_flags=TraceFlags(TraceFlags.SAMPLED),
                 ),
                 parent=None,
                 resource=Resource.create(
-                    {ResourceAttributes.SERVICE_NAME: start_span.service_name, **start_span.resource_attributes}
+                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.resource_attributes}
                 ),
                 instrumentation_scope=InstrumentationScope(
                     name='logfire',
@@ -237,5 +234,3 @@ class PrepareBackfill:
     def __exit__(self, *_: Any) -> None:
         self.processor.force_flush()
         self.processor.shutdown()
-        if self.open_spans:
-            warnings.warn(f'closing backfill with {len(self.open_spans)} open spans')
