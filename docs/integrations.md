@@ -66,7 +66,7 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag
 ??? tip "Installation"
     Install `pip install "logfire[asgi]"` to use this integration.
 
-    The `asgi` extras contains the [`opentelemetry-instrumentation-asgi`][open-telemetry-asgi-middleware] package.
+    The `asgi` extras contains the [`opentelemetry-instrumentation-asgi`][opentelemetry-asgi] package.
 
 Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any ASGI framework.
 
@@ -124,14 +124,14 @@ Since Logfire is compliant with the OpenTelemetry specification, you can integra
     app = OpenTelemetryMiddleware(app)
     ```
 
-You can read more about the OpenTelemetry ASGI middleware [here][open-telemetry-asgi-middleware].
+You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-asgi].
 
 ## WSGI
 
 ??? tip "Installation"
     Install `pip install "logfire[wsgi]"` to use this integration.
 
-    The `wsgi` extras contains the [`opentelemetry-instrumentation-wsgi`][open-telemetry-wsgi-middleware] package.
+    The `wsgi` extras contains the [`opentelemetry-instrumentation-wsgi`][opentelemetry-wsgi] package.
 
 Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any WSGI framework.
 
@@ -165,8 +165,110 @@ Since Logfire is compliant with the OpenTelemetry specification, you can integra
     application = OpenTelemetryMiddleware(application)
     ```
 
-You can read more about the OpenTelemetry WSGI middleware [here][open-telemetry-wsgi-middleware].
+You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-wsgi].
 
+## HTTPX
+
+??? tip "Installation"
+    Install `pip install "logfire[httpx]"` to use this integration.
+
+    The `httpx` extras contains the [`httpx`][httpx] package.
+
+You can use the HTTPX OpenTelemetry package to instrument HTTPX requests.
+
+```py
+import httpx
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+HTTPXClientInstrumentor().instrument()
+
+with httpx.Client() as client:
+    client.get("https://httpbin.org/get")
+```
+
+You can read more about the HTTPX OpenTelemetry package [here][opentelemetry-httpx].
+
+## Requests
+
+??? tip "Installation"
+    Install `pip install "logfire[requests]"` to use this integration.
+
+    The `requests` extras contains the [`requests`][requests] package.
+
+You can use the requests OpenTelemetry package to instrument [`requests`][requests].
+
+```py
+import requests
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+RequestsInstrumentor().instrument()
+
+requests.get("https://httpbin.org/get")
+```
+
+You can read more about the [`requests`][requests] OpenTelemetry package [here][opentelemetry-requests].
+
+## SQLAlchemy
+
+??? tip "Installation"
+    Install `pip install "logfire[sqlalchemy]"` to use this integration.
+
+    The `sqlalchemy` extras contains the [`opentelemetry-instrumentation-sqlalchemy`][opentelemetry-sqlalchemy] package.
+
+You can use the SQLAlchemy OpenTelemetry package to instrument SQLAlchemy.
+
+```py
+from sqlalchemy import create_engine
+
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+engine = create_engine("sqlite:///:memory:")
+SQLAlchemyInstrumentor().instrument(engine=engine)
+```
+
+You can read more about the SQLAlchemy OpenTelemetry package [here][opentelemetry-sqlalchemy].
+
+## Psycopg2
+
+??? tip "Installation"
+    Install `pip install "logfire[psycopg2]"` to use this integration.
+
+    The `psycopg2` extras contains the [`opentelemetry-instrumentation-psycopg2`][opentelemetry-psycopg2] package.
+
+You can use the Psycopg2 OpenTelemetry package to instrument Psycopg2.
+
+```py
+import psycopg2
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+
+
+Psycopg2Instrumentor().instrument()
+
+cnx = psycopg2.connect(database='Database')
+```
+
+You can read more about the Psycopg2 OpenTelemetry package [here][opentelemetry-psycopg2].
+
+## Mongo
+
+??? tip "Installation"
+    Install `pip install "logfire[mongo]"` to use this integration.
+
+    The `mongo` extras contains the [`opentelemetry-instrumentation-pymongo`][opentelemetry-pymongo] package.
+
+You can use the PyMongo OpenTelemetry package to instrument PyMongo.
+
+```py
+import pymongo
+from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+
+
+PymongoInstrumentor().instrument()
+
+client = pymongo.MongoClient()
+```
+
+You can read more about the PyMongo OpenTelemetry package [here][opentelemetry-pymongo].
 
 ## Standard Library Logging
 
@@ -184,6 +286,13 @@ logger = getLogger(__name__)
 logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
 ```
 
-[open-telemetry-wsgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
-[open-telemetry-asgi-middleware]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
+[opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
+[opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
+[opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
+[opentelemetry-requests]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html
+[opentelemetry-sqlalchemy]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html
+[opentelemetry-psycopg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html
+[opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
+[httpx]: https://www.python-httpx.org/
+[requests]: https://docs.python-requests.org/en/master/
 [plugin_settings]: https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings

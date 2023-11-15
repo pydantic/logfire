@@ -61,6 +61,7 @@ nav:
     - Testing: api/testing.md
     - Backfill: api/backfill.md
     - Propagate: api/propagate.md
+    - Dash: api/dash.md
     - Exceptions: api/exceptions.md
 
 markdown_extensions:
