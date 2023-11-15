@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.metadata as metadata
+from functools import lru_cache
 from typing import List
 
 from typing_extensions import TypedDict
@@ -14,6 +15,7 @@ class Package(TypedDict):
 Packages = List[Package]
 
 
+@lru_cache
 def collect_package_info() -> Packages:
     """Retrieve the package information for all installed packages.
 
