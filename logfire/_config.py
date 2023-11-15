@@ -35,6 +35,7 @@ from ._collect_system_info import collect_package_info
 from ._config_params import ParamManager, PydanticPluginRecordValues
 from ._constants import (
     DEFAULT_FALLBACK_FILE_NAME,
+    OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
@@ -43,6 +44,7 @@ from ._tracer import ProxyTracerProvider
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
+from .exporters._otlp import OTLPExporterHttpSession
 from .exporters.console import ConsoleColorsValues, ConsoleSpanExporter
 from .integrations._executors import instrument_executors
 from .version import VERSION
@@ -482,7 +484,9 @@ class LogfireConfig(_LogfireConfigData):
                     logfire_api_session.headers.update(headers)
                     self.check_logfire_backend(logfire_api_session)
 
-                session = self.default_otlp_span_exporter_session or requests.Session()
+                session = self.default_otlp_span_exporter_session or OTLPExporterHttpSession(
+                    max_body_size=OTLP_MAX_BODY_SIZE
+                )
                 session.headers.update(headers)
                 otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
                 otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
