@@ -660,7 +660,7 @@ class LogfireCredentials:
         """Print a summary of the existing project."""
         if self.dashboard_url:
             _print_summary(
-                f'[bold]Logfire[/bold] dashboard: [link={self.dashboard_url} cyan]{self.dashboard_url}[/link].',
+                f'[bold]Logfire[/bold] dashboard: [link={self.dashboard_url} cyan]{self.dashboard_url}[/link]',
                 min_content_width=len(self.dashboard_url),
             )
 
