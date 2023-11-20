@@ -121,11 +121,12 @@ def configure(
             otherwise defaults to `True`.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
-        processors: Span processors to use. Defaults to an empty sequence.
+        processors: Span processors to use. Defaults to None. If None is provided then the default span processor is used. If a sequence is passed the default processor is disabled (which disables
+            exporting of spans to Logfire's API) and the specified processors are used instead. In particular, if an empty list is provided then no span processors are used.
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
-        metric_readers: Sequence of metric readers to be used.
+        metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used. Pass an empty list to disable metrics.
         default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
@@ -213,7 +214,7 @@ class _LogfireConfigData:
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
 
-    processors: Sequence[SpanProcessor]
+    processors: Sequence[SpanProcessor] | None
     """Additional span processors"""
 
     pydantic_plugin: PydanticPluginOptions
@@ -297,7 +298,7 @@ class _LogfireConfigData:
 
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
-        self.processors = list(processors or ())
+        self.processors = processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
         self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
@@ -431,11 +432,19 @@ class LogfireConfig(_LogfireConfigData):
             )
             self._tracer_provider.set_provider(tracer_provider)
 
-            for processor in self.processors:
-                tracer_provider.add_span_processor(processor)
+            if self.processors is not None:
+                for processor in self.processors:
+                    tracer_provider.add_span_processor(processor)
+
+                def maybe_add_span_processor(span_processor: SpanProcessor) -> None:
+                    """No-op to avoid adding the default span processors given that the user has specified their own."""
+                    pass
+
+            else:
+                maybe_add_span_processor = tracer_provider.add_span_processor
 
             if self.console:
-                tracer_provider.add_span_processor(
+                maybe_add_span_processor(
                     SimpleSpanProcessor(
                         ConsoleSpanExporter(
                             colors=self.console.colors,
@@ -448,7 +457,7 @@ class LogfireConfig(_LogfireConfigData):
 
             credentials_from_local_file = None
 
-            metric_readers = list(self.metric_readers or ())
+            metric_readers = self.metric_readers
 
             if self.send_to_logfire:
                 new_credentials: LogfireCredentials | None = None
@@ -498,20 +507,24 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = FallbackSpanExporter(
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                     )
-                    self._tracer_provider.add_span_processor(self.default_span_processor(span_exporter))
+                    maybe_add_span_processor(self.default_span_processor(span_exporter))
+
                 elif otel_traces_exporter_env != 'none':
                     raise ValueError(
                         'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
                     )
 
-                metric_readers.append(
-                    PeriodicExportingMetricReader(
-                        OTLPMetricExporter(
-                            endpoint=self.metrics_endpoint,
-                            headers=headers,
+                if metric_readers is None:
+                    metric_readers = [
+                        PeriodicExportingMetricReader(
+                            OTLPMetricExporter(
+                                endpoint=self.metrics_endpoint,
+                                headers=headers,
+                            )
                         )
-                    )
-                )
+                    ]
+
+            metric_readers = metric_readers or []
 
             if self.show_summary and credentials_from_local_file:
                 credentials_from_local_file.print_token_summary()

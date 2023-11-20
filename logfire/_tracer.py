@@ -11,12 +11,12 @@ from typing import (
     Sequence,
     cast,
 )
-from weakref import WeakKeyDictionary, WeakSet
+from weakref import WeakKeyDictionary
 
 import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider as SDKTracerProvider
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider, use_span
 from opentelemetry.trace.status import Status, StatusCode
@@ -41,11 +41,8 @@ class ProxyTracerProvider(TracerProvider):
     config: LogfireConfig
     tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
     lock: Lock = field(default_factory=Lock)
-    # this list of span_processors is not actually used directly, we just keep track of them for our own testing purposes
-    span_processors: WeakSet[SpanProcessor] = field(default_factory=WeakSet)
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
-        self.span_processors.clear()
         with self.lock:
             self.provider = provider
             for tracer, factory in self.tracers.items():
@@ -75,7 +72,6 @@ class ProxyTracerProvider(TracerProvider):
             return tracer
 
     def add_span_processor(self, span_processor: Any) -> None:
-        self.span_processors.add(span_processor)
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 self.provider.add_span_processor(span_processor)
