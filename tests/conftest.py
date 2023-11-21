@@ -11,6 +11,11 @@ from logfire.testing import (
 )
 
 
+@pytest.fixture(scope='session', autouse=True)
+def anyio_backend():
+    return 'asyncio'
+
+
 @pytest.fixture
 def id_generator() -> IncrementalIdGenerator:
     return IncrementalIdGenerator()

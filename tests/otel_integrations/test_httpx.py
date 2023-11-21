@@ -15,6 +15,7 @@ def instrument_httpx():
     instrumenter.uninstrument()
 
 
+@pytest.mark.anyio
 async def test_httpx_instrumentation(exporter: TestExporter):
     # The purpose of this mock transport is to ensure that the traceparent header is provided
     # without needing to actually make a network request

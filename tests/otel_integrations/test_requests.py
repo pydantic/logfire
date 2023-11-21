@@ -24,6 +24,7 @@ def instrument_requests(monkeypatch):
     instrumenter.uninstrument()
 
 
+@pytest.mark.anyio
 async def test_requests_instrumentation(exporter: TestExporter):
     with logfire.span('test span') as span:
         trace_id = span.context.trace_id
