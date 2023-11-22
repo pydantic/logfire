@@ -1,11 +1,14 @@
 """The CLI for Logfire. 🚀"""  # noqa: D415
 import platform
 import shutil
+from hashlib import sha256
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Iterator
 
 import httpx
 from rich.console import Console
+from rich.progress import Progress
 from typer import Exit, Option, Typer, confirm, echo
 
 import logfire._config
@@ -74,16 +77,37 @@ def backfill(data_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans
     config.initialize()
     token, _ = config.load_token()
     assert token is not None  # if no token was available a new project should have been created
-    with open(file, 'rb') as f:
-        with httpx.Client(headers={'Authorization': token}) as client:
+    with Progress(console=console) as progress:
+        with file.open('rb') as f:
+            size = 0
+            digest = sha256()
+            while True:
+                data = f.read(1024 * 1024)
+                if not data:
+                    break
+                digest.update(data)
+                size += len(data)
+            f.seek(0)
 
-            def reader() -> Iterator[bytes]:
-                while True:
-                    data = f.read(1024 * 1024)
-                    if not data:
-                        return
-                    yield data
+            with httpx.Client(headers={'Authorization': token}) as client:
+                task = progress.add_task('Backfilling...', total=size)
 
-            response = client.post(f'{config.base_url}/backfill/traces', content=reader())
-            response.raise_for_status()
-            echo('Backfill done.')
+                def reader() -> Iterator[bytes]:
+                    while True:
+                        data = f.read(1024 * 1024)
+                        if not data:
+                            return
+                        yield data
+                        progress.update(task, completed=f.tell())
+
+                response = client.post(
+                    f'{config.base_url}/backfill/traces',
+                    content=reader(),
+                    headers={'Digest': f'SHA-256={digest.hexdigest()}', 'Content-Length': str(size)},
+                )
+                if response.is_error:
+                    try:
+                        data = response.json()
+                    except JSONDecodeError:
+                        data = response.text
+                    console.print(data)
