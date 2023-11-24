@@ -88,11 +88,11 @@ class FileParser:
             # either nothing was read or we completed a message
             return
         if self.state == self.MISSING_HEADER:
-            raise ValueError(f"Invalid backup file (expected '{HEADER.strip()}' header)")
+            raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
         elif self.state == self.MISSING_VERSION:
-            raise ValueError(f"Invalid backup file (expected '{VERSION.strip()}' header)")
+            raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
         elif self.state == self.IN_MESSAGE:
-            raise ValueError('Invalid backup file (expected message end)')
+            raise InvalidFile('Invalid backup file (expected message end)')
         assert_never(self.state)
 
     def push(self, data: bytes) -> ExportTraceServiceRequest | None:
@@ -100,14 +100,14 @@ class FileParser:
         if self.state == self.MISSING_HEADER:
             if len(self.buffer) >= len(HEADER):
                 if bytes(self.buffer[: len(HEADER)]) != HEADER:
-                    raise ValueError(f"Invalid backup file (expected '{HEADER.strip()}' header)")
+                    raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
                 self.buffer = self.buffer[len(HEADER) :]
                 self.state = self.MISSING_VERSION
             return None
         elif self.state == self.MISSING_VERSION:
             if len(self.buffer) >= len(VERSION):
                 if bytes(self.buffer[: len(VERSION)]) != VERSION:
-                    raise ValueError(f"Invalid backup file (expected '{VERSION.strip()}' header)")
+                    raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
                 self.buffer = self.buffer[len(VERSION) :]
                 self.state = self.MISSING_BEG
             return None
@@ -123,6 +123,10 @@ class FileParser:
                 self.state = self.MISSING_BEG
                 return ExportTraceServiceRequest.FromString(data)
         return None
+
+
+class InvalidFile(ValueError):
+    """Raised when a dump file is invalid."""
 
 
 def load_file(file_path: str | Path | IO[bytes] | None) -> Iterator[ExportTraceServiceRequest]:
