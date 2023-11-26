@@ -1,7 +1,7 @@
 """The CLI for Logfire. 🚀"""  # noqa: D415
+import os
 import platform
 import shutil
-from hashlib import sha256
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Iterator
@@ -78,19 +78,11 @@ def backfill(data_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans
     token, _ = config.load_token()
     assert token is not None  # if no token was available a new project should have been created
     with Progress(console=console) as progress:
-        with file.open('rb') as f:
-            size = 0
-            digest = sha256()
-            while True:
-                data = f.read(1024 * 1024)
-                if not data:
-                    break
-                digest.update(data)
-                size += len(data)
-            f.seek(0)
+        with open(file, 'rb') as f:
+            total = os.path.getsize(file)
 
             with httpx.Client(headers={'Authorization': token}) as client:
-                task = progress.add_task('Backfilling...', total=size)
+                task = progress.add_task('Backfilling...', total=total)
 
                 def reader() -> Iterator[bytes]:
                     while True:
@@ -103,7 +95,7 @@ def backfill(data_dir: Path = Path('.logfire'), file: Path = Path('logfire_spans
                 response = client.post(
                     f'{config.base_url}/backfill/traces',
                     content=reader(),
-                    headers={'Digest': f'SHA-256={digest.hexdigest()}', 'Content-Length': str(size)},
+                    headers={'Content-Length': str(total)},
                 )
                 if response.is_error:
                     try:
