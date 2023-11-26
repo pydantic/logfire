@@ -4,8 +4,11 @@ import json
 from datetime import datetime
 from io import BytesIO
 
+import pytest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
 from logfire.backfill import Log, PrepareBackfill, StartSpan
-from logfire.exporters._file import to_json_lines
+from logfire.exporters._file import FileParser, to_json_lines
 
 
 def test_write_spans_and_logs() -> None:
@@ -122,3 +125,60 @@ def test_write_spans_and_logs() -> None:
             ]
         },
     ]
+
+
+@pytest.mark.parametrize('read_chunk_size', [1, 10, 100, 1_000, 10_000])
+def test_parser(read_chunk_size: int) -> None:
+    data = BytesIO()
+    with PrepareBackfill(data) as prep_backfill:
+        spans: list[StartSpan] = []
+        for x in range(10):
+            span = StartSpan(
+                span_name='session',
+                msg_template='session {user_id=} {path=}',
+                service_name='docs.pydantic.dev',
+                log_attributes={'user_id': '123', 'path': '/test'},
+                parent=spans[-1] if spans else None,
+                span_id=x + 1,
+                trace_id=1,
+                start_timestamp=datetime(2023, 1, 1, 0, 0, x),
+                resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+            )
+            spans.append(span)
+        log = Log(
+            msg_template='GET {path=}',
+            level='info',
+            service_name='docs.pydantic.dev',
+            attributes={'path': '/test'},
+            trace_id=2,
+            span_id=3,
+            parent_span_id=1,
+            timestamp=datetime(2023, 1, 1, 0, 0, 0),
+            formatted_msg='GET /test',
+            resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+        )
+        prep_backfill.write(log)
+        for span in spans:
+            prep_backfill.write(span.end(datetime(2023, 1, 2, 0, 0, 1)))
+
+    # justify the choice of read_chunk_size
+    assert 1_000 < data.tell() < 10_000
+
+    data.seek(0)
+
+    messages: list[ExportTraceServiceRequest] = []
+
+    parser = FileParser()
+    while data.tell() < data.getbuffer().nbytes:
+        for message in parser.push(data.read(read_chunk_size)):
+            messages.append(message)
+    parser.finish()
+
+    read_spans = [
+        span
+        for message in messages
+        for resource_spans in message.resource_spans
+        for scope_spans in resource_spans.scope_spans
+        for span in scope_spans.spans
+    ]
+    assert len(read_spans) == 11

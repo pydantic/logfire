@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import threading
 from pathlib import Path
-from typing import IO, Iterator, Literal, Sequence
+from typing import IO, Generator, Iterable, Iterator, Literal, Sequence
 
 from google.protobuf.json_format import MessageToJson
 from opentelemetry.exporter.otlp.proto.common.trace_encoder import (
@@ -20,6 +20,17 @@ HEADER = b'LOGFIRE BACKUP FILE\n'
 VERSION = b'VERSION 1\n'
 
 
+class Writer:
+    def write_header(self) -> bytes:
+        return HEADER + VERSION
+
+    def write(self, spans: ExportTraceServiceRequest) -> Iterable[bytes]:
+        size = spans.ByteSize()
+        # we can represent up to a 4GB message
+        yield size.to_bytes(4, 'big')
+        yield spans.SerializeToString()
+
+
 class FileSpanExporter(SpanExporter):
     def __init__(
         self,
@@ -31,6 +42,7 @@ class FileSpanExporter(SpanExporter):
         self._wrote_header = False
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        writer = Writer()
         with self._lock:
             if not self._file:
                 if isinstance(self.file_path, Path):
@@ -39,14 +51,11 @@ class FileSpanExporter(SpanExporter):
                     self._file = self.file_path
                 self._file.seek(0, os.SEEK_END)
                 if self._file.tell() == 0:
-                    self._file.write(HEADER)
-                    self._file.write(VERSION)
+                    self._file.write(writer.write_header())
             encoded_spans = encode_spans(spans)
-            size = encoded_spans.ByteSize()
-            # we can represent up to a 4GB message
-            self._file.write(size.to_bytes(4, 'big'))
-            self._file.write(encoded_spans.SerializeToString())
-            self._file.flush()
+            for data in writer.write(encoded_spans):
+                self._file.write(data)
+
         return SpanExportResult.SUCCESS
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
@@ -95,34 +104,40 @@ class FileParser:
             raise InvalidFile('Invalid backup file (expected message end)')
         assert_never(self.state)
 
-    def push(self, data: bytes) -> ExportTraceServiceRequest | None:
+    def push(self, data: bytes) -> Generator[ExportTraceServiceRequest, None, None]:
         self.buffer += data
-        if self.state == self.MISSING_HEADER:
-            if len(self.buffer) >= len(HEADER):
-                if bytes(self.buffer[: len(HEADER)]) != HEADER:
-                    raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
-                self.buffer = self.buffer[len(HEADER) :]
-                self.state = self.MISSING_VERSION
-            return None
-        elif self.state == self.MISSING_VERSION:
-            if len(self.buffer) >= len(VERSION):
-                if bytes(self.buffer[: len(VERSION)]) != VERSION:
-                    raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
-                self.buffer = self.buffer[len(VERSION) :]
-                self.state = self.MISSING_BEG
-            return None
-        elif self.state == self.MISSING_BEG:
-            if len(self.buffer) >= 4:
-                self.message_size = int.from_bytes(self.buffer[:4], 'big')
-                self.buffer = self.buffer[4:]
-                self.state = self.IN_MESSAGE
-        elif self.state == self.IN_MESSAGE:
-            if len(self.buffer) >= self.message_size:
-                data = bytes(self.buffer[: self.message_size])
-                self.buffer = self.buffer[self.message_size :]
-                self.state = self.MISSING_BEG
-                return ExportTraceServiceRequest.FromString(data)
-        return None
+        while self.buffer:
+            if self.state == self.MISSING_HEADER:
+                if len(self.buffer) >= len(HEADER):
+                    if bytes(self.buffer[: len(HEADER)]) != HEADER:
+                        raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
+                    self.buffer = self.buffer[len(HEADER) :]
+                    self.state = self.MISSING_VERSION
+                else:
+                    return
+            elif self.state == self.MISSING_VERSION:
+                if len(self.buffer) >= len(VERSION):
+                    if bytes(self.buffer[: len(VERSION)]) != VERSION:
+                        raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
+                    self.buffer = self.buffer[len(VERSION) :]
+                    self.state = self.MISSING_BEG
+                else:
+                    return
+            elif self.state == self.MISSING_BEG:
+                if len(self.buffer) >= 4:
+                    self.message_size = int.from_bytes(self.buffer[:4], 'big')
+                    self.buffer = self.buffer[4:]
+                    self.state = self.IN_MESSAGE
+                else:
+                    return
+            elif self.state == self.IN_MESSAGE:
+                if len(self.buffer) >= self.message_size:
+                    data = bytes(self.buffer[: self.message_size])
+                    self.buffer = self.buffer[self.message_size :]
+                    self.state = self.MISSING_BEG
+                    yield ExportTraceServiceRequest.FromString(data)
+                else:
+                    return
 
 
 class InvalidFile(ValueError):
@@ -151,9 +166,7 @@ def load_file(file_path: str | Path | IO[bytes] | None) -> Iterator[ExportTraceS
             if not data:
                 parser.finish()
                 return
-            message = parser.push(data)
-            if message is not None:
-                yield message
+            yield from parser.push(data)
 
 
 def to_json_lines(file_path: str | Path | IO[bytes] | None) -> Iterator[str]:
