@@ -47,7 +47,6 @@ from ._constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     NON_SCALAR_VAR_SUFFIX,
     NULL_ARGS_KEY,
-    OTLP_LARGE_INT_SUFFIX,
     OTLP_MAX_INT_SIZE,
     LevelName,
 )
@@ -595,7 +594,12 @@ def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> 
             null_args.append(key)
         elif isinstance(value, int):
             if value > OTLP_MAX_INT_SIZE:
-                prepared[key + OTLP_LARGE_INT_SUFFIX] = str(value)
+                warnings.warn(
+                    f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
+                    ' if you need support for sending larger integers, please open a feature request',
+                    UserWarning,
+                )
+                prepared[key] = str(value)
             else:
                 prepared[key] = value
         elif isinstance(value, (str, bool, float)):

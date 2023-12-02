@@ -8,7 +8,6 @@ from typing import Callable, cast
 
 import pytest
 from dirty_equals import IsPositive, IsStr
-from opentelemetry.exporter.otlp.proto.common._internal.trace_encoder import encode_spans
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -1255,28 +1254,31 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
 
 
 def test_large_int(exporter: TestExporter) -> None:
-    with logfire.span(
-        'test {larger_int=} {max_int=} {small_int=}', larger_int=2**256 + 1, max_int=2**63, small_int=2**63 - 1
-    ):
-        pass
+    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+        with logfire.span('test {value=}', value=2**63 + 1):
+            pass
 
-    # check the encoded spans, this is where the value used to get dropped before we encoded them as strings
-    span = encode_spans(exporter.exported_spans)
-    attributes = span.resource_spans[0].scope_spans[0].spans[0].attributes
-    for attr in attributes:
-        if attr.key == 'larger_int__LARGE_INT':
-            assert (
-                attr.value.string_value
-                == '115792089237316195423570985008687907853269984665640564039457584007913129639937'
-            )
-        elif attr.key == 'max_int__LARGE_INT':
-            assert attr.value.string_value == '9223372036854775808'
-    span.SerializeToString()  # make sure there's no errors converting the spans to a binary message
-
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
         {
-            'name': 'test {larger_int=} {max_int=} {small_int=}',
+            'name': 'test {value=} (start)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'value': '9223372036854775809',
+                'logfire.msg_template': 'test {value=}',
+                'logfire.msg': 'test value=9223372036854775809',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'test {value=}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -1285,12 +1287,93 @@ def test_large_int(exporter: TestExporter) -> None:
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
                 'code.function': 'test_large_int',
-                'larger_int__LARGE_INT': '115792089237316195423570985008687907853269984665640564039457584007913129639937',
-                'max_int__LARGE_INT': '9223372036854775808',
-                'small_int': 9223372036854775807,
-                'logfire.msg_template': 'test {larger_int=} {max_int=} {small_int=}',
+                'value': '9223372036854775809',
+                'logfire.msg_template': 'test {value=}',
                 'logfire.span_type': 'span',
-                'logfire.msg': 'test larger_int=115792089237316195423570985008687907853269984665640564039457584007913129639937 max_int=9223372036854775808 small_int=9223372036854775807',
+                'logfire.msg': 'test value=9223372036854775809',
             },
-        }
+        },
+    ]
+    exporter.exported_spans.clear()
+
+    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+        with logfire.span('test {value=}', value=2**63):
+            pass
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+        {
+            'name': 'test {value=} (start)',
+            'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'start_time': 3000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'value': '9223372036854775808',
+                'logfire.msg_template': 'test {value=}',
+                'logfire.msg': 'test value=9223372036854775808',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'test {value=}',
+            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+            'parent': None,
+            'start_time': 3000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'value': '9223372036854775808',
+                'logfire.msg_template': 'test {value=}',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'test value=9223372036854775808',
+            },
+        },
+    ]
+    exporter.exported_spans.clear()
+
+    with logfire.span('test {value=}', value=2**63 - 1):
+        pass
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
+    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+        {
+            'name': 'test {value=} (start)',
+            'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+            'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'start_time': 5000000000,
+            'end_time': 5000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'value': 9223372036854775807,
+                'logfire.msg_template': 'test {value=}',
+                'logfire.msg': 'test value=9223372036854775807',
+                'logfire.span_type': 'start_span',
+                'logfire.start_parent_id': '0',
+            },
+        },
+        {
+            'name': 'test {value=}',
+            'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+            'parent': None,
+            'start_time': 5000000000,
+            'end_time': 6000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_large_int',
+                'value': 9223372036854775807,
+                'logfire.msg_template': 'test {value=}',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'test value=9223372036854775807',
+            },
+        },
     ]
