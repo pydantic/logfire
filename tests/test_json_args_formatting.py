@@ -76,7 +76,7 @@ from logfire._json_formatter import json_args_value_formatter, json_args_value_f
         ({'$__datatype__': 'NameEmail', 'data': 'John Doe <john.doe@mail.com>'}, 'John Doe <john.doe@mail.com>'),
         ({'$__datatype__': 'PosixPath', 'data': '/tmp/test.py'}, "PosixPath('/tmp/test.py')"),
         ({'$__datatype__': 'Pattern', 'data': 'test'}, "re.compile('test')"),
-        ({'$__datatype__': 'SecretBytes', 'data': "b\'**********\'"}, "SecretBytes(b'**********')"),
+        ({'$__datatype__': 'SecretBytes', 'data': "b'**********'"}, "SecretBytes(b'**********')"),
         ({'$__datatype__': 'SecretStr', 'data': '**********'}, "SecretStr('**********')"),
         (
             {'$__datatype__': 'UUID', 'data': '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4', 'version': 4},

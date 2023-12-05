@@ -722,9 +722,9 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                 'exc_value': IsStr(
                     regex=(
                         re.escape(
-                            "1 validation error for Model\n"
-                            "a\n"
-                            "  Input should be a valid integer, unable to parse string as an integer "
+                            '1 validation error for Model\n'
+                            'a\n'
+                            '  Input should be a valid integer, unable to parse string as an integer '
                             "[type=int_parsing, input_value='haha', input_type=str]\n"
                         )
                         + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'
@@ -793,9 +793,9 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                 'exc_value': IsStr(
                     regex=(
                         re.escape(
-                            "1 validation error for Model\n"
-                            "a\n"
-                            "  Input should be a valid integer, unable to parse string as an integer "
+                            '1 validation error for Model\n'
+                            'a\n'
+                            '  Input should be a valid integer, unable to parse string as an integer '
                             "[type=int_parsing, input_value='haha', input_type=str]\n"
                         )
                         + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'

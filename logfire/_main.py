@@ -571,9 +571,10 @@ def _merge_tags_into_attributes(
 ) -> tuple[Sequence[str] | None, dict[str, Any]]:
     # merge tags into attributes preserving any existing tags
     if ATTRIBUTES_TAGS_KEY in attributes:
-        res, attributes = cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags, {
-            k: v for k, v in attributes.items() if k != ATTRIBUTES_TAGS_KEY
-        }
+        res, attributes = (
+            cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags,
+            {k: v for k, v in attributes.items() if k != ATTRIBUTES_TAGS_KEY},
+        )
     else:
         res = tags
     if res:
