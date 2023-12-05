@@ -665,9 +665,10 @@ class LogfireCredentials:
         data = dataclasses.asdict(self)
         path = _get_creds_file(creds_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open('w') as f:
-            json.dump(data, f, indent=2)
-            f.write('\n')
+        path.write_text(json.dumps(data, indent=2) + '\n')
+        gitignore = path.parent / '.gitignore'
+        gitignore.touch(exist_ok=True)
+        gitignore.write_text('*')
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
