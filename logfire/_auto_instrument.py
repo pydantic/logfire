@@ -99,10 +99,10 @@ class FuncTracer:
             if metadata['namespace'] is not None:
                 attributes['code.namespace'] = metadata['namespace']
             logfire_span_gen = self.logfire.span(
-                'function {function_name}() called',
+                'call {object}',
                 span_name=name,
                 **attributes,
-                function_name=metadata['function'],
+                object=metadata['function'] if metadata['function'] != '<module>' else metadata['namespace'],
             )
             logfire_span_gen.__enter__()
             _SPANS[(frame, 'call')] = logfire_span_gen
