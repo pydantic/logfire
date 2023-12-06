@@ -5,9 +5,6 @@ from opentelemetry.context import create_key
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
 
-ATTRIBUTES_ATTRIBUTES_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.attributes'
-"""The key within OTEL attributes where logfire puts serialized attributes."""
-
 LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 """Level names for records."""
 
