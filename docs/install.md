@@ -61,6 +61,7 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 | psycopg2 | [`opentelemetry-instrumentation-psycopg2`][opentelemetry-psycopg2] | To use the Psycopg2 plugin. See more on the [Psycopg2 integration](integrations.md#psycopg2). |
 | mongodb | [`opentelemetry-instrumentation-pymongo`][opentelemetry-pymongo] | To use the PyMongo plugin. See more on the [PyMongo integration](integrations.md#pymongo). |
 | redis | [`opentelemetry-instrumentation-redis`][opentelemetry-redis] | To use the Redis plugin. See more on the [Redis integration](integrations.md#redis). |
+| system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
 
 [httpx]: https://www.python-httpx.org/
 [typer]: https://typer.tiangolo.com/
@@ -76,3 +77,4 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 [opentelemetry-psycopg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html
 [opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
 [opentelemetry-redis]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html
+[opentelemetry-system-metrics]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/system_metrics/system_metrics.html

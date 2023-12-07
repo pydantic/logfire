@@ -14,6 +14,14 @@ from logfire.exporters.console import ConsoleColorsValues
 from ._constants import LOGFIRE_BASE_URL
 from .exceptions import LogfireConfigError
 
+try:
+    import opentelemetry.instrumentation.system_metrics  # noqa: F401 # type: ignore
+
+    COLLECT_SYSTEM_METRICS_DEFAULT = True
+except ImportError:
+    COLLECT_SYSTEM_METRICS_DEFAULT = False  # type: ignore
+
+
 T = TypeVar('T')
 
 slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
@@ -53,7 +61,7 @@ SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
-COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=True, tp=bool)
+COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=COLLECT_SYSTEM_METRICS_DEFAULT, tp=bool)
 """Whether to collect system metrics."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
 """Whether to enable/disable the console exporter."""

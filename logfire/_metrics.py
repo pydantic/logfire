@@ -7,7 +7,6 @@ from threading import Lock
 from typing import Generic, Sequence, TypeVar, Union
 from weakref import WeakSet
 
-from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.metrics import (
     CallbackT,
     Counter,
@@ -44,16 +43,24 @@ DEFAULT_CONFIG = {
     'process.runtime.gc_count': None,
 }
 
+
+try:
+    from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
+
+    INSTRUMENTOR = SystemMetricsInstrumentor(config=DEFAULT_CONFIG)  # type: ignore
+except ImportError:
+    INSTRUMENTOR = None  # type: ignore
+
 if sys.platform == 'darwin':
     # see https://github.com/giampaolo/psutil/issues/1219
     # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
     DEFAULT_CONFIG.pop('system.network.connections')
 
 
-INSTRUMENTOR = SystemMetricsInstrumentor(config=DEFAULT_CONFIG)  # type: ignore
-
-
 def configure_metrics(meter_provider: MeterProvider) -> None:
+    if INSTRUMENTOR is None:
+        raise RuntimeError('install logfire[system-metrics] to use `collect_system_metrics=True`.')
+
     # we need to call uninstrument() otherwise instrument() will do nothing
     # even if the meter provider is different
     if INSTRUMENTOR.is_instrumented_by_opentelemetry:
