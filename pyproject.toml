@@ -46,9 +46,10 @@ gitpython = { version = ">=3.1.40", optional = true }
 [tool.poetry.extras]
 cli = ["httpx", "typer"]
 dash = ["httpx"]
+system-metrics = ["opentelemetry-instrumentation-system-metrics"]
 # `all` is meant to install all dependencies that are being used in the `logfire` module.
-# In this case `all` = `cli` + `dash`.
-all = ["typer", "httpx"]
+# In this case `all` = `cli` + `dash` + `system-metrics`.
+all = ["typer", "httpx", "opentelemetry-instrumentation-system-metrics"]
 test = [
     "anyio",
     "httpx",
@@ -80,7 +81,6 @@ sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2"]
 redis = ["opentelemetry-instrumentation-redis"]
 mongo = ["opentelemetry-instrumentation-pymongo"]
-system-metrics = ["opentelemetry-instrumentation-system-metrics"]
 pydantic = ["pydantic"]
 
 [tool.poetry.scripts]

@@ -47,8 +47,10 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 <!-- Create table -->
 | Name | Packages | Description |
 | ---- | -------- | ----------- |
+| all  | [`typer`][typer], [`httpx`][httpx], [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | Install `cli`, `dash` and `system-metrics` extras. |
 | cli  | [`typer`][typer], [`httpx`][httpx]  | The CLI for Logfire. See more about it on the [CLI section](index.md#cli). |
 | dash | [`httpx`][httpx] | The dashboard for Logfire. |
+| system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
 | pydantic | [`pydantic`][pydantic] | To use the Pydantic plugin. See more on the [Pydantic integration](integrations.md#pydantic). |
 | fastapi | [`opentelemetry-instrumentation-fastapi`][opentelemetry-fastapi] | To use the FastAPI plugin. See more on the [FastAPI integration](integrations.md#fastapi). |
 | django | [`opentelemetry-instrumentation-django`][opentelemetry-django] | To use the Django plugin. See more on the [Django integration](integrations.md#django). |
