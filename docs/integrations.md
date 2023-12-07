@@ -2,7 +2,7 @@ You can integrate Logfire with other libraries and frameworks.
 
 ## Pydantic
 
-??? tip "Installation"
+!!! tip "Installation"
     Install `pip install "logfire[pydantic]"` to use this integration.
 
     The `pydantic` optional install group contains the [`pydantic`](https://docs.pydantic.dev/latest/) package.
@@ -61,115 +61,127 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag
   * Tuple of strings. e.g. `('tag1', 'tag2')`
   * Comma separated string. e.g. `'tag1,tag2'`
 
-## ASGI
+## Web Frameworks
 
-??? tip "Installation"
+You can integrate Logfire with web frameworks using the OpenTelemetry instrumentation packages.
+
+### [FastAPI][fastapi]
+
+!!! tip "Installation"
+    Install `pip install "logfire[fastapi]"` to use this integration.
+
+    The `fastapi` extras contains the [`opentelemetry-instrumentation-fastapi`][opentelemetry-fastapi] package.
+
+You can use the FastAPI OpenTelemetry package to instrument FastAPI.
+
+```py
+import fastapi
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+app = fastapi.FastAPI()
+
+@app.get("/foobar")
+async def foobar():
+    return {"message": "hello world"}
+
+FastAPIInstrumentor.instrument_app(app)
+```
+
+You can read more about the FastAPI OpenTelemetry package [here][opentelemetry-fastapi].
+
+### [Flask][flask]
+
+!!! tip "Installation"
+    Install `pip install "logfire[flask]"` to use this integration.
+
+    The `flask` extras contains the [`opentelemetry-instrumentation-flask`][opentelemetry-flask] package.
+
+You can use the Flask OpenTelemetry package to instrument Flask.
+
+```py
+from flask import Flask
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+app = Flask(__name__)
+
+FlaskInstrumentor().instrument_app(app)
+
+@app.route("/")
+def hello():
+    return "Hello!"
+
+if __name__ == "__main__":
+    app.run(debug=True)
+```
+
+You can read more about the Flask OpenTelemetry package [here][opentelemetry-flask].
+
+### [Django][django]
+
+!!! tip "Installation"
+    Install `pip install "logfire[django]"` to use this integration.
+
+    The `django` extras contains the [`opentelemetry-instrumentation-django`][opentelemetry-django] package.
+
+You can use the Django OpenTelemetry package to instrument Django.
+
+```py
+from opentelemetry.instrumentation.django import DjangoInstrumentor
+
+DjangoInstrumentor().instrument()
+```
+
+You can read more about the Django OpenTelemetry package [here][opentelemetry-django].
+
+### [ASGI][asgi]
+
+!!! tip "Installation"
     Install `pip install "logfire[asgi]"` to use this integration.
 
     The `asgi` extras contains the [`opentelemetry-instrumentation-asgi`][opentelemetry-asgi] package.
 
-Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any ASGI framework.
+Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any [ASGI][asgi] framework.
 
-=== "FastAPI"
+```py
+import uvicorn
+from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 
-    ```py
-    from fastapi import FastAPI
-    from fastapi.middleware import Middleware
-    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+app = ...
 
-    app = FastAPI(middleware=[Middleware(OpenTelemetryMiddleware)])
+app = OpenTelemetryMiddleware(app)
 
-
-    @app.get('/')
-    async def home():
-        ...
-    ```
-
-=== "Quart"
-
-    ```py
-    from quart import Quart
-    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-
-    app = Quart(__name__)
-    app.asgi_app = OpenTelemetryMiddleware(app.asgi_app)
-
-    @app.route("/")
-    async def hello():
-        return "Hello!"
-
-    if __name__ == "__main__":
-        app.run(debug=True)
-    ```
-
-=== "Django 3.0"
-
-    ```py
-    import os
-    from django.core.asgi import get_asgi_application
-    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'asgi_example.settings')
-
-    application = get_asgi_application()
-    application = OpenTelemetryMiddleware(application)
-    ```
-
-=== "Raw ASGI"
-
-    ```py
-    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-
-    app = ...  # An ASGI application.
-    app = OpenTelemetryMiddleware(app)
-    ```
+if __name__ == "__main__":
+    uvicorn.run(app)
+```
 
 You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-asgi].
 
-## WSGI
+## [WSGI][wsgi]
 
-??? tip "Installation"
+!!! tip "Installation"
     Install `pip install "logfire[wsgi]"` to use this integration.
 
     The `wsgi` extras contains the [`opentelemetry-instrumentation-wsgi`][opentelemetry-wsgi] package.
 
-Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any WSGI framework.
+Since Logfire is compliant with the OpenTelemetry specification, you can integrate it with any [WSGI][wsgi] framework.
 
-=== "Flask"
+```py
+from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
 
-    ```py
-    from flask import Flask
-    from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
+app = ...
 
-    app = Flask(__name__)
-    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)
-
-    @app.route("/")
-    def hello():
-        return "Hello!"
-
-    if __name__ == "__main__":
-        app.run(debug=True)
-    ```
-
-=== "Django"
-
-    ```py
-    import os
-    from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
-    from django.core.wsgi import get_wsgi_application
-
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'application.settings')
-
-    application = get_wsgi_application()
-    application = OpenTelemetryMiddleware(application)
-    ```
+app = OpenTelemetryMiddleware(app)
+```
 
 You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-wsgi].
 
-## HTTPX
+## HTTP Clients
 
-??? tip "Installation"
+You can integrate Logfire with HTTP clients using the OpenTelemetry instrumentation packages.
+
+###  [HTTPX][httpx]
+
+!!! tip "Installation"
     Install `pip install "logfire[httpx]"` to use this integration.
 
     The `httpx` extras contains the [`httpx`][httpx] package.
@@ -188,9 +200,9 @@ with httpx.Client() as client:
 
 You can read more about the HTTPX OpenTelemetry package [here][opentelemetry-httpx].
 
-## Requests
+### [Requests][requests]
 
-??? tip "Installation"
+!!! tip "Installation"
     Install `pip install "logfire[requests]"` to use this integration.
 
     The `requests` extras contains the [`requests`][requests] package.
@@ -208,9 +220,13 @@ requests.get("https://httpbin.org/get")
 
 You can read more about the [`requests`][requests] OpenTelemetry package [here][opentelemetry-requests].
 
-## SQLAlchemy
+## Databases
 
-??? tip "Installation"
+You can integrate Logfire with database packages using the OpenTelemetry instrumentation packages.
+
+### [SQLAlchemy][sqlalchemy]
+
+!!! tip "Installation"
     Install `pip install "logfire[sqlalchemy]"` to use this integration.
 
     The `sqlalchemy` extras contains the [`opentelemetry-instrumentation-sqlalchemy`][opentelemetry-sqlalchemy] package.
@@ -228,9 +244,9 @@ SQLAlchemyInstrumentor().instrument(engine=engine)
 
 You can read more about the SQLAlchemy OpenTelemetry package [here][opentelemetry-sqlalchemy].
 
-## Psycopg2
+### [Psycopg2][psycopg2]
 
-??? tip "Installation"
+!!! tip "Installation"
     Install `pip install "logfire[psycopg2]"` to use this integration.
 
     The `psycopg2` extras contains the [`opentelemetry-instrumentation-psycopg2`][opentelemetry-psycopg2] package.
@@ -249,9 +265,9 @@ cnx = psycopg2.connect(database='Database')
 
 You can read more about the Psycopg2 OpenTelemetry package [here][opentelemetry-psycopg2].
 
-## Mongo
+### [Mongo][mongo]
 
-??? tip "Installation"
+!!! tip "Installation"
     Install `pip install "logfire[mongo]"` to use this integration.
 
     The `mongo` extras contains the [`opentelemetry-instrumentation-pymongo`][opentelemetry-pymongo] package.
@@ -270,7 +286,7 @@ client = pymongo.MongoClient()
 
 You can read more about the PyMongo OpenTelemetry package [here][opentelemetry-pymongo].
 
-## Standard Library Logging
+## [Standard Library Logging][logging]
 
 Logfire can act as a sink for standard library logging by emitting a Logfire log for every standard library log record.
 
@@ -288,6 +304,9 @@ logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
 
 [opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
+[opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
+[opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html
+[opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
 [opentelemetry-requests]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html
 [opentelemetry-sqlalchemy]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html
@@ -296,3 +315,12 @@ logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
 [httpx]: https://www.python-httpx.org/
 [requests]: https://docs.python-requests.org/en/master/
 [plugin_settings]: https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings
+[asgi]: https://asgi.readthedocs.io/en/latest/
+[wsgi]: https://wsgi.readthedocs.io/en/latest/
+[fastapi]: https://fastapi.tiangolo.com/
+[flask]: https://flask.palletsprojects.com/en/2.0.x/
+[django]: https://www.djangoproject.com/
+[sqlalchemy]: https://www.sqlalchemy.org/
+[psycopg2]: https://www.psycopg.org/
+[mongo]: https://pymongo.readthedocs.io/en/stable/
+[logging]: https://docs.python.org/3/library/logging.html

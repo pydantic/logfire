@@ -29,6 +29,9 @@ dirty-equals = { version = ">=0.6.0", optional = true }
 pytest = { version = ">=7.4.2", optional = true }
 opentelemetry-instrumentation-asgi = { version = ">=0.42b0", optional = true }
 opentelemetry-instrumentation-wsgi = {version = ">=0.42b0", optional = true}
+opentelemetry-instrumentation-fastapi = { version = ">=0.42b0", optional = true }
+opentelemetry-instrumentation-flask = { version = ">=0.42b0", optional = true }
+opentelemetry-instrumentation-django = { version = ">=0.42b0", optional = true }
 opentelemetry-instrumentation-httpx = { version = ">=0.42b0", optional = true }
 opentelemetry-instrumentation-requests = { version = ">=0.42b0", optional = true }
 opentelemetry-instrumentation-sqlalchemy = { version = ">=0.42b0", optional = true }
@@ -68,6 +71,9 @@ requests = ["open-telemetry-instrumentation-requests"]
 httpx = ["opentelemetry-instrumentation-httpx"]
 wsgi = ["opentelemetry-instrumentation-wsgi"]
 asgi = ["opentelemetry-instrumentation-asgi"]
+fastapi = ["opentelemetry-instrumentation-fastapi"]
+flask = ["opentelemetry-instrumentation-flask"]
+django = ["opentelemetry-instrumentation-django"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy"]
 # TODO(Marcelo): psycopg is not supported yet, only psycopg2: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/1751
 psycopg2 = ["opentelemetry-instrumentation-psycopg2"]

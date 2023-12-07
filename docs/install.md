@@ -50,6 +50,9 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 | cli  | [`typer`][typer], [`httpx`][httpx]  | The CLI for Logfire. See more about it on the [CLI section](index.md#cli). |
 | dash | [`httpx`][httpx] | The dashboard for Logfire. |
 | pydantic | [`pydantic`][pydantic] | To use the Pydantic plugin. See more on the [Pydantic integration](integrations.md#pydantic). |
+| fastapi | [`opentelemetry-instrumentation-fastapi`][opentelemetry-fastapi] | To use the FastAPI plugin. See more on the [FastAPI integration](integrations.md#fastapi). |
+| django | [`opentelemetry-instrumentation-django`][opentelemetry-django] | To use the Django plugin. See more on the [Django integration](integrations.md#django). |
+| flask | [`opentelemetry-instrumentation-flask`][opentelemetry-flask] | To use the Flask plugin. See more on the [Flask integration](integrations.md#flask). |
 | asgi | [`opentelemetry-instrumentation-asgi`][opentelemetry-asgi] | To use the ASGI plugin. See more on the [ASGI integration](integrations.md#asgi). |
 | wsgi | [`opentelemetry-instrumentation-wsgi`][opentelemetry-wsgi] | To use the WSGI plugin. See more on the [WSGI integration](integrations.md#wsgi). |
 | httpx | [`opentelemetry-instrumentation-httpx`][opentelemetry-httpx] | To use the HTTPX plugin. See more on the [HTTPX integration](integrations.md#httpx). |
@@ -62,6 +65,9 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 [httpx]: https://www.python-httpx.org/
 [typer]: https://typer.tiangolo.com/
 [pydantic]: https://pydantic-docs.helpmanual.io/
+[opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
+[opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html
+[opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
