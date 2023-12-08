@@ -47,8 +47,7 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 <!-- Create table -->
 | Name | Packages | Description |
 | ---- | -------- | ----------- |
-| all  | [`typer`][typer], [`httpx`][httpx], [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | Install `cli`, `dash` and `system-metrics` extras. |
-| cli  | [`typer`][typer], [`httpx`][httpx]  | The CLI for Logfire. See more about it on the [CLI section](index.md#cli). |
+| all  | [`httpx`][httpx], [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | Install `dash` and `system-metrics` extras. |
 | dash | [`httpx`][httpx] | The dashboard for Logfire. |
 | system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
 | pydantic | [`pydantic`][pydantic] | To use the Pydantic plugin. See more on the [Pydantic integration](integrations.md#pydantic). |
@@ -66,7 +65,6 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 | system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
 
 [httpx]: https://www.python-httpx.org/
-[typer]: https://typer.tiangolo.com/
 [pydantic]: https://pydantic-docs.helpmanual.io/
 [opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
 [opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html

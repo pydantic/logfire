@@ -1,11 +1,14 @@
+import io
+import os
+import shlex
+import sys
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
+from logfire import VERSION
 from logfire._config import LogfireCredentials
-from logfire.cli import app
-from logfire.version import VERSION
+from logfire.cli import main
 
 
 @pytest.fixture
@@ -18,48 +21,69 @@ def logfire_credentials() -> LogfireCredentials:
     )
 
 
-def test_version() -> None:
-    runner = CliRunner()
-    result = runner.invoke(app, ['--version'])
-    assert result.exit_code == 0
-    assert VERSION in result.stdout
+@pytest.fixture
+def tmp_dir_cwd(tmp_path: Path):
+    """Change the working directory to a temporary directory."""
+    os.chdir(tmp_path)
+    yield tmp_path
+    os.chdir(os.path.dirname(__file__))  # Reset to the original directory after the test
 
 
-def test_whoami(logfire_credentials: LogfireCredentials) -> None:
-    runner = CliRunner()
-    with runner.isolated_filesystem() as tmp_dir:
-        logfire_credentials.write_creds_file(Path(tmp_dir))
-        result = runner.invoke(app, ['whoami', '--data-dir', tmp_dir])
-        assert result.exit_code == 0
-        # insert_assert(result.stdout)
-        assert result.stdout == 'Logfire dashboard: https://dashboard.logfire.dev\n'
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='output message is slightly different in lower versions')
+def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
+    main([])
+    # insert_assert(capsys.readouterr().out.splitlines())
+    assert capsys.readouterr().out.splitlines() == [
+        'usage: Logfire [-h] [--version]  ...',
+        '',
+        'The CLI for Logfire.',
+        '',
+        'options:',
+        '  -h, --help  show this help message and exit',
+        '  --version   Show version and exit.',
+        '',
+        'commands:',
+        '  ',
+        '    whoami    Get your dashboard url and project name.',
+        '    clean     Clean logfire data.',
+        '    backfill  Bulk load logfire data.',
+    ]
 
 
-def test_whoami_without_data() -> None:
-    runner = CliRunner()
-    with runner.isolated_filesystem() as tmp_dir:
-        result = runner.invoke(app, ['whoami', '--data-dir', tmp_dir])
-        assert result.exit_code == 0
-        # insert_assert(result.stdout)
-        assert result.stdout == 'Data not found.\n'
+def test_version(capsys: pytest.CaptureFixture[str]) -> None:
+    main(['--version'])
+    assert VERSION in capsys.readouterr().out.strip()
 
 
-def test_whoami_default_dir(logfire_credentials: LogfireCredentials) -> None:
-    runner = CliRunner()
-    with runner.isolated_filesystem() as tmp_dir:
-        logfire_credentials.write_creds_file(Path(tmp_dir) / '.logfire')
-        result = runner.invoke(app, ['whoami'])
-        assert result.exit_code == 0
-        # insert_assert(result.stdout)
-        assert result.stdout == 'Logfire dashboard: https://dashboard.logfire.dev\n'
+def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    main(shlex.split(f'whoami --data-dir {str(tmp_dir_cwd)}'))
+    # insert_assert(capsys.readouterr().err)
+    assert capsys.readouterr().err == 'Logfire dashboard: https://dashboard.logfire.dev\n'
 
 
-def test_clean(logfire_credentials: LogfireCredentials) -> None:
-    runner = CliRunner()
-    with runner.isolated_filesystem() as tmp_dir:
-        logfire_credentials.write_creds_file(Path(tmp_dir))
-        assert Path(tmp_dir).exists()
-        result = runner.invoke(app, ['clean', '--data-dir', tmp_dir], input='y')
-        assert result.exit_code == 0, result.stdout
-        assert 'Cleaned logfire data.' in result.stdout
-        assert not Path(tmp_dir).exists()
+def test_whoami_without_data(capsys: pytest.CaptureFixture[str]) -> None:
+    main(['whoami'])
+    # insert_assert(capsys.readouterr().err)
+    assert capsys.readouterr().err == 'Data not found.\n'
+
+
+def test_whoami_default_dir(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+) -> None:
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    main(['whoami'])
+    # insert_assert(capsys.readouterr().err)
+    assert capsys.readouterr().err == 'Logfire dashboard: https://dashboard.logfire.dev\n'
+
+
+def test_clean(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    assert capsys.readouterr().err == 'Cleaned logfire data.\n'
