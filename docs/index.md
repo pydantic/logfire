@@ -52,8 +52,6 @@ logfire.install_automatic_instrumentation(modules=['app'])
 
 Logfire comes with a CLI that can help you with some tasks.
 
-Run the following command to see what you can do with it:
-
 ```bash
-logfire --help
+{{ logfire_help }}
 ```
