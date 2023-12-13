@@ -33,12 +33,17 @@ def extract_attributes(event: Literal['call', 'c_call'], frame: FrameType, arg: 
         module = inspect.getmodule(frame)
         module_name = module.__name__ if module else None
         f_name = getattr(frame.f_code, 'co_qualname', frame.f_code.co_name)
-        assert frame.f_back is not None
+        filepath = frame.f_code.co_filename
+        lineno = frame.f_lineno
+        # f_back looks more correct, when it is available
+        if frame.f_back is not None:
+            filepath = frame.f_back.f_code.co_filename
+            lineno = frame.f_back.f_lineno
         return ExtractedMetadata(
             namespace=module_name,
             function=f_name,
-            filepath=frame.f_back.f_code.co_filename,
-            lineno=frame.f_back.f_lineno,
+            filepath=filepath,
+            lineno=lineno,
         )
     else:
         assert event == 'c_call'
@@ -73,10 +78,10 @@ class FuncTracer:
     ) -> None:
         if self.previous_tracer is not None:
             self.previous_tracer(frame, event, arg)
+        if event == 'c_call' or event == 'c_return':
+            # always filter out c calls, we have no way to get the filename
+            return
         if self.modules is not None:
-            if event == 'c_call':
-                # always filter out c calls, we have no way to get the filename
-                return
             if not self.modules.search(frame.f_code.co_filename):
                 return
         # skip if we are within ourselves because we call functions in here that we don't want to trace
@@ -88,7 +93,7 @@ class FuncTracer:
             ):
                 return
             f = f.f_back
-        if event == 'call' or event == 'c_call':
+        if event == 'call':
             metadata = extract_attributes(event, frame, arg)
             name = f'{metadata["namespace"]}.{metadata["function"]}' if metadata['namespace'] else metadata['function']
             attributes = {
@@ -106,14 +111,11 @@ class FuncTracer:
             )
             logfire_span_gen.__enter__()
             _SPANS[(frame, 'call')] = logfire_span_gen
-        elif event == 'return' or event == 'c_return':
+        elif event == 'return':
             f = frame
-            while f:
-                logfire_span: ContextManager[LogfireSpan] | None = _SPANS.pop((f, 'call'), None)
-                if logfire_span is not None:
-                    logfire_span.__exit__(None, None, None)
-                    break
-                f = f.f_back
+            logfire_span: ContextManager[LogfireSpan] | None = _SPANS.pop((f, 'call'), None)
+            if logfire_span is not None:
+                logfire_span.__exit__(None, None, None)
 
 
 def get_module_path(module: str) -> str:
