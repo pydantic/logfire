@@ -1,21 +1,28 @@
 """The CLI for Logfire."""
 import argparse
+import importlib
 import os
+import pkgutil
 import platform
 import shutil
 import sys
+import warnings
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import Iterator
 
 import requests
 from rich.console import Console
 from rich.progress import Progress
+from rich.table import Table
 
 import logfire._config
 from logfire._config import LogfireCredentials
 from logfire.version import VERSION
 
-console = Console()
+BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
+BASE_DOCS_URL = 'https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/docs/'
+INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
 
 
 def version_callback() -> None:
@@ -57,6 +64,7 @@ def parse_backfill(args: argparse.Namespace) -> None:
     config.initialize()
     token, _ = config.load_token()
     assert token is not None  # if no token was available a new project should have been created
+    console = Console(file=sys.stderr)
     with Progress(console=console) as progress:
         with open(file, 'rb') as f:
             total = os.path.getsize(file)
@@ -84,6 +92,115 @@ def parse_backfill(args: argparse.Namespace) -> None:
                 console.print(data)
 
 
+# TODO(Marcelo): Automatically check if this list should be updated.
+# NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
+OTEL_PACKAGES: 'set[str]' = {
+    'aio_pika',
+    'aiohttp',
+    'aiopg',
+    'asyncpg',
+    'boto',
+    'celery',
+    'confluent_kafka',
+    'django',
+    'elasticsearch',
+    'falcon',
+    'fastapi',
+    'flask',
+    'grpc',
+    'httpx',
+    'jinja2',
+    'kafka_python',
+    'mysql',
+    'mysqlclient',
+    'pika',
+    'psycopg2',
+    'pymemcache',
+    'pymongo',
+    'pymysql',
+    'pyramid',
+    'remoulade',
+    'requests',
+    'sklearn',
+    'sqlalchemy',
+    'sqlite3',
+    'starlette',
+    'tornado',
+    'tortoise_orm',
+    'urllib',
+    'urllib3',
+}
+OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm'}
+
+
+@contextmanager
+def suppress_stdout():
+    """Suppress stdout."""
+    with open(os.devnull, 'w') as null:
+        with redirect_stdout(null):
+            yield
+
+
+def parse_inspect(args: argparse.Namespace) -> None:
+    """Inspect installed packages and recommend the opentelemetry package that can be used with it."""
+    console = Console(file=sys.stderr)
+    table = Table()
+    table.add_column('Package')
+    table.add_column('Opentelemetry package')
+
+    # Ignore warnings from packages that we don't control.
+    warnings.simplefilter('ignore', category=UserWarning)
+
+    packages: 'dict[str, str]' = {}
+    for _, name, _ in pkgutil.iter_modules():
+        # If from stdlib, skip.
+        if name in sys.builtin_module_names:
+            continue
+        # The antigravity module is a joke in the Python docs, and it opens a web browser.
+        if name.startswith('antigravity'):
+            continue
+        try:
+            with suppress_stdout():
+                module = importlib.import_module(name)
+        # We may have side-effects, and we don't want to crash the CLI.
+        except Exception:
+            continue
+
+        if module.__name__ not in OTEL_PACKAGES:
+            continue
+
+        otel_package = OTEL_PACKAGE_LINK.get(module.__name__, module.__name__)
+        otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
+
+        try:
+            importlib.import_module(otel_package_import)
+        except ImportError:
+            packages[name] = otel_package
+
+    # Drop packages that are dependencies of other packages.
+    if packages.get('starlette') and packages.get('fastapi'):
+        del packages['starlette']
+
+    for name, otel_package in sorted(packages.items()):
+        package_name = otel_package.replace('.', '-')
+        import_name = otel_package.replace('-', '_')
+        link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
+        table.add_row(name, link)
+
+    console.print('The following packages are installed, but not their opentelemetry package:')
+    console.print(table)
+
+    if packages:
+        otel_packages_to_install = ' '.join(
+            f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
+        )
+        install_command = f'pip install {otel_packages_to_install}'
+        console.print('\n[bold green]Command to install missing OpenTelemetry packages:[/bold green]\n')
+        console.print(f'[bold]$[/bold] [cyan]{install_command}[/cyan]', justify='center')
+        console.print('\n[bold blue]For further information, check our documentation:[/bold blue]', end=' ')
+        console.print(f'[link={INTEGRATIONS_DOCS_URL}]https://logfire.dev/docs[/link]')
+
+
 def main(args: 'list[str] | None' = None) -> None:
     """Run the CLI."""
     parser = argparse.ArgumentParser(prog='Logfire', description='The CLI for Logfire.', add_help=True)
@@ -103,6 +220,11 @@ def main(args: 'list[str] | None' = None) -> None:
     cmd_backfill.add_argument('--data-dir', default='.logfire')
     cmd_backfill.add_argument('--file', default='logfire_spans.bin')
     cmd_backfill.set_defaults(func=parse_backfill)
+
+    cmd_inspect = subparsers.add_parser(
+        'inspect', help='Inspect installed packages, and recommend OTel package that can be used with it.'
+    )
+    cmd_inspect.set_defaults(func=parse_inspect)
 
     namespace = parser.parse_args(args)
     if namespace.version:

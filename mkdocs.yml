@@ -96,6 +96,5 @@ plugins:
           docstring_options:
             ignore_init_summary: true
           merge_init_into_class: true
-- mkdocs-simple-hooks:
-    hooks:
-      on_page_markdown: 'docs.plugins.main:on_page_markdown'
+hooks:
+  - docs/plugins/main.py

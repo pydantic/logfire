@@ -47,6 +47,7 @@ def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
         '    whoami    Get your dashboard url and project name.',
         '    clean     Clean logfire data.',
         '    backfill  Bulk load logfire data.',
+        '    inspect   Inspect installed packages, and recommend OTel package that can be used with it.',
     ]
 
 
@@ -87,3 +88,15 @@ def test_clean(
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
     assert capsys.readouterr().err == 'Cleaned logfire data.\n'
+
+
+def test_inspect(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+) -> None:
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    main(['inspect'])
+    # insert_assert(capsys.readouterr().err.splitlines()[0])
+    assert (
+        capsys.readouterr().err.splitlines()[0]
+        == 'The following packages are installed, but not their opentelemetry package:'
+    )
