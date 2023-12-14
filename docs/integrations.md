@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
 You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-asgi].
 
-## [WSGI][wsgi]
+### [WSGI][wsgi]
 
 !!! tip "Installation"
     Install `pip install "logfire[wsgi]"` to use this integration.
