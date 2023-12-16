@@ -11,7 +11,7 @@ LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
 ATTRIBUTES_LOG_LEVEL_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level'
 """The key within OTEL attributes where logfire puts the log level."""
 
-SpanTypeType = Literal['log', 'start_span', 'span']
+SpanTypeType = Literal['log', 'pending_span', 'span']
 
 SPAN_TYPE_ATTRIBUTE_NAME = 'span_type'
 """The key within OTEL attributes where logfire puts the span type."""
@@ -30,6 +30,12 @@ ATTRIBUTES_MESSAGE_TEMPLATE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg_template'
 
 ATTRIBUTES_MESSAGE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg'
 """The formatted message for a log."""
+
+EXCEPTION_ATTRIBUTES_LOGFIRE_DATA_KEY = 'logfire.data'
+"""The key within exception attributes where logfire puts exception data."""
+
+EXCEPTION_ATTRIBUTES_LOGFIRE_TRACEBACK_KEY = 'logfire.traceback'
+"""The key within exception attributes where logfire puts the traceback."""
 
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""

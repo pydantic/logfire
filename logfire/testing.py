@@ -138,7 +138,7 @@ class TestExporter(SpanExporter):
             span
             for span in spans
             if _include_start_spans is True
-            or (span.get('attributes', {}).get(ATTRIBUTES_SPAN_TYPE_KEY, 'span') != 'start_span')
+            or (span.get('attributes', {}).get(ATTRIBUTES_SPAN_TYPE_KEY, 'span') != 'pending_span')
         ]
 
 

@@ -104,7 +104,7 @@ class ConsoleSpanExporter(SpanExporter):
             while len(self._indent_level) > self._max_spans_in_state:
                 del self._indent_level[next(iter(self._indent_level))]
 
-            if span_type != 'start_span':
+            if span_type != 'pending_span':
                 self._log(event=_get_span_name(span), span=span, indent=indent)
         return SpanExportResult.SUCCESS
 
