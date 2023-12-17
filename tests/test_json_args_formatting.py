@@ -134,6 +134,55 @@ from logfire._json_formatter import json_args_value_formatter, json_args_value_f
             'MyArbitaryType(12)',
         ),
         ({'$__datatype__': 'unknown', 'data': '<this is repr>'}, '<this is repr>'),
+        (
+            {
+                '$__datatype__': 'DataFrame',
+                'data': [[1, 3], [2, 4]],
+                'columns': ['col1', 'col2'],
+                'indexes': ['0', '1'],
+                'row_count': 2,
+                'column_count': 2,
+            },
+            '  | col1 | col2\n--+------+-----\n0 | 1    | 3   \n1 | 2    | 4   \n\n[2 rows x 2 columns]',
+        ),
+        (
+            {
+                '$__datatype__': 'DataFrame',
+                'data': [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
+                'columns': ['col1', 'col2', 'col4', 'col5'],
+                'indexes': ['a', 'b', 'd', 'e'],
+                'row_count': 5,
+                'column_count': 5,
+            },
+            '    | col1 | col2 | ... | col4 | col5\n'
+            '----+------+------+-----+------+-----\n'
+            'a   | 1    | 2    | ... | 4    | 5   \n'
+            'b   | 2    | 4    | ... | 8    | 10  \n'
+            '... | ...  | ...  | ... | ...  | ... \n'
+            'd   | 4    | 8    | ... | 16   | 20  \n'
+            'e   | 5    | 10   | ... | 20   | 25  \n\n'
+            '[5 rows x 5 columns]',
+        ),
+        (
+            {'$__datatype__': 'array', 'data': [['1', '2'], ['3', '4']], 'row_count': 2, 'column_count': 2},
+            "array([\n    [\n        '1',\n        '2',\n    ],\n    [\n        '3',\n        '4',\n    ],\n])",
+        ),
+        (
+            {
+                '$__datatype__': 'array',
+                'data': [['1', '2', '4', '5'], ['2', '4', '8', '10'], ['4', '8', '16', '20'], ['5', '10', '20', '25']],
+                'row_count': 5,
+                'column_count': 5,
+            },
+            "array([\n    [\n        '1',\n        '2',\n        '4',\n        '5',\n    ],\n"
+            "    [\n        '2',\n        '4',\n        '8',\n        '10',\n    ],\n"
+            "    [\n        '4',\n        '8',\n        '16',\n        '20',\n    ],\n"
+            "    [\n        '5',\n        '10',\n        '20',\n        '25',\n    ],\n])",
+        ),
+        (
+            {'$__datatype__': 'matrix', 'data': [['1', '2'], ['3', '4']], 'row_count': 2, 'column_count': 2},
+            "matrix([\n    [\n        '1',\n        '2',\n    ],\n    [\n        '3',\n        '4',\n    ],\n])",
+        ),
     ],
     ids=repr,
 )
@@ -224,4 +273,6 @@ def test_json_args_value_formatting_compact(value: Any, formatted_value: str):
 
 
 def test_all_types_covered():
-    assert set(DataType.__args__) == set(json_args_value_formatter_compact._data_type_map.keys())
+    types = set(DataType.__args__)
+    types.remove('DataFrame')
+    assert types == set(json_args_value_formatter_compact._data_type_map.keys())

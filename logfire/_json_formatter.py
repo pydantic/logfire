@@ -50,6 +50,8 @@ class JsonArgsValueFormatter:
             'NameEmail': partial(self._write, '', '', False),
             'UUID': partial(self._write, "UUID('", "')", False),
             'Exception': partial(self._write, '(', ')', True),
+            'array': partial(self._format_list_like, 'array([', '])'),
+            'matrix': partial(self._format_list_like, 'matrix([', '])'),
             'unknown': partial(self._write, '', '', False),
         }
 
@@ -66,7 +68,9 @@ class JsonArgsValueFormatter:
                 data_type = cast(DataType, data_type)
                 cls: str = cast(str, value.get('cls', ''))
 
-                if func := self._data_type_map.get(data_type):
+                if data_type == 'DataFrame':
+                    self._format_data_frame(indent_current, value)
+                elif func := self._data_type_map.get(data_type):
                     func(indent_current, data, cls)
                 else:
                     self._write('', '', False, 0, str(data), None)
@@ -97,16 +101,16 @@ class JsonArgsValueFormatter:
 
         self._stream.write(f'{open_}{value}{after_}')
 
-    def _format_timedelta(self, _indent_current: int, value: Any, _cls: str | None):
+    def _format_timedelta(self, _indent_current: int, value: Any, _cls: str | None) -> None:
         self._write('', '', True, 0, timedelta(seconds=value), None)
 
-    def _format_sequence(self, open_: str, close_: str, indent_current: int, value: Any, cls: str | None):
+    def _format_sequence(self, open_: str, close_: str, indent_current: int, value: Any, cls: str | None) -> None:
         if cls == 'range':
             self._write('(', ')', False, 0, f'{value[0]}, {value[-1] + 1}', 'range')
         else:
             self._format_list_like(f'{cls}{open_}', close_, indent_current, value, None)
 
-    def _format_list_like(self, open_: str, close_: str, indent_current: int, value: Any, _cls: str | None):
+    def _format_list_like(self, open_: str, close_: str, indent_current: int, value: Any, _cls: str | None) -> None:
         indent_new = indent_current + self._indent_step
         before = indent_new * ' '
         comma = ',\n' if self._newlines else ', '
@@ -126,7 +130,7 @@ class JsonArgsValueFormatter:
             self._format(indent_new, True, v)
 
         if self._newlines and not first:
-            self._stream.write(',\n')
+            self._stream.write(comma)
         self._stream.write(indent_current * ' ' + close_)
 
     def _format_items(
@@ -164,7 +168,7 @@ class JsonArgsValueFormatter:
             self._stream.write(',\n')
         self._stream.write(indent_current * ' ' + close_)
 
-    def _format_bytes(self, mode: Literal['utf8', 'base64'], _indent_current: int, value: Any, cls: str | None):
+    def _format_bytes(self, mode: Literal['utf8', 'base64'], _indent_current: int, value: Any, cls: str | None) -> None:
         b = value.encode()
         if mode == 'base64':
             b = base64.b64decode(b)
@@ -172,6 +176,79 @@ class JsonArgsValueFormatter:
             self._stream.write(f'{cls}({b!r})')
         else:
             self._stream.write(repr(b))
+
+    def _format_table(
+        self, columns: list[Any], indexes: list[Any], rows: list[Any], real_column_count: int, real_row_count: int
+    ) -> None:
+        """Inspired by https://gist.github.com/lonetwin/4721748.
+
+        >>> columns = ['col1', 'col2', 'col4', 'col5']
+        >>> indexes = ['a', 'b', 'd', 'e']
+        >>> rows = [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]]
+        >>> real_column_count = 5
+        >>> real_rows_count = 5
+        >>> _format_table(columns, indexes, rows, real_column_count, real_rows_count)
+
+            | col1 | col2 | ... | col4 | col5
+        ----+------+------+-----+------+-----
+        a   | 1    | 2    | ... | 4    | 5
+        b   | 2    | 4    | ... | 8    | 10
+        ... | ...  | ...  | ... | ...  | ...
+        d   | 4    | 8    | ... | 16   | 20
+        e   | 5    | 10   | ... | 20   | 25
+
+        [5 rows x 5 columns]
+        """
+
+        def insert_into_list_middle(items: list[Any], item: str | list[str]) -> list[Any]:
+            midpoint = len(items) // 2
+            return items[0:midpoint] + [item] + items[midpoint:]
+
+        # add a column at the begging for index
+        column_count = len(columns)
+        if column_count < real_column_count:
+            columns = insert_into_list_middle(columns, '...')
+        columns = [''] + [str(x) for x in columns]
+
+        converted_rows: list[Any] = []
+        for i, row in enumerate(rows):
+            # add index at the beggining of row
+            if column_count < real_column_count:
+                row = insert_into_list_middle(row, '...')
+            row = [indexes[i]] + [str(x) for x in row]
+            converted_rows.append(row)
+
+        if len(rows) < real_row_count:
+            converted_rows = insert_into_list_middle(converted_rows, ['...'] * len(columns))
+
+        # figure out column widths
+        widths = [len(max(cols, key=len)) for cols in zip(*([columns] + converted_rows))]
+
+        # write the header
+        self._stream.write(' | '.join(format(title, '%ds' % width) for width, title in zip(widths, columns)) + '\n')
+
+        # write the separator
+        self._stream.write('-+-'.join('-' * width for width in widths) + '\n')
+
+        # write the data
+        for row in converted_rows:
+            self._stream.write(' | '.join(format(cdata, '%ds' % width) for width, cdata in zip(widths, row)) + '\n')
+
+        # write summary
+        self._stream.write(f'\n[{real_row_count} rows x {real_column_count} columns]')
+
+    def _format_data_frame(
+        self,
+        _indent_current: int,
+        value: dict[str, Any],
+    ) -> None:
+        self._format_table(
+            columns=value.get('columns', []),
+            indexes=value.get('indexes', []),
+            rows=value.get('data', []),
+            real_column_count=value.get('column_count', 0),
+            real_row_count=value.get('row_count', 0),
+        )
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)

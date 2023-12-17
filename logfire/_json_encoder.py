@@ -10,6 +10,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import cached_property
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
+from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
@@ -23,7 +24,20 @@ except ImportError:
     # don't add the types to the lookup logic
     pydantic = None
 
+try:
+    import pandas
+except ImportError:
+    pandas = None
+
+try:
+    import numpy
+except ImportError:
+    numpy = None
+
 __all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback', 'DataType'
+
+DATA_FRAME_MAX_ROWS: int = 20
+DATA_FRAME_MAX_COLUMN: int = 10
 
 
 class EncoderFunction(Protocol):
@@ -70,6 +84,11 @@ DataType = Literal[
     'NameEmail',
     'SecretBytes',
     'SecretStr',
+    # pandas types
+    'DataFrame',
+    # numpy types
+    'array',
+    'matrix',
     # any other type
     'unknown',
 ]
@@ -100,6 +119,109 @@ class LogfireEncoder(json.JSONEncoder):
     @staticmethod
     def _uuid_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
         return LogfireEncoder._create_result_dict(data_type='UUID', data=str(o), version=o.version)
+
+    @staticmethod
+    def _pandas_data_frame_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
+        """Encode pandas data frame by extracting important information.
+
+        It summarizes rows and columns if they are more than limit.
+        e.g. The data part of a data frame like:
+        [
+            [1, 2, 3, 4, 5],
+            [2, 3, 6, 8, 10],
+            [3, 6, 9, 12, 15],
+            [4, 8, 12, 16, 20],
+            [5, 10, 15, 20, 25],
+        ]
+        will be summarized to:
+        [
+            [1, 2, 4, 5],
+            [2, 3, 8, 10],
+            [4, 8, 16, 20],
+            [5, 10, 20, 25],
+        ]
+        """
+        col_middle = DATA_FRAME_MAX_COLUMN // 2
+        column_count = len(o.columns)
+        if column_count > DATA_FRAME_MAX_COLUMN:
+            columns = list(o.columns[:col_middle]) + list(o.columns[-col_middle:])
+        else:
+            columns = list(o.columns)
+
+        indexes: list[str] = []
+        rows: list[Any] = []
+        row_count = len(o)
+
+        if row_count > DATA_FRAME_MAX_ROWS:
+            row_middle = DATA_FRAME_MAX_ROWS // 2
+            df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
+        else:
+            df_rows = o.iterrows()
+
+        for index, row in df_rows:
+            indexes.append(str(index))
+            if column_count > DATA_FRAME_MAX_COLUMN:
+                rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
+            else:
+                rows.append(list(row))
+
+        return LogfireEncoder._create_result_dict(
+            data_type='DataFrame',
+            data=rows,
+            columns=columns,
+            indexes=indexes,
+            row_count=row_count,
+            column_count=column_count,
+        )
+
+    @staticmethod
+    def _numpy_array_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
+        """Encode numpy array by extracting important information.
+
+        It summarizes rows and columns if they are more than limit.
+        e.g. The data part of a data frame like:
+        [
+            [1, 2, 3, 4, 5],
+            [2, 3, 6, 8, 10],
+            [3, 6, 9, 12, 15],
+            [4, 8, 12, 16, 20],
+            [5, 10, 15, 20, 25],
+        ]
+        will be summarized to:
+        [
+            [1, 2, 4, 5],
+            [2, 3, 8, 10],
+            [4, 8, 16, 20],
+            [5, 10, 20, 25],
+        ]
+        """
+        row_count, column_count = o.shape
+
+        rows: list[Any] = []
+
+        is_matrix = numpy is not None and isinstance(o, numpy.matrix)
+        if is_matrix:
+            o = o.A  # type: ignore
+
+        if row_count > DATA_FRAME_MAX_ROWS:
+            row_middle = DATA_FRAME_MAX_ROWS // 2
+            _rows = list(o[:row_middle]) + list(o[-row_middle:])  # type: ignore
+        else:
+            _rows = o  # type: ignore
+
+        for row in _rows:
+            if column_count > DATA_FRAME_MAX_COLUMN:
+                col_middle = DATA_FRAME_MAX_COLUMN // 2
+                rows.append(list(map(str, row[:col_middle])) + list(map(str, row[-col_middle:])))
+            else:
+                rows.append(list(map(str, row)))
+
+        return LogfireEncoder._create_result_dict(
+            data_type='matrix' if is_matrix else 'array',
+            data=rows,
+            row_count=row_count,
+            column_count=column_count,
+        )
 
     @staticmethod
     def _build_cls_encoder(data_type: DataType, encoder: Callable[[Any], Any]) -> EncoderFunction:
@@ -155,8 +277,13 @@ class LogfireEncoder(json.JSONEncoder):
                     pydantic.BaseModel: self._build_cls_encoder('BaseModel', lambda o: o.model_dump()),
                 }
             )
+        if pandas:
+            lookup.update({pandas.DataFrame: self._pandas_data_frame_encoder})
+        if numpy:
+            lookup.update({numpy.ndarray: self._numpy_array_encoder})
+
         # TODO(Samuel): add other popular 3rd party types here if they're installed,
-        #  in particular: attrs, sqlalchemy, pandas, numpy
+        #  in particular: attrs, sqlalchemy
         return lookup
 
     def encode(self, o: Any) -> Any:

@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 from uuid import UUID
 
+import numpy
+import pandas
 import pytest
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -174,6 +176,73 @@ class MyBytes(bytes):
             "b'test bytes'",
             '{"$__datatype__":"bytes-utf8","data":"test bytes","cls":"MyBytes"}',
         ),
+        (
+            pandas.DataFrame(data={'col1': [1, 2], 'col2': [3, 4]}),
+            '   col1  col2\n0     1     3\n1     2     4',
+            '{"$__datatype__":"DataFrame","data":[[1,3],[2,4]],"columns":["col1","col2"],"indexes":["0","1"],"row_count":2,"column_count":2}',
+        ),
+        (
+            pandas.DataFrame(
+                data={f'col{i}': [i * j for j in range(1, 23)] for i in range(1, 13)},
+                index=[f'i{x}' for x in range(1, 23)],
+            ),
+            '     col1  col2  col3  col4  col5  col6  col7  col8  col9  col10  col11  col12\n',
+            '{"$__datatype__":"DataFrame","data":'
+            '[[1,2,3,4,5,8,9,10,11,12],'
+            '[2,4,6,8,10,16,18,20,22,24],'
+            '[3,6,9,12,15,24,27,30,33,36],'
+            '[4,8,12,16,20,32,36,40,44,48],'
+            '[5,10,15,20,25,40,45,50,55,60],'
+            '[6,12,18,24,30,48,54,60,66,72],'
+            '[7,14,21,28,35,56,63,70,77,84],'
+            '[8,16,24,32,40,64,72,80,88,96],'
+            '[9,18,27,36,45,72,81,90,99,108],'
+            '[10,20,30,40,50,80,90,100,110,120],'
+            '[13,26,39,52,65,104,117,130,143,156],'
+            '[14,28,42,56,70,112,126,140,154,168],'
+            '[15,30,45,60,75,120,135,150,165,180],'
+            '[16,32,48,64,80,128,144,160,176,192],'
+            '[17,34,51,68,85,136,153,170,187,204],'
+            '[18,36,54,72,90,144,162,180,198,216],'
+            '[19,38,57,76,95,152,171,190,209,228],'
+            '[20,40,60,80,100,160,180,200,220,240],'
+            '[21,42,63,84,105,168,189,210,231,252],'
+            '[22,44,66,88,110,176,198,220,242,264]],'
+            '"columns":["col1","col2","col3","col4","col5","col8","col9","col10","col11","col12"],'
+            '"indexes":["i1","i2","i3","i4","i5","i6","i7","i8","i9","i10","i13","i14","i15","i16","i17","i18","i19","i20","i21","i22"],'
+            '"row_count":22,"column_count":12}',
+        ),
+        (
+            numpy.array([[1, 2], [3, 4]]),
+            '[[1 2]\n [3 4]]',
+            '{"$__datatype__":"array","data":[["1","2"],["3","4"]],"row_count":2,"column_count":2}',
+        ),
+        (
+            numpy.array([[i * j for j in range(1, 13)] for i in range(1, 23)]),
+            '[[  1   2   3   4   5   6   7   8   9  10  11  12]\n ',
+            '{"$__datatype__":"array","data":'
+            '[["1","2","3","4","5","8","9","10","11","12"],'
+            '["2","4","6","8","10","16","18","20","22","24"],'
+            '["3","6","9","12","15","24","27","30","33","36"],'
+            '["4","8","12","16","20","32","36","40","44","48"],'
+            '["5","10","15","20","25","40","45","50","55","60"],'
+            '["6","12","18","24","30","48","54","60","66","72"],'
+            '["7","14","21","28","35","56","63","70","77","84"],'
+            '["8","16","24","32","40","64","72","80","88","96"],'
+            '["9","18","27","36","45","72","81","90","99","108"],'
+            '["10","20","30","40","50","80","90","100","110","120"],'
+            '["13","26","39","52","65","104","117","130","143","156"],'
+            '["14","28","42","56","70","112","126","140","154","168"],'
+            '["15","30","45","60","75","120","135","150","165","180"],'
+            '["16","32","48","64","80","128","144","160","176","192"],'
+            '["17","34","51","68","85","136","153","170","187","204"],'
+            '["18","36","54","72","90","144","162","180","198","216"],'
+            '["19","38","57","76","95","152","171","190","209","228"],'
+            '["20","40","60","80","100","160","180","200","220","240"],'
+            '["21","42","63","84","105","168","189","210","231","252"],'
+            '["22","44","66","88","110","176","198","220","242","264"]],'
+            '"row_count":22,"column_count":12}',
+        ),
     ],
 )
 def test_log_non_scalar_args(exporter: TestExporter, value, value_repr, value_json) -> None:
@@ -183,6 +252,21 @@ def test_log_non_scalar_args(exporter: TestExporter, value, value_repr, value_js
 
     assert s.name.startswith(f'test message var={value_repr}')
     assert s.attributes['var__JSON'] == value_json
+
+
+def test_log_numpy_matrix(exporter: TestExporter) -> None:
+    with pytest.warns(PendingDeprecationWarning):
+        var = numpy.matrix([[1, 2], [3, 4]])
+
+    logfire.info('test message {var=}', var=var)
+
+    s = exporter.exported_spans[0]
+
+    assert s.name.startswith('test message var=[[1 2]\n [3 4]]')
+    assert (
+        s.attributes['var__JSON']
+        == '{"$__datatype__":"matrix","data":[["1","2"],["3","4"]],"row_count":2,"column_count":2}'
+    )
 
 
 @pytest.mark.parametrize(
