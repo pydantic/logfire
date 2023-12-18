@@ -311,7 +311,7 @@ class Logfire:
             self._logs_tracer = self._get_tracer_provider().get_tracer(
                 'logfire',  # the name here is really not important, logfire itself doesn't use it
                 VERSION,
-                wrap_with_start_span_tracer=False,  # logs don't need a start span
+                wrap_with_pending_span_tracer=False,  # logs don't need a pending span
             )
 
         span = self._logs_tracer.start_span(

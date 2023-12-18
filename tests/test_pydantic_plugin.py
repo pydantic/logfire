@@ -78,8 +78,8 @@ def test_logfire_pydantic_plugin_settings_record_off_on_model(exporter: TestExpo
 
     MyModel(x=1)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
 
 
 def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporter: TestExporter) -> None:
@@ -90,8 +90,8 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
 
     MyModel(x=1)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
 
 
 @pytest.mark.parametrize(
@@ -148,8 +148,8 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
     with pytest.raises(ValidationError):
         MyModel(x='a')  # type: ignore
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': '1 validation error',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -346,8 +346,8 @@ def test_pydantic_plugin_python_error_record_failure(
     with pytest.raises(ValidationError):
         MyModel(x='a')  # type: ignore
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': '1 validation error',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},

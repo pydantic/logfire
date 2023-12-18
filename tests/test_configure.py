@@ -70,10 +70,10 @@ def test_propagate_config_to_tags() -> None:
                 tags1.info('test2')
                 tags2.info('test3')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'root (start)',
+            'name': 'root (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -85,11 +85,11 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'child (start)',
+            'name': 'child (pending)',
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -101,7 +101,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
@@ -188,7 +188,7 @@ def test_propagate_config_to_tags() -> None:
             },
         },
         {
-            'name': 'root (start)',
+            'name': 'root (pending)',
             'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 8, 'is_remote': False},
             'start_time': 8000000000,
@@ -201,11 +201,11 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'root',
                 'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'child (start)',
+            'name': 'child (pending)',
             'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 10, 'is_remote': False},
             'start_time': 9000000000,
@@ -218,7 +218,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'child',
                 'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '8',
+                'logfire.pending_parent_id': '8',
             },
         },
         {
@@ -307,7 +307,7 @@ def test_propagate_config_to_tags() -> None:
             },
         },
         {
-            'name': 'root (start)',
+            'name': 'root (pending)',
             'context': {'trace_id': 3, 'span_id': 16, 'is_remote': False},
             'parent': {'trace_id': 3, 'span_id': 15, 'is_remote': False},
             'start_time': 15000000000,
@@ -320,11 +320,11 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'root',
                 'logfire.tags': ('tag3', 'tag4'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'child (start)',
+            'name': 'child (pending)',
             'context': {'trace_id': 3, 'span_id': 18, 'is_remote': False},
             'parent': {'trace_id': 3, 'span_id': 17, 'is_remote': False},
             'start_time': 16000000000,
@@ -337,7 +337,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'child',
                 'logfire.tags': ('tag3', 'tag4'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '15',
+                'logfire.pending_parent_id': '15',
             },
         },
         {

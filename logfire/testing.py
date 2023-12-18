@@ -42,7 +42,7 @@ class TestExporter(SpanExporter):
         strip_filepaths: bool = True,
         include_resources: bool = False,
         include_package_versions: bool = False,
-        _include_start_spans: bool = False,
+        _include_pending_spans: bool = False,
         _strip_function_qualname: bool = True,
     ) -> list[dict[str, Any]]:
         """The exported spans as a list of dicts.
@@ -137,7 +137,7 @@ class TestExporter(SpanExporter):
         return [
             span
             for span in spans
-            if _include_start_spans is True
+            if _include_pending_spans is True
             or (span.get('attributes', {}).get(ATTRIBUTES_SPAN_TYPE_KEY, 'span') != 'pending_span')
         ]
 

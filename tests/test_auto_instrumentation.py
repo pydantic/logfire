@@ -40,7 +40,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
 
     expected_spans = [
         {
-            'name': 'tests.module_used_for_tests.wrap (start)',
+            'name': 'tests.module_used_for_tests.wrap (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -54,11 +54,11 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call wrap',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.foo (start)',
+            'name': 'tests.test_auto_instrumentation.foo (pending)',
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -72,11 +72,11 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
-            'name': IsStr(regex=r'tests.test_auto_instrumentation(\.Foo)?.bar \(start\)'),
+            'name': IsStr(regex=r'tests.test_auto_instrumentation(\.Foo)?.bar \(pending\)'),
             'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
             'start_time': 3000000000,
@@ -90,7 +90,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo\.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '3',
+                'logfire.pending_parent_id': '3',
             },
         },
         {
@@ -113,7 +113,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
         *(
             (
                 {
-                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(start\)'),
+                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(pending\)'),
                     'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                     'start_time': 5000000000,
@@ -127,7 +127,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.start_parent_id': '3',
+                        'logfire.pending_parent_id': '3',
                     },
                 },
                 {
@@ -187,8 +187,8 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
         },
     ]
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == expected_spans
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == expected_spans
 
 
 def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
@@ -206,7 +206,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
 
     expected_spans = [
         {
-            'name': 'tests.test_auto_instrumentation.foo (start)',
+            'name': 'tests.test_auto_instrumentation.foo (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -220,11 +220,11 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': IsStr(regex=r'tests.test_auto_instrumentation.(Foo.)?bar \(start\)'),
+            'name': IsStr(regex=r'tests.test_auto_instrumentation.(Foo.)?bar \(pending\)'),
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -238,7 +238,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
@@ -261,7 +261,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
         *(
             (
                 {
-                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(start\)'),
+                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(pending\)'),
                     'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                     'start_time': 4000000000,
@@ -275,7 +275,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.start_parent_id': '1',
+                        'logfire.pending_parent_id': '1',
                     },
                 },
                 {
@@ -318,7 +318,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
         },
     ]
 
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == expected_spans
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == expected_spans
 
 
 def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
@@ -338,7 +338,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
 
     expected_spans = [
         {
-            'name': 'tests.import_used_for_tests.<module> (start)',
+            'name': 'tests.import_used_for_tests.<module> (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -352,7 +352,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -373,7 +373,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'tests.import_used_for_tests.a.<module> (start)',
+            'name': 'tests.import_used_for_tests.a.<module> (pending)',
             'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
             'start_time': 3000000000,
@@ -387,7 +387,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests.a',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -408,7 +408,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'tests.import_used_for_tests.a.b.<module> (start)',
+            'name': 'tests.import_used_for_tests.a.b.<module> (pending)',
             'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
             'start_time': 5000000000,
@@ -422,7 +422,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests.a.b',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -443,7 +443,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'tests.import_used_for_tests.a.b.wrap (start)',
+            'name': 'tests.import_used_for_tests.a.b.wrap (pending)',
             'context': {'trace_id': 4, 'span_id': 8, 'is_remote': False},
             'parent': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
             'start_time': 7000000000,
@@ -457,11 +457,11 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call wrap',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'tests.test_auto_instrumentation.foo (start)',
+            'name': 'tests.test_auto_instrumentation.foo (pending)',
             'context': {'trace_id': 4, 'span_id': 10, 'is_remote': False},
             'parent': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
             'start_time': 8000000000,
@@ -475,11 +475,11 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '7',
+                'logfire.pending_parent_id': '7',
             },
         },
         {
-            'name': IsStr(regex=r'tests.test_auto_instrumentation(\.Foo)?.bar \(start\)'),
+            'name': IsStr(regex=r'tests.test_auto_instrumentation(\.Foo)?.bar \(pending\)'),
             'context': {'trace_id': 4, 'span_id': 12, 'is_remote': False},
             'parent': {'trace_id': 4, 'span_id': 11, 'is_remote': False},
             'start_time': 9000000000,
@@ -493,7 +493,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo\.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '9',
+                'logfire.pending_parent_id': '9',
             },
         },
         {
@@ -516,7 +516,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
         *(
             (
                 {
-                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(start\)'),
+                    'name': IsStr(regex=r'tests.test_auto_instrumentation.(foo.\<locals\>.)?\<listcomp\> \(pending\)'),
                     'context': {'trace_id': 4, 'span_id': 14, 'is_remote': False},
                     'parent': {'trace_id': 4, 'span_id': 13, 'is_remote': False},
                     'start_time': 11000000000,
@@ -530,7 +530,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.start_parent_id': '9',
+                        'logfire.pending_parent_id': '9',
                     },
                 },
                 {
@@ -590,5 +590,5 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
         },
     ]
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == expected_spans
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == expected_spans

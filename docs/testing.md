@@ -98,7 +98,7 @@ def test_exported_spans(logfire_test_exporter: LogfireTestExporter) -> None:
 
     exporter = logfire_test_exporter.exporter
 
-    expected_span_names = ['a span! (start)', 'a log!', 'a span!']
+    expected_span_names = ['a span! (pending)', 'a log!', 'a span!']
     span_names = [span.name for span in exporter.exported_spans]
 
     assert span_names == expected_span_names

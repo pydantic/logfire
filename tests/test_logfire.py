@@ -71,10 +71,10 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
     assert s.start_time < s.end_time
     assert len(s.events) == 0
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test span (start)',
+            'name': 'test span (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -89,7 +89,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -130,10 +130,10 @@ def test_span_with_parent(exporter: TestExporter) -> None:
     assert c.attributes is not None
     assert ATTRIBUTES_TAGS_KEY not in c.attributes
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test parent span (start)',
+            'name': 'test parent span (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -146,11 +146,11 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'parent span',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'test child span (start)',
+            'name': 'test child span (pending)',
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -163,7 +163,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'child span',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
@@ -215,10 +215,10 @@ def test_span_with_tags(exporter: TestExporter) -> None:
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2')
     assert len(s.events) == 0
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test span (start)',
+            'name': 'test span (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -234,7 +234,7 @@ def test_span_with_tags(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -276,10 +276,10 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     assert len(exporter.exported_spans) == 2
     # # because both spans have been ended
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {name=} {number} (start)',
+            'name': 'test {name=} {number} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -294,7 +294,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -333,10 +333,10 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
     assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test name=foo 3 bar'
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name=} {number} {span_name}'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'bar (start)',
+            'name': 'bar (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -351,7 +351,7 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number} {span_name}',
                 'logfire.msg': 'test name=foo 3 bar',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -393,10 +393,10 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
     assert span.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'pending_span'
     # because the real span hasn't ended yet
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {name=} {number} (start)',
+            'name': 'test {name=} {number} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -411,7 +411,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         }
     ]
@@ -426,10 +426,10 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
     assert span.attributes is not None
     assert span.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'span'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {name=} {number} (start)',
+            'name': 'test {name=} {number} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -444,7 +444,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -484,8 +484,8 @@ def test_log(exporter: TestExporter, level: str):
     assert s.attributes[NULL_ARGS_KEY] == ('none',)
     assert ATTRIBUTES_TAGS_KEY not in s.attributes
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': 'test foo 2 null',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -522,8 +522,8 @@ def test_log_equals(exporter: TestExporter) -> None:
     assert s.attributes[ATTRIBUTES_LOG_LEVEL_NAME_KEY] == 'info'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': 'test message foo=foo bar=3',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -558,8 +558,8 @@ def test_log_with_tags(exporter: TestExporter):
     assert s.attributes['number'] == 2
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': 'test foo 2',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -606,10 +606,10 @@ def test_instrument(exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'tests.test_logfire.test_instrument.<locals>.hello_world (start)',
+            'name': 'tests.test_logfire.test_instrument.<locals>.hello_world (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -622,7 +622,7 @@ def test_instrument(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -651,10 +651,10 @@ def test_instrument_extract_false(exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'tests.test_logfire.test_instrument_extract_false.<locals>.hello_world (start)',
+            'name': 'tests.test_logfire.test_instrument_extract_false.<locals>.hello_world (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -666,7 +666,7 @@ def test_instrument_extract_false(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world',
                 'logfire.msg': 'hello-world',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -882,13 +882,13 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             logfire.info('test1')
             logfire1.info('test2')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
 
-    # insert_assert(exporter1.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter1.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter1.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'root (start)',
+            'name': 'root (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -900,11 +900,11 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'child (start)',
+            'name': 'child (pending)',
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -916,7 +916,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
@@ -1005,10 +1005,10 @@ def test_span_in_executor(
             executor.submit(do_work)
             executor.shutdown(wait=True)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'main (start)',
+            'name': 'main (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -1020,11 +1020,11 @@ def test_span_in_executor(
                 'logfire.msg_template': 'main',
                 'logfire.msg': 'main',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
-            'name': 'child (start)',
+            'name': 'child (pending)',
             'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 2000000000,
@@ -1036,7 +1036,7 @@ def test_span_in_executor(
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '1',
+                'logfire.pending_parent_id': '1',
             },
         },
         {
@@ -1077,10 +1077,10 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
         exec.submit(do_work_with_arg, 'foo')
         exec.shutdown(wait=True)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'child {within} (start)',
+            'name': 'child {within} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -1093,7 +1093,7 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'child {within}',
                 'logfire.msg': 'child foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -1115,14 +1115,14 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
     ]
 
 
-def test_format_attribute_added_after_start_span_sent(exporter: TestExporter) -> None:
+def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
     with logfire.span('{missing}') as s:
         s.set_attribute('missing', 'value')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '{missing} (start)',
+            'name': '{missing} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -1130,11 +1130,11 @@ def test_format_attribute_added_after_start_span_sent(exporter: TestExporter) ->
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_format_attribute_added_after_start_span_sent',
+                'code.function': 'test_format_attribute_added_after_pending_span_sent',
                 'logfire.msg_template': '{missing}',
                 'logfire.msg': '...',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -1146,7 +1146,7 @@ def test_format_attribute_added_after_start_span_sent(exporter: TestExporter) ->
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_format_attribute_added_after_start_span_sent',
+                'code.function': 'test_format_attribute_added_after_pending_span_sent',
                 'logfire.msg_template': '{missing}',
                 'logfire.span_type': 'span',
                 'missing': 'value',
@@ -1195,8 +1195,8 @@ def test_config_preserved_across_thread_or_process(
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     logfire.info('{http.status}', **{'http.status': 123})
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
             'name': '123',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -1222,10 +1222,10 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     with logfire.span('{http.status} - {code.lineno}', **{'http.status': 123}):
         pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '{http.status} - {code.lineno} (start)',
+            'name': '{http.status} - {code.lineno} (pending)',
             'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
             'start_time': 2000000000,
@@ -1238,7 +1238,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{http.status} - {code.lineno}',
                 'logfire.msg': IsStr(regex=r'123 - \d+'),
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -1265,10 +1265,10 @@ def test_large_int(exporter: TestExporter) -> None:
         with logfire.span('test {value=}', value=2**63 + 1):
             pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {value=} (start)',
+            'name': 'test {value=} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -1281,7 +1281,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775809',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -1307,10 +1307,10 @@ def test_large_int(exporter: TestExporter) -> None:
         with logfire.span('test {value=}', value=2**63):
             pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {value=} (start)',
+            'name': 'test {value=} (pending)',
             'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
             'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
             'start_time': 3000000000,
@@ -1323,7 +1323,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775808',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -1348,10 +1348,10 @@ def test_large_int(exporter: TestExporter) -> None:
     with logfire.span('test {value=}', value=2**63 - 1):
         pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test {value=} (start)',
+            'name': 'test {value=} (pending)',
             'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
             'start_time': 5000000000,
@@ -1364,7 +1364,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775807',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {

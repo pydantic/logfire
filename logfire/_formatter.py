@@ -88,7 +88,7 @@ class ChunksFormatter(Formatter):
                         obj = kwargs[field_name]
                     except KeyError:
                         if fallback:
-                            # allow it to be missing, in particular for start spans
+                            # allow it to be missing, in particular for pending spans
                             obj = fallback
                         else:
                             obj = None

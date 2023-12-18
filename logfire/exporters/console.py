@@ -89,7 +89,7 @@ class ConsoleSpanExporter(SpanExporter):
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
-        sort_mapping = {'span': 2, 'start_span': 1, 'log': 0}
+        sort_mapping = {'span': 2, 'pending_span': 1, 'log': 0}
         spans_and_metadata = [(span, _get_span_type(span), _get_span_parent_id(span)) for span in spans]
         for span, span_type, parent_id in sorted(
             spans_and_metadata, key=lambda x: (x[0].start_time or 0, sort_mapping.get(x[1], 0))

@@ -30,10 +30,10 @@ SPAN_TYPE_ATTRIBUTE_NAME = 'span_type'
 """The key within OTEL attributes where logfire puts the span type."""
 
 ATTRIBUTES_SPAN_TYPE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.{SPAN_TYPE_ATTRIBUTE_NAME}'
-"""Used to differentiate logs, start spans and regular spans. Absences should be interpreted as a real span."""
+"""Used to differentiate logs, pending spans and regular spans. Absences should be interpreted as a real span."""
 
-ATTRIBUTES_START_SPAN_REAL_PARENT_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.start_parent_id'
-"""The real parent of a start span, i.e. the parent of it's corresponding span and also it's grandparent"""
+ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.pending_parent_id'
+"""The real parent of a pending span, i.e. the parent of it's corresponding span and also it's grandparent"""
 
 ATTRIBUTES_TAGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.tags'
 """The key within OTEL attributes where logfire puts tags."""
@@ -59,8 +59,8 @@ NON_SCALAR_VAR_SUFFIX = '__JSON'
 NULL_ARGS_KEY = 'logfire.null_args'
 """Key in OTEL attributes that collects attributes with a null (None) value."""
 
-START_SPAN_NAME_SUFFIX = ' (start)'
-"""Suffix added to the name of a start span to indicate it's a start span and avoid collisions with the real span while in flight."""
+PENDING_SPAN_NAME_SUFFIX = ' (pending)'
+"""Suffix added to the name of a pending span to indicate it's a pending span and avoid collisions with the real span while in flight."""
 
 LOGFIRE_BASE_URL = 'https://api.logfire.dev'
 """The Logfire API base URL."""

@@ -341,7 +341,7 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
 def test_log_flatten(exporter: TestExporter, value: Flatten[Any], attributes: dict[str, Any]) -> None:
     logfire.info('test message {var=}', var=value)
 
-    s = exporter.exported_spans_as_dict(_include_start_spans=True)[0]
+    s = exporter.exported_spans_as_dict(_include_pending_spans=True)[0]
 
     # insert_assert(s['attributes'])
     assert s['attributes'] == attributes
@@ -384,10 +384,10 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
 
     assert hello_world(Generator()) is None
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'tests.test_json_args.test_instrument_generator_arg.<locals>.hello_world (start)',
+            'name': 'tests.test_json_args.test_instrument_generator_arg.<locals>.hello_world (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -400,7 +400,7 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': 'test message var=Generator()',
                 'logfire.span_type': 'pending_span',
-                'logfire.start_parent_id': '0',
+                'logfire.pending_parent_id': '0',
             },
         },
         {
@@ -448,8 +448,8 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         complex_dict={'k1': 'v1', 'model': model, 'dataclass': dc, 'pydantic_dataclass': pdc},
     )
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True)[0]['attributes'])
-    assert exporter.exported_spans_as_dict(_include_start_spans=True)[0]['attributes'] == {
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'])
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'] == {
         'logfire.span_type': 'log',
         'logfire.level_name': 'info',
         'logfire.level_num': 9,

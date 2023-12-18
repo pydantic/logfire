@@ -126,4 +126,4 @@ def test_asgi_middleware_with_lifespan(exporter: TestExporter):
     assert startup_complete
     assert cleanup_complete
 
-    assert exporter.exported_spans_as_dict(_include_start_spans=True) == []
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
