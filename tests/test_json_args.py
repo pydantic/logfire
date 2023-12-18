@@ -395,7 +395,7 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
                 'var__JSON': '{"$__datatype__":"unknown","data":"Generator()","cls":"Generator"}',
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': 'test message var=Generator()',
-                'logfire.span_type': 'start_span',
+                'logfire.span_type': 'pending_span',
                 'logfire.start_parent_id': '0',
             },
         },

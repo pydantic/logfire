@@ -22,7 +22,7 @@ def test_console_exporter() -> None:
             name='rootSpan',
             context=trace.SpanContext(trace_id=0, span_id=1, is_remote=False),
             parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
-            attributes={'logfire.span_type': 'start_span', 'logfire.msg_template': 'rootSpan'},
+            attributes={'logfire.span_type': 'pending_span', 'logfire.msg_template': 'rootSpan'},
             start_time=2 * NANOSECONDS_PER_SECOND,
             end_time=2 * NANOSECONDS_PER_SECOND,
         ),
@@ -31,7 +31,7 @@ def test_console_exporter() -> None:
             context=trace.SpanContext(trace_id=0, span_id=3, is_remote=False),
             parent=trace.SpanContext(trace_id=0, span_id=4, is_remote=False),
             attributes={
-                'logfire.span_type': 'start_span',
+                'logfire.span_type': 'pending_span',
                 'logfire.start_parent_id': '0',
                 'logfire.msg_template': 'childSpan',
                 'logfire.msg': 'childSpan 1',
