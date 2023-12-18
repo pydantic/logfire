@@ -112,7 +112,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 3000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
@@ -128,7 +129,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 4000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test2',
                 'logfire.msg': 'test2',
                 'code.filepath': 'test_configure.py',
@@ -145,7 +147,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 5000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test3',
                 'logfire.msg': 'test3',
                 'code.filepath': 'test_configure.py',
@@ -226,7 +229,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 10000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
@@ -242,7 +246,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 11000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test2',
                 'logfire.msg': 'test2',
                 'code.filepath': 'test_configure.py',
@@ -259,7 +264,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 12000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test3',
                 'logfire.msg': 'test3',
                 'code.filepath': 'test_configure.py',
@@ -342,7 +348,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 17000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
@@ -358,7 +365,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 18000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test2',
                 'logfire.msg': 'test2',
                 'code.filepath': 'test_configure.py',
@@ -375,7 +383,8 @@ def test_propagate_config_to_tags() -> None:
             'end_time': 19000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test3',
                 'logfire.msg': 'test3',
                 'code.filepath': 'test_configure.py',
@@ -640,7 +649,8 @@ def test_otel_service_name_env_var() -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
@@ -686,7 +696,8 @@ def test_otel_resource_attributes_env_var() -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
@@ -735,7 +746,8 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',

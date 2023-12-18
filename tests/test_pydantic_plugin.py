@@ -158,7 +158,8 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',
@@ -280,7 +281,8 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'debug',
+                'logfire.level_name': 'debug',
+                'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
                 'code.filepath': 'pydantic_plugin.py',
@@ -354,7 +356,8 @@ def test_pydantic_plugin_python_error_record_failure(
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',
@@ -373,7 +376,8 @@ def test_pydantic_plugin_python_error_record_failure(
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',
@@ -426,7 +430,8 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',
@@ -474,7 +479,8 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'debug',
+                'logfire.level_name': 'debug',
+                'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
                 'code.filepath': 'pydantic_plugin.py',
@@ -521,7 +527,8 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',
@@ -569,7 +576,8 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'debug',
+                'logfire.level_name': 'debug',
+                'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
                 'code.filepath': 'pydantic_plugin.py',
@@ -616,7 +624,8 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'warning',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
                 'logfire.msg_template': '{error_count} validation error{plural}',
                 'logfire.msg': '1 validation error',
                 'code.filepath': 'pydantic_plugin.py',

@@ -19,7 +19,8 @@ def test_stdlib_logging(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'error',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
                 'logfire.msg_template': '{first_name=} is in trouble!',
                 'logfire.msg': 'first_name=Fred is in trouble!',
                 'code.filepath': 'test_stdlib_logging.py',

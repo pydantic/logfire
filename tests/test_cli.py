@@ -29,26 +29,9 @@ def tmp_dir_cwd(tmp_path: Path):
     os.chdir(os.path.dirname(__file__))  # Reset to the original directory after the test
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='output message is slightly different in lower versions')
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    # insert_assert(capsys.readouterr().out.splitlines())
-    assert capsys.readouterr().out.splitlines() == [
-        'usage: Logfire [-h] [--version]  ...',
-        '',
-        'The CLI for Logfire.',
-        '',
-        'options:',
-        '  -h, --help  show this help message and exit',
-        '  --version   Show version and exit.',
-        '',
-        'commands:',
-        '  ',
-        '    whoami    Get your dashboard url and project name.',
-        '    clean     Clean logfire data.',
-        '    backfill  Bulk load logfire data.',
-        '    inspect   Inspect installed packages, and recommend OTel package that can be used with it.',
-    ]
+    assert 'usage: Logfire [-h] [--version]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:

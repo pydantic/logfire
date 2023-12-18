@@ -48,10 +48,22 @@ def test_write_spans_and_logs() -> None:
                 {
                     'resource': {
                         'attributes': [
-                            {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                            {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                            {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
-                            {'key': 'service.name', 'value': {'stringValue': 'docs.pydantic.dev'}},
+                            {
+                                'key': 'telemetry.sdk.language',
+                                'value': {'stringValue': 'python'},
+                            },
+                            {
+                                'key': 'telemetry.sdk.name',
+                                'value': {'stringValue': 'opentelemetry'},
+                            },
+                            {
+                                'key': 'telemetry.sdk.version',
+                                'value': {'stringValue': '1.0.0'},
+                            },
+                            {
+                                'key': 'service.name',
+                                'value': {'stringValue': 'docs.pydantic.dev'},
+                            },
                         ]
                     },
                     'scopeSpans': [
@@ -67,10 +79,22 @@ def test_write_spans_and_logs() -> None:
                                     'startTimeUnixNano': '1672531200000000000',
                                     'endTimeUnixNano': '1672531200000000000',
                                     'attributes': [
-                                        {'key': 'logfire.span_type', 'value': {'stringValue': 'log'}},
-                                        {'key': 'logfire.level', 'value': {'stringValue': 'info'}},
-                                        {'key': 'logfire.msg_template', 'value': {'stringValue': 'GET {path=}'}},
-                                        {'key': 'logfire.msg', 'value': {'stringValue': 'GET /test'}},
+                                        {
+                                            'key': 'logfire.span_type',
+                                            'value': {'stringValue': 'log'},
+                                        },
+                                        {
+                                            'key': 'logfire.level_name',
+                                            'value': {'stringValue': 'info'},
+                                        },
+                                        {
+                                            'key': 'logfire.msg_template',
+                                            'value': {'stringValue': 'GET {path=}'},
+                                        },
+                                        {
+                                            'key': 'logfire.msg',
+                                            'value': {'stringValue': 'GET /test'},
+                                        },
                                         {'key': 'path', 'value': {'stringValue': '/test'}},
                                     ],
                                     'status': {'code': 'STATUS_CODE_OK'},
@@ -86,10 +110,22 @@ def test_write_spans_and_logs() -> None:
                 {
                     'resource': {
                         'attributes': [
-                            {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                            {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                            {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
-                            {'key': 'service.name', 'value': {'stringValue': 'docs.pydantic.dev'}},
+                            {
+                                'key': 'telemetry.sdk.language',
+                                'value': {'stringValue': 'python'},
+                            },
+                            {
+                                'key': 'telemetry.sdk.name',
+                                'value': {'stringValue': 'opentelemetry'},
+                            },
+                            {
+                                'key': 'telemetry.sdk.version',
+                                'value': {'stringValue': '1.0.0'},
+                            },
+                            {
+                                'key': 'service.name',
+                                'value': {'stringValue': 'docs.pydantic.dev'},
+                            },
                         ]
                     },
                     'scopeSpans': [
@@ -104,7 +140,10 @@ def test_write_spans_and_logs() -> None:
                                     'startTimeUnixNano': '1672531200000000000',
                                     'endTimeUnixNano': '1672617601000000000',
                                     'attributes': [
-                                        {'key': 'logfire.span_type', 'value': {'stringValue': 'log'}},
+                                        {
+                                            'key': 'logfire.span_type',
+                                            'value': {'stringValue': 'log'},
+                                        },
                                         {
                                             'key': 'logfire.msg_template',
                                             'value': {'stringValue': 'session {user_id=} {path=}'},

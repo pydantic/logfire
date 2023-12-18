@@ -278,7 +278,8 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
                 'var.a': 1,
                 'var.b': 2,
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': "test message var={'a': 1, 'b': 2}",
                 'code.lineno': 123,
@@ -293,7 +294,8 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
                 'var.0': 3,
                 'var.1': 2,
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test message {var=}',
                 # 'logfire.msg': 'test message var=[3,2]',
                 'logfire.msg': 'test message var=[3, 2]',
@@ -308,7 +310,8 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
             {
                 'var.a__JSON': '{"b":{"c":[1,2]}}',
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': "test message var={'a': {'b': {'c': [1, 2]}}}",
                 'code.lineno': 123,
@@ -323,7 +326,8 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
                 'var.0__JSON': '{"a":1}',
                 'var.1__JSON': '{"b":2}',
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'code.lineno': 123,
                 'logfire.msg': "test message var=[{'a': 1}, {'b': 2}]",
                 'logfire.msg_template': 'test message {var=}',
@@ -334,7 +338,7 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
         ),
     ],
 )
-def test_log_flatten(exporter: TestExporter, value: Flatten, attributes: dict[str, Any]) -> None:
+def test_log_flatten(exporter: TestExporter, value: Flatten[Any], attributes: dict[str, Any]) -> None:
     logfire.info('test message {var=}', var=value)
 
     s = exporter.exported_spans_as_dict(_include_start_spans=True)[0]
@@ -447,7 +451,8 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True)[0]['attributes'])
     assert exporter.exported_spans_as_dict(_include_start_spans=True)[0]['attributes'] == {
         'logfire.span_type': 'log',
-        'logfire.level': 'info',
+        'logfire.level_name': 'info',
+        'logfire.level_num': 9,
         'logfire.msg_template': 'test message {complex_list=} {complex_dict=}',
         'logfire.msg': "test message complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), 'dataclass': test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), 'pydantic_dataclass': test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}",
         'code.filepath': 'test_json_args.py',

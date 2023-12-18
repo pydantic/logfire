@@ -13,12 +13,13 @@ with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 log = DEFAULT_LOGFIRE_INSTANCE.log
+trace = DEFAULT_LOGFIRE_INSTANCE.trace
 debug = DEFAULT_LOGFIRE_INSTANCE.debug
 info = DEFAULT_LOGFIRE_INSTANCE.info
 notice = DEFAULT_LOGFIRE_INSTANCE.notice
-warning = DEFAULT_LOGFIRE_INSTANCE.warning
+warn = DEFAULT_LOGFIRE_INSTANCE.warn
 error = DEFAULT_LOGFIRE_INSTANCE.error
-critical = DEFAULT_LOGFIRE_INSTANCE.critical
+fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 
 
@@ -37,9 +38,9 @@ __all__ = (
     'info',
     'debug',
     'notice',
-    'warning',
+    'warn',
     'error',
-    'critical',
+    'fatal',
     'install_automatic_instrumentation',
     'uninstall_automatic_instrumentation',
     'flatten',

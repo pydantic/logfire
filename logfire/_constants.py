@@ -5,11 +5,24 @@ from opentelemetry.context import create_key
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
 
-LevelName = Literal['debug', 'info', 'notice', 'warning', 'error', 'critical']
+LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal']
 """Level names for records."""
 
-ATTRIBUTES_LOG_LEVEL_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level'
-"""The key within OTEL attributes where logfire puts the log level."""
+LEVEL_NUMBERS = {
+    'trace': 1,
+    'debug': 5,
+    'info': 9,
+    'notice': 10,
+    'warn': 13,
+    'error': 17,
+    'fatal': 21,
+}
+
+ATTRIBUTES_LOG_LEVEL_NAME_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_name'
+"""The key within OTEL attributes where logfire puts the log level name."""
+
+ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
+"""The key within OTEL attributes where logfire puts the log level number."""
 
 SpanTypeType = Literal['log', 'pending_span', 'span']
 

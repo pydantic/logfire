@@ -24,7 +24,7 @@ import rich.traceback
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString, get_args
+from typing_extensions import LiteralString
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire.version import VERSION
@@ -38,13 +38,15 @@ from typing_extensions import ParamSpec
 from logfire._formatter import logfire_format
 
 from ._constants import (
-    ATTRIBUTES_LOG_LEVEL_KEY,
+    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
+    LEVEL_NUMBERS,
     NON_SCALAR_VAR_SUFFIX,
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
@@ -55,8 +57,6 @@ from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._tracer import ProxyTracerProvider
 
 _CWD = Path('.').resolve()
-
-ALLOWED_LOG_LEVELS: set[str] = set(get_args(LevelName))
 
 
 class Logfire:
@@ -275,9 +275,10 @@ class Logfire:
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
         """
-        if level not in ALLOWED_LOG_LEVELS:
+        if level not in LEVEL_NUMBERS:
             warnings.warn('Invalid log level')
             level = 'error'
+        level_no = LEVEL_NUMBERS[level]
         stacklevel = stack_offset + 2
         stack_info = _get_caller_stack_info(stacklevel)
 
@@ -287,7 +288,8 @@ class Logfire:
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-            ATTRIBUTES_LOG_LEVEL_KEY: level,
+            ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
+            ATTRIBUTES_LOG_LEVEL_NUM_KEY: level_no,
             ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
             ATTRIBUTES_MESSAGE_KEY: msg,
             **otlp_attributes,
@@ -320,6 +322,21 @@ class Logfire:
         with trace_api.use_span(span, end_on_exit=False, record_exception=False):
             span.set_status(trace_api.Status(trace_api.StatusCode.OK))
             span.end(start_time)
+
+    def trace(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+        """Log a trace message.
+
+        ```py
+        import logfire
+
+        logfire.trace('This is a trace log')
+        ```
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
+        """
+        self.log('trace', msg_template, attributes, stack_offset=1)
 
     def debug(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a debug message.
@@ -366,7 +383,7 @@ class Logfire:
         """
         self.log('notice', msg_template, attributes, stack_offset=1)
 
-    def warning(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def warn(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log a warning message.
 
         ```py
@@ -379,7 +396,7 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
-        self.log('warning', msg_template, attributes, stack_offset=1)
+        self.log('warn', msg_template, attributes, stack_offset=1)
 
     def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
         """Log an error message.
@@ -396,20 +413,20 @@ class Logfire:
         """
         self.log('error', msg_template, attributes, stack_offset=1)
 
-    def critical(self, msg_template: LiteralString, /, **attributes: Any) -> None:
-        """Log a critical message.
+    def fatal(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+        """Log a fatal message.
 
         ```py
         import logfire
 
-        logfire.critical('This is a critical log')
+        logfire.fatal('This is a fatal log')
         ```
 
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
-        self.log('critical', msg_template, attributes, stack_offset=1)
+        self.log('fatal', msg_template, attributes, stack_offset=1)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.

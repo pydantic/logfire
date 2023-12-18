@@ -18,17 +18,18 @@ import logfire
 from logfire import Logfire, LogfireSpan
 from logfire._config import LogfireConfig, configure
 from logfire._constants import (
-    ATTRIBUTES_LOG_LEVEL_KEY,
+    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
+    LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
-@pytest.mark.parametrize('method', ['info', 'debug', 'warning', 'error', 'critical'])
+@pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
 def test_log_methods_without_kwargs(method: str):
     with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
         getattr(logfire, method)('{foo}', bar=2)
@@ -467,14 +468,14 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
     ]
 
 
-@pytest.mark.parametrize('level', ('critical', 'debug', 'error', 'info', 'notice', 'warning'))
+@pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'trace'))
 def test_log(exporter: TestExporter, level: str):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
     s = exporter.exported_spans[0]
 
     assert s.attributes is not None
-    assert s.attributes[ATTRIBUTES_LOG_LEVEL_KEY] == level
+    assert s.attributes[ATTRIBUTES_LOG_LEVEL_NAME_KEY] == level
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name} {number} {none}'
     assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 null'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
@@ -493,7 +494,8 @@ def test_log(exporter: TestExporter, level: str):
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': level,
+                'logfire.level_name': level,
+                'logfire.level_num': LEVEL_NUMBERS[level],
                 'logfire.msg_template': 'test {name} {number} {none}',
                 'logfire.msg': 'test foo 2 null',
                 'code.filepath': 'test_logfire.py',
@@ -517,7 +519,7 @@ def test_log_equals(exporter: TestExporter) -> None:
     assert s.attributes['foo'] == 'foo'
     assert s.attributes['bar'] == 3
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test message {foo=} {bar=}'
-    assert s.attributes[ATTRIBUTES_LOG_LEVEL_KEY] == 'info'
+    assert s.attributes[ATTRIBUTES_LOG_LEVEL_NAME_KEY] == 'info'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
 
     # insert_assert(exporter.exported_spans_as_dict(_include_start_spans=True))
@@ -530,7 +532,8 @@ def test_log_equals(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test message {foo=} {bar=}',
                 'logfire.msg': 'test message foo=foo bar=3',
                 'code.filepath': 'test_logfire.py',
@@ -565,7 +568,8 @@ def test_log_with_tags(exporter: TestExporter):
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 2',
                 'code.filepath': 'test_logfire.py',
@@ -923,7 +927,8 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_logfire.py',
@@ -939,7 +944,8 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'end_time': 4000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': 'test2',
                 'logfire.msg': 'test2',
                 'code.filepath': 'test_logfire.py',
@@ -1199,7 +1205,8 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level': 'info',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
                 'logfire.msg_template': '{http.status}',
                 'logfire.msg': '123',
                 'code.filepath': 'test_logfire.py',

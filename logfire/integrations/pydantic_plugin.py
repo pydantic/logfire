@@ -114,7 +114,7 @@ class BaseValidateHandler:
         """
         error_count = error.error_count()
         plural = '' if error_count == 1 else 's'
-        self._logfire.warning(
+        self._logfire.warn(
             '{error_count} validation error{plural}',
             error_count=error_count,
             plural=plural,
