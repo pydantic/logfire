@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
+from urllib.parse import urljoin
 
 import requests
 from opentelemetry import metrics, trace
@@ -265,8 +266,8 @@ class _LogfireConfigData:
         param_manager = ParamManager(config_from_file=config_from_file)
 
         self.base_url = param_manager.load_param('base_url', base_url)
-        self.metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) or f'{self.base_url}/v1/metrics'
-        self.traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or f'{self.base_url}/v1/traces'
+        self.metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) or urljoin(self.base_url, '/v1/metrics')
+        self.traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or urljoin(self.base_url, '/v1/traces')
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
@@ -566,7 +567,7 @@ class LogfireConfig(_LogfireConfigData):
             LogfireConfigError: If the token is invalid or the Logfire API is not reachable.
         """
         try:
-            response = session.get(f'{self.base_url}/v1/health')
+            response = session.get(urljoin(self.base_url, '/v1/health'))
             if response.status_code == 404:
                 raise LogfireConfigError('Invalid Logfire token.')
             response.raise_for_status()
