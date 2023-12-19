@@ -32,7 +32,7 @@ def test_console_exporter() -> None:
             parent=trace.SpanContext(trace_id=0, span_id=4, is_remote=False),
             attributes={
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
                 'logfire.msg_template': 'childSpan',
                 'logfire.msg': 'childSpan 1',
                 'a': 1,
@@ -46,7 +46,7 @@ def test_console_exporter() -> None:
             parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
             attributes={
                 'logfire.span_type': 'span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
                 'logfire.msg_template': 'childSpan',
                 'logfire.msg': 'childSpan 1',
                 'a': 1,
@@ -152,7 +152,7 @@ def test_console_exporter_options(
             parent=trace.SpanContext(trace_id=0, span_id=2, is_remote=False),
             attributes={
                 'logfire.span_type': 'span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
                 'logfire.msg_template': 'childSpan',
                 'logfire.msg': 'childSpan 1',
                 'a': 1,

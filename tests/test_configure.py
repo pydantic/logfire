@@ -85,7 +85,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -101,7 +101,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -201,7 +201,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'root',
                 'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -218,7 +218,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'child',
                 'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '8',
+                'logfire.pending_parent_id': '0000000000000008',
             },
         },
         {
@@ -320,7 +320,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'root',
                 'logfire.tags': ('tag3', 'tag4'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -337,7 +337,7 @@ def test_propagate_config_to_tags() -> None:
                 'logfire.msg': 'child',
                 'logfire.tags': ('tag3', 'tag4'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '15',
+                'logfire.pending_parent_id': '000000000000000f',
             },
         },
         {

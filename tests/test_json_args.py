@@ -400,7 +400,7 @@ def test_instrument_generator_arg(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test message {var=}',
                 'logfire.msg': 'test message var=Generator()',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {

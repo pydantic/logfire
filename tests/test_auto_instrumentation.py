@@ -54,7 +54,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call wrap',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -72,7 +72,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -90,7 +90,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo\.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '3',
+                'logfire.pending_parent_id': '0000000000000003',
             },
         },
         {
@@ -127,7 +127,7 @@ def test_auto_instrumentation_no_filter(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.pending_parent_id': '3',
+                        'logfire.pending_parent_id': '0000000000000003',
                     },
                 },
                 {
@@ -220,7 +220,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -238,7 +238,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -275,7 +275,7 @@ def test_auto_instrumentation_filter_modules(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.pending_parent_id': '1',
+                        'logfire.pending_parent_id': '0000000000000001',
                     },
                 },
                 {
@@ -352,7 +352,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -387,7 +387,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests.a',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -422,7 +422,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call tests.import_used_for_tests.a.b',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -457,7 +457,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call wrap',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -475,7 +475,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': 'call foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '7',
+                'logfire.pending_parent_id': '0000000000000007',
             },
         },
         {
@@ -493,7 +493,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'call {object}',
                 'logfire.msg': IsStr(regex=r'call (Foo\.)?bar'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '9',
+                'logfire.pending_parent_id': '0000000000000009',
             },
         },
         {
@@ -530,7 +530,7 @@ def test_auto_instrumentation_module_import(exporter: TestExporter) -> None:
                         'logfire.msg_template': 'call {object}',
                         'logfire.msg': IsStr(regex=r'call (foo.\<locals\>.)?\<listcomp\>'),
                         'logfire.span_type': 'pending_span',
-                        'logfire.pending_parent_id': '9',
+                        'logfire.pending_parent_id': '0000000000000009',
                     },
                 },
                 {

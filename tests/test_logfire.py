@@ -89,7 +89,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -146,7 +146,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'parent span',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -163,7 +163,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'child span',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -178,8 +178,8 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'code.function': 'test_span_with_parent',
                 'type': 'child',
                 'logfire.msg_template': '{type} span',
-                'logfire.msg': 'child span',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'child span',
             },
         },
         {
@@ -194,8 +194,8 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'code.function': 'test_span_with_parent',
                 'type': 'parent',
                 'logfire.msg_template': '{type} span',
-                'logfire.msg': 'parent span',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'parent span',
             },
         },
     ]
@@ -234,7 +234,7 @@ def test_span_with_tags(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -294,7 +294,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -351,7 +351,7 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number} {span_name}',
                 'logfire.msg': 'test name=foo 3 bar',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -411,7 +411,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         }
     ]
@@ -444,7 +444,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -622,7 +622,7 @@ def test_instrument(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -666,7 +666,7 @@ def test_instrument_extract_false(exporter: TestExporter):
                 'logfire.msg_template': 'hello-world',
                 'logfire.msg': 'hello-world',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -900,7 +900,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -916,7 +916,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -965,8 +965,8 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'code.lineno': 123,
                 'code.function': 'test_logifre_with_its_own_config',
                 'logfire.msg_template': 'child',
-                'logfire.msg': 'child',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'child',
             },
         },
         {
@@ -980,8 +980,8 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'code.lineno': 123,
                 'code.function': 'test_logifre_with_its_own_config',
                 'logfire.msg_template': 'root',
-                'logfire.msg': 'root',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'root',
             },
         },
     ]
@@ -1020,7 +1020,7 @@ def test_span_in_executor(
                 'logfire.msg_template': 'main',
                 'logfire.msg': 'main',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1036,7 +1036,7 @@ def test_span_in_executor(
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '1',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {
@@ -1050,8 +1050,8 @@ def test_span_in_executor(
                 'code.lineno': 123,
                 'code.function': 'do_work',
                 'logfire.msg_template': 'child',
-                'logfire.msg': 'child',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'child',
             },
         },
         {
@@ -1065,8 +1065,8 @@ def test_span_in_executor(
                 'code.lineno': 123,
                 'code.function': 'test_span_in_executor',
                 'logfire.msg_template': 'main',
-                'logfire.msg': 'main',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'main',
             },
         },
     ]
@@ -1093,7 +1093,7 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'child {within}',
                 'logfire.msg': 'child foo',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1134,7 +1134,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                 'logfire.msg_template': '{missing}',
                 'logfire.msg': '...',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1238,7 +1238,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{http.status} - {code.lineno}',
                 'logfire.msg': IsStr(regex=r'123 - \d+'),
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1281,7 +1281,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775809',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1323,7 +1323,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775808',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
@@ -1364,7 +1364,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775807',
                 'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0',
+                'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {

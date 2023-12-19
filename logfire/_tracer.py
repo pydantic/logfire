@@ -329,7 +329,9 @@ def _emit_pending_span(
             ATTRIBUTES_SPAN_TYPE_KEY: 'pending_span',
             # use str here since protobuf can't encode ints above 2^64,
             # see https://github.com/pydantic/platform/pull/388
-            ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: str(real_span.parent.span_id if real_span.parent else 0),
+            ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: trace_api.format_span_id(
+                real_span.parent.span_id if real_span.parent else 0
+            ),
         }
     )
     span_context = SpanContext(
