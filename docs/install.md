@@ -36,7 +36,7 @@ logfire = {version = "*", source = "logfire-source"}
 
 ## Extra Dependencies
 
-You can also install extra dependencies for Logfire. Below is a table of the extras and their dependencies.
+You can also install extra dependencies for Logfire.
 
 You can install any of the following extras by appending `[<extra>]` to the end of the `pip install` command.
 
@@ -44,12 +44,13 @@ You can install any of the following extras by appending `[<extra>]` to the end 
 pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
 ```
 
-<!-- Create table -->
-| Name | Packages | Description |
-| ---- | -------- | ----------- |
-| all  | [`httpx`][httpx], [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | Install `dash` and `system-metrics` extras. |
-| dash | [`httpx`][httpx] | The dashboard for Logfire. |
-| system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
+The available extras are:
+
+- `all`: Install all extras.
+- `dash`: The dashboard for Logfire.
+    - Uses [`httpx`][httpx] to make requests to the Logfire API.
+- `system-metrics`: To collect system metrics,
+    - Uses [`opentelemetry-system-metrics`][opentelemetry-system-metrics] to collect system metrics.
 
 [httpx]: https://www.python-httpx.org/
 [pydantic]: https://pydantic-docs.helpmanual.io/
