@@ -50,31 +50,7 @@ pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2
 | all  | [`httpx`][httpx], [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | Install `dash` and `system-metrics` extras. |
 | dash | [`httpx`][httpx] | The dashboard for Logfire. |
 | system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
-| pydantic | [`pydantic`][pydantic] | To use the Pydantic plugin. See more on the [Pydantic integration](integrations.md#pydantic). |
-| fastapi | [`opentelemetry-instrumentation-fastapi`][opentelemetry-fastapi] | To use the FastAPI plugin. See more on the [FastAPI integration](integrations.md#fastapi). |
-| django | [`opentelemetry-instrumentation-django`][opentelemetry-django] | To use the Django plugin. See more on the [Django integration](integrations.md#django). |
-| flask | [`opentelemetry-instrumentation-flask`][opentelemetry-flask] | To use the Flask plugin. See more on the [Flask integration](integrations.md#flask). |
-| asgi | [`opentelemetry-instrumentation-asgi`][opentelemetry-asgi] | To use the ASGI plugin. See more on the [ASGI integration](integrations.md#asgi). |
-| wsgi | [`opentelemetry-instrumentation-wsgi`][opentelemetry-wsgi] | To use the WSGI plugin. See more on the [WSGI integration](integrations.md#wsgi). |
-| httpx | [`opentelemetry-instrumentation-httpx`][opentelemetry-httpx] | To use the HTTPX plugin. See more on the [HTTPX integration](integrations.md#httpx). |
-| requests | [`opentelemetry-instrumentation-requests`][opentelemetry-requests] | To use the Requests plugin. See more on the [Requests integration](integrations.md#requests). |
-| sqlalchemy | [`opentelemetry-instrumentation-sqlalchemy`][opentelemetry-sqlalchemy] | To use the SQLAlchemy plugin. See more on the [SQLAlchemy integration](integrations.md#sqlalchemy). |
-| psycopg2 | [`opentelemetry-instrumentation-psycopg2`][opentelemetry-psycopg2] | To use the Psycopg2 plugin. See more on the [Psycopg2 integration](integrations.md#psycopg2). |
-| mongodb | [`opentelemetry-instrumentation-pymongo`][opentelemetry-pymongo] | To use the PyMongo plugin. See more on the [PyMongo integration](integrations.md#pymongo). |
-| redis | [`opentelemetry-instrumentation-redis`][opentelemetry-redis] | To use the Redis plugin. See more on the [Redis integration](integrations.md#redis). |
-| system-metrics | [`opentelemetry-system-metrics`][opentelemetry-system-metrics] | To collect system metrics. |
 
 [httpx]: https://www.python-httpx.org/
 [pydantic]: https://pydantic-docs.helpmanual.io/
-[opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
-[opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html
-[opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
-[opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
-[opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
-[opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
-[opentelemetry-requests]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html
-[opentelemetry-sqlalchemy]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html
-[opentelemetry-psycopg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html
-[opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
-[opentelemetry-redis]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html
 [opentelemetry-system-metrics]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/system_metrics/system_metrics.html
