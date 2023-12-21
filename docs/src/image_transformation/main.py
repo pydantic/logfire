@@ -75,7 +75,7 @@ def transform_image(image_path: Path, user_prompt: str) -> None:
             finish_reason = response_choice['finish_reason']
             if finish_reason == 'stop':
                 msg = response_choice['message']['content']
-                logfire.warning('OpenAI refused to resize the image: {msg}', msg=msg)
+                logfire.warn('OpenAI refused to resize the image: {msg}', msg=msg)
             else:
                 assert finish_reason == 'function_call'
                 message = response_choice['message']

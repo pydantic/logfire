@@ -389,7 +389,7 @@ class Logfire:
         ```py
         import logfire
 
-        logfire.warning('This is a warning log')
+        logfire.warn('This is a warning log')
         ```
 
         Args:
