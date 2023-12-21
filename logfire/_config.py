@@ -568,10 +568,11 @@ class LogfireConfig(_LogfireConfigData):
         """
         try:
             response = session.get(urljoin(self.base_url, '/v1/health'))
-            if response.status_code == 404:
-                raise LogfireConfigError('Invalid Logfire token.')
             response.raise_for_status()
         except requests.HTTPError as e:
+            # The need for a `type: ignore` on the next line is a bug in pyright and is fixed in v1.1.342
+            if e.response is not None and (e.response.status_code == 401):  # type: ignore  # this is a bug in pyright
+                raise LogfireConfigError('Invalid Logfire token.') from e
             raise LogfireConfigError('Logfire API is not healthy.') from e
 
 
