@@ -570,7 +570,7 @@ class LogfireConfig(_LogfireConfigData):
             response = session.get(urljoin(self.base_url, '/v1/health'))
             response.raise_for_status()
         except requests.HTTPError as e:
-            if e.response and (e.response.status_code == 401):
+            if e.response is not None and e.response.status_code == 401:
                 raise LogfireConfigError('Invalid Logfire token.') from e
             raise LogfireConfigError('Logfire API is not healthy.') from e
 
