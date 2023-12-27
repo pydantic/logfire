@@ -183,6 +183,14 @@ from logfire._json_formatter import json_args_value_formatter, json_args_value_f
             {'$__datatype__': 'matrix', 'data': [['1', '2'], ['3', '4']], 'row_count': 2, 'column_count': 2},
             "matrix([\n    [\n        '1',\n        '2',\n    ],\n    [\n        '3',\n        '4',\n    ],\n])",
         ),
+        (
+            {'$__datatype__': 'attrs', 'data': {'x': 1, 'y': 2}, 'cls': 'AttrsType'},
+            'AttrsType(\n    x=1,\n    y=2,\n)',
+        ),
+        (
+            {'$__datatype__': 'sqlalchemy', 'data': {'id': 1, 'name': 'test name'}, 'cls': 'Model'},
+            "Model(\n    id=1,\n    name='test name',\n)",
+        ),
     ],
     ids=repr,
 )

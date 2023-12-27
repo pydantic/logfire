@@ -34,6 +34,19 @@ try:
 except ImportError:
     numpy = None
 
+try:
+    import attrs
+except ImportError:
+    attrs = None
+
+try:
+    import sqlalchemy
+    from sqlalchemy import inspect as sa_inspect
+except ImportError:
+    sqlalchemy = None
+    sa_inspect = None
+
+
 __all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback', 'DataType'
 
 DATA_FRAME_MAX_ROWS: int = 20
@@ -90,8 +103,27 @@ DataType = Literal[
     'array',
     'matrix',
     # any other type
+    'attrs',
+    'sqlalchemy',
     'unknown',
 ]
+
+
+class MetaSQLAlchemyClassType(type):
+    if sqlalchemy:
+
+        def __instancecheck__(self, instance: Any) -> bool:
+            if isinstance(instance, sqlalchemy.orm.DeclarativeBase):  # type: ignore
+                return True
+            return isinstance(instance.__class__, sqlalchemy.orm.DeclarativeMeta)  # type: ignore
+    else:
+
+        def __instancecheck__(self, instance: Any) -> bool:
+            return False
+
+
+class SQLAlchemyClassType(metaclass=MetaSQLAlchemyClassType):
+    pass
 
 
 class LogfireEncoder(json.JSONEncoder):
@@ -224,6 +256,18 @@ class LogfireEncoder(json.JSONEncoder):
         )
 
     @staticmethod
+    def _get_sqlalchemy_data(o: Any) -> dict[str, Any]:
+        if sa_inspect is not None:
+            state = sa_inspect(o)
+            deferred = state.unloaded
+        else:
+            deferred = set()  # type: ignore
+
+        return {
+            field: getattr(o, field) if field not in deferred else '<deferred>' for field in o.__mapper__.attrs.keys()
+        }
+
+    @staticmethod
     def _build_cls_encoder(data_type: DataType, encoder: Callable[[Any], Any]) -> EncoderFunction:
         def cls_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
             return LogfireEncoder._create_result_dict(data_type=data_type, data=encoder(o), cls=o.__class__.__name__)
@@ -282,8 +326,6 @@ class LogfireEncoder(json.JSONEncoder):
         if numpy:
             lookup.update({numpy.ndarray: self._numpy_array_encoder})
 
-        # TODO(Samuel): add other popular 3rd party types here if they're installed,
-        #  in particular: attrs, sqlalchemy
         return lookup
 
     def encode(self, o: Any) -> Any:
@@ -296,6 +338,10 @@ class LogfireEncoder(json.JSONEncoder):
             return self._cls_encoder('dataclass', dataclasses.asdict, o)
         elif isinstance(o, Mapping):
             return self._cls_encoder('Mapping', dict, o)
+        elif attrs is not None and attrs.has(o):
+            return self._cls_encoder('attrs', attrs.asdict, o)
+        elif isinstance(o, SQLAlchemyClassType):
+            return self._cls_encoder('sqlalchemy', self._get_sqlalchemy_data, o)
 
         # Check the class type and its superclasses for a matching encoder
         for i, base in enumerate(o.__class__.__mro__[:-1]):

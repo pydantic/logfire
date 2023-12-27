@@ -15,8 +15,11 @@ from uuid import UUID
 import numpy
 import pandas
 import pytest
+from attrs import define
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
+from sqlalchemy import String, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 import logfire
 from logfire._flatten import Flatten
@@ -79,6 +82,12 @@ class MyArbitraryType:
 
 class MyBytes(bytes):
     pass
+
+
+@define
+class AttrsType:
+    x: int
+    y: int
 
 
 @pytest.mark.parametrize(
@@ -243,6 +252,11 @@ class MyBytes(bytes):
             '["22","44","66","88","110","176","198","220","242","264"]],'
             '"row_count":22,"column_count":12}',
         ),
+        (
+            AttrsType(1, 2),
+            'AttrsType(x=1, y=2)',
+            '{"$__datatype__":"attrs","data":{"x":1,"y":2},"cls":"AttrsType"}',
+        ),
     ],
 )
 def test_log_non_scalar_args(exporter: TestExporter, value, value_repr, value_json) -> None:
@@ -266,6 +280,38 @@ def test_log_numpy_matrix(exporter: TestExporter) -> None:
     assert (
         s.attributes['var__JSON']
         == '{"$__datatype__":"matrix","data":[["1","2"],["3","4"]],"row_count":2,"column_count":2}'
+    )
+
+
+def test_log_sqllchemy_class(exporter: TestExporter) -> None:
+    class Base(DeclarativeBase):
+        pass
+
+    class Model(Base):
+        __tablename__ = 'model'
+
+        id: Mapped[int] = mapped_column('user_id', primary_key=True)
+        name: Mapped[str] = mapped_column('user_name', String(30))
+
+        def __init__(self, id, name):
+            self.id = id
+            self.name = name
+
+    engine = create_engine('sqlite:///:memory:')
+    session = Session(engine)
+    Model.metadata.create_all(engine)
+    model = Model(1, 'test name')
+    session.add(model)
+    session.commit()
+
+    var = session.query(Model).all()[0]
+    logfire.info('test message {var=}', var=var)
+
+    s = exporter.exported_spans[0]
+
+    assert s.name.startswith('test message var=<tests.test_json_args.test_log_sqllchemy_class.<locals>.Model object at')
+    assert (
+        s.attributes['var__JSON'] == '{"$__datatype__":"sqlalchemy","data":{"id":1,"name":"test name"},"cls":"Model"}'
     )
 
 

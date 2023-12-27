@@ -52,6 +52,8 @@ class JsonArgsValueFormatter:
             'Exception': partial(self._write, '(', ')', True),
             'array': partial(self._format_list_like, 'array([', '])'),
             'matrix': partial(self._format_list_like, 'matrix([', '])'),
+            'attrs': partial(self._format_items, '(', '=', ')', False),
+            'sqlalchemy': partial(self._format_items, '(', '=', ')', False),
             'unknown': partial(self._write, '', '', False),
         }
 
