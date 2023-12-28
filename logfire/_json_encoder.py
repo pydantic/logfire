@@ -14,8 +14,17 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
+else:
+    try:
+        from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
+    except ImportError:
+        DeclarativeBase = type('DeclarativeBase', (), {})
+        DeclarativeMeta = type('DeclarativeMeta', (), {})
 
 try:
     import pydantic
@@ -113,9 +122,9 @@ class MetaSQLAlchemyClassType(type):
     if sqlalchemy:
 
         def __instancecheck__(self, instance: Any) -> bool:
-            if isinstance(instance, sqlalchemy.orm.DeclarativeBase):  # type: ignore
+            if isinstance(instance, DeclarativeBase):
                 return True
-            return isinstance(instance.__class__, sqlalchemy.orm.DeclarativeMeta)  # type: ignore
+            return isinstance(instance.__class__, DeclarativeMeta)
     else:
 
         def __instancecheck__(self, instance: Any) -> bool:
