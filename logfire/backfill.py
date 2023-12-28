@@ -92,7 +92,7 @@ class StartSpan(BaseModel):
 
     def end(self, end_timestamp: datetime) -> 'Span':
         """End the span at a given timestamp."""
-        return Span(
+        return Span.model_construct(
             span_name=self.span_name,
             msg_template=self.msg_template,
             service_name=self.service_name,
