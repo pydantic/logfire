@@ -195,7 +195,7 @@ class SeededRandomIdGenerator(IdGenerator):
         return self.random.getrandbits(128)
 
 
-ONE_NANOSECOND = 1_000_000_000
+ONE_SECOND_IN_NANOSECONDS = 1_000_000_000
 
 
 # Making this a dataclass causes errors in the process pool end-to-end tests
@@ -209,7 +209,7 @@ class TimeGenerator:
         self.ns_time = ns_time
 
     def __call__(self) -> int:  # noqa: D102
-        self.ns_time += ONE_NANOSECOND
+        self.ns_time += ONE_SECOND_IN_NANOSECONDS
         return self.ns_time
 
     def __repr__(self) -> str:
