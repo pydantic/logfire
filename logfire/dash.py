@@ -39,7 +39,7 @@ async def query(sql: str) -> list[dict[str, Any]]:
     """Accepts a raw SQL query string, and executes it directly."""
     data = await _raw_query(sql)
     if data['status'] == 'success':
-        return data['clickhouse_data']
+        return data['data']
     else:
         error_details = data['error_details']
         raise ValueError(f'Error running query:\n{error_details}')
@@ -154,7 +154,7 @@ def _configure_dash(
 
 class _Success(TypedDict):
     status: Literal['success']
-    clickhouse_data: list[dict[str, Any]]
+    data: list[dict[str, Any]]
 
 
 class _Error(TypedDict):
