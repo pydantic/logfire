@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, cast
 
 import pytest
+from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
@@ -107,12 +108,13 @@ class TestExporter(SpanExporter):
             return res
 
         def build_span(span: ReadableSpan) -> dict[str, Any]:
+            context = span.context or trace.INVALID_SPAN_CONTEXT
             res: dict[str, Any] = {
                 'name': span.name,
                 'context': {
-                    'trace_id': span.context.trace_id,
-                    'span_id': span.context.span_id,
-                    'is_remote': span.context.is_remote,
+                    'trace_id': context.trace_id,
+                    'span_id': context.span_id,
+                    'is_remote': context.is_remote,
                 },
                 'parent': {
                     'trace_id': span.parent.trace_id,

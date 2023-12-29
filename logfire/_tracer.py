@@ -335,10 +335,12 @@ def _emit_pending_span(
         }
     )
     span_context = SpanContext(
-        trace_id=real_span_context.trace_id,
-        span_id=real_span_context.span_id,
+        trace_id=real_span_context.trace_id if real_span_context else trace_api.INVALID_TRACE_ID,
+        span_id=real_span_context.span_id if real_span_context else trace_api.INVALID_SPAN_ID,
         is_remote=False,
-        trace_flags=real_span_context.trace_flags,
+        trace_flags=real_span_context.trace_flags
+        if real_span_context
+        else trace_api.TraceFlags(trace_api.TraceFlags.DEFAULT),
     )
     ctx = trace_api.set_span_in_context(trace_api.NonRecordingSpan(span_context))
     pending_span = tracer.start_span(

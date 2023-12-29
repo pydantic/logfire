@@ -30,6 +30,7 @@ class _DefaultProcessor:
     def __call__(self, _: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
         span = cast(ReadableSpan, event_dict.pop('span'))
         if self._verbose:
+            assert span.context is not None
             event_dict['span_id'] = format_span_id(span.context.span_id)
             if span.attributes:
                 if span_type := span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY):
@@ -98,6 +99,7 @@ class ConsoleSpanExporter(SpanExporter):
                 indent = self._indent_level.get(parent_id, 0)
             else:
                 indent = 0
+            assert span.context is not None
             self._indent_level[span.context.span_id] = indent + 1
             # remove old indent levels, making use of the fact that dicts are ordered
             # this may be slow but avoids locks or race conditions, change if needed
