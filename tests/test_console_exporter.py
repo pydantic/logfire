@@ -78,8 +78,8 @@ def test_console_exporter() -> None:
 
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
-        '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan\x1b[0m',
-        '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1\x1b[0m',
+        '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m',
+        '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1                   \x1b[0m',
     ]
 
 
@@ -109,8 +109,8 @@ uncolored_without_timestamp_spans = ['rootSpan                       span_id=000
             True,
             False,
             [
-                '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan\x1b[0m',
-                '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1\x1b[0m',
+                '\x1b[2m1970-01-01 00:00:02\x1b[0m \x1b[1mrootSpan                      \x1b[0m',
+                '  \x1b[2m1970-01-01 00:00:05\x1b[0m \x1b[1mchildSpan 1                   \x1b[0m',
             ],
         ),
         (
