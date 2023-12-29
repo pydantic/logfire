@@ -644,7 +644,7 @@ class LogfireCredentials:
         Raises:
             LogfireConfigError: If there was an error creating the new project.
         """
-        url = f'{logfire_api_url}/v1/projects/'
+        url = urljoin(logfire_api_url, '/v1/projects/')
         try:
             response = (session or requests).post(
                 url,
