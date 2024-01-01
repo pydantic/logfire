@@ -40,6 +40,9 @@ pandas = [
 attrs = { version = ">=23.1.0", optional = true }
 # gitpython is optionally used to get the current git commit hash without a subprocess call
 gitpython = { version = ">=3.1.40", optional = true }
+# test dependencies
+anyio = { version = ">=3", optional = true }
+coverage = { version = ">=7", optional = true }
 
 [tool.poetry.extras]
 dash = ["httpx"]
@@ -49,6 +52,7 @@ system-metrics = ["opentelemetry-instrumentation-system-metrics"]
 all = ["httpx", "opentelemetry-instrumentation-system-metrics"]
 test = [
     "anyio",
+    "coverage",
     "httpx",
     "starlette",
     "Flask",
@@ -80,3 +84,26 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.plugins."pytest11"]
 logfire = "logfire.testing"
+
+# https://coverage.readthedocs.io/en/latest/config.html#run
+[tool.coverage.run]
+branch = true
+
+# https://coverage.readthedocs.io/en/latest/config.html#report
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
+ignore_errors = true
+precision = 2
+exclude_lines = [
+    'pragma: no cover',
+    'raise NotImplementedError',
+    'if TYPE_CHECKING:',
+    'if typing.TYPE_CHECKING:',
+    '@overload',
+    '@typing.overload',
+    '\(Protocol\):$',
+    'typing.assert_never',
+    'assert_never',
+    'if __name__ == .__main__.:',
+]
