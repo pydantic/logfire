@@ -5,7 +5,6 @@ import json
 import os
 import sys
 import time
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
@@ -158,7 +157,7 @@ def configure(
         otlp_span_exporter=otlp_span_exporter,
         pydantic_plugin=pydantic_plugin,
     )
-    GLOBAL_CONFIG.initialize(_called_from_configure=True)
+    GLOBAL_CONFIG.initialize()
 
 
 def _get_int_from_env(env_var: str) -> int | None:
@@ -410,7 +409,7 @@ class LogfireConfig(_LogfireConfigData):
                 token = file_creds.token
         return token, file_creds
 
-    def initialize(self, *, _called_from_configure: bool = False) -> ProxyTracerProvider:  # noqa: C901
+    def initialize(self) -> ProxyTracerProvider:  # noqa: C901
         """Configure internals to start exporting traces and metrics."""
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
         try:
@@ -466,35 +465,31 @@ class LogfireConfig(_LogfireConfigData):
                 if self.token is None:
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
-                    try:
-                        if not credentials_from_local_file:
-                            # create a token by asking logfire.dev to create a new project
-                            new_credentials = LogfireCredentials.create_new_project(
-                                logfire_api_url=self.base_url,
-                                requested_project_name=self.project_name or self.service_name,
-                                session=self.logfire_api_session,
-                            )
-                            new_credentials.write_creds_file(self.data_dir)
-                            if self.show_summary:
-                                new_credentials.print_token_summary()
-                            credentials_to_save = new_credentials
-                            # to avoid printing another summary
-                            credentials_from_local_file = None
+                    if not credentials_from_local_file:
+                        # create a token by asking logfire.dev to create a new project
+                        new_credentials = LogfireCredentials.create_new_project(
+                            logfire_api_url=self.base_url,
+                            requested_project_name=self.project_name or self.service_name,
+                            session=self.logfire_api_session,
+                        )
+                        new_credentials.write_creds_file(self.data_dir)
+                        if self.show_summary:
+                            new_credentials.print_token_summary()
+                        credentials_to_save = new_credentials
+                        # to avoid printing another summary
+                        credentials_from_local_file = None
 
-                        assert credentials_to_save is not None
-                        self.token = self.token or credentials_to_save.token
-                        self.project_name = self.project_name or credentials_to_save.project_name
-                        self.base_url = self.base_url or credentials_to_save.logfire_api_url
-                    except LogfireConfigError as exc:
-                        if _called_from_configure:
-                            raise exc
-                        warnings.warn(str(exc), UserWarning)
+                    assert credentials_to_save is not None
+                    self.token = self.token or credentials_to_save.token
+                    self.project_name = self.project_name or credentials_to_save.project_name
+                    self.base_url = self.base_url or credentials_to_save.logfire_api_url
 
-                headers = {'User-Agent': f'logfire/{VERSION}'}
-                if self.token is not None:
-                    headers['Authentication'] = self.token
+                headers = {
+                    'User-Agent': f'logfire/{VERSION}',
+                    'Authorization': self.token,
+                }
                 # NOTE: Only check the backend if we didn't call it already.
-                if new_credentials is None and _called_from_configure:
+                if new_credentials is None:
                     logfire_api_session = self.logfire_api_session or requests.Session()
                     logfire_api_session.headers.update(headers)
                     self.check_logfire_backend(logfire_api_session)
