@@ -409,7 +409,7 @@ class LogfireConfig(_LogfireConfigData):
                 token = file_creds.token
         return token, file_creds
 
-    def initialize(self) -> ProxyTracerProvider:  # noqa: C901
+    def initialize(self) -> ProxyTracerProvider:
         """Configure internals to start exporting traces and metrics."""
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
         try:

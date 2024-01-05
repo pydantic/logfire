@@ -37,7 +37,7 @@ class TestExporter(SpanExporter):
         """Clears the collected spans."""
         self.exported_spans = []
 
-    def exported_spans_as_dict(  # noqa: C901
+    def exported_spans_as_dict(
         self,
         fixed_line_number: int | None = 123,
         strip_filepaths: bool = True,

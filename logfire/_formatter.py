@@ -25,7 +25,7 @@ class ArgChunk(TypedDict):
 class ChunksFormatter(Formatter):
     NONE_REPR: Final[str] = 'null'
 
-    def chunks(  # noqa: C901
+    def chunks(
         self,
         format_string: str,
         kwargs: Mapping[str, Any],
