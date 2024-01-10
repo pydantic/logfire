@@ -67,8 +67,13 @@ CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, defa
 """Whether to enable/disable the console exporter."""
 CONSOLE_COLORS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_COLORS'], allow_file_config=True, default='auto', tp=ConsoleColorsValues)
 """Whether to use colors in the console."""
-CONSOLE_INDENT_SPAN = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INDENT_SPAN'], allow_file_config=True, default=True, tp=bool)
-"""Whether to indent the spans in the console."""
+CONSOLE_SPAN_STYLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SPAN_STYLE'], allow_file_config=True, default='show-parents', tp=Literal['simple', 'indented', 'show-parents'])
+"""How spans are shown in the console.
+
+* `'simple'`: Spans are shown as a flat list, not indented.
+* `'indented'`: Spans are shown as a tree, indented based on how many parents they have.
+* `'show-parents'`: Spans are shown intended, when spans are interleaved parent spans are printed again to
+  give the best context."""
 CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'], allow_file_config=True, default=True, tp=bool)
 """Whether to include the timestamp in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
@@ -96,7 +101,7 @@ CONFIG_PARAMS = {
     'collect_system_metrics': COLLECT_SYSTEM_METRICS,
     'console': CONSOLE,
     'console_colors': CONSOLE_COLORS,
-    'console_indent_span': CONSOLE_INDENT_SPAN,
+    'console_span_style': CONSOLE_SPAN_STYLE,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
     'console_verbose': CONSOLE_VERBOSE,
     'pydantic_plugin_record': PYDANTIC_PLUGIN_RECORD,

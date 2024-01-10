@@ -536,7 +536,7 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console is False
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE': 'true'}):
         assert LogfireConfig().console == ConsoleOptions(
-            colors='auto', indent_spans=True, include_timestamps=True, verbose=False
+            colors='auto', span_style='show-parents', include_timestamps=True, verbose=False
         )
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_COLORS': 'never'}):
         assert LogfireConfig().console == ConsoleOptions(colors='never')

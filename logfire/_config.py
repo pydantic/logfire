@@ -46,7 +46,12 @@ from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
 from .exporters._otlp import OTLPExporterHttpSession
-from .exporters.console import ConsoleColorsValues, ConsoleSpanExporter
+from .exporters.console import (
+    ConsoleColorsValues,
+    IndentedConsoleSpanExporter,
+    ShowParentsConsoleSpanExporter,
+    SimpleConsoleSpanExporter,
+)
 from .integrations._executors import instrument_executors
 from .version import VERSION
 
@@ -61,7 +66,8 @@ class ConsoleOptions:
     """Options for controlling console output."""
 
     colors: ConsoleColorsValues = 'auto'
-    indent_spans: bool = True
+    span_style: Literal['simple', 'indented', 'show-parents'] = 'show-parents'
+    """How spans are shown in the console."""
     include_timestamps: bool = True
     verbose: bool = False
 
@@ -286,7 +292,7 @@ class _LogfireConfigData:
         else:
             self.console = ConsoleOptions(
                 colors=param_manager.load_param('console_colors'),
-                indent_spans=param_manager.load_param('console_indent_span'),
+                span_style=param_manager.load_param('console_span_style'),
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
                 verbose=param_manager.load_param('console_verbose'),
             )
@@ -445,11 +451,17 @@ class LogfireConfig(_LogfireConfigData):
                 maybe_add_span_processor = tracer_provider.add_span_processor
 
             if self.console:
+                if self.console.span_style == 'simple':
+                    exporter_cls = SimpleConsoleSpanExporter
+                elif self.console.span_style == 'indented':
+                    exporter_cls = IndentedConsoleSpanExporter
+                else:
+                    assert self.console.span_style == 'show-parents'
+                    exporter_cls = ShowParentsConsoleSpanExporter
                 maybe_add_span_processor(
                     SimpleSpanProcessor(
-                        ConsoleSpanExporter(
+                        exporter_cls(
                             colors=self.console.colors,
-                            indent_spans=self.console.indent_spans,
                             include_timestamp=self.console.include_timestamps,
                             verbose=self.console.verbose,
                         ),
