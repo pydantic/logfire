@@ -45,7 +45,7 @@ Logfire can automatically instrument all calls within specific modules.
 ```py
 import logfire
 
-logfire.install_auto_tracing(modules=['app'])
+logfire.install_automatic_instrumentation(modules=['app'])
 ```
 
 ### CLI
