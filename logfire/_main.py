@@ -3,9 +3,10 @@ from __future__ import annotations
 import inspect
 import sys
 import warnings
-from functools import wraps
+from functools import lru_cache, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
+from types import CodeType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -640,6 +641,26 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
 StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
 
 
+@lru_cache(maxsize=2048)
+def _get_code_object_info(code: CodeType) -> StackInfo:
+    file = Path(code.co_filename)
+    if file.is_absolute():
+        try:
+            file = file.relative_to(_CWD)
+        except ValueError:
+            # happens if filename path is not within CWD
+            pass
+    if code.co_name == '<module>':
+        return {
+            'code.filepath': str(file),
+        }
+    else:
+        return {
+            'code.filepath': str(file),
+            'code.function': code.co_qualname if sys.version_info >= (3, 11) else code.co_name,
+        }
+
+
 def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
     """Get the stack info of the caller.
 
@@ -660,24 +681,10 @@ def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
             frame = frame.f_back
             if frame is None:
                 return {}
-        file = Path(frame.f_code.co_filename)
-        if file.is_absolute():
-            try:
-                file = file.relative_to(_CWD)
-            except ValueError:
-                # happens if filename path is not within CWD
-                pass
-        if frame.f_code.co_name == '<module>':
-            return {
-                'code.filepath': str(file),
-                'code.lineno': frame.f_lineno,
-            }
-        else:
-            return {
-                'code.filepath': str(file),
-                'code.lineno': frame.f_lineno,
-                'code.function': frame.f_code.co_qualname if sys.version_info >= (3, 11) else frame.f_code.co_name,
-            }
+        return {
+            'code.lineno': frame.f_lineno,
+            **_get_code_object_info(frame.f_code),
+        }
     except Exception:
         return {}
 
