@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 import warnings
-from functools import lru_cache, wraps
+from functools import cached_property, lru_cache, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
 from types import CodeType
@@ -71,9 +71,6 @@ class Logfire:
     ) -> None:
         self._tags = list(tags)
         self._config = config
-        self.__tracer_provider: ProxyTracerProvider | None = None
-        self._logs_tracer: Tracer | None = None
-        self._spans_tracer: Tracer | None = None
         self._sample_rate = sample_rate
 
     def with_tags(self, *tags: str) -> Logfire:
@@ -112,10 +109,25 @@ class Logfire:
             raise ValueError('sample_rate must be between 0 and 1')
         return Logfire(self._tags, self._config, sample_rate)
 
-    def _get_tracer_provider(self) -> ProxyTracerProvider:
-        if self.__tracer_provider is None:
-            self.__tracer_provider = self._config.get_tracer_provider()
-        return self.__tracer_provider
+    @cached_property
+    def _tracer_provider(self) -> ProxyTracerProvider:
+        return self._config.get_tracer_provider()
+
+    @cached_property
+    def _logs_tracer(self) -> Tracer:
+        # logs don't need a pending span
+        return self._get_tracer(wrap_with_pending_span_tracer=False)
+
+    @cached_property
+    def _spans_tracer(self) -> Tracer:
+        return self._get_tracer(wrap_with_pending_span_tracer=True)
+
+    def _get_tracer(self, *, wrap_with_pending_span_tracer: bool) -> Tracer:
+        return self._tracer_provider.get_tracer(
+            'logfire',  # the name here is really not important, logfire itself doesn't use it
+            VERSION,
+            wrap_with_pending_span_tracer=wrap_with_pending_span_tracer,
+        )
 
     def _span(
         self,
@@ -142,12 +154,6 @@ class Logfire:
         log_message = logfire_format(msg_template, format_kwargs, fallback='...', stacklevel=stacklevel)
 
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
-
-        if self._spans_tracer is None:
-            self._spans_tracer = self._get_tracer_provider().get_tracer(
-                'logfire',  # the name here is really not important, logfire itself doesn't use it
-                VERSION,
-            )
 
         otlp_attributes = user_attributes(merged_attributes)
 
@@ -314,13 +320,6 @@ class Logfire:
 
         start_time = self._config.ns_timestamp_generator()
 
-        if self._logs_tracer is None:
-            self._logs_tracer = self._get_tracer_provider().get_tracer(
-                'logfire',  # the name here is really not important, logfire itself doesn't use it
-                VERSION,
-                wrap_with_pending_span_tracer=False,  # logs don't need a pending span
-            )
-
         span = self._logs_tracer.start_span(
             msg,
             attributes=otlp_attributes,
@@ -444,7 +443,7 @@ class Logfire:
         Returns:
             Whether the flush was successful.
         """
-        return self._get_tracer_provider().force_flush(timeout_millis)
+        return self._tracer_provider.force_flush(timeout_millis)
 
 
 class LogfireSpan(ReadableSpan):
