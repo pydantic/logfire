@@ -1,3 +1,5 @@
+# Import this early to prevent weird bug caused by concurrent calls to ast.parse
+import anyio._backends._asyncio  # noqa
 import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader

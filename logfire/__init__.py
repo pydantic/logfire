@@ -1,6 +1,6 @@
 """Logfire is the observability tool focused on developer experience."""
 
-from ._auto_instrument import install_automatic_instrumentation, uninstall_automatic_instrumentation
+from ._auto_trace import AutoTraceModule, install_auto_tracing
 from ._config import ConsoleOptions, PydanticPluginOptions, configure
 from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
@@ -41,8 +41,8 @@ __all__ = (
     'warn',
     'error',
     'fatal',
-    'install_automatic_instrumentation',
-    'uninstall_automatic_instrumentation',
+    'install_auto_tracing',
+    'AutoTraceModule',
     'flatten',
     'force_flush',
     'with_tags',
