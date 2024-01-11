@@ -355,7 +355,7 @@ def _emit_pending_span(
     return pending_span
 
 
-def should_sample(span_id: int, sample_rate: float | None) -> bool:
+def should_sample(span_id: int, sample_rate: float) -> bool:
     """Determine if a span should be sampled.
 
     This is used to sample spans that are not sampled by the OTEL sampler.
