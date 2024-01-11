@@ -44,10 +44,13 @@ ATTRIBUTES_MESSAGE_TEMPLATE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg_template'
 ATTRIBUTES_MESSAGE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg'
 """The formatted message for a log."""
 
-EXCEPTION_ATTRIBUTES_LOGFIRE_DATA_KEY = 'logfire.data'
+ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
+"""Key in OTEL attributes that collects the JSON schema."""
+
+EXCEPTION_ATTRIBUTES_LOGFIRE_DATA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.data'
 """The key within exception attributes where logfire puts exception data."""
 
-EXCEPTION_ATTRIBUTES_LOGFIRE_TRACEBACK_KEY = 'logfire.traceback'
+EXCEPTION_ATTRIBUTES_LOGFIRE_TRACEBACK_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.traceback'
 """The key within exception attributes where logfire puts the traceback."""
 
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'

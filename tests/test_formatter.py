@@ -1,6 +1,5 @@
 from collections import ChainMap
 
-from logfire import flatten
 from logfire._formatter import chunks_formatter
 
 
@@ -55,16 +54,3 @@ def test_dict():
     v = chunks_formatter.chunks('{foo[bar]}', {'foo': {'bar': 42}})
     # insert_assert(v)
     assert v == [{'t': 'arg', 'v': '42'}]
-
-
-def test_flatten() -> None:
-    v = chunks_formatter.chunks(
-        '{my_dict=} {my_list=}', {'my_dict': flatten({'a': 1, 'b': 2}), 'my_list': flatten([3, 3])}
-    )
-    # insert_assert(v)
-    assert v == [
-        {'v': 'my_dict=', 't': 'lit'},
-        {'v': "{'a': 1, 'b': 2}", 't': 'arg'},
-        {'v': ' my_list=', 't': 'lit'},
-        {'v': '[3, 3]', 't': 'arg'},
-    ]

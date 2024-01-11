@@ -27,6 +27,7 @@ def test_stdlib_logging(exporter: TestExporter) -> None:
                 'code.lineno': 10,
                 'code.function': 'test_stdlib_logging',
                 'first_name': 'Fred',
+                'logfire.json_schema': '{"type":"object","properties":{"first_name":{}}}',
             },
         }
     ]

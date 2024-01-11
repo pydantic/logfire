@@ -10,7 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Mapping,
     Sequence,
     TypedDict,
     TypeVar,
@@ -27,6 +26,7 @@ from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
+from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
 from logfire.version import VERSION
 
 try:
@@ -52,8 +52,8 @@ from ._constants import (
     OTLP_MAX_INT_SIZE,
     LevelName,
 )
-from ._flatten import Flatten
 from ._json_encoder import json_dumps_traceback, logfire_json_dumps
+from ._json_schema import logfire_json_schema
 from ._tracer import ProxyTracerProvider
 
 _CWD = Path('.').resolve()
@@ -149,6 +149,9 @@ class Logfire:
             )
 
         otlp_attributes = user_attributes(merged_attributes)
+
+        if attributes_json_schema := logfire_json_schema(attributes):
+            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
 
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
@@ -294,6 +297,9 @@ class Logfire:
             ATTRIBUTES_MESSAGE_KEY: msg,
             **otlp_attributes,
         }
+        if attributes_json_schema := logfire_json_schema(attributes):
+            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
+
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
 
@@ -599,7 +605,7 @@ def _merge_tags_into_attributes(
     return None, attributes
 
 
-def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> dict[str, otel_types.AttributeValue]:
+def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
     """Prepare attributes for sending to OpenTelemetry.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
@@ -622,13 +628,6 @@ def user_attributes(attributes: dict[str, Any], should_flatten: bool = True) -> 
                 prepared[key] = value
         elif isinstance(value, (str, bool, float)):
             prepared[key] = value
-        elif isinstance(value, Flatten) and should_flatten:
-            value = cast('Flatten[Mapping[Any, Any] | Sequence[Any]]', value).value
-            iter = value.items() if isinstance(value, Mapping) else enumerate(value)
-            for k, v in iter:
-                inner_prepared = user_attributes({str(k): v}, should_flatten=False)
-                for inner_key, inner_value in inner_prepared.items():
-                    prepared[f'{key}.{inner_key}'] = inner_value
         else:
             prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
 

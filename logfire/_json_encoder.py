@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import base64
 import dataclasses
 import datetime
 import json
 from collections import deque
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
 from functools import cached_property
@@ -22,50 +21,43 @@ if TYPE_CHECKING:
 else:
     try:
         from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
-    except ImportError:
+    except ModuleNotFoundError:  # pragma: no cover
         DeclarativeBase = type('DeclarativeBase', (), {})
         DeclarativeMeta = type('DeclarativeMeta', (), {})
 
 try:
     import pydantic
-except ImportError:
+except ModuleNotFoundError:  # pragma: no cover
     # pydantic is not installed, possible since it's not a dependency
     # don't add the types to the lookup logic
     pydantic = None
 
 try:
     import pandas
-except ImportError:
+except ModuleNotFoundError:  # pragma: no cover
     pandas = None
 
 try:
     import numpy
-except ImportError:
+except ModuleNotFoundError:  # pragma: no cover
     numpy = None
 
 try:
     import attrs
-except ImportError:
+except ModuleNotFoundError:  # pragma: no cover
     attrs = None
 
 try:
     import sqlalchemy
     from sqlalchemy import inspect as sa_inspect
-except ImportError:
+except ModuleNotFoundError:  # pragma: no cover
     sqlalchemy = None
     sa_inspect = None
 
 
-__all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback', 'DataType'
+__all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback'
 
-DATA_FRAME_MAX_ROWS: int = 20
-DATA_FRAME_MAX_COLUMN: int = 10
-
-
-class EncoderFunction(Protocol):
-    def __call__(self, obj: Any, subclass: bool = False, /) -> dict[str, Any]:
-        ...
-
+NUMPY_DIMENSION_MAX_SIZE = 10
 
 DataType = Literal[
     # scalar types
@@ -118,51 +110,33 @@ DataType = Literal[
 ]
 
 
-class MetaSQLAlchemyClassType(type):
-    if sqlalchemy:
-
-        def __instancecheck__(self, instance: Any) -> bool:
-            if isinstance(instance, DeclarativeBase):
-                return True
-            return isinstance(instance.__class__, DeclarativeMeta)
-    else:
-
-        def __instancecheck__(self, instance: Any) -> bool:
-            return False
-
-
-class SQLAlchemyClassType(metaclass=MetaSQLAlchemyClassType):
-    pass
+class EncoderFunction(Protocol):
+    def __call__(self, obj: Any, /) -> Any:
+        ...
 
 
 class LogfireEncoder(json.JSONEncoder):
     @staticmethod
-    def _create_result_dict(data_type: DataType, data: Any, **kwargs: Any) -> dict[str, Any]:
-        return {'$__datatype__': data_type, 'data': data, **kwargs}
+    def _bytes_encoder(o: Any) -> str:
+        return repr(o)[2:-1]
 
     @staticmethod
-    def _bytes_encoder(o: Any, subclass: bool = False) -> dict[str, Any]:
-        kwargs = {'cls': o.__class__.__name__} if subclass else {}
+    def _bytearray_encoder(o: Any) -> str:
+        return LogfireEncoder._bytes_encoder(bytes(o))
+
+    @staticmethod
+    def _set_encoder(o: Any) -> list[Any]:
         try:
-            bytes_utf8 = o.decode()
-        except UnicodeDecodeError:
-            base64_bytes = base64.b64encode(o).decode()
-            return LogfireEncoder._create_result_dict(data_type='bytes-base64', data=base64_bytes, **kwargs)
-        else:
-            return LogfireEncoder._create_result_dict(data_type='bytes-utf8', data=bytes_utf8, **kwargs)
+            return sorted(o)
+        except TypeError:
+            return list(o)
 
     @staticmethod
-    def _cls_encoder(
-        data_type: DataType, encoder: Callable[[Any], Any], o: Any, _subclass: bool = False
-    ) -> dict[str, Any]:
-        return LogfireEncoder._create_result_dict(data_type=data_type, data=encoder(o), cls=o.__class__.__name__)
+    def _to_isoformat(o: Any) -> str:
+        return o.isoformat()
 
     @staticmethod
-    def _uuid_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
-        return LogfireEncoder._create_result_dict(data_type='UUID', data=str(o), version=o.version)
-
-    @staticmethod
-    def _pandas_data_frame_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
+    def _pandas_data_frame_encoder(o: Any) -> list[Any]:
         """Encode pandas data frame by extracting important information.
 
         It summarizes rows and columns if they are more than limit.
@@ -182,41 +156,33 @@ class LogfireEncoder(json.JSONEncoder):
             [5, 10, 20, 25],
         ]
         """
-        col_middle = DATA_FRAME_MAX_COLUMN // 2
-        column_count = len(o.columns)
-        if column_count > DATA_FRAME_MAX_COLUMN:
-            columns = list(o.columns[:col_middle]) + list(o.columns[-col_middle:])
-        else:
-            columns = list(o.columns)
+        import pandas
 
-        indexes: list[str] = []
+        max_rows = pandas.get_option('display.max_rows')
+        max_columns = pandas.get_option('display.max_columns')
+
+        col_middle = max_columns // 2
+        column_count = len(o.columns)
+
         rows: list[Any] = []
         row_count = len(o)
 
-        if row_count > DATA_FRAME_MAX_ROWS:
-            row_middle = DATA_FRAME_MAX_ROWS // 2
+        if row_count > max_rows:
+            row_middle = max_rows // 2
             df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
         else:
             df_rows = o.iterrows()
 
-        for index, row in df_rows:
-            indexes.append(str(index))
-            if column_count > DATA_FRAME_MAX_COLUMN:
+        for _, row in df_rows:
+            if column_count > max_columns:
                 rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
             else:
                 rows.append(list(row))
 
-        return LogfireEncoder._create_result_dict(
-            data_type='DataFrame',
-            data=rows,
-            columns=columns,
-            indexes=indexes,
-            row_count=row_count,
-            column_count=column_count,
-        )
+        return rows
 
     @staticmethod
-    def _numpy_array_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
+    def _numpy_array_encoder(o: Any) -> dict[str, Any]:
         """Encode numpy array by extracting important information.
 
         It summarizes rows and columns if they are more than limit.
@@ -236,33 +202,32 @@ class LogfireEncoder(json.JSONEncoder):
             [5, 10, 20, 25],
         ]
         """
-        row_count, column_count = o.shape
+        # If we reach here, numpy is installed.
+        assert numpy and isinstance(o, numpy.ndarray)
+        shape = o.shape
+        dimensions = o.ndim
 
-        rows: list[Any] = []
+        if isinstance(o, numpy.matrix):
+            o = o.A  # type: ignore[reportUnknownMemberType]
 
-        is_matrix = numpy is not None and isinstance(o, numpy.matrix)
-        if is_matrix:
-            o = o.A  # type: ignore
+        for dimension in range(dimensions):
+            # In case of multiple dimensions, we limit the dimension size by the NUMPY_DIMENSION_MAX_SIZE.
+            half = min(shape[dimension], NUMPY_DIMENSION_MAX_SIZE) // 2
+            # Slicing and concatenating arrays along the specified axis
+            slices = [slice(None)] * dimensions
+            slices[dimension] = slice(0, half)
+            front = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
 
-        if row_count > DATA_FRAME_MAX_ROWS:
-            row_middle = DATA_FRAME_MAX_ROWS // 2
-            _rows = list(o[:row_middle]) + list(o[-row_middle:])  # type: ignore
-        else:
-            _rows = o  # type: ignore
+            slices[dimension] = slice(-half, None)
+            end = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
+            o = numpy.concatenate((front, end), axis=dimension)  # type: ignore[reportUnknownVariableType]
 
-        for row in _rows:
-            if column_count > DATA_FRAME_MAX_COLUMN:
-                col_middle = DATA_FRAME_MAX_COLUMN // 2
-                rows.append(list(map(str, row[:col_middle])) + list(map(str, row[-col_middle:])))
-            else:
-                rows.append(list(map(str, row)))
+        return o.tolist()
 
-        return LogfireEncoder._create_result_dict(
-            data_type='matrix' if is_matrix else 'array',
-            data=rows,
-            row_count=row_count,
-            column_count=column_count,
-        )
+    @staticmethod
+    def _pydantic_model_encoder(o: Any) -> dict[str, Any]:
+        assert pydantic and isinstance(o, pydantic.BaseModel)
+        return o.model_dump()
 
     @staticmethod
     def _get_sqlalchemy_data(o: Any) -> dict[str, Any]:
@@ -276,95 +241,77 @@ class LogfireEncoder(json.JSONEncoder):
             field: getattr(o, field) if field not in deferred else '<deferred>' for field in o.__mapper__.attrs.keys()
         }
 
-    @staticmethod
-    def _build_cls_encoder(data_type: DataType, encoder: Callable[[Any], Any]) -> EncoderFunction:
-        def cls_encoder(o: Any, _subclass: bool = False) -> dict[str, Any]:
-            return LogfireEncoder._create_result_dict(data_type=data_type, data=encoder(o), cls=o.__class__.__name__)
-
-        return cls_encoder
-
-    @staticmethod
-    def _build_default_encoder(data_type: DataType, encoder: Callable[[Any], Any]) -> EncoderFunction:
-        def type_encoder(o: Any, subclass: bool = False) -> dict[str, Any]:
-            if subclass:
-                return LogfireEncoder._create_result_dict(
-                    data_type=data_type, data=encoder(o), cls=o.__class__.__name__
-                )
-            else:
-                return LogfireEncoder._create_result_dict(data_type=data_type, data=encoder(o))
-
-        return type_encoder
-
     @cached_property
     def encoder_by_type(self) -> dict[type[Any], EncoderFunction]:
         lookup: dict[type[Any], EncoderFunction] = {
-            set: self._build_default_encoder('set', list),
+            set: self._set_encoder,
+            frozenset: self._set_encoder,
             bytes: self._bytes_encoder,
-            datetime.date: self._build_default_encoder('date', lambda d: d.isoformat()),
-            datetime.datetime: self._build_default_encoder('datetime', lambda d: d.isoformat()),
-            datetime.time: self._build_default_encoder('time', lambda d: d.isoformat()),
-            datetime.timedelta: self._build_default_encoder('timedelta', lambda td: td.total_seconds()),
-            Decimal: self._build_default_encoder('Decimal', str),
-            Enum: self._build_cls_encoder('Enum', lambda o: o.value),
-            frozenset: self._build_default_encoder('frozenset', list),
-            deque: self._build_default_encoder('deque', list),
-            GeneratorType: self._build_default_encoder('generator', repr),
-            IPv4Address: self._build_default_encoder('IPv4Address', str),
-            IPv4Interface: self._build_default_encoder('IPv4Interface', str),
-            IPv4Network: self._build_default_encoder('IPv4Network', str),
-            IPv6Address: self._build_default_encoder('IPv6Address', str),
-            IPv6Interface: self._build_default_encoder('IPv6Interface', str),
-            IPv6Network: self._build_default_encoder('IPv6Network', str),
-            PosixPath: self._build_default_encoder('PosixPath', str),
-            Pattern: self._build_default_encoder('Pattern', lambda o: o.pattern),
-            UUID: self._uuid_encoder,
-            Exception: self._build_cls_encoder('Exception', str),
+            bytearray: self._bytearray_encoder,
+            datetime.date: self._to_isoformat,
+            datetime.datetime: self._to_isoformat,
+            datetime.time: self._to_isoformat,
+            datetime.timedelta: lambda o: str(o.total_seconds()),
+            Decimal: str,
+            Enum: lambda o: o.value,
+            deque: list,
+            GeneratorType: repr,
+            IPv4Address: str,
+            IPv4Interface: str,
+            IPv4Network: str,
+            IPv6Address: str,
+            IPv6Interface: str,
+            IPv6Network: str,
+            PosixPath: str,
+            Pattern: lambda o: o.pattern,
+            UUID: str,
+            Exception: str,
         }
-        if pydantic:
+        if pydantic:  # pragma: no cover
             lookup.update(
                 {
-                    pydantic.AnyUrl: self._build_default_encoder('Url', str),
-                    pydantic.NameEmail: self._build_default_encoder('NameEmail', str),
-                    pydantic.SecretBytes: self._build_default_encoder('SecretBytes', str),
-                    pydantic.SecretStr: self._build_default_encoder('SecretStr', str),
-                    pydantic.BaseModel: self._build_cls_encoder('BaseModel', lambda o: o.model_dump()),
+                    pydantic.AnyUrl: str,
+                    pydantic.NameEmail: str,
+                    pydantic.SecretBytes: str,
+                    pydantic.SecretStr: str,
+                    pydantic.BaseModel: self._pydantic_model_encoder,
                 }
             )
-        if pandas:
+
+        if pandas:  # pragma: no cover
             lookup.update({pandas.DataFrame: self._pandas_data_frame_encoder})
-        if numpy:
+        if numpy:  # pragma: no cover
             lookup.update({numpy.ndarray: self._numpy_array_encoder})
 
         return lookup
 
     def encode(self, o: Any) -> Any:
-        if isinstance(o, tuple):
-            return super().encode({'$__datatype__': 'tuple', 'data': o})
         return super().encode(o)
 
     def default(self, o: Any) -> Any:
         if dataclasses.is_dataclass(o):
-            return self._cls_encoder('dataclass', dataclasses.asdict, o)
+            return dataclasses.asdict(o)
         elif isinstance(o, Mapping):
-            return self._cls_encoder('Mapping', dict, o)
+            return dict(o)  # type: ignore
         elif attrs is not None and attrs.has(o):
-            return self._cls_encoder('attrs', attrs.asdict, o)
-        elif isinstance(o, SQLAlchemyClassType):
-            return self._cls_encoder('sqlalchemy', self._get_sqlalchemy_data, o)
+            return attrs.asdict(o)
+        elif _is_sqlalchemy(o):
+            return self._get_sqlalchemy_data(o)
 
         # Check the class type and its superclasses for a matching encoder
-        for i, base in enumerate(o.__class__.__mro__[:-1]):
+        for base in o.__class__.__mro__[:-1]:
             try:
                 encoder = self.encoder_by_type[base]
             except KeyError:
                 pass
             else:
-                return encoder(o, i > 0)
+                return encoder(o)
 
         if isinstance(o, Sequence):
-            return self._cls_encoder('Sequence', list, o)
+            return list(o)  # type: ignore
 
-        return self._cls_encoder('unknown', repr, o)
+        # In case we don't know how to encode, use `repr()`.
+        return repr(o)
 
 
 def logfire_json_dumps(obj: Any) -> str:
@@ -374,10 +321,17 @@ def logfire_json_dumps(obj: Any) -> str:
 def _traceback_default(obj: Any):
     if dataclasses.is_dataclass(obj):
         return dataclasses.asdict(obj)
-    else:
-        raise TypeError(f"Object of type '{obj.__class__.__name__}' is not JSON serializable")
+    raise TypeError(f"Object of type '{obj.__class__.__name__}' is not JSON serializable")
 
 
 def json_dumps_traceback(obj: Any) -> str:
     """Specifically for converting rich tracebacks to JSON, where dataclasses need to be converted to dicts."""
     return json.dumps(obj, default=_traceback_default)
+
+
+def _is_sqlalchemy(obj: Any) -> bool:
+    if sqlalchemy is None:
+        return False
+    if isinstance(obj, DeclarativeBase):
+        return True
+    return isinstance(obj.__class__, DeclarativeMeta)

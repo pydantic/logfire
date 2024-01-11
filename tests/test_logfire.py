@@ -88,6 +88,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -106,8 +107,9 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
                 'number': 3,
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test name=foo 3',
             },
         },
     ]
@@ -145,6 +147,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'type': 'parent',
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'parent span',
+                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -162,6 +165,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'type': 'child',
                 'logfire.msg_template': '{type} span',
                 'logfire.msg': 'child span',
+                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000001',
             },
@@ -178,6 +182,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'code.function': 'test_span_with_parent',
                 'type': 'child',
                 'logfire.msg_template': '{type} span',
+                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'child span',
             },
@@ -194,6 +199,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 'code.function': 'test_span_with_parent',
                 'type': 'parent',
                 'logfire.msg_template': '{type} span',
+                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'parent span',
             },
@@ -230,9 +236,10 @@ def test_span_with_tags(exporter: TestExporter) -> None:
                 'name': 'foo',
                 'number': 3,
                 'extra': 'extra',
-                'logfire.tags': ('tag1', 'tag2'),
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -250,10 +257,11 @@ def test_span_with_tags(exporter: TestExporter) -> None:
                 'name': 'foo',
                 'number': 3,
                 'extra': 'extra',
-                'logfire.tags': ('tag1', 'tag2'),
                 'logfire.msg_template': 'test {name} {number}',
-                'logfire.msg': 'test foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                'logfire.tags': ('tag1', 'tag2'),
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test foo 3',
             },
         },
     ]
@@ -293,6 +301,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -311,8 +320,9 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'number': 3,
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test name=foo 3',
             },
         },
     ]
@@ -350,6 +360,7 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number} {span_name}',
                 'logfire.msg': 'test name=foo 3 bar',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -368,8 +379,9 @@ def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
                 'number': 3,
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number} {span_name}',
-                'logfire.msg': 'test name=foo 3 bar',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test name=foo 3 bar',
             },
         },
     ]
@@ -410,6 +422,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -443,6 +456,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
                 'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -461,8 +475,9 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'number': 3,
                 'extra': 'extra',
                 'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'test name=foo 3',
             },
         },
     ]
@@ -504,6 +519,7 @@ def test_log(exporter: TestExporter, level: str):
                 'name': 'foo',
                 'number': 2,
                 'logfire.null_args': ('none',),
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"none":{}}}',
             },
         }
     ]
@@ -541,6 +557,7 @@ def test_log_equals(exporter: TestExporter) -> None:
                 'code.function': 'test_log_equals',
                 'foo': 'foo',
                 'bar': 3,
+                'logfire.json_schema': '{"type":"object","properties":{"foo":{},"bar":{}}}',
             },
         }
     ]
@@ -577,6 +594,7 @@ def test_log_with_tags(exporter: TestExporter):
                 'code.function': 'test_log_with_tags',
                 'name': 'foo',
                 'number': 2,
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{}}}',
                 'logfire.tags': ('tag1', 'tag2'),
             },
         }
@@ -621,6 +639,7 @@ def test_instrument(exporter: TestExporter):
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
+                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -637,6 +656,7 @@ def test_instrument(exporter: TestExporter):
                 'code.function': 'test_instrument',
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
+                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'hello-world a=123',
             },
@@ -843,12 +863,12 @@ def test_json_args(exporter: TestExporter) -> None:
     s = exporter.exported_spans[0]
     assert s.name == 'test message foo=Foo(x=1, y=2)'
     assert s.attributes is not None
-    assert s.attributes['foo__JSON'] == '{"$__datatype__":"dataclass","data":{"x":1,"y":2},"cls":"Foo"}'
+    assert s.attributes['foo__JSON'] == '{"x":1,"y":2}'
 
     s = exporter.exported_spans[1]
     assert s.name == 'test message foos=[Foo(x=1, y=2)]'
     assert s.attributes is not None
-    assert s.attributes['foos__JSON'] == '[{"$__datatype__":"dataclass","data":{"x":1,"y":2},"cls":"Foo"}]'
+    assert s.attributes['foos__JSON'] == '[{"x":1,"y":2}]'
 
 
 def test_int_span_id_encoding():
@@ -862,7 +882,7 @@ def test_int_span_id_encoding():
     AnyValue(string_value=str(2**128))
 
 
-def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
+def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
     exporter1 = TestExporter()
     config = LogfireConfig(
         send_to_logfire=False,
@@ -896,7 +916,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
                 'logfire.msg_template': 'root',
                 'logfire.msg': 'root',
                 'logfire.span_type': 'pending_span',
@@ -912,7 +932,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
                 'logfire.msg_template': 'child',
                 'logfire.msg': 'child',
                 'logfire.span_type': 'pending_span',
@@ -933,7 +953,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
             },
         },
         {
@@ -950,7 +970,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
                 'logfire.msg': 'test2',
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
                 'logfire.tags': ('tag1', 'tag2'),
             },
         },
@@ -963,7 +983,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
                 'logfire.msg_template': 'child',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'child',
@@ -978,7 +998,7 @@ def test_logifre_with_its_own_config(exporter: TestExporter) -> None:
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_logifre_with_its_own_config',
+                'code.function': 'test_logfire_with_its_own_config',
                 'logfire.msg_template': 'root',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'root',
@@ -1092,6 +1112,7 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
                 'within': 'foo',
                 'logfire.msg_template': 'child {within}',
                 'logfire.msg': 'child foo',
+                'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -1108,8 +1129,9 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
                 'code.function': 'do_work_with_arg',
                 'within': 'foo',
                 'logfire.msg_template': 'child {within}',
-                'logfire.msg': 'child foo',
+                'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'child foo',
             },
         },
     ]
@@ -1213,6 +1235,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
                 'code.lineno': 123,
                 'code.function': 'test_kwarg_with_dot_in_name',
                 'http.status': 123,
+                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
             },
         }
     ]
@@ -1239,6 +1262,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
                 'logfire.msg': IsStr(regex=r'123 - \d+'),
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
+                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
             },
         },
         {
@@ -1255,6 +1279,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
                 'logfire.msg_template': '{http.status} - {code.lineno}',
                 'logfire.msg': IsStr(regex=r'123 - \d+'),
                 'logfire.span_type': 'span',
+                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
             },
         },
     ]
@@ -1280,6 +1305,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'value': '9223372036854775809',
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775809',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -1296,6 +1322,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'code.function': 'test_large_int',
                 'value': '9223372036854775809',
                 'logfire.msg_template': 'test {value=}',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'test value=9223372036854775809',
             },
@@ -1322,6 +1349,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'value': '9223372036854775808',
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775808',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -1338,6 +1366,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'code.function': 'test_large_int',
                 'value': '9223372036854775808',
                 'logfire.msg_template': 'test {value=}',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'test value=9223372036854775808',
             },
@@ -1363,6 +1392,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'value': 9223372036854775807,
                 'logfire.msg_template': 'test {value=}',
                 'logfire.msg': 'test value=9223372036854775807',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
@@ -1379,6 +1409,7 @@ def test_large_int(exporter: TestExporter) -> None:
                 'code.function': 'test_large_int',
                 'value': 9223372036854775807,
                 'logfire.msg_template': 'test {value=}',
+                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'test value=9223372036854775807',
             },

@@ -2,7 +2,6 @@
 
 from ._auto_trace import AutoTraceModule, install_auto_tracing
 from ._config import ConsoleOptions, PydanticPluginOptions, configure
-from ._flatten import flatten
 from ._main import LevelName, Logfire, LogfireSpan
 from .exporters._file import load_file as load_spans_from_file
 from .version import VERSION
@@ -43,7 +42,6 @@ __all__ = (
     'fatal',
     'install_auto_tracing',
     'AutoTraceModule',
-    'flatten',
     'force_flush',
     'with_tags',
     'with_trace_sample_rate',
