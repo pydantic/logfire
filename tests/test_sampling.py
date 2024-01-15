@@ -84,13 +84,13 @@ def test_sample_rate_runtime() -> None:
     )
 
     for _ in range(100):
-        with logfire.with_trace_sample_rate(0.05).span('outer'):
+        with logfire.with_trace_sample_rate(0.5).span('outer'):
             with logfire.span('inner'):
                 pass
 
     # 100 iterations of 2 spans -> 200 spans
-    # 5% sampling -> 10 spans (approximately)
-    assert len(exporter.exported_spans_as_dict()) == 12
+    # 50% sampling -> 100 spans (approximately)
+    assert len(exporter.exported_spans_as_dict()) == 102
 
 
 def test_outer_sampled_inner_not() -> None:
@@ -113,7 +113,8 @@ def test_outer_sampled_inner_not() -> None:
 
     # insert_assert(build_tree(exporter.exported_spans_as_dict()))
     assert build_tree(exporter.exported_spans_as_dict()) == [
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])])
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
     ]
 
 
@@ -138,8 +139,11 @@ def test_outer_and_inner_sampled() -> None:
     # insert_assert(build_tree(exporter.exported_spans_as_dict()))
     assert build_tree(exporter.exported_spans_as_dict()) == [
         SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
+        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
+        SpanNode(name='1', children=[]),
         SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
         SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
     ]

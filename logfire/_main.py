@@ -114,18 +114,17 @@ class Logfire:
 
     @cached_property
     def _logs_tracer(self) -> Tracer:
-        # logs don't need a pending span
-        return self._get_tracer(wrap_with_pending_span_tracer=False)
+        return self._get_tracer(is_span_tracer=False)
 
     @cached_property
     def _spans_tracer(self) -> Tracer:
-        return self._get_tracer(wrap_with_pending_span_tracer=True)
+        return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, wrap_with_pending_span_tracer: bool) -> Tracer:
+    def _get_tracer(self, *, is_span_tracer: bool) -> Tracer:
         return self._tracer_provider.get_tracer(
             'logfire',  # the name here is really not important, logfire itself doesn't use it
             VERSION,
-            wrap_with_pending_span_tracer=wrap_with_pending_span_tracer,
+            is_span_tracer=is_span_tracer,
         )
 
     # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.

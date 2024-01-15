@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Iterator,
     Sequence,
     cast,
 )
@@ -17,7 +15,7 @@ from weakref import WeakKeyDictionary
 import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, Tracer as SDKTracer, TracerProvider as SDKTracerProvider
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.status import Status, StatusCode
@@ -54,21 +52,18 @@ class ProxyTracerProvider(TracerProvider):
         instrumenting_module_name: str,
         instrumenting_library_version: str | None = None,
         schema_url: str | None = None,
-        wrap_with_pending_span_tracer: bool = True,
+        is_span_tracer: bool = True,
     ) -> _ProxyTracer:
         with self.lock:
 
             def make() -> Tracer:
-                tracer = self.provider.get_tracer(
+                return self.provider.get_tracer(
                     instrumenting_module_name=instrumenting_module_name,
                     instrumenting_library_version=instrumenting_library_version,
                     schema_url=schema_url,
                 )
-                if wrap_with_pending_span_tracer:
-                    tracer = _PendingSpanTracer(tracer, self)
-                return tracer
 
-            tracer = _ProxyTracer(make(), self)
+            tracer = _ProxyTracer(make(), self, is_span_tracer)
             self.tracers[tracer] = make
             return tracer
 
@@ -153,93 +148,12 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
 
 
 @dataclass
-class _PendingSpanTracer(trace_api.Tracer):
-    """A tracer that emits pending spans.
-
-    This is used to make non-logfire OTEL libraries emit pending spans.
-    """
-
-    tracer: Tracer
-    provider: ProxyTracerProvider
-
-    @contextmanager
-    def start_as_current_span(
-        self,
-        name: str,
-        context: Context | None = None,
-        kind: SpanKind = SpanKind.INTERNAL,
-        attributes: otel_types.Attributes = None,
-        links: Sequence[Link] | None = None,
-        start_time: int | None = None,
-        record_exception: bool = True,
-        set_status_on_exception: bool = True,
-        end_on_exit: bool = True,
-    ) -> Iterator[Span]:
-        attributes = attributes or {}
-        span = _MaybeDeterministicTimestampSpan(
-            self.tracer.start_span(
-                name,
-                context=context,
-                kind=kind,
-                attributes={**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
-                links=links or (),
-                start_time=start_time,
-                record_exception=record_exception,
-                set_status_on_exception=set_status_on_exception,
-            ),
-            ns_timestamp_generator=self.provider.config.ns_timestamp_generator,
-        )
-        with trace_api.use_span(span, end_on_exit=end_on_exit, record_exception=record_exception):
-            _emit_pending_span(
-                tracer=self.tracer,
-                name=name,
-                start_time=start_time or self.provider.config.ns_timestamp_generator(),
-                attributes=attributes,
-                real_span=span,
-            )
-            yield span
-
-    def start_span(
-        self,
-        name: str,
-        context: Context | None = None,
-        kind: SpanKind = SpanKind.INTERNAL,
-        attributes: otel_types.Attributes = None,
-        links: Sequence[Link] | None = None,
-        start_time: int | None = None,
-        record_exception: bool = True,
-        set_status_on_exception: bool = True,
-    ) -> Span:
-        attributes = attributes or {}
-        span = self.tracer.start_span(
-            name,
-            context,
-            kind,
-            {**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
-            links,
-            start_time,
-            record_exception,
-            set_status_on_exception,
-        )
-        if span.is_recording():
-            assert isinstance(span, ReadableSpan)  # in practice always true since we are wrapping a real tracer
-            # this pending span may never be used but we send it anyway since we can just ignore it if it is not used
-            _emit_pending_span(
-                tracer=self.tracer,
-                name=name,
-                start_time=start_time or self.provider.config.ns_timestamp_generator(),
-                attributes=attributes,
-                real_span=span,
-            )
-        return span
-
-
-@dataclass
 class _ProxyTracer(Tracer):
     """A tracer that wraps another internal tracer allowing it to be re-assigned."""
 
     tracer: Tracer
     provider: ProxyTracerProvider
+    is_span_tracer: bool
 
     def __hash__(self) -> int:
         return id(self)
@@ -250,35 +164,6 @@ class _ProxyTracer(Tracer):
     def set_tracer(self, tracer: Tracer) -> None:
         self.tracer = tracer
 
-    @contextmanager
-    def start_as_current_span(
-        self,
-        name: str,
-        context: Context | None = None,
-        kind: SpanKind = SpanKind.INTERNAL,
-        attributes: otel_types.Attributes = None,
-        links: Sequence[Link] | None = None,
-        start_time: int | None = None,
-        record_exception: bool = True,
-        set_status_on_exception: bool = True,
-        end_on_exit: bool = True,
-    ) -> Iterator[Span]:
-        start_time = start_time or self.provider.config.ns_timestamp_generator()
-        span = self.start_span(
-            name=name,
-            context=context,
-            kind=kind,
-            attributes=attributes,
-            links=links,
-            start_time=start_time,
-            record_exception=record_exception,
-            set_status_on_exception=set_status_on_exception,
-        )
-        with trace_api.use_span(span, end_on_exit=end_on_exit):
-            yield _MaybeDeterministicTimestampSpan(
-                span, ns_timestamp_generator=self.provider.config.ns_timestamp_generator
-            )
-
     def start_span(
         self,
         name: str,
@@ -291,6 +176,9 @@ class _ProxyTracer(Tracer):
         set_status_on_exception: bool = True,
     ) -> Span:
         start_time = start_time or self.provider.config.ns_timestamp_generator()
+        attributes = attributes or {}
+        if self.is_span_tracer:
+            attributes = {**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'}
         span = self.tracer.start_span(
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )
@@ -306,10 +194,24 @@ class _ProxyTracer(Tracer):
                     ),
                 )
             )
+        elif self.is_span_tracer and span.is_recording():
+            assert isinstance(span, ReadableSpan)  # in practice always true since we are wrapping a real tracer
+            # this pending span may never be used but we send it anyway since we can just ignore it if it is not used
+            _emit_pending_span(
+                tracer=self.tracer,
+                name=name,
+                start_time=start_time or self.provider.config.ns_timestamp_generator(),
+                attributes=attributes,
+                real_span=span,
+            )
         return _MaybeDeterministicTimestampSpan(
             span,
             ns_timestamp_generator=self.provider.config.ns_timestamp_generator,
         )
+
+    # This means that `with start_as_current_span(...):`
+    # is roughly equivalent to `with use_span(start_span(...)):`
+    start_as_current_span = SDKTracer.start_as_current_span  # type: ignore
 
 
 OK_STATUS = trace_api.Status(trace_api.StatusCode.OK)
