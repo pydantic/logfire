@@ -118,6 +118,16 @@ class EncoderFunction(Protocol):
 class LogfireEncoder(json.JSONEncoder):
     @staticmethod
     def _bytes_encoder(o: Any) -> str:
+        """Encode bytes using repr() to get a string representation of the bytes object.
+
+        We remove the leading 'b' and the quotes around the string representation.
+
+        Examples:
+            >>> print(b'hello')
+            b'hello'
+            >>> print(LogfireEncoder._bytes_encoder(b'hello'))
+            hello
+        """
         return repr(o)[2:-1]
 
     @staticmethod

@@ -863,12 +863,12 @@ def test_json_args(exporter: TestExporter) -> None:
     s = exporter.exported_spans[0]
     assert s.name == 'test message foo=Foo(x=1, y=2)'
     assert s.attributes is not None
-    assert s.attributes['foo__JSON'] == '{"x":1,"y":2}'
+    assert s.attributes['foo'] == '{"x":1,"y":2}'
 
     s = exporter.exported_spans[1]
     assert s.name == 'test message foos=[Foo(x=1, y=2)]'
     assert s.attributes is not None
-    assert s.attributes['foos__JSON'] == '[{"x":1,"y":2}]'
+    assert s.attributes['foos'] == '[{"x":1,"y":2}]'
 
 
 def test_int_span_id_encoding():

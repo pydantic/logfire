@@ -48,7 +48,6 @@ from ._constants import (
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     LEVEL_NUMBERS,
-    NON_SCALAR_VAR_SUFFIX,
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
@@ -629,7 +628,7 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
         elif isinstance(value, (str, bool, float)):
             prepared[key] = value
         else:
-            prepared[key + NON_SCALAR_VAR_SUFFIX] = logfire_json_dumps(value)
+            prepared[key] = logfire_json_dumps(value)
 
     if null_args:
         prepared[NULL_ARGS_KEY] = tuple(null_args)

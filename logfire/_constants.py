@@ -56,9 +56,6 @@ EXCEPTION_ATTRIBUTES_LOGFIRE_TRACEBACK_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.tr
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""
 
-NON_SCALAR_VAR_SUFFIX = '__JSON'
-"""Suffix added to non-scalar variables to indicate they should be serialized as JSON."""
-
 NULL_ARGS_KEY = 'logfire.null_args'
 """Key in OTEL attributes that collects attributes with a null (None) value."""
 

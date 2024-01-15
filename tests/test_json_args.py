@@ -812,7 +812,7 @@ def test_log_non_scalar_args(
     s = exporter.exported_spans[0]
 
     assert s.name.startswith(f'test message var={value_repr}'), s.name
-    assert s.attributes['var__JSON'] == value_json
+    assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema
 
 
@@ -845,7 +845,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
     assert s.name.startswith(
         'test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at'
     )
-    assert s.attributes['var__JSON'] == '{"id":1,"name":"test name"}'
+    assert s.attributes['var'] == '{"id":1,"name":"test name"}'
     # insert_assert(s.attributes['logfire.json_schema'])
     assert (
         s.attributes['logfire.json_schema']
@@ -892,6 +892,6 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         'code.lineno': 123,
         'code.function': 'test_log_non_scalar_complex_args',
         'a': 1,
-        'complex_list__JSON': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
-        'complex_dict__JSON': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
+        'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
+        'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
     }
