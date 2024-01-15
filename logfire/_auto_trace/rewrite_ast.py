@@ -16,7 +16,7 @@ def exec_source(source: str, filename: str, module_name: str, globs: dict[str, A
     The argument to `logfire.span` contains `module_name` and the qualified name of the current function.
     """
     logfire_name = f'logfire_{uuid.uuid4().hex}'
-    globs[logfire_name] = logfire.span
+    globs[logfire_name] = logfire._fast_span  # type: ignore
     tree = rewrite_ast(source, logfire_name, module_name)
     assert isinstance(tree, ast.Module)  # for type checking
     # dont_inherit=True is necessary to prevent the module from inheriting the __future__ import from this module.

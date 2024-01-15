@@ -128,6 +128,7 @@ class Logfire:
             wrap_with_pending_span_tracer=wrap_with_pending_span_tracer,
         )
 
+    # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.
     def _span(
         self,
         msg_template: LiteralString,
@@ -181,6 +182,25 @@ class Logfire:
                 'stacklevel': exit_stacklevel,
             },
         )
+
+    def _fast_span(self, msg: LiteralString) -> FastLogfireSpan:
+        """A simple version of `_span` optimized for auto-tracing that doesn't support attributes or message formatting.
+
+        Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
+        """
+        attributes = cast('dict[str, otel_types.AttributeValue]', _get_caller_stack_info(stacklevel=2))
+        attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg
+        attributes[ATTRIBUTES_MESSAGE_KEY] = msg
+
+        if self._tags:
+            attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(self._tags)
+
+        sample_rate = self._sample_rate
+        if sample_rate is not None and sample_rate != 1:
+            attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+
+        span = self._spans_tracer.start_span(name=msg, attributes=attributes)
+        return FastLogfireSpan(span)
 
     def span(
         self,
@@ -445,6 +465,25 @@ class Logfire:
         return self._tracer_provider.force_flush(timeout_millis)
 
 
+class FastLogfireSpan:
+    """A simple version of `LogfireSpan` optimized for auto-tracing."""
+
+    __slots__ = ('_span', '_token')
+
+    def __init__(self, span: trace_api.Span) -> None:
+        self._span = span
+        self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+
+    def __enter__(self) -> FastLogfireSpan:
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        context_api.detach(self._token)
+        _exit_span(self._span, exc_type, exc_value, traceback)
+        self._span.end()
+
+
+# Changes to this class may need to be reflected in `FastLogfireSpan` as well.
 class LogfireSpan(ReadableSpan):
     def __init__(
         self,
@@ -486,36 +525,7 @@ class LogfireSpan(ReadableSpan):
         self._token = None
 
         assert self._span is not None
-        sdk_span = self._span
-
-        if sdk_span.is_recording():
-            # record exception if present
-            # isinstance is to ignore BaseException
-            if exc_type is not None and isinstance(exc_value, Exception):
-                # stolen from OTEL's codebase
-                sdk_span.set_status(
-                    trace_api.Status(
-                        status_code=trace_api.StatusCode.ERROR,
-                        description=f'{exc_type.__name__}: {exc_value}',
-                    )
-                )
-                # insert a more detailed breakdown of pydantic errors
-                tb = rich.traceback.Traceback.from_exception(exc_type, exc_value, traceback)
-                tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
-                attributes: dict[str, otel_types.AttributeValue] = {
-                    'exception.logfire.trace': json_dumps_traceback(tb.trace),
-                }
-                if ValidationError is not None and isinstance(exc_value, ValidationError):
-                    err_json = exc_value.json(include_url=False)
-                    sdk_span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc_value.json(include_url=False))
-                    attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
-                sdk_span.record_exception(exc_value, attributes=attributes, escaped=True)
-            else:
-                sdk_span.set_status(
-                    trace_api.Status(
-                        status_code=trace_api.StatusCode.OK,
-                    )
-                )
+        _exit_span(self._span, exc_type, exc_value, traceback)
 
         # We allow attributes to be set while the span is active, so we need to
         # reformat the message in case any new attributes were added.
@@ -525,7 +535,7 @@ class LogfireSpan(ReadableSpan):
             kwargs={'span_name': self._span_name, **format_args['kwargs']},
             stacklevel=format_args['stacklevel'],
         )
-        sdk_span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
+        self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
         end_on_exit_ = self.end_on_exit
         if end_on_exit_:
@@ -577,6 +587,40 @@ class LogfireSpan(ReadableSpan):
         else:
             self._span.set_attribute(key, value)
         self._format_args['kwargs'][key] = value
+
+
+OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)
+
+
+def _exit_span(
+    span: trace_api.Span, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any
+) -> None:
+    if not span.is_recording():
+        return
+
+    # record exception if present
+    # isinstance is to ignore BaseException
+    if exc_type is not None and isinstance(exc_value, Exception):
+        # stolen from OTEL's codebase
+        span.set_status(
+            trace_api.Status(
+                status_code=trace_api.StatusCode.ERROR,
+                description=f'{exc_type.__name__}: {exc_value}',
+            )
+        )
+        # insert a more detailed breakdown of pydantic errors
+        tb = rich.traceback.Traceback.from_exception(exc_type, exc_value, traceback)
+        tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
+        attributes: dict[str, otel_types.AttributeValue] = {
+            'exception.logfire.trace': json_dumps_traceback(tb.trace),
+        }
+        if ValidationError is not None and isinstance(exc_value, ValidationError):
+            err_json = exc_value.json(include_url=False)
+            span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc_value.json(include_url=False))
+            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
+        span.record_exception(exc_value, attributes=attributes, escaped=True)
+    else:
+        span.set_status(OK_STATUS)
 
 
 class _FormatArgs(TypedDict):
