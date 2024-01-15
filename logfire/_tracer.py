@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from threading import Lock
@@ -18,7 +19,7 @@ from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider as SDKTracerProvider
 from opentelemetry.semconv.resource import ResourceAttributes
-from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider, use_span
+from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 
@@ -174,12 +175,13 @@ class _PendingSpanTracer(trace_api.Tracer):
         set_status_on_exception: bool = True,
         end_on_exit: bool = True,
     ) -> Iterator[Span]:
+        attributes = attributes or {}
         span = _MaybeDeterministicTimestampSpan(
             self.tracer.start_span(
                 name,
                 context=context,
                 kind=kind,
-                attributes={**(attributes or {}), ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
+                attributes={**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
                 links=links or (),
                 start_time=start_time,
                 record_exception=record_exception,
@@ -208,11 +210,12 @@ class _PendingSpanTracer(trace_api.Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
     ) -> Span:
+        attributes = attributes or {}
         span = self.tracer.start_span(
             name,
             context,
             kind,
-            {**(attributes or {}), ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
+            {**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'},
             links,
             start_time,
             record_exception,
@@ -309,39 +312,42 @@ class _ProxyTracer(Tracer):
         )
 
 
+OK_STATUS = trace_api.Status(trace_api.StatusCode.OK)
+
+
 def _emit_pending_span(
     *,
     tracer: Tracer,
     name: str,
     start_time: int,
-    attributes: otel_types.Attributes,
+    attributes: Mapping[str, otel_types.AttributeValue],
     real_span: ReadableSpan,
-) -> Span:
+) -> None:
     """Emit a pending span.
 
     Pending spans send metadata about a span before it completes so that our UI can
     display it.
     """
-    attributes = dict(attributes) if attributes else {}
+    attributes = {
+        **attributes,
+        ATTRIBUTES_SPAN_TYPE_KEY: 'pending_span',
+        # use str here since protobuf can't encode ints above 2^64,
+        # see https://github.com/pydantic/platform/pull/388
+        ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: trace_api.format_span_id(
+            real_span.parent.span_id if real_span.parent else 0
+        ),
+    }
     real_span_context = real_span.get_span_context()
-    attributes.update(
-        {
-            ATTRIBUTES_SPAN_TYPE_KEY: 'pending_span',
-            # use str here since protobuf can't encode ints above 2^64,
-            # see https://github.com/pydantic/platform/pull/388
-            ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: trace_api.format_span_id(
-                real_span.parent.span_id if real_span.parent else 0
-            ),
-        }
-    )
-    span_context = SpanContext(
-        trace_id=real_span_context.trace_id if real_span_context else trace_api.INVALID_TRACE_ID,
-        span_id=real_span_context.span_id if real_span_context else trace_api.INVALID_SPAN_ID,
-        is_remote=False,
-        trace_flags=real_span_context.trace_flags
-        if real_span_context
-        else trace_api.TraceFlags(trace_api.TraceFlags.DEFAULT),
-    )
+    if real_span_context:
+        span_context = real_span_context
+    else:
+        span_context = SpanContext(
+            trace_id=trace_api.INVALID_TRACE_ID,
+            span_id=trace_api.INVALID_SPAN_ID,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(trace_api.TraceFlags.DEFAULT),
+        )
+
     ctx = trace_api.set_span_in_context(trace_api.NonRecordingSpan(span_context))
     pending_span = tracer.start_span(
         name + PENDING_SPAN_NAME_SUFFIX,  # avoid confusing other implementations with duplicate span names
@@ -349,10 +355,8 @@ def _emit_pending_span(
         start_time=start_time,
         context=ctx,
     )
-    with use_span(pending_span, end_on_exit=False):
-        pending_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
-        pending_span.end(start_time)
-    return pending_span
+    pending_span.set_status(OK_STATUS)
+    pending_span.end(start_time)
 
 
 def should_sample(span_id: int, sample_rate: float) -> bool:
