@@ -458,7 +458,9 @@ class LogfireConfig(_LogfireConfigData):
                 else:
                     assert self.console.span_style == 'show-parents'
                     exporter_cls = ShowParentsConsoleSpanExporter
-                maybe_add_span_processor(
+                # If console export has been specified, we definitely want to add a console exporter;
+                # this is why we don't use `maybe_add_span_processor` here.
+                tracer_provider.add_span_processor(
                     SimpleSpanProcessor(
                         exporter_cls(
                             colors=self.console.colors,
