@@ -98,7 +98,6 @@ def test_simple_console_exporter_no_colors_verbose(simple_spans) -> None:
         '00:00:01.000 rootSpan',
         '00:00:02.000 childSpan 1',
         '             │ testing.py:42 ',
-        '             │ a=1',
     ]
 
 

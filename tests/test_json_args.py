@@ -180,6 +180,13 @@ class AttrsType:
             id='dict',
         ),
         pytest.param(
+            {MyDataclass(10): 1, MyDataclass(20): 2, MyDataclass(30): 3},
+            '{MyDataclass(t=10): 1, MyDataclass(t=20): 2, MyDataclass(t=30): 3}',
+            '{"MyDataclass(t=10)":1,"MyDataclass(t=20)":2,"MyDataclass(t=30)":3}',
+            {'type': 'object'},
+            id='dict_complex_keys',
+        ),
+        pytest.param(
             b'test bytes',
             "b'test bytes'",
             '"test bytes"',
@@ -299,7 +306,7 @@ class AttrsType:
             {
                 'type': 'integer',
                 'title': 'Color',
-                'x-python-datatype': 'enum',
+                'x-python-datatype': 'Enum',
                 'enum': [1, 2, 3],
             },
             id='enum',
@@ -314,7 +321,7 @@ class AttrsType:
                     'enum': {
                         'type': 'string',
                         'title': 'Color',
-                        'x-python-datatype': 'enum',
+                        'x-python-datatype': 'Enum',
                         'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
                     }
                 },
@@ -328,7 +335,7 @@ class AttrsType:
             {
                 'type': 'object',
                 'title': 'Color',
-                'x-python-datatype': 'enum',
+                'x-python-datatype': 'Enum',
                 'enum': [1, 'str', {'t': 1}],
             },
         ),
@@ -448,7 +455,7 @@ class AttrsType:
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
-                'properties': {'u': {'type': 'string', 'format': 'uri'}},
+                'properties': {'u': {'type': 'string', 'x-python-datatype': 'Url'}},
             },
             id='pydantic_model',
         ),
@@ -461,7 +468,7 @@ class AttrsType:
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
                 'properties': {
-                    'u': {'type': 'string', 'format': 'uri'},
+                    'u': {'type': 'string', 'x-python-datatype': 'Url'},
                     'extra_key': {
                         'type': 'object',
                         'title': 'MyDataclass',
@@ -482,7 +489,7 @@ class AttrsType:
             MyPydanticDataclass(20),
             'MyPydanticDataclass(p=20)',
             '{"p":20}',
-            {'type': 'object', 'title': 'MyPydanticDataclass', 'x-python-datatype': 'pydantic-dataclass'},
+            {'type': 'object', 'title': 'MyPydanticDataclass', 'x-python-datatype': 'dataclass'},
             id='pydantic_dataclass',
         ),
         pytest.param(
@@ -510,12 +517,12 @@ class AttrsType:
             {
                 'type': 'object',
                 'title': 'MyPydanticComplexDataclass',
-                'x-python-datatype': 'pydantic-dataclass',
+                'x-python-datatype': 'dataclass',
                 'properties': {
                     't': {
                         'type': 'object',
                         'title': 'MyPydanticDataclass',
-                        'x-python-datatype': 'pydantic-dataclass',
+                        'x-python-datatype': 'dataclass',
                     }
                 },
             },
@@ -532,7 +539,7 @@ class AttrsType:
             Generator(),
             'Generator()',
             '"Generator()"',
-            {'type': 'object', 'title': 'Generator', 'x-python-datatype': 'unknown'},
+            {'type': 'object', 'x-python-datatype': 'unknown'},
             id='generator_class',
         ),
         pytest.param(
@@ -567,7 +574,7 @@ class AttrsType:
             MyArbitraryType(12),
             'MyArbitraryType(12)',
             '"MyArbitraryType(12)"',
-            {'type': 'object', 'title': 'MyArbitraryType', 'x-python-datatype': 'unknown'},
+            {'type': 'object', 'x-python-datatype': 'unknown'},
             id='arbitrary',
         ),
         pytest.param(
@@ -589,7 +596,9 @@ class AttrsType:
                 'type': 'array',
                 'x-python-datatype': 'DataFrame',
                 'x-columns': ['col1', 'col2'],
-                'x-indexes': [0, 1],
+                'x-indices': [0, 1],
+                'x-row-count': 2,
+                'x-column-count': 2,
             },
             id='dataframe',
         ),
@@ -623,7 +632,7 @@ class AttrsType:
                 'type': 'array',
                 'x-python-datatype': 'DataFrame',
                 'x-columns': ['col1', 'col2', 'col3', 'col4', 'col5', 'col8', 'col9', 'col10', 'col11', 'col12'],
-                'x-indexes': [
+                'x-indices': [
                     'i1',
                     'i2',
                     'i3',
@@ -645,6 +654,8 @@ class AttrsType:
                     'i21',
                     'i22',
                 ],
+                'x-row-count': 22,
+                'x-column-count': 12,
             },
             id='dataframe_big',
         ),
@@ -812,8 +823,9 @@ def test_log_non_scalar_args(
     s = exporter.exported_spans[0]
 
     assert s.name.startswith(f'test message var={value_repr}'), s.name
+    assert s.attributes, "Span doesn't have attributes"
     assert s.attributes['var'] == value_json
-    assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema
+    assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
 def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
@@ -887,7 +899,7 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         'logfire.level_num': 9,
         'logfire.msg_template': 'test message {a=} {complex_list=} {complex_dict=}',
         'logfire.msg': "test message a=1 complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), 'dataclass': test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), 'pydantic_dataclass': test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}",
-        'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","x-python-datatype":"list","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"pydantic-dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"pydantic-dataclass"}}}}}',
+        'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","x-python-datatype":"list","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
         'code.filepath': 'test_json_args.py',
         'code.lineno': 123,
         'code.function': 'test_log_non_scalar_complex_args',

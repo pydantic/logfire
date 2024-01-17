@@ -20,6 +20,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from .._constants import (
+    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -140,15 +141,14 @@ class SimpleConsoleSpanExporter(SpanExporter):
             if lineno:
                 file_location += f':{lineno}'  # type: ignore
 
-        # TODO(Samuel) This is an ugly work around until have arguments JSON Schema (#940) which tell us exactly
-        # which attributes are arguments
         arguments: dict[str, Any] = {}
-        for k, v in span.attributes.items():
-            if '.' not in k:
-                if k.endswith('_JSON'):
-                    arguments[k[:-5]] = json.loads(cast(str, v))
-                else:
-                    arguments[k] = v
+        json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
+        for key, schema in json_schema.get('properties', {}).items():
+            value = span.attributes.get(key)
+            if schema == {}:
+                arguments[key] = value
+            else:
+                arguments[key] = json.loads(cast(str, value))
 
         log_level = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NAME_KEY) or ''
 
@@ -159,7 +159,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             if arguments:
                 for k, v in arguments.items():
                     key = Text(f'{k}=', style='blue')
-                    value_code = json_args_value_formatter(v)
+                    value_code = json_args_value_formatter(v, schema=json_schema.get('properties', {}).get(k, {}))
                     value = Syntax(value_code, 'python', background_color='default')
                     barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
                     chunks.append(Columns((indent_str, barrier, key, value), padding=(0, 0)))

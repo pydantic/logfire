@@ -13,7 +13,7 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -58,56 +58,7 @@ except ModuleNotFoundError:  # pragma: no cover
 __all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback'
 
 NUMPY_DIMENSION_MAX_SIZE = 10
-
-DataType = Literal[
-    # scalar types
-    'Decimal',
-    'UUID',
-    'Enum',
-    # bytes
-    'bytes-base64',
-    'bytes-utf8',
-    # temporal types
-    'date',
-    'datetime',
-    'time',
-    'timedelta',
-    # ipaddress types
-    'IPv4Address',
-    'IPv4Interface',
-    'IPv4Network',
-    'IPv6Address',
-    'IPv6Interface',
-    'IPv6Network',
-    'PosixPath',
-    'Pattern',
-    # iterable types
-    'set',
-    'frozenset',
-    'tuple',
-    'deque',
-    'generator',
-    'Mapping',
-    'Sequence',
-    'dataclass',
-    # exceptions
-    'Exception',
-    # pydantic types
-    'BaseModel',
-    'Url',
-    'NameEmail',
-    'SecretBytes',
-    'SecretStr',
-    # pandas types
-    'DataFrame',
-    # numpy types
-    'array',
-    'matrix',
-    # any other type
-    'attrs',
-    'sqlalchemy',
-    'unknown',
-]
+"""The maximum size of a dimension of a numpy array."""
 
 
 class EncoderFunction(Protocol):
@@ -296,6 +247,8 @@ class LogfireEncoder(json.JSONEncoder):
         return lookup
 
     def encode(self, o: Any) -> Any:
+        if isinstance(o, dict):
+            o = {key if isinstance(key, str) else repr(key): value for key, value in o.items()}  # type: ignore
         return super().encode(o)
 
     def default(self, o: Any) -> Any:
@@ -305,7 +258,7 @@ class LogfireEncoder(json.JSONEncoder):
             return dict(o)  # type: ignore
         elif attrs is not None and attrs.has(o):
             return attrs.asdict(o)
-        elif _is_sqlalchemy(o):
+        elif is_sqlalchemy(o):
             return self._get_sqlalchemy_data(o)
 
         # Check the class type and its superclasses for a matching encoder
@@ -339,7 +292,7 @@ def json_dumps_traceback(obj: Any) -> str:
     return json.dumps(obj, default=_traceback_default)
 
 
-def _is_sqlalchemy(obj: Any) -> bool:
+def is_sqlalchemy(obj: Any) -> bool:
     if sqlalchemy is None:
         return False
     if isinstance(obj, DeclarativeBase):

@@ -2,157 +2,375 @@ from typing import Any
 
 import pytest
 
-from logfire._json_encoder import DataType
 from logfire._json_formatter import json_args_value_formatter, json_args_value_formatter_compact
+from logfire._json_types import DataType, JSONSchema
 
 
+# TODO(Marcelo): Add test with complex lists.
 @pytest.mark.parametrize(
-    'value,formatted_value',
+    'value,schema,formatted_value',
     [
-        (
+        pytest.param(
             ['a', 1, True],
+            {'type': 'array', 'x-python-datatype': 'list'},
             """[
     'a',
     1,
     True,
 ]""",
+            id='list',
         ),
-        (
+        pytest.param(
+            ['a', 1, 'MyArbitraryType(12)', {'k1': 'v1', 'k2': 2}],
+            {
+                'type': 'array',
+                'x-python-datatype': 'list',
+                'prefixItems': [
+                    {},
+                    {},
+                    {'type': 'object', 'x-python-datatype': 'unknown'},
+                    {'type': 'object'},
+                ],
+            },
+            """[
+    'a',
+    1,
+    MyArbitraryType(12),
+    {
+        'k1': 'v1',
+        'k2': 2,
+    },
+]""",
+            id='complex_list',
+        ),
+        pytest.param(
+            [[1, 2, 3], [4, 5, 6]],
+            {'type': 'array', 'x-python-datatype': 'list', 'items': {'type': 'array', 'x-python-datatype': 'list'}},
+            """[
+    [
+        1,
+        2,
+        3,
+    ],
+    [
+        4,
+        5,
+        6,
+    ],
+]""",
+            id='list_of_lists',
+        ),
+        pytest.param(
             {'k1': 'v1', 'k2': 2},
+            {'type': 'object', 'properties': {'k1': {}, 'k2': {}}},
             """{
     'k1': 'v1',
     'k2': 2,
 }""",
+            id='dict',
         ),
-        ({'$__datatype__': 'bytes-utf8', 'data': 'test bytes'}, "b'test bytes'"),
-        ({'$__datatype__': 'bytes-base64', 'data': 'gQ=='}, "b'\\x81'"),
-        (
-            {'$__datatype__': 'tuple', 'data': [1, 2, 'b']},
+        pytest.param(
+            {'MyDataclass(t=10)': 'v1', 'MyDataclass(t=20)': 2},
+            {'type': 'object'},
+            """{
+    'MyDataclass(t=10)': 'v1',
+    'MyDataclass(t=20)': 2,
+}""",
+            id='dict_with_dataclass_key',
+        ),
+        pytest.param(
+            {'Potato()': 1, 'Banana()': 2},
+            {'type': 'object'},
+            """{
+    'Potato()': 1,
+    'Banana()': 2,
+}""",
+            id='complex_key_types',
+        ),
+        pytest.param(
+            '"test bytes"',
+            {'type': 'string', 'x-python-datatype': 'bytes'},
+            '"test bytes"',
+            id='bytes_utf8',
+        ),
+        pytest.param(
+            '"\\\\x81"',
+            {'type': 'string', 'x-python-datatype': 'bytes'},
+            '"\\\\x81"',
+            id='bytes_base64',
+        ),
+        pytest.param(
+            '"\\\\x81"',
+            {'type': 'string', 'x-python-datatype': 'bytes', 'title': 'MyBytes'},
+            'MyBytes("\\\\x81")',
+            id='bytes_with_title',
+        ),
+        pytest.param(
+            ['a', 1, True],
+            {'type': 'array', 'x-python-datatype': 'tuple'},
             """(
+    'a',
     1,
-    2,
-    'b',
+    True,
 )""",
+            id='tuple',
         ),
-        (
-            {'$__datatype__': 'tuple', 'data': []},
+        pytest.param(
+            [],
+            {'type': 'array', 'x-python-datatype': 'tuple'},
             '()',
+            id='empty_tuple',
         ),
-        (
-            {'$__datatype__': 'set', 'data': ['s', 1, True]},
+        pytest.param(
+            ['s', 1, True],
+            {'type': 'array', 'x-python-datatype': 'set'},
             """{
     's',
     1,
     True,
 }""",
+            id='set',
         ),
-        (
-            {'$__datatype__': 'frozenset', 'data': ['s', 1, True]},
+        pytest.param(
+            ['s', 1, True],
+            {'type': 'array', 'x-python-datatype': 'frozenset'},
             """frozenset({
     's',
     1,
     True,
 })""",
+            id='frozenset',
         ),
-        ({'$__datatype__': 'Decimal', 'data': '1.7'}, "Decimal('1.7')"),
-        ({'$__datatype__': 'date', 'data': '2023-01-01'}, "date('2023-01-01')"),
-        ({'$__datatype__': 'datetime', 'data': '2023-01-01T10:10:00'}, "datetime('2023-01-01T10:10:00')"),
-        ({'$__datatype__': 'time', 'data': '12:10:00'}, "time('12:10:00')"),
-        ({'$__datatype__': 'timedelta', 'data': 90072.0}, 'datetime.timedelta(days=1, seconds=3672)'),
-        ({'$__datatype__': 'Enum', 'data': 3, 'cls': 'Color'}, 'Color(3)'),
-        (
-            {'$__datatype__': 'deque', 'data': [4, 5]},
+        pytest.param(
+            '1.7',
+            {'type': 'string', 'x-python-datatype': 'Decimal'},
+            "Decimal('1.7')",
+            id='decimal',
+        ),
+        pytest.param(
+            '2023-01-01',
+            {'type': 'string', 'x-python-datatype': 'date'},
+            "date('2023-01-01')",
+            id='date',
+        ),
+        pytest.param(
+            '2023-01-01T10:10:00',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "datetime('2023-01-01T10:10:00')",
+            id='datetime',
+        ),
+        pytest.param(
+            '12:10:00',
+            {'type': 'string', 'x-python-datatype': 'time'},
+            "time('12:10:00')",
+            id='time',
+        ),
+        pytest.param(
+            90072.0,
+            {'type': 'number', 'x-python-datatype': 'timedelta'},
+            'datetime.timedelta(days=1, seconds=3672)',
+            id='timedelta',
+        ),
+        pytest.param(
+            3,
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum', 'enum': [1, 2, 3]},
+            'Color(3)',
+            id='enum',
+        ),
+        pytest.param(
+            [4, 5],
+            {'type': 'array', 'x-python-datatype': 'deque'},
             """deque([
     4,
     5,
 ])""",
+            id='deque',
         ),
-        ({'$__datatype__': 'IPv4Address', 'data': '127.0.0.1'}, "IPv4Address('127.0.0.1')"),
-        ({'$__datatype__': 'IPv4Interface', 'data': '192.0.2.5/24'}, "IPv4Interface('192.0.2.5/24')"),
-        ({'$__datatype__': 'IPv4Network', 'data': '192.0.2.0/24'}, "IPv4Network('192.0.2.0/24')"),
-        ({'$__datatype__': 'IPv6Address', 'data': '2001:db8::1000'}, "IPv6Address('2001:db8::1000')"),
-        ({'$__datatype__': 'IPv6Interface', 'data': '2001:db8::1000/128'}, "IPv6Interface('2001:db8::1000/128')"),
-        ({'$__datatype__': 'IPv6Network', 'data': '2001:db8::1000/128'}, "IPv6Network('2001:db8::1000/128')"),
-        ({'$__datatype__': 'NameEmail', 'data': 'John Doe <john.doe@mail.com>'}, 'John Doe <john.doe@mail.com>'),
-        ({'$__datatype__': 'PosixPath', 'data': '/tmp/test.py'}, "PosixPath('/tmp/test.py')"),
-        ({'$__datatype__': 'Pattern', 'data': 'test'}, "re.compile('test')"),
-        ({'$__datatype__': 'SecretBytes', 'data': "b'**********'"}, "SecretBytes(b'**********')"),
-        ({'$__datatype__': 'SecretStr', 'data': '**********'}, "SecretStr('**********')"),
-        (
-            {'$__datatype__': 'UUID', 'data': '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4', 'version': 4},
+        pytest.param(
+            '127.0.0.1',
+            {'type': 'string', 'x-python-datatype': 'IPv4Address'},
+            "IPv4Address('127.0.0.1')",
+            id='IPv4Address',
+        ),
+        pytest.param(
+            '192.0.2.5/24',
+            {'type': 'string', 'x-python-datatype': 'IPv4Interface'},
+            "IPv4Interface('192.0.2.5/24')",
+            id='IPv4Interface',
+        ),
+        pytest.param(
+            '192.0.2.0/24',
+            {'type': 'string', 'x-python-datatype': 'IPv4Network'},
+            "IPv4Network('192.0.2.0/24')",
+            id='IPv4Network',
+        ),
+        pytest.param(
+            '2001:db8::1000',
+            {'type': 'string', 'x-python-datatype': 'IPv6Address'},
+            "IPv6Address('2001:db8::1000')",
+            id='IPv6Address',
+        ),
+        pytest.param(
+            '2001:db8::1000/128',
+            {'type': 'string', 'x-python-datatype': 'IPv6Interface'},
+            "IPv6Interface('2001:db8::1000/128')",
+            id='IPv6Interface',
+        ),
+        pytest.param(
+            '2001:db8::1000/128',
+            {'type': 'string', 'x-python-datatype': 'IPv6Network'},
+            "IPv6Network('2001:db8::1000/128')",
+            id='IPv6Network',
+        ),
+        pytest.param(
+            'John Doe <john.doe@mail.com>',
+            {'type': 'string', 'x-python-datatype': 'NameEmail'},
+            'John Doe <john.doe@mail.com>',
+            id='NameEmail',
+        ),
+        pytest.param(
+            '/tmp/test.py',
+            {'type': 'string', 'x-python-datatype': 'PosixPath'},
+            "PosixPath('/tmp/test.py')",
+            id='PosixPath',
+        ),
+        pytest.param(
+            'test',
+            {'type': 'string', 'x-python-datatype': 'Pattern'},
+            "re.compile('test')",
+            id='Pattern',
+        ),
+        pytest.param(
+            "b'**********'",
+            {'type': 'string', 'x-python-datatype': 'SecretBytes'},
+            "SecretBytes(b'**********')",
+            id='SecretBytes',
+        ),
+        pytest.param(
+            '**********',
+            {'type': 'string', 'x-python-datatype': 'SecretStr'},
+            "SecretStr('**********')",
+            id='SecretStr',
+        ),
+        pytest.param(
+            '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4',
+            {'type': 'string', 'x-python-datatype': 'UUID'},
             "UUID('7265bc22-ccb0-4ee2-97f0-5dd206f01ae4')",
+            id='UUID',
         ),
-        (
+        pytest.param(
+            {'x': 'x', 'y': 10, 'u': 'http://test.com/'},
             {
-                '$__datatype__': 'BaseModel',
-                'data': {'x': 'x', 'y': 10, 'u': {'$__datatype__': 'Url', 'data': 'http://test.com/'}},
-                'cls': 'MyModel',
+                'type': 'object',
+                'x-python-datatype': 'PydanticModel',
+                'title': 'MyModel',
+                'properties': {'u': {'type': 'string', 'x-python-datatype': 'Url'}},
             },
             """MyModel(
     x='x',
     y=10,
     u=Url('http://test.com/'),
 )""",
+            id='pydantic_model',
         ),
-        (
-            {'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'},
+        pytest.param(
+            {'t': 10},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyDataclass',
+            },
             """MyDataclass(
     t=10,
 )""",
+            id='dataclass',
         ),
-        (
-            {'$__datatype__': 'dataclass', 'data': {}, 'cls': 'MyDataclass'},
+        pytest.param(
+            {},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyDataclass',
+            },
             'MyDataclass()',
+            id='empty_dataclass',
         ),
-        (
-            {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
+        pytest.param(
+            {'p': 20},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyPydanticDataclass',
+            },
             """MyPydanticDataclass(
     p=20,
 )""",
+            id='pydantic_dataclass',
         ),
-        (
-            {'$__datatype__': 'Exception', 'data': 'Test value error', 'cls': 'ValueError'},
+        pytest.param(
+            'Test value error',
+            {'type': 'string', 'x-python-datatype': 'Exception', 'title': 'ValueError'},
             "ValueError('Test value error')",
+            id='Exception',
         ),
-        (
-            {'$__datatype__': 'Mapping', 'data': {'foo': 'bar'}, 'cls': 'MyMapping'},
+        pytest.param(
+            {'foo': 'bar'},
+            {'type': 'object', 'x-python-datatype': 'Mapping', 'title': 'MyMapping'},
             """MyMapping({
     'foo': 'bar',
 })""",
+            id='Mapping',
         ),
-        ({'$__datatype__': 'Sequence', 'data': [0, 1, 2, 3], 'cls': 'range'}, 'range(0, 4)'),
-        (
-            {'$__datatype__': 'Sequence', 'data': [1, 2, 3], 'cls': 'MySequence'},
+        pytest.param(
+            [0, 1, 2, 3],
+            {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'range'},
+            'range(0, 4)',
+            id='Sequence',
+        ),
+        pytest.param(
+            [1, 2, 3],
+            {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'MySequence'},
             """MySequence([
     1,
     2,
     3,
 ])""",
+            id='Sequence',
         ),
-        (
-            {'$__datatype__': 'MyArbitaryType', 'data': 'MyArbitaryType(12)', 'cls': 'MyArbitaryType'},
-            'MyArbitaryType(12)',
+        pytest.param(
+            'MyArbitraryType(12)',
+            {'type': 'string', 'x-python-datatype': 'unknown'},
+            'MyArbitraryType(12)',
+            id='arbitrary_type',
         ),
-        ({'$__datatype__': 'unknown', 'data': '<this is repr>'}, '<this is repr>'),
-        (
+        pytest.param(
+            '<this is repr>',
+            {'type': 'string', 'x-python-datatype': 'unknown'},
+            '<this is repr>',
+            id='repr',
+        ),
+        pytest.param(
+            [[1, 3], [2, 4]],
             {
-                '$__datatype__': 'DataFrame',
-                'data': [[1, 3], [2, 4]],
-                'columns': ['col1', 'col2'],
-                'indexes': ['0', '1'],
-                'row_count': 2,
-                'column_count': 2,
+                'type': 'array',
+                'x-python-datatype': 'DataFrame',
+                'x-columns': ['col1', 'col2'],
+                'x-indices': ['0', '1'],
+                'x-row-count': 2,
+                'x-column-count': 2,
             },
             '  | col1 | col2\n--+------+-----\n0 | 1    | 3   \n1 | 2    | 4   \n\n[2 rows x 2 columns]',
+            id='dataframe',
         ),
-        (
+        pytest.param(
+            [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
             {
-                '$__datatype__': 'DataFrame',
-                'data': [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
-                'columns': ['col1', 'col2', 'col4', 'col5'],
-                'indexes': ['a', 'b', 'd', 'e'],
-                'row_count': 5,
-                'column_count': 5,
+                'type': 'array',
+                'x-python-datatype': 'DataFrame',
+                'x-columns': ['col1', 'col2', 'col4', 'col5'],
+                'x-indices': ['a', 'b', 'd', 'e'],
+                'x-row-count': 5,
+                'x-column-count': 5,
             },
             '    | col1 | col2 | ... | col4 | col5\n'
             '----+------+------+-----+------+-----\n'
@@ -162,57 +380,115 @@ from logfire._json_formatter import json_args_value_formatter, json_args_value_f
             'd   | 4    | 8    | ... | 16   | 20  \n'
             'e   | 5    | 10   | ... | 20   | 25  \n\n'
             '[5 rows x 5 columns]',
+            id='big_DataFrame',
         ),
-        (
-            {'$__datatype__': 'array', 'data': [['1', '2'], ['3', '4']], 'row_count': 2, 'column_count': 2},
-            "array([\n    [\n        '1',\n        '2',\n    ],\n    [\n        '3',\n        '4',\n    ],\n])",
+        pytest.param(
+            [['1', '2'], ['3', '4']],
+            {'type': 'array', 'x-python-datatype': 'ndarray', 'x-shape': [2, 2], 'x-dtype': 'str'},
+            """array([
+    [
+        '1',
+        '2',
+    ],
+    [
+        '3',
+        '4',
+    ],
+])""",
+            id='ndarray',
         ),
-        (
-            {
-                '$__datatype__': 'array',
-                'data': [['1', '2', '4', '5'], ['2', '4', '8', '10'], ['4', '8', '16', '20'], ['5', '10', '20', '25']],
-                'row_count': 5,
-                'column_count': 5,
-            },
-            "array([\n    [\n        '1',\n        '2',\n        '4',\n        '5',\n    ],\n"
-            "    [\n        '2',\n        '4',\n        '8',\n        '10',\n    ],\n"
-            "    [\n        '4',\n        '8',\n        '16',\n        '20',\n    ],\n"
-            "    [\n        '5',\n        '10',\n        '20',\n        '25',\n    ],\n])",
+        pytest.param(
+            [['1', '2', '4', '5'], ['2', '4', '8', '10'], ['4', '8', '16', '20'], ['5', '10', '20', '25']],
+            {'type': 'array', 'x-python-datatype': 'ndarray', 'x-shape': [4, 4], 'x-dtype': 'str'},
+            """array([
+    [
+        '1',
+        '2',
+        '4',
+        '5',
+    ],
+    [
+        '2',
+        '4',
+        '8',
+        '10',
+    ],
+    [
+        '4',
+        '8',
+        '16',
+        '20',
+    ],
+    [
+        '5',
+        '10',
+        '20',
+        '25',
+    ],
+])""",
+            id='big_ndarray',
         ),
-        (
-            {'$__datatype__': 'matrix', 'data': [['1', '2'], ['3', '4']], 'row_count': 2, 'column_count': 2},
-            "matrix([\n    [\n        '1',\n        '2',\n    ],\n    [\n        '3',\n        '4',\n    ],\n])",
-        ),
-        (
-            {'$__datatype__': 'attrs', 'data': {'x': 1, 'y': 2}, 'cls': 'AttrsType'},
+        pytest.param(
+            {'x': 1, 'y': 2},
+            {'type': 'object', 'x-python-datatype': 'attrs', 'title': 'AttrsType'},
             'AttrsType(\n    x=1,\n    y=2,\n)',
+            id='attrs',
         ),
-        (
-            {'$__datatype__': 'sqlalchemy', 'data': {'id': 1, 'name': 'test name'}, 'cls': 'Model'},
+        pytest.param(
+            {'id': 1, 'name': 'test name'},
+            {'type': 'object', 'x-python-datatype': 'sqlalchemy', 'title': 'Model'},
             "Model(\n    id=1,\n    name='test name',\n)",
+            id='sqlalchemy',
         ),
     ],
     ids=repr,
 )
-def test_json_args_value_formatting(value: Any, formatted_value: str):
-    assert json_args_value_formatter(value) == formatted_value
+def test_json_args_value_formatting(value: Any, schema: JSONSchema, formatted_value: str):
+    assert json_args_value_formatter(value, schema=schema) == formatted_value
 
 
 def test_nested_json_args_value_formatting():
     value = [
         'a',
         1,
-        {
-            '$__datatype__': 'BaseModel',
-            'data': {'x': 'x', 'y': {'$__datatype__': 'datetime', 'data': '2023-01-01T00:00:00'}},
-            'cls': 'MyModel',
-        },
-        {'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'},
-        {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
+        {'x': 'x', 'y': '2023-01-01T00:00:00'},
+        # {
+        #     '$__datatype__': 'BaseModel',
+        #     'data': {'x': 'x', 'y': {'$__datatype__': 'datetime', 'data': '2023-01-01T00:00:00'}},
+        #     'cls': 'MyModel',
+        # },
+        {'t': 10},
+        # {'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'},
+        {'p': 20},
+        # {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
     ]
+    schema = {
+        'type': 'array',
+        'x-python-datatype': 'list',
+        'prefixItems': [
+            {},
+            {},
+            {
+                'type': 'object',
+                'x-python-datatype': 'PydanticModel',
+                'title': 'MyModel',
+                'properties': {'y': {'type': 'string', 'x-python-datatype': 'datetime'}},
+            },
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyDataclass',
+            },
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyPydanticDataclass',
+            },
+        ],
+    }
 
     assert (
-        json_args_value_formatter(value)
+        json_args_value_formatter(value, schema=schema)
         == """[
     'a',
     1,
@@ -231,56 +507,187 @@ def test_nested_json_args_value_formatting():
 
 
 @pytest.mark.parametrize(
-    'value,formatted_value',
+    'value,schema,formatted_value',
     [
-        (['a', 1, True], "['a', 1, True]"),
-        ({'k1': 'v1', 'k2': 2}, "{'k1': 'v1', 'k2': 2}"),
-        ({'$__datatype__': 'tuple', 'data': [1, 2, 'b']}, "(1, 2, 'b')"),
-        ({'$__datatype__': 'tuple', 'data': []}, '()'),
-        ({'$__datatype__': 'set', 'data': ['s', 1, True]}, "{'s', 1, True}"),
-        ({'$__datatype__': 'frozenset', 'data': ['s', 1, True]}, "frozenset({'s', 1, True})"),
-        ({'$__datatype__': 'Decimal', 'data': '1.7'}, "Decimal('1.7')"),
-        ({'$__datatype__': 'date', 'data': '2023-01-01'}, "date('2023-01-01')"),
-        ({'$__datatype__': 'datetime', 'data': '2023-01-01T10:10:00'}, "datetime('2023-01-01T10:10:00')"),
-        ({'$__datatype__': 'time', 'data': '12:10:00'}, "time('12:10:00')"),
-        ({'$__datatype__': 'timedelta', 'data': 90072.0}, 'datetime.timedelta(days=1, seconds=3672)'),
-        ({'$__datatype__': 'Enum', 'data': 3, 'cls': 'Color'}, 'Color(3)'),
-        ({'$__datatype__': 'deque', 'data': [4, 5]}, 'deque([4, 5])'),
-        (
-            {'$__datatype__': 'UUID', 'data': '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4', 'version': 4},
-            "UUID('7265bc22-ccb0-4ee2-97f0-5dd206f01ae4')",
+        pytest.param(
+            ['a', 1, True],
+            {'type': 'array', 'x-python-datatype': 'list'},
+            "['a', 1, True]",
+            id='list',
         ),
-        (
+        pytest.param(
+            {'k1': 'v1', 'k2': 2},
+            {'type': 'object', 'properties': {'k1': {}, 'k2': {}}},
+            "{'k1': 'v1', 'k2': 2}",
+            id='dict',
+        ),
+        pytest.param(
+            [1, 2, 'b'],
+            {'type': 'array', 'x-python-datatype': 'tuple'},
+            "(1, 2, 'b')",
+            id='tuple',
+        ),
+        pytest.param(
+            [],
+            {'type': 'array', 'x-python-datatype': 'tuple'},
+            '()',
+            id='empty_tuple',
+        ),
+        pytest.param(
+            ['s', 1, True],
+            {'type': 'array', 'x-python-datatype': 'set'},
+            "{'s', 1, True}",
+            id='set',
+        ),
+        pytest.param(
+            ['s', 1, True],
+            {'type': 'array', 'x-python-datatype': 'frozenset'},
+            "frozenset({'s', 1, True})",
+            id='frozenset',
+        ),
+        pytest.param(
+            '1.7',
+            {'type': 'string', 'x-python-datatype': 'Decimal'},
+            "Decimal('1.7')",
+            id='decimal',
+        ),
+        pytest.param(
+            '2023-01-01',
+            {'type': 'string', 'x-python-datatype': 'date'},
+            "date('2023-01-01')",
+            id='date',
+        ),
+        pytest.param(
+            '2023-01-01T10:10:00',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "datetime('2023-01-01T10:10:00')",
+            id='datetime',
+        ),
+        pytest.param(
+            '12:10:00',
+            {'type': 'string', 'x-python-datatype': 'time'},
+            "time('12:10:00')",
+            id='time',
+        ),
+        pytest.param(
+            90072.0,
+            {'type': 'number', 'x-python-datatype': 'timedelta'},
+            'datetime.timedelta(days=1, seconds=3672)',
+            id='timedelta',
+        ),
+        pytest.param(
+            3,
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum', 'enum': [1, 2, 3]},
+            'Color(3)',
+            id='enum',
+        ),
+        pytest.param(
+            [4, 5],
+            {'type': 'array', 'x-python-datatype': 'deque'},
+            'deque([4, 5])',
+            id='deque',
+        ),
+        pytest.param(
+            '7265bc22-ccb0-4ee2-97f0-5dd206f01ae4',
+            {'type': 'string', 'x-python-datatype': 'UUID'},
+            "UUID('7265bc22-ccb0-4ee2-97f0-5dd206f01ae4')",
+            id='UUID',
+        ),
+        pytest.param(
+            {'x': 'x', 'y': 10, 'u': 'http://test.com/'},
             {
-                '$__datatype__': 'BaseModel',
-                'data': {'x': 'x', 'y': 10, 'u': {'$__datatype__': 'Url', 'data': 'http://test.com/'}},
-                'cls': 'MyModel',
+                'type': 'object',
+                'x-python-datatype': 'PydanticModel',
+                'title': 'MyModel',
+                'properties': {'u': {'type': 'string', 'x-python-datatype': 'Url'}},
             },
             "MyModel(x='x', y=10, u=Url('http://test.com/'))",
+            id='pydantic_model',
         ),
-        ({'$__datatype__': 'dataclass', 'data': {'t': 10}, 'cls': 'MyDataclass'}, 'MyDataclass(t=10)'),
-        ({'$__datatype__': 'dataclass', 'data': {}, 'cls': 'MyDataclass'}, 'MyDataclass()'),
-        ({'$__datatype__': 'dataclass', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'}, 'MyPydanticDataclass(p=20)'),
-        (
-            {'$__datatype__': 'Exception', 'data': 'Test value error', 'cls': 'ValueError'},
+        pytest.param(
+            {'t': 10},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyDataclass',
+            },
+            'MyDataclass(t=10)',
+            id='dataclass',
+        ),
+        pytest.param(
+            {},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyDataclass',
+            },
+            'MyDataclass()',
+            id='empty_dataclass',
+        ),
+        pytest.param(
+            {'p': 20},
+            {
+                'type': 'object',
+                'x-python-datatype': 'dataclass',
+                'title': 'MyPydanticDataclass',
+            },
+            'MyPydanticDataclass(p=20)',
+            id='pydantic_dataclass',
+        ),
+        pytest.param(
+            'Test value error',
+            {'type': 'string', 'x-python-datatype': 'Exception', 'title': 'ValueError'},
             "ValueError('Test value error')",
+            id='Exception',
         ),
-        ({'$__datatype__': 'Mapping', 'data': {'foo': 'bar'}, 'cls': 'MyMapping'}, "MyMapping({'foo': 'bar'})"),
-        ({'$__datatype__': 'Sequence', 'data': [0, 1, 2, 3], 'cls': 'range'}, 'range(0, 4)'),
-        ({'$__datatype__': 'Sequence', 'data': [1, 2, 3], 'cls': 'MySequence'}, 'MySequence([1, 2, 3])'),
-        (
-            {'$__datatype__': 'MyArbitaryType', 'data': 'MyArbitaryType(12)', 'cls': 'MyArbitaryType'},
-            'MyArbitaryType(12)',
+        pytest.param(
+            {'foo': 'bar'},
+            {'type': 'object', 'x-python-datatype': 'Mapping', 'title': 'MyMapping'},
+            "MyMapping({'foo': 'bar'})",
+            id='Mapping',
         ),
-        ({'$__datatype__': 'unknown', 'data': '<this is repr>'}, '<this is repr>'),
-        ({'$__datatype__': 'generator', 'data': [0, 1, 2]}, 'generator((0, 1, 2))'),
+        pytest.param(
+            [0, 1, 2, 3],
+            {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'range'},
+            'range(0, 4)',
+            id='Sequence',
+        ),
+        pytest.param(
+            [1, 2, 3],
+            {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'MySequence'},
+            'MySequence([1, 2, 3])',
+            id='Sequence',
+        ),
+        pytest.param(
+            'MyArbitraryType(12)',
+            {'type': 'string', 'x-python-datatype': 'unknown'},
+            'MyArbitraryType(12)',
+            id='arbitrary_type',
+        ),
+        pytest.param(
+            '<this is repr>',
+            {'type': 'string', 'x-python-datatype': 'unknown'},
+            '<this is repr>',
+            id='repr',
+        ),
+        pytest.param(
+            {'x': 1, 'y': 2},
+            {'type': 'object', 'x-python-datatype': 'attrs', 'title': 'AttrsType'},
+            'AttrsType(x=1, y=2)',
+            id='attrs',
+        ),
+        pytest.param(
+            [1, 2, 3],
+            {'type': 'array', 'x-python-datatype': 'generator'},
+            'generator((1, 2, 3))',
+            id='generator',
+        ),
     ],
 )
-def test_json_args_value_formatting_compact(value: Any, formatted_value: str):
-    assert json_args_value_formatter_compact(value) == formatted_value
+def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, formatted_value: str):
+    assert json_args_value_formatter_compact(value, schema=schema) == formatted_value
 
 
 def test_all_types_covered():
     types = set(DataType.__args__)
-    types.remove('DataFrame')
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())

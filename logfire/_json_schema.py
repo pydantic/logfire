@@ -5,7 +5,9 @@ conflicts with the official keywords. The custom keywords are:
 
 - `x-python-datatype`: The Python data type of the value. It is used to generate the Python type hints.
 - `x-columns`: The column names of the data frame. It is used to generate the Python type.
-- `x-indexes`: The index names of the data frame. It is used to generate the Python type.
+- `x-indices`: The index names of the data frame. It is used to generate the Python type.
+- `x-column-count`: The number of columns in the data frame. It is used to generate the Python type.
+- `x-row-count`: The number of rows in the data frame. It is used to generate the Python type.
 - `x-shape`: The shape of the numpy array. It is used to generate the Python type.
 - `x-dtype`: The data type of the numpy array. It is used to generate the Python type.
 """
@@ -26,12 +28,14 @@ from pathlib import PosixPath
 from types import GeneratorType
 from typing import Any, Callable, Mapping, Sequence, cast
 
-from logfire._json_encoder import _is_sqlalchemy  # type: ignore[reportPrivateUsage]
+from logfire._json_encoder import is_sqlalchemy
 
 try:
     import pydantic
+    import pydantic_core
 except ModuleNotFoundError:  # pragma: no cover
     pydantic = None
+    pydantic_core = None
 
 try:
     import attrs
@@ -88,9 +92,9 @@ def type_to_schema() -> dict[type[Any], dict[str, Any] | Callable[[Any], dict[st
         Exception: _exception_schema,
         **dict(
             {}
-            if pydantic is None
+            if pydantic is None or pydantic_core is None
             else {
-                pydantic.AnyUrl: {'type': 'string', 'format': 'uri'},
+                pydantic_core.Url: {'type': 'string', 'x-python-datatype': 'Url'},
                 pydantic.NameEmail: {'type': 'string', 'x-python-datatype': 'NameEmail'},
                 pydantic.SecretStr: {'type': 'string', 'x-python-datatype': 'SecretStr'},
                 pydantic.SecretBytes: {'type': 'string', 'x-python-datatype': 'SecretBytes'},
@@ -120,7 +124,7 @@ def create_json_schema(obj: Any) -> dict[str, Any]:
         return _mapping_schema(obj)
     elif attrs and attrs.has(obj):
         return _attrs_schema(obj)
-    elif _is_sqlalchemy(obj):
+    elif is_sqlalchemy(obj):
         return _sqlalchemy_schema(obj)
 
     global _type_to_schema
@@ -139,7 +143,7 @@ def create_json_schema(obj: Any) -> dict[str, Any]:
         name = obj.__class__.__name__  # type: ignore[reportUnknownMemberType]
         return {'type': 'array', 'title': name, 'x-python-datatype': 'Sequence'}
 
-    return {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'unknown'}
+    return {'type': 'object', 'x-python-datatype': 'unknown'}
 
 
 # NOTE: The code related attributes are merged with the logfire function attributes on
@@ -164,8 +168,9 @@ def logfire_json_schema(obj: dict[str, Any]) -> str | None:
 
 
 def _dataclass_schema(obj: Any) -> dict[str, str]:
-    datatype = 'pydantic-dataclass' if hasattr(obj, '__pydantic_config__') else 'dataclass'
-    schema = {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': datatype}
+    # NOTE: The `x-python-datatype` is "dataclass" for both standard dataclasses and Pydantic dataclasses.
+    # We don't need to distinguish between them on the frontend, or to reconstruct the type on the JSON formatter.
+    schema = {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'dataclass'}
 
     properties: dict[str, dict[str, Any]] = {}
     for field in dataclasses.fields(obj):
@@ -203,7 +208,7 @@ def _enum_schema(obj: Enum) -> dict[str, str | list[Any]]:
     return {
         'type': type_,
         'title': obj.__class__.__name__,
-        'x-python-datatype': 'enum',
+        'x-python-datatype': 'Enum',
         'enum': enum_values,
     }
 
@@ -267,9 +272,7 @@ def _exception_schema(obj: Exception) -> dict[str, str]:
 
 
 def _pydantic_model_schema(obj: Any) -> dict[str, Any]:
-    import pydantic
-
-    assert isinstance(obj, pydantic.BaseModel)
+    assert pydantic and isinstance(obj, pydantic.BaseModel)
     schema: dict[str, str | dict[str, Any]] = {
         'type': 'object',
         'title': obj.__class__.__name__,
@@ -289,9 +292,7 @@ def _pydantic_model_schema(obj: Any) -> dict[str, Any]:
 
 
 def _pandas_schema(obj: Any) -> dict[str, Any]:
-    import pandas
-
-    assert isinstance(obj, pandas.DataFrame)
+    assert pandas and isinstance(obj, pandas.DataFrame)
 
     row_count, column_count = obj.shape
 
@@ -300,10 +301,17 @@ def _pandas_schema(obj: Any) -> dict[str, Any]:
     columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # type: ignore
 
     max_rows = pandas.get_option('display.max_rows')
-    rows = min(max_rows, row_count) // 2
-    indexes = list(obj.index[:rows]) + list(obj.index[-rows:])  # type: ignore
+    row_middle = min(max_rows, row_count) // 2
+    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # type: ignore
 
-    return {'type': 'array', 'x-python-datatype': 'DataFrame', 'x-columns': columns, 'x-indexes': indexes}
+    return {
+        'type': 'array',
+        'x-python-datatype': 'DataFrame',
+        'x-columns': columns,
+        'x-column-count': column_count,
+        'x-indices': indices,
+        'x-row-count': row_count,
+    }
 
 
 def _numpy_schema(obj: Any) -> dict[str, Any]:
