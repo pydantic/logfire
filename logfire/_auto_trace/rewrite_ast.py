@@ -17,23 +17,25 @@ def exec_source(source: str, filename: str, module_name: str, globs: dict[str, A
     """
     logfire_name = f'logfire_{uuid.uuid4().hex}'
     globs[logfire_name] = logfire._fast_span  # type: ignore
-    tree = rewrite_ast(source, logfire_name, module_name)
+    tree = rewrite_ast(source, filename, logfire_name, module_name, logfire)
     assert isinstance(tree, ast.Module)  # for type checking
     # dont_inherit=True is necessary to prevent the module from inheriting the __future__ import from this module.
     code = compile(tree, filename, 'exec', dont_inherit=True)
     exec(code, globs, globs)
 
 
-def rewrite_ast(source: str, logfire_name: str, module_name: str) -> ast.AST:
+def rewrite_ast(source: str, filename: str, logfire_name: str, module_name: str, logfire: Logfire) -> ast.AST:
     tree = ast.parse(source)
-    transformer = Transformer(logfire_name, module_name)
+    transformer = Transformer(logfire_name, filename, module_name, logfire)
     return transformer.visit(tree)
 
 
 @dataclass
 class Transformer(ast.NodeTransformer):
     logfire_span_name: str
+    filename: str
     module_name: str
+    logfire: Logfire
 
     def __post_init__(self):
         # Names of functions and classes that we're currently inside,
@@ -57,6 +59,12 @@ class Transformer(ast.NodeTransformer):
         self.qualname_stack.pop()  # <locals>
         self.qualname_stack.pop()  # node.name
 
+        msg, attributes = self.logfire._fast_span_attributes(  # type: ignore
+            self.filename, self.module_name, qualname, node.lineno
+        )
+        attributes_stmt = ast.parse(repr(attributes)).body[0]
+        assert isinstance(attributes_stmt, ast.Expr)
+        attributes_node = attributes_stmt.value
         # Replace the body of the function with:
         #     with <logfire_span_name>('Calling ...'):
         #         <original body>
@@ -65,7 +73,7 @@ class Transformer(ast.NodeTransformer):
                 ast.withitem(
                     context_expr=ast.Call(
                         func=ast.Name(id=self.logfire_span_name, ctx=ast.Load()),
-                        args=[ast.Constant(value=f'Calling {self.module_name}.{qualname}')],
+                        args=[ast.Constant(value=msg), attributes_node],
                         keywords=[],
                     ),
                 )

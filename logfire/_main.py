@@ -182,24 +182,32 @@ class Logfire:
             },
         )
 
-    def _fast_span(self, msg: LiteralString) -> FastLogfireSpan:
-        """A simple version of `_span` optimized for auto-tracing that doesn't support attributes or message formatting.
+    def _fast_span(self, msg: LiteralString, attributes: otel_types.Attributes) -> FastLogfireSpan:
+        """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
-        attributes = cast('dict[str, otel_types.AttributeValue]', _get_caller_stack_info(stacklevel=2))
-        attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg
-        attributes[ATTRIBUTES_MESSAGE_KEY] = msg
-
-        if self._tags:
-            attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(self._tags)
-
-        sample_rate = self._sample_rate
-        if sample_rate is not None and sample_rate != 1:
-            attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
-
         span = self._spans_tracer.start_span(name=msg, attributes=attributes)
         return FastLogfireSpan(span)
+
+    def _fast_span_attributes(
+        self, filename: str, module_name: str, function_name: str, lineno: int
+    ) -> tuple[str, dict[str, otel_types.AttributeValue]]:
+        stack_info: StackInfo = {
+            **_get_filepath_attribute(filename),
+            'code.lineno': lineno,
+            'code.function': function_name,
+        }
+        msg = f'Calling {module_name}.{function_name}'
+        attributes: dict[str, otel_types.AttributeValue] = {
+            **stack_info,
+            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg,
+            ATTRIBUTES_MESSAGE_KEY: msg,
+            ATTRIBUTES_TAGS_KEY: tuple(uniquify_sequence(self._tags + ['auto-trace'])),
+        }
+        if self._sample_rate not in (None, 1):
+            attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
+        return msg, attributes
 
     def span(
         self,
@@ -682,24 +690,23 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
 StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
 
 
-@lru_cache(maxsize=2048)
-def _get_code_object_info(code: CodeType) -> StackInfo:
-    file = Path(code.co_filename)
-    if file.is_absolute():
+def _get_filepath_attribute(file: str) -> StackInfo:
+    path = Path(file)
+    if path.is_absolute():
         try:
-            file = file.relative_to(_CWD)
+            path = path.relative_to(_CWD)
         except ValueError:
             # happens if filename path is not within CWD
             pass
-    if code.co_name == '<module>':
-        return {
-            'code.filepath': str(file),
-        }
-    else:
-        return {
-            'code.filepath': str(file),
-            'code.function': code.co_qualname if sys.version_info >= (3, 11) else code.co_name,
-        }
+    return {'code.filepath': str(path)}
+
+
+@lru_cache(maxsize=2048)
+def _get_code_object_info(code: CodeType) -> StackInfo:
+    result = _get_filepath_attribute(code.co_filename)
+    if code.co_name != '<module>':
+        result['code.function'] = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
+    return result
 
 
 def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:

@@ -6,7 +6,7 @@ from importlib.machinery import SourceFileLoader
 import pytest
 from dirty_equals import IsJson
 
-from logfire import AutoTraceModule, install_auto_tracing
+from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
 from logfire._auto_trace import LogfireFinder
 from logfire._auto_trace.import_hook import LogfireLoader
 from logfire._auto_trace.rewrite_ast import rewrite_ast
@@ -57,6 +57,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                 'logfire.span_type': 'pending_span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.pending_parent_id': '0000000000000000',
             },
         },
@@ -73,6 +74,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen',
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen',
                 'logfire.span_type': 'pending_span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.pending_parent_id': '0000000000000001',
             },
         },
@@ -89,6 +91,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
                 'logfire.span_type': 'pending_span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.pending_parent_id': '0000000000000003',
             },
         },
@@ -104,6 +107,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'code.function': 'gen',
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
                 'logfire.span_type': 'span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
             },
         },
@@ -119,6 +123,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'code.function': 'async_gen',
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen',
                 'logfire.span_type': 'span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen',
             },
         },
@@ -134,6 +139,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'code.function': 'bar',
                 'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
                 'logfire.span_type': 'span',
+                'logfire.tags': ('auto-trace',),
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
             },
             'events': [
@@ -230,28 +236,34 @@ class Class3:
 
 
 def test_rewrite_ast():
-    tree = rewrite_ast(nested_sample, 'logfire_span', 'module.name')
+    tree = rewrite_ast(
+        nested_sample,
+        'foo.py',
+        'logfire_span',
+        'module.name',
+        DEFAULT_LOGFIRE_INSTANCE,
+    )
     result = """
 def func():
-    with logfire_span('Calling module.name.func'):
+    with logfire_span('Calling module.name.func', {'code.filepath': 'foo.py', 'code.lineno': 2, 'code.function': 'func', 'logfire.msg_template': 'Calling module.name.func', 'logfire.msg': 'Calling module.name.func', 'logfire.tags': ('auto-trace',)}):
         x = 1
 
         class Class:
             x = 2
 
             def method(self):
-                with logfire_span('Calling module.name.func.<locals>.Class.method'):
+                with logfire_span('Calling module.name.func.<locals>.Class.method', {'code.filepath': 'foo.py', 'code.lineno': 8, 'code.function': 'func.<locals>.Class.method', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method', 'logfire.msg': 'Calling module.name.func.<locals>.Class.method', 'logfire.tags': ('auto-trace',)}):
                     y = 3
                     return y
 
             async def method2(self):
-                with logfire_span('Calling module.name.func.<locals>.Class.method2'):
+                with logfire_span('Calling module.name.func.<locals>.Class.method2', {'code.filepath': 'foo.py', 'code.lineno': 12, 'code.function': 'func.<locals>.Class.method2', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2', 'logfire.msg': 'Calling module.name.func.<locals>.Class.method2', 'logfire.tags': ('auto-trace',)}):
 
                     class Class2:
                         z = 4
 
                         async def method3(self):
-                            with logfire_span('Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3'):
+                            with logfire_span('Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3', {'code.filepath': 'foo.py', 'code.lineno': 16, 'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3', 'logfire.msg': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3', 'logfire.tags': ('auto-trace',)}):
                                 a = 5
                                 return a
                     return Class2().method3()
@@ -261,7 +273,7 @@ class Class3:
     x = 6
 
     def method4(self):
-        with logfire_span('Calling module.name.Class3.method4'):
+        with logfire_span('Calling module.name.Class3.method4', {'code.filepath': 'foo.py', 'code.lineno': 26, 'code.function': 'Class3.method4', 'logfire.msg_template': 'Calling module.name.Class3.method4', 'logfire.msg': 'Calling module.name.Class3.method4', 'logfire.tags': ('auto-trace',)}):
             b = 7
             return b
 """
