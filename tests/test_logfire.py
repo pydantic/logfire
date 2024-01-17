@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import re
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -10,6 +11,7 @@ import pytest
 from dirty_equals import IsPositive, IsStr
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel
 from pydantic_core import ValidationError
@@ -1415,3 +1417,32 @@ def test_large_int(exporter: TestExporter) -> None:
             },
         },
     ]
+
+
+def test_readable_span_signature():
+    # This is to test that we are providing all the arguments we can when
+    # constructing ReadableSpans in PendingSpanProcessor,
+    # i.e. if this test fails it means that the OTEL SDK has been updated
+    # and PendingSpanProcessor needs to be updated to add the new arguments.
+    signature = inspect.signature(ReadableSpan.__init__)
+    assert set(signature.parameters.keys()) == {
+        'self',
+        'name',
+        'context',
+        'parent',
+        'resource',
+        'attributes',
+        'events',
+        'links',
+        'status',
+        'kind',
+        'start_time',
+        'end_time',
+        'instrumentation_scope',
+        # Apart from `self`, this is the only argument that we currently don't use,
+        # because the property is deprecated.
+        # Hopefully that means that it's not important or used much.
+        # Either way it's probably not a disaster if it isn't in the pending span,
+        # it'll still make it in the final span.
+        'instrumentation_info',
+    }

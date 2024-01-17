@@ -1,21 +1,28 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Mapping,
     Sequence,
     cast,
 )
 from weakref import WeakKeyDictionary
 
 import opentelemetry.trace as trace_api
+from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, Tracer as SDKTracer, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import (
+    ReadableSpan,
+    SpanProcessor,
+    Tracer as SDKTracer,
+    TracerProvider as SDKTracerProvider,
+)
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.status import Status, StatusCode
@@ -182,8 +189,7 @@ class _ProxyTracer(Tracer):
         span = self.tracer.start_span(
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )
-        sample_rate = get_sample_rate_from_attributes(attributes)
-        if sample_rate is not None and not should_sample(span.get_span_context().span_id, sample_rate):
+        if not should_sample(span.get_span_context(), attributes):
             span = trace_api.NonRecordingSpan(
                 SpanContext(
                     trace_id=span.get_span_context().trace_id,
@@ -193,16 +199,6 @@ class _ProxyTracer(Tracer):
                         span.get_span_context().trace_flags & ~trace_api.TraceFlags.SAMPLED
                     ),
                 )
-            )
-        elif self.is_span_tracer and span.is_recording():
-            assert isinstance(span, ReadableSpan)  # in practice always true since we are wrapping a real tracer
-            # this pending span may never be used but we send it anyway since we can just ignore it if it is not used
-            _emit_pending_span(
-                tracer=self.tracer,
-                name=name,
-                start_time=start_time or self.provider.config.ns_timestamp_generator(),
-                attributes=attributes,
-                real_span=span,
             )
         return _MaybeDeterministicTimestampSpan(
             span,
@@ -217,56 +213,79 @@ class _ProxyTracer(Tracer):
 OK_STATUS = trace_api.Status(trace_api.StatusCode.OK)
 
 
-def _emit_pending_span(
-    *,
-    tracer: Tracer,
-    name: str,
-    start_time: int,
-    attributes: Mapping[str, otel_types.AttributeValue],
-    real_span: ReadableSpan,
-) -> None:
-    """Emit a pending span.
+@dataclass
+class PendingSpanProcessor(SpanProcessor):
+    """Span processor that emits an extra pending span for each span as it starts.
 
-    Pending spans send metadata about a span before it completes so that our UI can
-    display it.
+    The pending span is emitted by calling `on_end` on all other processors.
     """
-    attributes = {
-        **attributes,
-        ATTRIBUTES_SPAN_TYPE_KEY: 'pending_span',
-        # use str here since protobuf can't encode ints above 2^64,
-        # see https://github.com/pydantic/platform/pull/388
-        ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: trace_api.format_span_id(
-            real_span.parent.span_id if real_span.parent else 0
-        ),
-    }
-    real_span_context = real_span.get_span_context()
-    if real_span_context:
-        span_context = real_span_context
-    else:
+
+    id_generator: IdGenerator
+    other_processors: tuple[SpanProcessor, ...]
+
+    def on_start(
+        self,
+        span: Span,
+        parent_context: context_api.Context | None = None,
+    ) -> None:
+        assert isinstance(span, ReadableSpan) and isinstance(span, Span)
+        if not span.is_recording():
+            # Span was sampled out
+            return
+
+        attributes = span.attributes
+        if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) == 'log':
+            return
+
+        real_span_context = span.get_span_context()
+        if not should_sample(real_span_context, attributes):
+            # Currently our own sampling is only checked after the span has started,
+            # so we have to repeat that check here.
+            # This might change in the future, see
+            # https://linear.app/pydantic/issue/PYD-552/sampling-behaves-very-differently-depending-on-how-its-configured
+            return
+
         span_context = SpanContext(
-            trace_id=trace_api.INVALID_TRACE_ID,
-            span_id=trace_api.INVALID_SPAN_ID,
+            trace_id=real_span_context.trace_id,
+            span_id=self.id_generator.generate_span_id(),
             is_remote=False,
-            trace_flags=trace_api.TraceFlags(trace_api.TraceFlags.DEFAULT),
+            trace_flags=real_span_context.trace_flags,
         )
+        attributes = {
+            **attributes,
+            ATTRIBUTES_SPAN_TYPE_KEY: 'pending_span',
+            # use str here since protobuf can't encode ints above 2^64,
+            # see https://github.com/pydantic/platform/pull/388
+            ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY: trace_api.format_span_id(
+                span.parent.span_id if span.parent else 0
+            ),
+        }
+        start_and_end_time = span.start_time
+        pending_span = ReadableSpan(
+            name=span.name + PENDING_SPAN_NAME_SUFFIX,
+            context=span_context,
+            parent=real_span_context,
+            resource=span.resource,
+            attributes=attributes,
+            events=span.events,
+            links=span.links,
+            status=OK_STATUS,
+            kind=span.kind,
+            start_time=start_and_end_time,
+            end_time=start_and_end_time,
+            instrumentation_scope=span.instrumentation_scope,
+        )
+        for processor in self.other_processors:
+            processor.on_end(pending_span)
 
-    ctx = trace_api.set_span_in_context(trace_api.NonRecordingSpan(span_context))
-    pending_span = tracer.start_span(
-        name + PENDING_SPAN_NAME_SUFFIX,  # avoid confusing other implementations with duplicate span names
-        attributes=attributes,
-        start_time=start_time,
-        context=ctx,
-    )
-    pending_span.set_status(OK_STATUS)
-    pending_span.end(start_time)
 
-
-def should_sample(span_id: int, sample_rate: float) -> bool:
+def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:
     """Determine if a span should be sampled.
 
     This is used to sample spans that are not sampled by the OTEL sampler.
     """
-    return span_id <= round(sample_rate * 2**64)
+    sample_rate = get_sample_rate_from_attributes(attributes)
+    return sample_rate is None or span_context.span_id <= round(sample_rate * 2**64)
 
 
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None:

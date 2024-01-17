@@ -41,7 +41,7 @@ from ._constants import (
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
 from ._metrics import ProxyMeterProvider, configure_metrics
-from ._tracer import ProxyTracerProvider
+from ._tracer import PendingSpanProcessor, ProxyTracerProvider
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
@@ -439,6 +439,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             self._tracer_provider.set_provider(tracer_provider)
 
+            processors = list(self.processors or ())
             if self.processors is not None:
                 for processor in self.processors:
                     tracer_provider.add_span_processor(processor)
@@ -448,7 +449,10 @@ class LogfireConfig(_LogfireConfigData):
                     pass
 
             else:
-                maybe_add_span_processor = tracer_provider.add_span_processor
+
+                def maybe_add_span_processor(span_processor: SpanProcessor) -> None:
+                    tracer_provider.add_span_processor(span_processor)
+                    processors.append(span_processor)
 
             if self.console:
                 if self.console.span_style == 'simple':
@@ -538,6 +542,8 @@ class LogfireConfig(_LogfireConfigData):
                             )
                         )
                     ]
+
+            tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
 
             metric_readers = metric_readers or []
 
