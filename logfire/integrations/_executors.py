@@ -32,16 +32,9 @@ try:
 
     def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ProcessPoolExecutor.submit() that carries over OTEL context across processes."""
-        from logfire import _config  # type: ignore
-
-        # note: since `logfire.config._LogfireConfigData` is a dataclass
-        # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
-        # which is what we want here!
-        new_config = asdict(_config.GLOBAL_CONFIG)
-
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
-        return submit_p_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=new_config)
+        return submit_p_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=serialize_config())
 
     def _run_with_context(carrier: ContextCarrier, fn: Callable[[], Any], parent_config: dict[str, Any] | None) -> Any:
         """A wrapper around a function that restores OTEL context from a carrier and then calls the function.
@@ -62,3 +55,12 @@ except ImportError:
 
     def instrument_executors() -> None:
         pass
+
+
+def serialize_config() -> dict[str, Any]:
+    from logfire import _config  # type: ignore
+
+    # note: since `logfire.config._LogfireConfigData` is a dataclass
+    # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
+    # which is what we want here!
+    return asdict(_config.GLOBAL_CONFIG)

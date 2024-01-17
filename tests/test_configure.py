@@ -20,6 +20,7 @@ from logfire._config import (
     LogfireConfig,
     LogfireConfigError,
 )
+from logfire.integrations._executors import serialize_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -765,3 +766,25 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
             },
         }
     ]
+
+
+def test_config_serializable():
+    """
+    Tests that by default, the logfire config can be serialized in the way that we do when sending it to another process.
+
+    Here's an example of a configuration that (as of writing) fails to serialize:
+
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+        import logfire
+        from logfire.exporters.console import SimpleConsoleSpanExporter
+        from logfire.integrations._executors import serialize_config
+
+        logfire.configure(processors=[SimpleSpanProcessor(SimpleConsoleSpanExporter())])
+
+        serialize_config()  # fails because SimpleConsoleSpanExporter contains sys.stdout
+
+    This implies that the default processors cannot be stored in the config alongside user-defined processors.
+    """
+    logfire.configure(send_to_logfire=False)
+    assert isinstance(serialize_config(), dict)
