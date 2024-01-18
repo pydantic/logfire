@@ -6,11 +6,13 @@ import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan
 
+import logfire
 from logfire.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from logfire.testing import ReadableSpanModel, SpanContextModel, TestExporter
 
 tracer = trace.get_tracer('test')
 
@@ -345,4 +347,304 @@ def test_show_parents_console_exporter_interleaved() -> None:
         '00:00:03.000   log a',
         '             span b',
         '00:00:04.000   log b',
+    ]
+
+
+def test_verbose_attributes(capsys, exporter: TestExporter) -> None:
+    d = {'a': 1, 'b': 2}
+    logfire.info('Hello {name}!', name='world', d=d)
+    spans = exporter.exported_spans_as_models()
+    # insert_assert(spans)
+    assert spans == [
+        ReadableSpanModel(
+            name='Hello world!',
+            context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
+            parent=None,
+            start_time=1000000000,
+            end_time=1000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'Hello {name}!',
+                'logfire.msg': 'Hello world!',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_verbose_attributes',
+                'name': 'world',
+                'd': '{"a":1,"b":2}',
+                'logfire.json_schema': '{"type":"object","properties":{"name":{},"d":{"type":"object"}}}',
+            },
+            events=None,
+            resource=None,
+        )
+    ]
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '00:00:01.000 Hello world!',
+        '             │ test_console_exporter.py:123 info',
+        "             │ name='world'",
+        '             │ d={          ',
+        "             │       'a': 1,",
+        "             │       'b': 2,",
+        '             │   }          ',
+    ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        'Hello world!',
+        '│ test_console_exporter.py:123 info',
+        "│ name='world'",
+        '│ d={          ',
+        "│       'a': 1,",
+        "│       'b': 2,",
+        '│   }          ',
+    ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='always').export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '\x1b[32m00:00:01.000\x1b[0m Hello world!',
+        '             \x1b[34m│\x1b[0m \x1b[36mtest_console_exporter.py:123\x1b[0m info',
+        "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
+        '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
+        "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
+        "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mb\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m2\x1b[0m\x1b[97;49m,\x1b[0m",
+        '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m          ',
+    ]
+
+
+def test_tags(exporter):
+    logfire.with_tags('tag1', 'tag2').info('Hello')
+    spans = exporter.exported_spans_as_models()
+    # insert_assert(spans)
+    assert spans == [
+        ReadableSpanModel(
+            name='Hello',
+            context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
+            parent=None,
+            start_time=1000000000,
+            end_time=1000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'Hello',
+                'logfire.msg': 'Hello',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_tags',
+                'logfire.tags': ('tag1', 'tag2'),
+            },
+            events=None,
+            resource=None,
+        )
+    ]
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)
+    # insert_assert(out.getvalue())
+    assert out.getvalue() == '00:00:01.000 Hello [tag1,tag2]\n'
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)
+    # insert_assert(out.getvalue())
+    assert out.getvalue() == '\x1b[32m00:00:01.000\x1b[0m Hello \x1b[36m[tag1,tag2]\x1b[0m\n'
+
+
+def test_levels(exporter):
+    logfire.trace('trace message')
+    logfire.debug('debug message')
+    logfire.info('info message')
+    logfire.notice('notice message')
+    logfire.warn('warn message')
+    logfire.error('error message')
+    logfire.fatal('fatal message')
+
+    spans = exporter.exported_spans_as_models()
+    # insert_assert(spans)
+    assert spans == [
+        ReadableSpanModel(
+            name='trace message',
+            context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
+            parent=None,
+            start_time=1000000000,
+            end_time=1000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'trace',
+                'logfire.level_num': 1,
+                'logfire.msg_template': 'trace message',
+                'logfire.msg': 'trace message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='debug message',
+            context=SpanContextModel(trace_id=2, span_id=2, is_remote=False),
+            parent=None,
+            start_time=2000000000,
+            end_time=2000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'debug',
+                'logfire.level_num': 5,
+                'logfire.msg_template': 'debug message',
+                'logfire.msg': 'debug message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='info message',
+            context=SpanContextModel(trace_id=3, span_id=3, is_remote=False),
+            parent=None,
+            start_time=3000000000,
+            end_time=3000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'info message',
+                'logfire.msg': 'info message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='notice message',
+            context=SpanContextModel(trace_id=4, span_id=4, is_remote=False),
+            parent=None,
+            start_time=4000000000,
+            end_time=4000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'notice',
+                'logfire.level_num': 10,
+                'logfire.msg_template': 'notice message',
+                'logfire.msg': 'notice message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='warn message',
+            context=SpanContextModel(trace_id=5, span_id=5, is_remote=False),
+            parent=None,
+            start_time=5000000000,
+            end_time=5000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
+                'logfire.msg_template': 'warn message',
+                'logfire.msg': 'warn message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='error message',
+            context=SpanContextModel(trace_id=6, span_id=6, is_remote=False),
+            parent=None,
+            start_time=6000000000,
+            end_time=6000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
+                'logfire.msg_template': 'error message',
+                'logfire.msg': 'error message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+        ReadableSpanModel(
+            name='fatal message',
+            context=SpanContextModel(trace_id=7, span_id=7, is_remote=False),
+            parent=None,
+            start_time=7000000000,
+            end_time=7000000000,
+            attributes={
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'fatal',
+                'logfire.level_num': 21,
+                'logfire.msg_template': 'fatal message',
+                'logfire.msg': 'fatal message',
+                'code.lineno': 123,
+                'code.filepath': 'test_console_exporter.py',
+                'code.function': 'test_levels',
+            },
+            events=None,
+            resource=None,
+        ),
+    ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '00:00:01.000 trace message',
+        '00:00:02.000 debug message',
+        '00:00:03.000 info message',
+        '00:00:04.000 notice message',
+        '00:00:05.000 warn message',
+        '00:00:06.000 error message',
+        '00:00:07.000 fatal message',
+    ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='never', verbose=True).export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '00:00:01.000 trace message',
+        '             │ test_console_exporter.py:123 trace',
+        '00:00:02.000 debug message',
+        '             │ test_console_exporter.py:123 debug',
+        '00:00:03.000 info message',
+        '             │ test_console_exporter.py:123 info',
+        '00:00:04.000 notice message',
+        '             │ test_console_exporter.py:123 notice',
+        '00:00:05.000 warn message',
+        '             │ test_console_exporter.py:123 warn',
+        '00:00:06.000 error message',
+        '             │ test_console_exporter.py:123 error',
+        '00:00:07.000 fatal message',
+        '             │ test_console_exporter.py:123 fatal',
+    ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)
+    # insert_assert(out.getvalue().splitlines())
+    assert out.getvalue().splitlines() == [
+        '\x1b[32m00:00:01.000\x1b[0m trace message',
+        '\x1b[32m00:00:02.000\x1b[0m debug message',
+        '\x1b[32m00:00:03.000\x1b[0m info message',
+        '\x1b[32m00:00:04.000\x1b[0m notice message',
+        '\x1b[32m00:00:05.000\x1b[0m \x1b[33mwarn message\x1b[0m',
+        '\x1b[32m00:00:06.000\x1b[0m \x1b[31merror message\x1b[0m',
+        '\x1b[32m00:00:07.000\x1b[0m \x1b[31mfatal message\x1b[0m',
     ]

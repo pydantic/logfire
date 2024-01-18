@@ -1,6 +1,8 @@
-# Import this early to prevent weird bug caused by concurrent calls to ast.parse
-import anyio._backends._asyncio  # noqa
+import builtins
+
+# Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parseimport anyio._backends._asyncio
 import pytest
+from devtools.pytest_plugin import insert_assert
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -11,6 +13,8 @@ from logfire.testing import (
     TestExporter,
     TimeGenerator,
 )
+
+builtins.insert_assert = insert_assert
 
 
 @pytest.fixture(scope='session', autouse=True)

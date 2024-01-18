@@ -46,7 +46,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
     def __init__(
         self,
-        output: TextIO = sys.stdout,
+        output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
@@ -55,7 +55,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             force_terminal = None
         else:
             force_terminal = colors == 'always'
-        self._console = Console(file=output, force_terminal=force_terminal, highlight=False)
+        self._console = Console(file=output or sys.stdout, force_terminal=force_terminal, highlight=False)
         self._include_timestamp = include_timestamp
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
@@ -162,7 +162,18 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     value_code = json_args_value_formatter(v, schema=json_schema.get('properties', {}).get(k, {}))
                     value = Syntax(value_code, 'python', background_color='default')
                     barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
-                    chunks.append(Columns((indent_str, barrier, key, value), padding=(0, 0)))
+                    chunks.append(
+                        Columns(
+                            (
+                                # Don't have a column for empty indent_str as it will still take space
+                                *[indent_str] * bool(indent_str),
+                                barrier,
+                                key,
+                                value,
+                            ),
+                            padding=(0, 0),
+                        )
+                    )
 
             self._console.print(Group(*chunks))
 
@@ -180,7 +191,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def __init__(
         self,
-        output: TextIO = sys.stdout,
+        output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
@@ -224,7 +235,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def __init__(
         self,
-        output: TextIO = sys.stdout,
+        output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
