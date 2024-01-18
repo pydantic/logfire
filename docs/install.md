@@ -8,7 +8,7 @@ Or if you're using `poetry`:
 
 ```bash
 poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-poetry add logfire
+poetry add --source logfire-source logfire
 ```
 
 You can also add it to your project requirements:
@@ -27,10 +27,6 @@ url = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pydantic = "^2.0"
-python-dotenv = "^1.0.0"
-requests = "^2.31.0"
-pytest = "^7.4.2"
 logfire = {version = "*", source = "logfire-source"}
 ```
 
@@ -40,9 +36,38 @@ You can also install extra dependencies for Logfire.
 
 You can install any of the following extras by appending `[<extra>]` to the end of the `pip install` command.
 
-```bash
-pip install "logfire[<extra>]" --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-```
+For example, to install with the extra dependencies for `fastapi` and `httpx`, you would do:
+
+=== "PIP"
+
+    ```bash
+    pip install "logfire[fastapi,httpx]" --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
+
+    If you have a `requirements.txt`, you can add the extra dependencies to the `requirements.txt` file:
+
+    ```txt title='requirements.txt'
+    --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    logfire[fastapi,httpx]
+    ```
+
+=== "Poetry"
+
+    ```bash
+    poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    poetry add --source logfire-source "logfire[fastapi,httpx]"
+    ```
+
+    If you are using `poetry`, and have a `pyproject.toml`, you can add the
+    extra dependencies to the `pyproject.toml` file:
+
+    ```toml title='pyproject.toml'
+    [tool.poetry.dependencies]
+    python = "^3.8"
+    logfire = {version = "*", source = "logfire-source", extras = ["fastapi", "httpx"]}
+    ```
+
+---
 
 The available extras are:
 

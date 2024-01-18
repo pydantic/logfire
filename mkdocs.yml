@@ -43,58 +43,75 @@ validation:
 
 nav:
   - Get Started:
-    - Home: index.md
-    - Installation: install.md
-    - Configuration: configuration.md
-    - Integrations: integrations.md
-    - Advanced:
-      - Backfill: advanced/backfill.md
-      - Sampling: advanced/sampling.md
-    - Testing: testing.md
+      - Home: index.md
+      - Installation: install.md
+      - Configuration: configuration.md
+      - Integrations:
+          - Integrations: integrations/index.md
+          - Pydantic: integrations/pydantic.md
+          - FastAPI: integrations/fastapi.md
+          - Django: integrations/django.md
+          - Flask: integrations/flask.md
+          - Starlette: integrations/starlette.md
+          - HTTPX: integrations/httpx.md
+          - AIOHTTP: integrations/aiohttp.md
+          - Requests: integrations/requests.md
+          - PyMongo: integrations/pymongo.md
+          - Psycopg2: integrations/psycopg2.md
+          - Celery: integrations/celery.md
+          - Redis: integrations/redis.md
+          - SQLAlchemy: integrations/sqlalchemy.md
+          - Logging: integrations/logging.md
+          - ASGI: integrations/asgi.md
+          - WSGI: integrations/wsgi.md
+      - Advanced:
+          - Backfill: advanced/backfill.md
+          - Sampling: advanced/sampling.md
+      - Testing: testing.md
   - Examples:
-    - Image Transformation: examples/image_transformation.md
-    - FastAPI Application: examples/fastapi.md
-    - Web Scraper: examples/web_scraper.md
-    - Machine Learning: examples/machine_learning.md
+      - Image Transformation: examples/image_transformation.md
+      - FastAPI Application: examples/fastapi.md
+      - Web Scraper: examples/web_scraper.md
+      - Machine Learning: examples/machine_learning.md
   - API Documentation:
-    - Logfire: api/logfire.md
-    - Testing: api/testing.md
-    - Backfill: api/backfill.md
-    - Propagate: api/propagate.md
-    - Dash: api/dash.md
-    - Exceptions: api/exceptions.md
+      - Logfire: api/logfire.md
+      - Testing: api/testing.md
+      - Backfill: api/backfill.md
+      - Propagate: api/propagate.md
+      - Dash: api/dash.md
+      - Exceptions: api/exceptions.md
 
 markdown_extensions:
-- tables
-- toc:
-    permalink: true
-    title: Page contents
-- admonition
-- pymdownx.details
-- pymdownx.superfences
-- pymdownx.snippets
-- pymdownx.highlight:
-    pygments_lang_class: true
-- pymdownx.extra
-- pymdownx.emoji:
-    emoji_index: !!python/name:materialx.emoji.twemoji
-    emoji_generator: !!python/name:materialx.emoji.to_svg
-- pymdownx.tabbed:
-    alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+      title: Page contents
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.extra
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
 
 plugins:
-- search
-- glightbox
-- mkdocstrings:
-    handlers:
-      python:
-        paths: [src/packages/logfire/logfire]
-        options:
-          members_order: source
-          separate_signature: true
-          filters: ["!^_"]
-          docstring_options:
-            ignore_init_summary: true
-          merge_init_into_class: true
+  - search
+  - glightbox
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src/packages/logfire/logfire]
+          options:
+            members_order: source
+            separate_signature: true
+            filters: ["!^_"]
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
 hooks:
   - docs/plugins/main.py

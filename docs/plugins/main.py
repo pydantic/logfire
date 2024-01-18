@@ -17,6 +17,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     """
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
+    markdown = install_logfire(markdown, page)
     return markdown
 
 
@@ -58,3 +59,30 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
     table_markdown = '\n'.join(table)
     return re.sub(r'{{ *env_var_table *}}', table_markdown, markdown)
+
+
+def install_logfire(markdown: str, page: Page) -> str:
+    """Build the installation instructions for each integration."""
+    if not page.file.src_uri.startswith('integrations/'):
+        return markdown
+
+    # Match instructions like "{{ install_logfire(extras=['fastapi']) }}". Get the extras, if any.
+    match = re.search(r'{{ *install_logfire\((.*)\) *}}', markdown)
+    extras = match.group(1).split('=')[1].strip('[]').strip('\'"').split(',') if match else []
+
+    # Build the installation instructions.
+    package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
+    instructions = f"""
+=== "PIP"
+    ```bash
+    pip install {package} --extra-index-url \\
+        https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    ```
+
+=== "Poetry"
+    ```bash
+    poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    poetry add --source logfire-source {package}
+    ```
+"""
+    return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)

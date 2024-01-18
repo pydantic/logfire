@@ -1,28 +1,32 @@
-import contextlib
-
-from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+import pytest
+from fastapi import FastAPI
+from fastapi.routing import APIRoute
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.propagate import inject
-from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.requests import Request
 from starlette.responses import PlainTextResponse
-from starlette.routing import Route
 from starlette.testclient import TestClient
-from starlette.types import ASGIApp
 
 import logfire
 from logfire.testing import TestExporter
 
 
-def test_asgi_middleware(exporter: TestExporter) -> None:
-    # note: this also serves as a unit test of our integration with otel's various integrations
-
-    def homepage(_: Request):
+@pytest.fixture()
+def app() -> FastAPI:
+    async def homepage() -> PlainTextResponse:
         logfire.info('inside request handler')
         return PlainTextResponse('middleware test')
 
-    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(OpenTelemetryMiddleware)])
+    return FastAPI(routes=[APIRoute('/', homepage)])
 
+
+@pytest.fixture(autouse=True)  # only applies within this module
+def instrument_httpx(app: FastAPI):
+    FastAPIInstrumentor.instrument_app(app)  # type: ignore
+    yield
+    FastAPIInstrumentor.uninstrument_app(app)
+
+
+def test_asgi_middleware(app: FastAPI, exporter: TestExporter) -> None:
     client = TestClient(app)
     with logfire.span('outside request handler'):
         headers = {}
@@ -47,7 +51,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'inside request handler',
                 'logfire.msg': 'inside request handler',
                 'code.lineno': 123,
-                'code.filepath': 'test_asgi.py',
+                'code.filepath': 'test_fastapi.py',
                 'code.function': 'homepage',
             },
         },
@@ -84,6 +88,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                 'http.method': 'GET',
                 'http.server_name': 'testserver',
                 'http.user_agent': 'testclient',
+                'http.route': '/',
                 'http.status_code': 200,
             },
         },
@@ -95,7 +100,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
             'end_time': 9000000000,
             'attributes': {
                 'code.lineno': 123,
-                'code.filepath': 'test_asgi.py',
+                'code.filepath': 'test_fastapi.py',
                 'code.function': 'test_asgi_middleware',
                 'logfire.msg_template': 'outside request handler',
                 'logfire.span_type': 'span',
@@ -103,25 +108,3 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
             },
         },
     ]
-
-
-def test_asgi_middleware_with_lifespan(exporter: TestExporter):
-    startup_complete = False
-    cleanup_complete = False
-
-    @contextlib.asynccontextmanager
-    async def lifespan(app: ASGIApp):
-        nonlocal startup_complete, cleanup_complete
-        startup_complete = True
-        yield
-        cleanup_complete = True
-
-    app = Starlette(lifespan=lifespan, middleware=[Middleware(OpenTelemetryMiddleware)])
-
-    with TestClient(app):
-        assert startup_complete
-        assert not cleanup_complete
-    assert startup_complete
-    assert cleanup_complete
-
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
