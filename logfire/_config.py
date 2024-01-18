@@ -439,20 +439,18 @@ class LogfireConfig(_LogfireConfigData):
             )
             self._tracer_provider.set_provider(tracer_provider)
 
-            processors = list(self.processors or ())
+            processors: list[SpanProcessor] = []
+
+            def add_span_processor(span_processor: SpanProcessor) -> None:
+                # Most span processors added to the tracer provider should also be recorded in the `processors` list
+                # so that they can be used by the final pending span processor.
+                # This means that `tracer_provider.add_span_processor` should only appear in two places.
+                tracer_provider.add_span_processor(span_processor)
+                processors.append(span_processor)
+
             if self.processors is not None:
                 for processor in self.processors:
-                    tracer_provider.add_span_processor(processor)
-
-                def maybe_add_span_processor(span_processor: SpanProcessor) -> None:
-                    """No-op to avoid adding the default span processors given that the user has specified their own."""
-                    pass
-
-            else:
-
-                def maybe_add_span_processor(span_processor: SpanProcessor) -> None:
-                    tracer_provider.add_span_processor(span_processor)
-                    processors.append(span_processor)
+                    add_span_processor(processor)
 
             if self.console:
                 if self.console.span_style == 'simple':
@@ -462,9 +460,7 @@ class LogfireConfig(_LogfireConfigData):
                 else:
                     assert self.console.span_style == 'show-parents'
                     exporter_cls = ShowParentsConsoleSpanExporter
-                # If console export has been specified, we definitely want to add a console exporter;
-                # this is why we don't use `maybe_add_span_processor` here.
-                tracer_provider.add_span_processor(
+                add_span_processor(
                     SimpleSpanProcessor(
                         exporter_cls(
                             colors=self.console.colors,
@@ -526,7 +522,9 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = FallbackSpanExporter(
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                     )
-                    maybe_add_span_processor(self.default_span_processor(span_exporter))
+                    if self.processors is None:
+                        # Only add the default span processor if the user didn't specify any of their own.
+                        add_span_processor(self.default_span_processor(span_exporter))
 
                 elif otel_traces_exporter_env != 'none':
                     raise ValueError(

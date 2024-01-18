@@ -7,6 +7,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
+from logfire import ConsoleOptions
 from logfire.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
@@ -647,4 +648,27 @@ def test_levels(exporter):
         '\x1b[32m00:00:05.000\x1b[0m \x1b[33mwarn message\x1b[0m',
         '\x1b[32m00:00:06.000\x1b[0m \x1b[31merror message\x1b[0m',
         '\x1b[32m00:00:07.000\x1b[0m \x1b[31mfatal message\x1b[0m',
+    ]
+
+
+def test_console_logging_to_stdout(capsys):
+    # This is essentially a basic integration test, the other tests using an exporter
+    # missed that console logging had stopped working entirely for spans.
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False),
+    )
+
+    with logfire.span('outer span'):
+        with logfire.span('inner span'):
+            logfire.info('inner span log message')
+        logfire.info('outer span log message')
+
+    # insert_assert(capsys.readouterr().out.splitlines())
+    assert capsys.readouterr().out.splitlines() == [
+        'outer span',
+        '  inner span',
+        '    inner span log message',
+        '  outer span log message',
     ]
