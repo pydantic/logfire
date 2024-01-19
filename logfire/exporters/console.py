@@ -8,14 +8,13 @@ import json
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any, Literal, Mapping, TextIO, cast
+from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util import types as otel_types
 from rich.columns import Columns
 from rich.console import Console, Group
-from rich.markup import escape as rich_escape
 from rich.syntax import Syntax
 from rich.text import Text
 
@@ -36,6 +35,10 @@ ConsoleColorsValues = Literal['auto', 'always', 'never']
 _WARN_LEVEL = LEVEL_NUMBERS['warn']
 _ERROR_LEVEL = LEVEL_NUMBERS['error']
 
+# A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
+# When logging without colors, just the text is used in a plain `print`.
+TextParts = List[Tuple[str, str]]
+
 
 class SimpleConsoleSpanExporter(SpanExporter):
     """The ConsoleSpanExporter prints spans to the console.
@@ -51,11 +54,22 @@ class SimpleConsoleSpanExporter(SpanExporter):
         include_timestamp: bool = True,
         verbose: bool = False,
     ) -> None:
+        self._output = output or sys.stdout
         if colors == 'auto':
             force_terminal = None
         else:
             force_terminal = colors == 'always'
-        self._console = Console(file=output or sys.stdout, force_terminal=force_terminal, highlight=False)
+        self._console = Console(
+            file=self._output,
+            force_terminal=force_terminal,
+            highlight=False,
+            markup=False,
+            soft_wrap=True,
+        )
+        if not self._console.is_terminal:
+            # Use plain `print` to `self._output` instead of rich when we don't need colors
+            self._console = None
+
         self._include_timestamp = include_timestamp
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
@@ -78,22 +92,43 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if span_type != 'span':
             self._print_span(span)
 
-    def _print_span(self, span: ReadableSpan, indent: int = 0) -> str:
-        """Build up a summary of the span, including bbcode formatting for rich, then print it.
+    def _print_span(self, span: ReadableSpan, indent: int = 0):
+        """Build up a summary of the span, including formatting for rich, then print it."""
+        _msg, parts = self._span_text_parts(span, indent)
 
-        Returns:
-            the formatted message or span name.
+        indent_str = (self._timestamp_indent + indent * 2) * ' '
+        details_parts = self._details_parts(span, indent_str)
+        if details_parts:
+            parts += [('\n', '')] + details_parts
+
+        if self._console:
+            self._console.print(Text.assemble(*parts))
+        else:
+            print(''.join(text for text, _style in parts), file=self._output)
+
+        # This uses a separate system for color vs no-color because it's not simple text:
+        # in the rich case it uses syntax highlighting and columns for layout.
+        self._print_arguments(span, indent_str)
+
+    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+        """Return the formatted message or span name and parts containing basic span information.
+
+        The following information is included:
+        * timestamp
+        * message (maybe indented)
+        * tags
+
+        The log level may be indicated by the color of the message.
         """
+        parts: TextParts = []
         if self._include_timestamp:
             ts = datetime.fromtimestamp((span.start_time or 0) / _NANOSECONDS_PER_SECOND, tz=timezone.utc)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
-            line = f'[green]{ts_str}[/green] '
-        else:
-            line = ''
+            parts += [(ts_str, 'green'), (' ', '')]
 
         if indent:
-            line += indent * '  '
+            parts += [(indent * '  ', '')]
 
         if span.attributes:
             formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
@@ -103,79 +138,106 @@ class SimpleConsoleSpanExporter(SpanExporter):
             msg = span.name
             level = 0
 
-        # escape the message so stuff like `[red]...` doesn't affect how the message is shown
-        escaped_msg = rich_escape(msg)
-
         if level >= _ERROR_LEVEL:
             # add the message in red if it's an error or worse
-            line += f'[red]{escaped_msg}[/red]'
+            parts += [(msg, 'red')]
         elif level >= _WARN_LEVEL:
             # add the message in yellow if it's a warning
-            line += f'[yellow]{escaped_msg}[/yellow]'
+            parts += [(msg, 'yellow')]
         else:
-            line += escaped_msg
+            parts += [(msg, '')]
 
         if tags := span.attributes and span.attributes.get(ATTRIBUTES_TAGS_KEY):
             tags_str = ','.join(cast('list[str]', tags))
-            line += f' [cyan]\\[{rich_escape(tags_str)}][/cyan]'
-        self._console.print(line)
-        self._print_details(span, indent)
-        return msg
+            parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
 
-    def _print_details(self, span: ReadableSpan, indent: int) -> None:
-        """Print details for the span if `self._verbose` is True.
+        return msg, parts
 
-        The following details are printed:
+    def _details_parts(self, span: ReadableSpan, indent_str: str) -> TextParts:
+        """Return parts containing details for the span if `self._verbose` is True.
+
+        The following details are returned:
         * filename and line number
         * the log level name
-        * logfire arguments
         """
         if not self._verbose or not span.attributes:
-            return
+            return []
 
-        indent_str = (self._timestamp_indent + indent * 2) * ' '
-
-        file_location = span.attributes.get('code.filepath')
+        file_location: str = span.attributes.get('code.filepath')  # type: ignore
         if file_location:
             lineno = span.attributes.get('code.lineno')
             if lineno:
-                file_location += f':{lineno}'  # type: ignore
+                file_location += f':{lineno}'
+
+        log_level = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NAME_KEY) or ''
+
+        if file_location or log_level:
+            return [
+                (indent_str, ''),
+                ('│', 'blue'),
+                (' ', ''),
+                (file_location, 'cyan'),
+                (f' {log_level}', ''),
+            ]
+        else:
+            return []
+
+    def _print_arguments(self, span: ReadableSpan, indent_str: str):
+        """Pretty-print formatted logfire arguments for the span if `self._verbose` is True."""
+        if not self._verbose or not span.attributes:
+            return
 
         arguments: dict[str, Any] = {}
         json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
-            if schema == {}:
-                arguments[key] = value
-            else:
-                arguments[key] = json.loads(cast(str, value))
+            if schema:
+                value = json.loads(cast(str, value))
+            value = json_args_value_formatter(value, schema=schema)
+            arguments[key] = value
 
-        log_level = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NAME_KEY) or ''
+        if not arguments:
+            return
 
-        if file_location or log_level:
-            self._console.print(f'{indent_str}[blue]│[/blue] [cyan]{file_location}[/cyan] {log_level}')
-        if arguments:
-            chunks: list[Columns] = []
-            if arguments:
-                for k, v in arguments.items():
-                    key = Text(f'{k}=', style='blue')
-                    value_code = json_args_value_formatter(v, schema=json_schema.get('properties', {}).get(k, {}))
-                    value = Syntax(value_code, 'python', background_color='default')
-                    barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
-                    chunks.append(
-                        Columns(
-                            (
-                                # Don't have a column for empty indent_str as it will still take space
-                                *[indent_str] * bool(indent_str),
-                                barrier,
-                                key,
-                                value,
-                            ),
-                            padding=(0, 0),
-                        )
-                    )
+        if self._console:
+            self._print_arguments_rich(arguments, indent_str)
+        else:
+            self._print_arguments_plain(arguments, indent_str)
 
-            self._console.print(Group(*chunks))
+    def _print_arguments_rich(self, arguments: dict[str, Any], indent_str: str) -> None:
+        """Print logfire arguments in color using rich, particularly with syntax highlighting."""
+        assert self._console is not None
+
+        chunks: list[Columns] = []
+        for k, value_code in arguments.items():
+            key = Text(f'{k}=', style='blue')
+            value = Syntax(value_code, 'python', background_color='default')
+            barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
+            chunks.append(
+                Columns(
+                    (
+                        # Don't have a column for empty indent_str as it will still take space
+                        *[indent_str] * bool(indent_str),
+                        barrier,
+                        key,
+                        value,
+                    ),
+                    padding=(0, 0),
+                )
+            )
+
+        self._console.print(Group(*chunks))
+
+    def _print_arguments_plain(self, arguments: dict[str, Any], indent_str: str) -> None:
+        """Print logfire arguments without color using the built-in `print` function."""
+        out: list[str] = []
+        for k, value_code in arguments.items():
+            value_lines = value_code.splitlines()
+            out += [f'{indent_str}│ {k}={value_lines[0]}']
+            prefix = f'{indent_str}│ {" " * len(k)} '
+            for line in value_lines[1:]:
+                out += [f'{prefix}{line}']
+        print('\n'.join(out), file=self._output)
 
     def force_flush(self, timeout_millis: int = 0) -> bool:
         """Force flush all spans, does nothing for this exporter."""
@@ -259,12 +321,21 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
                     self._span_stack.pop()
             return
 
+        self._print_span(span)
+
+    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+        """Parts for any parent spans which aren't in the current stack of displayed spans, then parts for this span."""
+        attributes = span.attributes or {}
+        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
+
+        parts: TextParts = []
         if span_type == 'pending_span':
             parent_id = _pending_span_parent(attributes)
-            self._print_parent_stack(parent_id)
+            parts += self._parent_stack_text_parts(parent_id)
 
             indent = len(self._span_stack)
-            msg = self._print_span(span, indent)
+            msg, span_parts = super()._span_text_parts(span, indent)
+            parts += span_parts
 
             if block_span_id := span.parent and span.parent.span_id:
                 self._span_history[block_span_id] = (indent, msg, parent_id or 0)
@@ -272,12 +343,13 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         else:
             # this is a log
             parent_id = span.parent.span_id if span.parent else None
-            self._print_parent_stack(parent_id)
+            parts += self._parent_stack_text_parts(parent_id)
+            msg, span_parts = super()._span_text_parts(span, indent=len(self._span_stack))
+            parts += span_parts
+        return msg, parts
 
-            self._print_span(span, len(self._span_stack))
-
-    def _print_parent_stack(self, parent_id: int | None) -> None:
-        """Print "intermediate" parent spans - e.g., spans which are not parents of the currently displayed span.
+    def _parent_stack_text_parts(self, parent_id: int | None) -> TextParts:
+        """Parts for "intermediate" parent spans - e.g., spans which are not parents of the currently displayed span.
 
         Also build up `self._span_stack` to correctly represent the path to the current span.
         """
@@ -305,13 +377,15 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         if clear_stack:
             self._span_stack.clear()
 
-        # parentis are currently in the reverse order as they were built from innermost first, hence
-        # iterate over them reversed, and print them
+        parts: TextParts = []
+        # parents are currently in the reverse order as they were built from innermost first, hence
+        # iterate over them reversed
         for indent, msg, parent_id in reversed(parents):
             total_indent = self._timestamp_indent + indent * 2
-            self._console.print(f'{" " * total_indent}{msg}', style='dim', markup=False)
+            parts += [(f'{" " * total_indent}{msg}\n', 'dim')]
             if parent_id:
                 self._span_stack.append(parent_id)
+        return parts
 
 
 def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) -> int | None:

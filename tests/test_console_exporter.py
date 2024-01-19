@@ -351,7 +351,7 @@ def test_show_parents_console_exporter_interleaved() -> None:
     ]
 
 
-def test_verbose_attributes(capsys, exporter: TestExporter) -> None:
+def test_verbose_attributes(exporter: TestExporter) -> None:
     d = {'a': 1, 'b': 2}
     logfire.info('Hello {name}!', name='world', d=d)
     spans = exporter.exported_spans_as_models()
@@ -382,28 +382,28 @@ def test_verbose_attributes(capsys, exporter: TestExporter) -> None:
     ]
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(spans)
-    # insert_assert(out.getvalue().splitlines())
-    assert out.getvalue().splitlines() == [
+    lines = [line.rstrip(' ') for line in out.getvalue().splitlines()]
+    assert lines == [
         '00:00:01.000 Hello world!',
         '             │ test_console_exporter.py:123 info',
         "             │ name='world'",
-        '             │ d={          ',
+        '             │ d={',
         "             │       'a': 1,",
         "             │       'b': 2,",
-        '             │   }          ',
+        '             │   }',
     ]
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export(spans)
-    # insert_assert(out.getvalue().splitlines())
-    assert out.getvalue().splitlines() == [
+    lines = [line.rstrip(' ') for line in out.getvalue().splitlines()]
+    assert lines == [
         'Hello world!',
         '│ test_console_exporter.py:123 info',
         "│ name='world'",
-        '│ d={          ',
+        '│ d={',
         "│       'a': 1,",
         "│       'b': 2,",
-        '│   }          ',
+        '│   }',
     ]
 
     out = io.StringIO()
