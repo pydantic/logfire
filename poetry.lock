@@ -2392,4 +2392,4 @@ test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backpo
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "0ac2607e883b6185c058565106fcd01c1813e139a87c9526a1162102422e33ad"
+content-hash = "54b47a7e6b896e90a3a3da9af2c345aa560a565b1bb39d76864671000a2f59b0"
