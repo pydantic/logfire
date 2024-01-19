@@ -46,28 +46,29 @@ nav:
       - Home: index.md
       - Installation: install.md
       - Configuration: configuration.md
-      - Integrations:
-          - Integrations: integrations/index.md
-          - Pydantic: integrations/pydantic.md
-          - FastAPI: integrations/fastapi.md
-          - Django: integrations/django.md
-          - Flask: integrations/flask.md
-          - Starlette: integrations/starlette.md
-          - HTTPX: integrations/httpx.md
-          - AIOHTTP: integrations/aiohttp.md
-          - Requests: integrations/requests.md
-          - PyMongo: integrations/pymongo.md
-          - Psycopg2: integrations/psycopg2.md
-          - Celery: integrations/celery.md
-          - Redis: integrations/redis.md
-          - SQLAlchemy: integrations/sqlalchemy.md
-          - Logging: integrations/logging.md
-          - ASGI: integrations/asgi.md
-          - WSGI: integrations/wsgi.md
+      - Auto Tracing: auto_tracing.md
       - Advanced:
           - Backfill: advanced/backfill.md
           - Sampling: advanced/sampling.md
       - Testing: testing.md
+  - Integrations:
+      - Integrations: integrations/index.md
+      - Pydantic: integrations/pydantic.md
+      - FastAPI: integrations/fastapi.md
+      - Django: integrations/django.md
+      - Flask: integrations/flask.md
+      - Starlette: integrations/starlette.md
+      - HTTPX: integrations/httpx.md
+      - AIOHTTP: integrations/aiohttp.md
+      - Requests: integrations/requests.md
+      - PyMongo: integrations/pymongo.md
+      - Psycopg2: integrations/psycopg2.md
+      - Celery: integrations/celery.md
+      - Redis: integrations/redis.md
+      - SQLAlchemy: integrations/sqlalchemy.md
+      - Logging: integrations/logging.md
+      - ASGI: integrations/asgi.md
+      - WSGI: integrations/wsgi.md
   - Examples:
       - Image Transformation: examples/image_transformation.md
       - FastAPI Application: examples/fastapi.md

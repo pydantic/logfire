@@ -10,11 +10,15 @@ Install `logfire` with the `flask` extra:
 
 ## Usage
 
-Let's see a minimal example below:
+Let's see a minimal example below. You can run it with `python main.py`:
 
-```py
+```py title="main.py"
+import logfire
 from flask import Flask
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+
+logfire.configure()
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)

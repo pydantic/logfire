@@ -10,6 +10,8 @@ Install `logfire` with the `django` extra:
 
 ## Usage
 
+<!-- TODO(Marcelo): Add a secret gist. -->
+
 ```py
 from opentelemetry.instrumentation.django import DjangoInstrumentor
 

@@ -48,6 +48,8 @@ import logfire
 logfire.install_auto_tracing(modules=['app'])
 ```
 
+You can read more about this on the [Auto Tracing](auto_tracing.md) section.
+
 ### CLI
 
 Logfire comes with a CLI that can help you with some tasks.

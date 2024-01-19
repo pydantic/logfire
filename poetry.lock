@@ -2381,7 +2381,6 @@ fastapi = ["fastapi", "opentelemetry-instrumentation-fastapi"]
 flask = ["Flask", "opentelemetry-instrumentation-flask"]
 httpx = ["httpx", "opentelemetry-instrumentation-httpx"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2"]
-pydantic = ["pydantic"]
 pymongo = ["opentelemetry-instrumentation-pymongo"]
 redis = ["opentelemetry-instrumentation-redis", "redis"]
 requests = ["opentelemetry-instrumentation-requests", "requests"]
@@ -2393,4 +2392,4 @@ test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backpo
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "d354e64b03dd0995feb73ba55f7a8ac9998ef9a4f1bc01629b3daf7e350b07e0"
+content-hash = "0ac2607e883b6185c058565106fcd01c1813e139a87c9526a1162102422e33ad"

@@ -12,13 +12,14 @@ Install `logfire` with the `pymongo` extra:
 
 Let's see a minimal example below:
 
-```py
+<!-- TODO(Marcelo): Create a secret gist with a docker-compose. -->
+
+```py title="main.py"
 import logfire
 from pymongo import MongoClient
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 
-logfire.info("Instrumenting PyMongo!")
-
+logfire.configure()
 PymongoInstrumentor().instrument()
 
 client = MongoClient()
