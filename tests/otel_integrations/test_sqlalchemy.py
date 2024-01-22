@@ -54,6 +54,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'connect',
                 'db.name': 'example.db',
                 'db.system': 'sqlite',
             },
@@ -66,6 +67,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 4000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'PRAGMA example.db',
                 'db.statement': 'PRAGMA main.table_info("records")',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
@@ -79,6 +81,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 6000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'PRAGMA example.db',
                 'db.statement': 'PRAGMA temp.table_info("records")',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
@@ -92,6 +95,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 8000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'CREATE example.db',
                 'db.statement': '\nCREATE TABLE records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
@@ -105,6 +109,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 10000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'connect',
                 'db.name': 'example.db',
                 'db.system': 'sqlite',
             },
@@ -117,6 +122,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 12000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'INSERT example.db',
                 'db.statement': 'INSERT INTO records (id, number, content) VALUES (?, ?, ?)',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
@@ -130,6 +136,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 14000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'connect',
                 'db.name': 'example.db',
                 'db.system': 'sqlite',
             },
@@ -142,6 +149,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 16000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'SELECT example.db',
                 'db.statement': 'SELECT records.id AS records_id, records.number AS records_number, records.content AS records_content \nFROM records \nWHERE records.id = ?',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
@@ -155,6 +163,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'end_time': 18000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'DELETE example.db',
                 'db.statement': 'DELETE FROM records WHERE records.id = ?',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',

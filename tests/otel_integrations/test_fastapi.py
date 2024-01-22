@@ -36,8 +36,46 @@ def test_asgi_middleware(app: FastAPI, exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
+        {
+            'name': 'outside request handler (pending)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'code.lineno': 123,
+                'code.filepath': 'test_fastapi.py',
+                'code.function': 'test_asgi_middleware',
+                'logfire.msg_template': 'outside request handler',
+                'logfire.msg': 'outside request handler',
+                'logfire.span_type': 'pending_span',
+                'logfire.pending_parent_id': '0000000000000000',
+            },
+        },
+        {
+            'name': 'GET / (pending)',
+            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'http.scheme': 'http',
+                'http.host': 'testserver',
+                'net.host.port': 80,
+                'http.flavor': '1.1',
+                'http.target': '/',
+                'http.url': 'http://testserver/',
+                'http.method': 'GET',
+                'http.server_name': 'testserver',
+                'http.user_agent': 'testclient',
+                'http.route': '/',
+                'logfire.span_type': 'pending_span',
+                'logfire.pending_parent_id': '0000000000000001',
+                'logfire.msg': 'GET /',
+            },
+        },
         {
             'name': 'inside request handler',
             'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
@@ -56,12 +94,41 @@ def test_asgi_middleware(app: FastAPI, exporter: TestExporter) -> None:
             },
         },
         {
+            'name': 'GET / http send (pending)',
+            'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+            'start_time': 4000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'logfire.span_type': 'pending_span',
+                'logfire.pending_parent_id': '0000000000000003',
+                'logfire.msg': 'GET / http send',
+            },
+        },
+        {
             'name': 'GET / http send',
             'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 4000000000,
             'end_time': 5000000000,
-            'attributes': {'logfire.span_type': 'span', 'http.status_code': 200, 'type': 'http.response.start'},
+            'attributes': {
+                'logfire.span_type': 'span',
+                'logfire.msg': 'GET / http send',
+                'http.status_code': 200,
+                'type': 'http.response.start',
+            },
+        },
+        {
+            'name': 'GET / http send (pending)',
+            'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+            'start_time': 6000000000,
+            'end_time': 6000000000,
+            'attributes': {
+                'logfire.span_type': 'pending_span',
+                'logfire.pending_parent_id': '0000000000000003',
+                'logfire.msg': 'GET / http send',
+            },
         },
         {
             'name': 'GET / http send',
@@ -69,7 +136,7 @@ def test_asgi_middleware(app: FastAPI, exporter: TestExporter) -> None:
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 6000000000,
             'end_time': 7000000000,
-            'attributes': {'logfire.span_type': 'span', 'type': 'http.response.body'},
+            'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'GET / http send', 'type': 'http.response.body'},
         },
         {
             'name': 'GET /',
@@ -79,6 +146,7 @@ def test_asgi_middleware(app: FastAPI, exporter: TestExporter) -> None:
             'end_time': 8000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'GET /',
                 'http.scheme': 'http',
                 'http.host': 'testserver',
                 'net.host.port': 80,

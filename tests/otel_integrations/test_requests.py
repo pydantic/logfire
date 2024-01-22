@@ -45,6 +45,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
                 'http.method': 'GET',
                 'http.url': 'https://example.org/',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'GET',
                 'http.status_code': 200,
             },
         },

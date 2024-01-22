@@ -29,6 +29,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 
 from ._constants import (
+    ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
@@ -183,9 +184,14 @@ class _ProxyTracer(Tracer):
         set_status_on_exception: bool = True,
     ) -> Span:
         start_time = start_time or self.provider.config.ns_timestamp_generator()
-        attributes = attributes or {}
+
+        # Make a copy of the attributes since this method can be called by arbitrary external code,
+        # e.g. third party instrumentation.
+        attributes = {**(attributes or {})}
         if self.is_span_tracer:
-            attributes = {**attributes, ATTRIBUTES_SPAN_TYPE_KEY: 'span'}
+            attributes[ATTRIBUTES_SPAN_TYPE_KEY] = 'span'
+        attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, name)
+
         span = self.tracer.start_span(
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )

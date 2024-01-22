@@ -74,6 +74,7 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
                 'http.target': '/',
                 'http.flavor': '1.1',
                 'logfire.span_type': 'span',
+                'logfire.msg': 'GET /',
                 'http.status_code': 200,
             },
         },
