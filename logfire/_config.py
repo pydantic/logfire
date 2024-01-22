@@ -46,6 +46,7 @@ from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
 from .exporters._otlp import OTLPExporterHttpSession
+from .exporters._supress_instrumentation import SuppressInstrumentationProcessor
 from .exporters.console import (
     ConsoleColorsValues,
     IndentedConsoleSpanExporter,
@@ -445,6 +446,7 @@ class LogfireConfig(_LogfireConfigData):
                 # Most span processors added to the tracer provider should also be recorded in the `processors` list
                 # so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
+                span_processor = SuppressInstrumentationProcessor(span_processor)
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 
