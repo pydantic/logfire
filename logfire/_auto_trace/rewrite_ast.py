@@ -3,8 +3,9 @@ from __future__ import annotations
 import ast
 import uuid
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
+import logfire
 from logfire._main import Logfire
 
 
@@ -42,8 +43,26 @@ class Transformer(ast.NodeTransformer):
         # so we can construct the qualified name of the current function.
         self.qualname_stack: list[str] = []
 
+    def check_no_auto_trace(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:
+        """Return true if the node has a `@no_auto_trace` or `@logfire.no_auto_trace` decorator."""
+        return any(
+            (
+                isinstance(node, ast.Name)
+                and node.id == no_auto_trace.__name__
+                or (
+                    isinstance(node, ast.Attribute)
+                    and node.attr == no_auto_trace.__name__
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == logfire.__name__
+                )
+            )
+            for node in node.decorator_list
+        )
+
     def visit_ClassDef(self, node: ast.ClassDef):
-        # We only override this to add the class name to the qualname stack.
+        if self.check_no_auto_trace(node):
+            return node
+
         self.qualname_stack.append(node.name)
         # We need to call generic_visit here to modify any functions defined inside the class.
         node = cast(ast.ClassDef, self.generic_visit(node))
@@ -51,6 +70,9 @@ class Transformer(ast.NodeTransformer):
         return node
 
     def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
+        if self.check_no_auto_trace(node):
+            return node
+
         self.qualname_stack.append(node.name)
         qualname = '.'.join(self.qualname_stack)
         self.qualname_stack.append('<locals>')
@@ -96,3 +118,24 @@ class Transformer(ast.NodeTransformer):
         )
 
     visit_AsyncFunctionDef = visit_FunctionDef
+
+
+T = TypeVar('T')
+
+
+def no_auto_trace(x: T) -> T:
+    """Decorator to prevent a function/class from being traced by `logfire.install_auto_tracing`.
+
+    This is useful for small functions that are called very frequently and would generate too much noise.
+
+    The decorator is detected at import time.
+    Only `@no_auto_trace` or `@logfire.no_auto_trace` are supported.
+    Renaming/aliasing either the function or module won't work.
+    Neither will calling this indirectly via another function.
+
+    Any decorated function, or any function defined anywhere inside a decorated function/class,
+    will be completely ignored by `logfire.install_auto_tracing`.
+
+    This decorator simply returns the argument unchanged, so there is zero runtime overhead.
+    """
+    return x

@@ -1,6 +1,7 @@
 """Logfire is the observability tool focused on developer experience."""
 
 from ._auto_trace import AutoTraceModule, install_auto_tracing
+from ._auto_trace.rewrite_ast import no_auto_trace
 from ._config import ConsoleOptions, PydanticPluginOptions, configure
 from ._main import LevelName, Logfire, LogfireSpan
 from .exporters._file import load_file as load_spans_from_file
@@ -47,4 +48,5 @@ __all__ = (
     'with_tags',
     'with_trace_sample_rate',
     'load_spans_from_file',
+    'no_auto_trace',
 )

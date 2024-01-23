@@ -309,3 +309,95 @@ def test_parts_start_with():
         'spam.xxx',
     ]:
         assert not AutoTraceModule(mod, None).parts_start_with(['foo', 'bar', 'x+'])
+
+
+# language=Python
+no_auto_trace_sample = """
+from logfire import no_auto_trace
+
+
+@str
+def traced_func():
+    async def inner():
+        pass
+    return inner
+
+
+@str
+@no_auto_trace
+@str
+def not_traced_func():
+    async def inner():
+        pass
+    return inner
+
+
+@str
+class TracedClass:
+    async def traced_method(self):
+        pass
+
+    @no_auto_trace
+    def not_traced_method(self):
+        pass
+
+
+@no_auto_trace
+@str
+class NotTracedClass:
+    async def would_be_traced_method(self):
+        def inner():
+            pass
+        return inner
+
+    @no_auto_trace
+    def definitely_not_traced_method(self):
+        pass
+"""
+
+
+def get_calling_strings(sample: str):
+    tree = rewrite_ast(
+        sample,
+        'foo.py',
+        'logfire_span',
+        'module.name',
+        DEFAULT_LOGFIRE_INSTANCE,
+    )
+    return {node.items[0].context_expr.args[0].value for node in ast.walk(tree) if isinstance(node, ast.With)}
+
+
+def test_no_auto_trace():
+    filtered_calling_strings = {
+        'Calling module.name.traced_func',
+        'Calling module.name.traced_func.<locals>.inner',
+        'Calling module.name.TracedClass.traced_method',
+    }
+
+    # insert_assert(get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '')))
+    all_calling_strings = {
+        'Calling module.name.not_traced_func',
+        'Calling module.name.TracedClass.traced_method',
+        'Calling module.name.NotTracedClass.would_be_traced_method',
+        'Calling module.name.not_traced_func.<locals>.inner',
+        'Calling module.name.traced_func',
+        'Calling module.name.NotTracedClass.would_be_traced_method.<locals>.inner',
+        'Calling module.name.traced_func.<locals>.inner',
+        'Calling module.name.TracedClass.not_traced_method',
+        'Calling module.name.NotTracedClass.definitely_not_traced_method',
+    }
+    assert filtered_calling_strings < all_calling_strings
+
+    # @no_auto_trace and @logfire.no_auto_trace have the same effect
+    assert get_calling_strings(no_auto_trace_sample) == filtered_calling_strings
+    assert (
+        get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '@logfire.no_auto_trace'))
+        == filtered_calling_strings
+    )
+
+    # But @other or @other.no_auto_trace have no effect
+    assert get_calling_strings(no_auto_trace_sample.replace('no_auto_trace', 'other')) == all_calling_strings
+    assert (
+        get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '@other.no_auto_trace'))
+        == all_calling_strings
+    )
