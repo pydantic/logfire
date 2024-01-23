@@ -4,8 +4,10 @@ from __future__ import annotations
 import re
 from contextlib import ExitStack
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
+from opentelemetry.metrics import Counter
 from pydantic_core import CoreConfig, CoreSchema
 
 import logfire
@@ -57,9 +59,9 @@ class BaseValidateHandler:
 
         # As the counter name should be less than 63 chars, we only get the last 40 chars of model name
         successful_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-successful-validation'
-        self._successful_validation_counter = METER.create_counter(name=successful_validation_counter_name)
+        self._successful_validation_counter = _create_counter(name=successful_validation_counter_name)
         failed_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-failed-validation'
-        self._failed_validation_counter = METER.create_counter(name=failed_validation_counter_name)
+        self._failed_validation_counter = _create_counter(name=failed_validation_counter_name)
 
         self._logfire = logfire
         trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
@@ -156,6 +158,11 @@ def get_schema_name(schema: CoreSchema) -> str:
         return get_schema_name(schema['schema'])  # type: ignore
     else:
         return schema_type
+
+
+@lru_cache
+def _create_counter(name: str) -> Counter:
+    return METER.create_counter(name=name)
 
 
 class ValidatePythonHandler(BaseValidateHandler):
