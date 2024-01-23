@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import inspect
-import sys
 import warnings
-from functools import cached_property, lru_cache, wraps
+from functools import cached_property, wraps
 from inspect import Parameter as SignatureParameter, signature as inspect_signature
 from pathlib import Path
-from types import CodeType
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    ContextManager,
     Sequence,
     TypedDict,
     TypeVar,
@@ -29,6 +27,9 @@ from typing_extensions import LiteralString
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
 from logfire.version import VERSION
+
+from . import _async
+from ._stack_info import StackInfo, get_caller_stack_info, get_filepath_attribute
 
 try:
     from pydantic import ValidationError
@@ -71,6 +72,10 @@ class Logfire:
         self._tags = list(tags)
         self._config = config
         self._sample_rate = sample_rate
+
+    @property
+    def config(self) -> LogfireConfig:
+        return self._config
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance with the given tags applied.
@@ -137,7 +142,7 @@ class Logfire:
         stacklevel: int = 3,
         decorator: bool = False,
     ) -> LogfireSpan:
-        stack_info = _get_caller_stack_info(stacklevel=stacklevel)
+        stack_info = get_caller_stack_info(stacklevel=stacklevel)
 
         merged_attributes = {**stack_info, **attributes}
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
@@ -194,7 +199,7 @@ class Logfire:
         self, filename: str, module_name: str, function_name: str, lineno: int
     ) -> tuple[str, dict[str, otel_types.AttributeValue]]:
         stack_info: StackInfo = {
-            **_get_filepath_attribute(filename),
+            **get_filepath_attribute(filename),
             'code.lineno': lineno,
             'code.function': function_name,
         }
@@ -316,7 +321,7 @@ class Logfire:
             level = 'error'
         level_no = LEVEL_NUMBERS[level]
         stacklevel = stack_offset + 2
-        stack_info = _get_caller_stack_info(stacklevel)
+        stack_info = get_caller_stack_info(stacklevel)
 
         merged_attributes = {**stack_info, **attributes}
         tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
@@ -470,6 +475,23 @@ class Logfire:
             Whether the flush was successful.
         """
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+        """Log a warning whenever a function running in the asyncio event loop blocks for too long.
+
+        This works by patching the `asyncio.events.Handle._run` method.
+
+        Args:
+            slow_duration: the threshold in seconds for when a callback is considered slow.
+
+        Returns:
+            A context manager that will revert the patch when exited.
+            This context manager doesn't take into account threads or other concurrency.
+            Calling this method will immediately apply the patch
+            without waiting for the context manager to be opened,
+            i.e. it's not necessary to use this as a context manager.
+        """
+        return _async.log_slow_callbacks(self, slow_duration)
 
 
 class FastLogfireSpan:
@@ -685,56 +707,6 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
         prepared[NULL_ARGS_KEY] = tuple(null_args)
 
     return prepared
-
-
-StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
-
-
-def _get_filepath_attribute(file: str) -> StackInfo:
-    path = Path(file)
-    if path.is_absolute():
-        try:
-            path = path.relative_to(_CWD)
-        except ValueError:
-            # happens if filename path is not within CWD
-            pass
-    return {'code.filepath': str(path)}
-
-
-@lru_cache(maxsize=2048)
-def _get_code_object_info(code: CodeType) -> StackInfo:
-    result = _get_filepath_attribute(code.co_filename)
-    if code.co_name != '<module>':
-        result['code.function'] = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
-    return result
-
-
-def _get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
-    """Get the stack info of the caller.
-
-    This is used to bind the caller's stack info to logs and spans.
-
-    Args:
-        stacklevel: The stack level to get the info from.
-
-    Returns:
-        A dictionary of stack info attributes.
-    """
-    try:
-        frame = inspect.currentframe()
-        if frame is None:
-            return {}
-        # traverse stack_level frames up
-        for _ in range(stacklevel):
-            frame = frame.f_back
-            if frame is None:
-                return {}
-        return {
-            'code.lineno': frame.f_lineno,
-            **_get_code_object_info(frame.f_code),
-        }
-    except Exception:
-        return {}
 
 
 def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:

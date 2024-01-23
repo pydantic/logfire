@@ -20,6 +20,7 @@ warn = DEFAULT_LOGFIRE_INSTANCE.warn
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
+log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 
 
 __version__ = VERSION
