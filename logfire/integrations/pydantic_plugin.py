@@ -5,7 +5,7 @@ import re
 from contextlib import ExitStack
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
 
 from opentelemetry.metrics import Counter
 from pydantic_core import CoreConfig, CoreSchema
@@ -30,6 +30,29 @@ if TYPE_CHECKING:
 METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
 
 
+class LogfireSettings(TypedDict, total=False):
+    """Settings for the logfire integration."""
+
+    trace_sample_rate: float
+    """The sample rate to use for tracing."""
+    tags: list[str]
+    """Tags to add to the spans."""
+    record: Literal['all', 'failure', 'metrics']
+    """What to record.""
+
+    The following values are supported:
+    * `all`: Record all validation events.
+    * `failure`: Record only validation failures.
+    * `metrics`: Record only validation metrics.
+    """
+
+
+class PluginSettings(TypedDict, total=False):
+    """Settings for the plugin."""
+
+    logfire: LogfireSettings
+
+
 class BaseValidateHandler:
     """Base class for validation event handler classes."""
 
@@ -48,7 +71,7 @@ class BaseValidateHandler:
         self,
         schema: CoreSchema,
         _config: CoreConfig | None,
-        _plugin_settings: dict[str, dict[str, Any]],
+        _plugin_settings: PluginSettings | dict[str, Any],
         schema_type_path: SchemaTypePath,
         record: Literal['all', 'failure', 'metrics'],
     ) -> None:
@@ -249,7 +272,7 @@ class LogfirePydanticPlugin:
         record = 'off'
 
         logfire_settings = plugin_settings.get('logfire')
-        if logfire_settings and logfire_settings.get('record'):
+        if logfire_settings and 'record' in logfire_settings:
             record = logfire_settings['record']
         else:
             record = GLOBAL_CONFIG.pydantic_plugin.record
@@ -258,7 +281,6 @@ class LogfirePydanticPlugin:
             return None, None, None
 
         if include_model(schema, schema_type_path):
-            record = cast(Literal['all', 'failure', 'metrics'], record)
             return (
                 ValidatePythonHandler(schema, config, plugin_settings, schema_type_path, record),
                 ValidateJsonHandler(schema, config, plugin_settings, schema_type_path, record),
