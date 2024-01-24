@@ -53,6 +53,10 @@ class PluginSettings(TypedDict, total=False):
     logfire: LogfireSettings
 
 
+USER_STACK_OFFSET = 3
+"""The number of frames to skip when logging from user code."""
+
+
 class BaseValidateHandler:
     """Base class for validation event handler classes."""
 
@@ -125,7 +129,12 @@ class BaseValidateHandler:
             result: The result of the validation.
         """
         if self._record == 'all':
-            self._logfire.debug('Validation successful {result=!r}', result=result)
+            self._logfire.log(
+                'debug',
+                msg_template='Validation successful {result=!r}',
+                attributes={'result': result},
+                stack_offset=USER_STACK_OFFSET,
+            )
 
         self._successful_validation_counter.add(1)
 
@@ -138,12 +147,15 @@ class BaseValidateHandler:
             error: The validation error.
         """
         error_count = error.error_count()
-        plural = '' if error_count == 1 else 's'
-        self._logfire.warn(
-            '{error_count} validation error{plural}',
-            error_count=error_count,
-            plural=plural,
-            errors=error.errors(include_url=False),
+        self._logfire.log(
+            level='warn',
+            msg_template='Validation on {schema_name} failed',
+            attributes={
+                'schema_name': self.schema_name,
+                'error_count': error_count,
+                'errors': error.errors(include_url=False),
+            },
+            stack_offset=USER_STACK_OFFSET,
         )
         self._failed_validation_counter.add(1)
         self.span_stack.close()
@@ -154,8 +166,11 @@ class BaseValidateHandler:
         Args:
             exception: The exception raised during validation.
         """
-        self._logfire.error(
-            '{exception_type=}: {exception_msg=}', exception=type(exception).__name__, exception_msg=exception
+        self._logfire.log(
+            'error',
+            msg_template='{exception_type=}: {exception_msg=}',
+            attributes={'exception': type(exception).__name__, 'exception_msg': exception},
+            stack_offset=USER_STACK_OFFSET,
         )
         self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
 

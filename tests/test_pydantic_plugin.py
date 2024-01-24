@@ -8,7 +8,8 @@ import pytest
 from dirty_equals import IsInt
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic.plugin import SchemaTypePath
 from pydantic_core import core_schema
 
@@ -151,7 +152,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '1 validation error',
+            'name': 'Validation on MyModel failed',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -160,15 +161,15 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                 'logfire.span_type': 'log',
                 'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
-                'logfire.msg_template': '{error_count} validation error{plural}',
-                'logfire.msg': '1 validation error',
-                'code.filepath': 'pydantic_plugin.py',
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_python_record_failure',
                 'code.lineno': 123,
-                'code.function': 'on_error',
+                'schema_name': 'MyModel',
                 'error_count': 1,
-                'plural': '',
                 'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                'logfire.json_schema': '{"type":"object","properties":{"error_count":{},"plural":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
             },
         }
     ]
@@ -287,9 +288,9 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                 'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
-                'code.filepath': 'pydantic_plugin.py',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_python_success',
                 'code.lineno': 123,
-                'code.function': 'on_success',
                 'result': '{"x":1}',
                 'logfire.json_schema': '{"type":"object","properties":{"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
             },
@@ -302,8 +303,8 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
             'end_time': 3000000000,
             'attributes': {
                 'code.filepath': 'pydantic_plugin.py',
-                'code.lineno': 123,
                 'code.function': '_on_enter',
+                'code.lineno': 123,
                 'schema_name': 'MyModel',
                 'validation_method': 'validate_python',
                 'input_data': '{"x":1}',
@@ -353,7 +354,7 @@ def test_pydantic_plugin_python_error_record_failure(
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '1 validation error',
+            'name': 'Validation on MyModel failed',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -362,19 +363,19 @@ def test_pydantic_plugin_python_error_record_failure(
                 'logfire.span_type': 'log',
                 'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
-                'logfire.msg_template': '{error_count} validation error{plural}',
-                'logfire.msg': '1 validation error',
-                'code.filepath': 'pydantic_plugin.py',
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_python_error_record_failure',
                 'code.lineno': 123,
-                'code.function': 'on_error',
+                'schema_name': 'MyModel',
                 'error_count': 1,
-                'plural': '',
                 'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                'logfire.json_schema': '{"type":"object","properties":{"error_count":{},"plural":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
             },
         },
         {
-            'name': '1 validation error',
+            'name': 'Validation on MyModel failed',
             'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
             'parent': None,
             'start_time': 2000000000,
@@ -383,15 +384,15 @@ def test_pydantic_plugin_python_error_record_failure(
                 'logfire.span_type': 'log',
                 'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
-                'logfire.msg_template': '{error_count} validation error{plural}',
-                'logfire.msg': '1 validation error',
-                'code.filepath': 'pydantic_plugin.py',
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_python_error_record_failure',
                 'code.lineno': 123,
-                'code.function': 'on_error',
+                'schema_name': 'MyModel',
                 'error_count': 1,
-                'plural': '',
                 'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                'logfire.json_schema': '{"type":"object","properties":{"error_count":{},"plural":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
             },
         },
     ]
@@ -429,7 +430,7 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': '1 validation error',
+            'name': 'Validation on MyModel failed',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -438,15 +439,15 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
                 'logfire.span_type': 'log',
                 'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
-                'logfire.msg_template': '{error_count} validation error{plural}',
-                'logfire.msg': '1 validation error',
-                'code.filepath': 'pydantic_plugin.py',
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_python_error',
                 'code.lineno': 123,
-                'code.function': 'on_error',
+                'schema_name': 'MyModel',
                 'error_count': 1,
-                'plural': '',
                 'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                'logfire.json_schema': '{"type":"object","properties":{"error_count":{},"plural":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
             },
         },
         {
@@ -457,8 +458,8 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'code.filepath': 'pydantic_plugin.py',
-                'code.lineno': 123,
                 'code.function': '_on_enter',
+                'code.lineno': 123,
                 'schema_name': 'MyModel',
                 'validation_method': 'validate_python',
                 'input_data': '{"x":"a"}',
@@ -491,9 +492,9 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
                 'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
-                'code.filepath': 'pydantic_plugin.py',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_json_success',
                 'code.lineno': 123,
-                'code.function': 'on_success',
                 'result': '{"x":1}',
                 'logfire.json_schema': '{"type":"object","properties":{"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
             },
@@ -506,8 +507,8 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'code.filepath': 'pydantic_plugin.py',
-                'code.lineno': 123,
                 'code.function': '_on_enter',
+                'code.lineno': 123,
                 'schema_name': 'MyModel',
                 'validation_method': 'validate_json',
                 'input_data': '{"x":1}',
@@ -530,7 +531,7 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': '1 validation error',
+            'name': 'Validation on MyModel failed',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -539,15 +540,15 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
                 'logfire.span_type': 'log',
                 'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
-                'logfire.msg_template': '{error_count} validation error{plural}',
-                'logfire.msg': '1 validation error',
-                'code.filepath': 'pydantic_plugin.py',
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_json_error',
                 'code.lineno': 123,
-                'code.function': 'on_error',
+                'schema_name': 'MyModel',
                 'error_count': 1,
-                'plural': '',
                 'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                'logfire.json_schema': '{"type":"object","properties":{"error_count":{},"plural":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
             },
         },
         {
@@ -558,8 +559,8 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'code.filepath': 'pydantic_plugin.py',
-                'code.lineno': 123,
                 'code.function': '_on_enter',
+                'code.lineno': 123,
                 'schema_name': 'MyModel',
                 'validation_method': 'validate_python',
                 'input_data': '{"x":"a"}',
@@ -592,9 +593,9 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
                 'logfire.level_num': 5,
                 'logfire.msg_template': 'Validation successful {result=!r}',
                 'logfire.msg': 'Validation successful result=MyModel(x=1)',
-                'code.filepath': 'pydantic_plugin.py',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_strings_success',
                 'code.lineno': 123,
-                'code.function': 'on_success',
                 'result': '{"x":1}',
                 'logfire.json_schema': '{"type":"object","properties":{"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
             },
@@ -607,8 +608,8 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'code.filepath': 'pydantic_plugin.py',
-                'code.lineno': 123,
                 'code.function': '_on_enter',
+                'code.lineno': 123,
                 'schema_name': 'MyModel',
                 'validation_method': 'validate_strings',
                 'input_data': '{"x":"1"}',
@@ -629,6 +630,82 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
         MyModel.model_validate_strings({'x': 'a'})
 
     # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'Validation on MyModel failed',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyModel failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_strings_error',
+                'code.lineno': 123,
+                'schema_name': 'MyModel',
+                'error_count': 1,
+                'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+            },
+        },
+        {
+            'name': 'pydantic.validate_strings',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'pydantic_plugin.py',
+                'code.function': '_on_enter',
+                'code.lineno': 123,
+                'schema_name': 'MyModel',
+                'validation_method': 'validate_strings',
+                'input_data': '{"x":"a"}',
+                'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"}}}',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'Pydantic MyModel validate_strings',
+            },
+        },
+    ]
+
+
+def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
+    @pydantic_dataclass(config=ConfigDict(plugin_settings={'logfire': {'record': 'failure'}}))
+    class MyDataclass:
+        x: int
+
+    with pytest.raises(ValidationError):
+        MyDataclass(x='a')
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'Validation on MyDataclass failed',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'warn',
+                'logfire.level_num': 13,
+                'logfire.msg_template': 'Validation on {schema_name} failed',
+                'logfire.msg': 'Validation on MyDataclass failed',
+                'code.filepath': 'test_pydantic_plugin.py',
+                'code.function': 'test_pydantic_plugin_with_dataclass',
+                'code.lineno': 123,
+                'schema_name': 'MyDataclass',
+                'error_count': 1,
+                'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+                'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","x-python-datatype":"list","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+            },
+        }
+    ]
 
 
 def test_pydantic_plugin_sample_rate_config() -> None:
