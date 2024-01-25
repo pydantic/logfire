@@ -54,5 +54,13 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag
   * Tuple of strings. e.g. `('tag1', 'tag2')`
   * Comma separated string. e.g. `'tag1,tag2'`
 
+## Integration with other libraries
+
+### FastAPI
+
+### OpenAI
+
+
+
 [plugin_settings]: https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings
 [pydantic]: https://docs.pydantic.dev/latest/

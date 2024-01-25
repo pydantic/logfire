@@ -71,11 +71,7 @@ For example, to install with the extra dependencies for `fastapi` and `httpx`, y
 
 The available extras are:
 
-- `all`: Install all extras.
-- `dash`: The dashboard for Logfire.
-    - Uses [`httpx`][httpx] to make requests to the Logfire API.
-- `system-metrics`: To collect system metrics,
-    - Uses [`opentelemetry-system-metrics`][opentelemetry-system-metrics] to collect system metrics.
+{{ extras_table }}
 
 [httpx]: https://www.python-httpx.org/
 [pydantic]: https://pydantic-docs.helpmanual.io/

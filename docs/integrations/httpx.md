@@ -13,6 +13,7 @@ Install `logfire` with the `httpx` extra:
 Let's see a minimal example below. You can run it with `python main.py`:
 
 ```py title="main.py"
+import logfire
 import httpx
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
@@ -21,11 +22,12 @@ url = "https://httpbin.org/get"
 HTTPXClientInstrumentor().instrument()
 
 with httpx.Client() as client:
-     response = client.get(url)
+    client.get(url)
+
 
 async def main():
     async with httpx.AsyncClient() as client:
-        response = await client.get(url)
+        await client.get(url)
 
 
 if __name__ == "__main__":

@@ -19,14 +19,19 @@ pip install uvicorn
 You can run it with `python main.py`:
 
 ```py title="main.py"
+import logfire
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+logfire.configure()
+
 app = FastAPI()
+
 
 @app.get("/foobar")
 async def foobar():
     return {"message": "hello world"}
+
 
 FastAPIInstrumentor.instrument_app(app)
 

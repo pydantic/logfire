@@ -1106,6 +1106,28 @@ setuptools = ">=16.0"
 wrapt = ">=1.0.0,<2.0.0"
 
 [[package]]
+name = "opentelemetry-instrumentation-aiohttp-client"
+version = "0.43b0"
+description = "OpenTelemetry aiohttp client instrumentation"
+optional = true
+python-versions = ">=3.7"
+files = [
+    {file = "opentelemetry_instrumentation_aiohttp_client-0.43b0-py3-none-any.whl", hash = "sha256:305de7a2e1e5f4c6882a3048d0f6551033a53818465ba270ddb35502a1348874"},
+    {file = "opentelemetry_instrumentation_aiohttp_client-0.43b0.tar.gz", hash = "sha256:d0edd1eeeabc38ec559f6ad5c94c1657e30b4021a07aead1bd4c801f0fd35e61"},
+]
+
+[package.dependencies]
+opentelemetry-api = ">=1.12,<2.0"
+opentelemetry-instrumentation = "0.43b0"
+opentelemetry-semantic-conventions = "0.43b0"
+opentelemetry-util-http = "0.43b0"
+wrapt = ">=1.0.0,<2.0.0"
+
+[package.extras]
+instruments = ["aiohttp (>=3.0,<4.0)"]
+test = ["http-server-mock", "opentelemetry-instrumentation-aiohttp-client[instruments]"]
+
+[[package]]
 name = "opentelemetry-instrumentation-asgi"
 version = "0.43b0"
 description = "ASGI instrumentation for OpenTelemetry"
@@ -2373,9 +2395,8 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy (>=0.9.1)", "pytest-ruff"]
 
 [extras]
-all = ["httpx", "opentelemetry-instrumentation-system-metrics"]
+aiohttp = ["opentelemetry-instrumentation-aiohttp-client"]
 celery = ["celery", "opentelemetry-instrumentation-celery"]
-dash = ["httpx"]
 django = ["django", "opentelemetry-instrumentation-django"]
 fastapi = ["fastapi", "opentelemetry-instrumentation-fastapi"]
 flask = ["Flask", "opentelemetry-instrumentation-flask"]
@@ -2387,9 +2408,9 @@ requests = ["opentelemetry-instrumentation-requests", "requests"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy", "sqlalchemy"]
 starlette = ["opentelemetry-instrumentation-starlette", "starlette"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
-test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "requests", "sqlalchemy", "starlette"]
+test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "requests", "sqlalchemy", "starlette"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "54b47a7e6b896e90a3a3da9af2c345aa560a565b1bb39d76864671000a2f59b0"
+content-hash = "f29e007099dd5f4cb05fd0ce2cef8d7ec92d1038f462ae8d4d633b83d954a114"

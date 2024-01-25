@@ -47,10 +47,7 @@ nav:
       - Installation: install.md
       - Configuration: configuration.md
       - Auto Tracing: auto_tracing.md
-      - Advanced:
-          - Backfill: advanced/backfill.md
-          - Sampling: advanced/sampling.md
-      - Testing: testing.md
+      - Metrics: metrics.md
   - Integrations:
       - Integrations: integrations/index.md
       - Pydantic: integrations/pydantic.md
@@ -69,17 +66,20 @@ nav:
       - Logging: integrations/logging.md
       - ASGI: integrations/asgi.md
       - WSGI: integrations/wsgi.md
-  - Examples:
-      - Image Transformation: examples/image_transformation.md
-      - FastAPI Application: examples/fastapi.md
-      - Web Scraper: examples/web_scraper.md
-      - Machine Learning: examples/machine_learning.md
-  - API Documentation:
+  - Advanced:
+      - Backfill: advanced/backfill.md
+      - Sampling: advanced/sampling.md
+      - Testing: advanced/testing.md
+  - Cookbook:
+      - Cookbook: cookbook/index.md
+      - Image Transformation: cookbook/image_transformation.md
+      - FastAPI Application: cookbook/fastapi.md
+      - Web Scraper: cookbook/web_scraper.md
+  - SDK API Docs:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
       - Backfill: api/backfill.md
       - Propagate: api/propagate.md
-      - Dash: api/dash.md
       - Exceptions: api/exceptions.md
 
 markdown_extensions:
@@ -88,6 +88,8 @@ markdown_extensions:
       permalink: true
       title: Page contents
   - admonition
+  - attr_list
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.snippets

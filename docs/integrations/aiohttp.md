@@ -26,10 +26,11 @@ from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrument
 logfire.configure()
 AioHttpClientInstrumentor().instrument()
 
+
 async def main():
     async with aiohttp.ClientSession() as session:
-        async with session.get("https://httpbin.org/get") as response:
-            await response.text()
+        await session.get("https://httpbin.org/get")
+
 
 if __name__ == "__main__":
     import asyncio

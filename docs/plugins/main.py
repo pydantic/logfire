@@ -4,6 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
+import tomllib
 from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
@@ -18,6 +19,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
+    markdown = install_extras_table(markdown, page)
     return markdown
 
 
@@ -86,3 +88,37 @@ def install_logfire(markdown: str, page: Page) -> str:
     ```
 """
     return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)
+
+
+def install_extras_table(markdown: str, page: Page) -> str:
+    """Build the table with extra installs available for logfire.
+
+    When the markdown page has a `{{ extras_table }}` placeholder, it replaces it with a table
+    listing all the extras available for logfire.
+
+    It inspects the `pyproject.toml` file to get those extras.
+
+    The table contains the following columns:
+    - Name: The name of the extra.
+    - Dependencies: The dependencies to install the extra.
+    """
+    if page.file.src_uri != 'install.md':
+        return markdown
+
+    with open('src/packages/logfire/pyproject.toml', mode='rb') as file:
+        pyproject = tomllib.load(file)
+    extras = pyproject['tool']['poetry']['extras']
+    table: list[str] = []
+    table.append('| Name | Dependencies |')
+    table.append('| ---- | ------------ |')
+    for name, deps in extras.items():
+        if name == 'test':
+            continue
+        # Add hyperlinks to the dependencies, and </br> to wrap the lines.
+        deps = '</br>'.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
+        table.append(f'| {name} | {deps} |')
+        # deps = ', '.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
+        # table.append(f'| {name} | {deps} |')
+
+    table_markdown = '\n'.join(table)
+    return re.sub(r'{{ *extras_table *}}', table_markdown, markdown)

@@ -1,13 +1,38 @@
 The **Pydantic Logfire** is an observability platform focused on **developer experience**.
 
-Starting with Python, we're building a platform to let developers understand their software in a radically simpler and more enjoyable way.
+Starting with Python, we're building a platform to let developers understand their software in a
+radically simpler and more enjoyable way.
 
 ## Why use Pydantic Logfire?
 
-- Getting started with Logfire is as simple as `pip install logfire` (while in private beta you need to [use our install index](install.md)), `import logfire; logfire.info(...)`; Logfire's SDK is easier and faster to use than alternatives from the first line of code to production
-- Logfire's dashboard is (and will remain) brutally simple, meaning your whole engineering team will use it (not just one guy in the corner called Keith who's currently on holiday)
-- Simplicity doesn't come at the expense of power - you can write SQL and Python to query and visualise your data from within the platform and with the SDK
-- Logfire is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can use a wealth of existing tooling and infrastructure, including [instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html)
+### Easy to get started! :rocket:
+
+It's as simple as `pip install logfire`, and...
+
+```py
+import logfire
+
+logfire.info('Hello world!')
+```
+
+!!! note
+    While in private beta you need to [use our install index](install.md).
+
+### OpenTelemetry under the hood :telescope:
+
+Logfire is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can
+use a wealth of existing tooling and infrastructure, including
+[instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html).
+
+### Simple, but powerful :muscle:
+
+Logfire is built with simplicity in mind, but it doesn't come at the expense of power - you can
+write SQL and Python to query and visualise your data from within the platform and with the SDK.
+
+### The Dashboard is for everyone :busts_in_silhouette:
+
+Logfire's dashboard is (and will remain) brutally simple, meaning your whole engineering team will
+use it (not just one guy in the corner called Keith who's currently on holiday).
 
 ![Screenshot](screenshot.png)
 
