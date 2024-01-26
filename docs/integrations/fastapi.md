@@ -1,6 +1,8 @@
 # [FastAPI][fastapi]
 
-The [OpenTelemetry Instrumentation FastAPI][opentelemetry-fastapi] package can be used to instrument FastAPI.
+Logfire provides custom instrumentation for [FastAPI][fastapi]. It also works with the
+third-party [OpenTelemetry FastAPI Instrumentation][opentelemetry-fastapi] package. The two can be used together or
+separately.
 
 ## Installation
 
@@ -21,19 +23,17 @@ You can run it with `python main.py`:
 ```py title="main.py"
 import logfire
 from fastapi import FastAPI
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-logfire.configure()
 
 app = FastAPI()
 
-
-@app.get("/foobar")
-async def foobar():
-    return {"message": "hello world"}
+logfire.configure()
+logfire.instrument_fastapi(app)
 
 
-FastAPIInstrumentor.instrument_app(app)
+@app.get("/hello")
+async def hello(name: str):
+    return {"message": f"hello {name}"}
+
 
 if __name__ == "__main__":
     import uvicorn
@@ -41,11 +41,73 @@ if __name__ == "__main__":
     uvicorn.run(app)
 ```
 
+Then visit http://localhost:8000/hello?name=world and check the logs.
+
+## OpenTelemetry FastAPI Instrumentation
+
+The third-party [OpenTelemetry FastAPI Instrumentation][opentelemetry-fastapi] package adds spans to every request with
+detailed attributes about the HTTP request such as the full URL and the user agent. The start and end times let you see
+how long it takes to process each request.
+
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] applies this instrumentation by default.
+You can disable it by passing `use_opentelemetry_instrumentation=False`.
+
+To customize this aspect of the instrumentation, use the package directly, e.g:
+
+```py
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+import logfire
+
+# Or just remove this line completely if you don't want logfire's instrumentation at all
+logfire.instrument_fastapi(app, use_opentelemetry_instrumentation=False)
+
+# Whether or not you call the above, this is still needed to connect logfire with other instrumentation.
+logfire.configure()
+
+FastAPIInstrumentor.instrument_app(app, **custom_kwargs)
+```
+
 !!! question "What about the OpenTelemetry ASGI middleware?"
-    If you are a more experienced user, you might be wondering why we are not using
-    the [OpenTelemetry ASGI middleware][opentelemetry-asgi]. The reason is that the
+If you are a more experienced user, you might be wondering about
+the [OpenTelemetry ASGI middleware][opentelemetry-asgi]. The
     `FastAPIInstrumentor` actually wraps the ASGI middleware and adds some additional
     information related to the routes.
+Using the ASGI middleware directly as above will also work.
+
+## Logfire instrumentation: logging endpoint arguments and validation errors
+
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] will emit a log message for each request.
+By default this will contain the following attributes:
+
+- `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
+- `errors`: A list of validation errors for any invalid inputs.
+
+You can customize this by passing an `attributes_mapper` function to `instrument_fastapi`. This function will be called
+with the `Request` or `WebSocket` object and the default attributes dictionary. It should return a new dictionary of
+attributes, or `None` to skip logging this request. For example:
+
+```py
+import logfire
+
+app = ...
+
+
+def attributes_mapper(request, attributes):
+    if attributes["errors"]:
+        # Only log validation errors, not valid arguments
+        return {
+            "errors": attributes["errors"],
+            "my_custom_attribute": ...,
+        }
+    else:
+        # Don't log anything for valid requests
+        return None
+
+
+logfire.instrument_fastapi(app, attributes_mapper=attributes_mapper)
+```
+
+NOTE: The `attributes_mapper` function mustn't modify the contents of `values` or `errors`.
 
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html

@@ -22,6 +22,7 @@ error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
+instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 
 
 __version__ = VERSION

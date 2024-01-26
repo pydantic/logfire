@@ -59,6 +59,11 @@ from ._tracer import ProxyTracerProvider
 
 _CWD = Path('.').resolve()
 
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+    from starlette.requests import Request
+    from starlette.websockets import WebSocket
+
 
 class Logfire:
     """The main logfire class."""
@@ -494,6 +499,54 @@ class Logfire:
             i.e. it's not necessary to use this as a context manager.
         """
         return _async.log_slow_callbacks(self, slow_duration)
+
+    def instrument_fastapi(
+        self,
+        app: FastAPI,
+        *,
+        attributes_mapper: Callable[
+            [
+                Request | WebSocket,
+                dict[str, Any],
+            ],
+            dict[str, Any] | None,
+        ]
+        | None = None,
+        use_opentelemetry_instrumentation: bool = True,
+    ) -> ContextManager[None]:
+        """Instrument a FastAPI app so that spans and logs are automatically created for each request.
+
+        Args:
+            app: The FastAPI app to instrument.
+            attributes_mapper: A function that takes a `Request` or `WebSocket` and a dictionary of attributes
+                and returns a new dictionary of attributes. The input dictionary will contain:
+                - `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
+                - `errors`: A list of validation errors for any invalid inputs.
+                The returned dictionary will be used as the attributes for a log message.
+                If `None` is returned, no log message will be created.
+                You can use this to e.g. only log validation errors, or nothing at all.
+                You can also add custom attributes.
+                The default implementation will return the input dictionary unchanged.
+                The function mustn't modify the contents of `values` or `errors`.
+            use_opentelemetry_instrumentation: If True (the default) then
+                `opentelemetry.instrumentation.fastapi.FastAPIInstrumentor` will also instrument the app.
+                See https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+            This context manager doesn't take into account threads or other concurrency.
+            Calling this method will immediately apply the instrumentation
+            without waiting for the context manager to be opened,
+            i.e. it's not necessary to use this as a context manager.
+        """
+        from .integrations._fastapi import instrument_fastapi
+
+        return instrument_fastapi(
+            self,
+            app,
+            attributes_mapper=attributes_mapper,
+            use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
+        )
 
 
 class FastLogfireSpan:
