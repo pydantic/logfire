@@ -13,7 +13,7 @@ pip install opentelemetry-instrumentation-wsgi
 
 ## Usage
 
-Below we have a minimal example using the standard library `wsgiref`. You can run it with `python main.py`:
+Below we have a minimal example using the standard library [`wsgiref`][wsgiref]. You can run it with `python main.py`:
 
 ```py title="main.py"
 from wsgiref.simple_server import make_server
@@ -39,3 +39,4 @@ You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-w
 [wsgi]: https://wsgi.readthedocs.io/en/latest/
 [opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 [pypi-otel-wsgi]: https://pypi.org/project/opentelemetry-instrumentation-wsgi/
+[wsgiref]: https://docs.python.org/3/library/wsgiref.html

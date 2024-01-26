@@ -10,6 +10,8 @@ Install `logfire` with the `psycopg2` extra:
 
 ## Usage
 
+<!-- TODO: Make sure this works. -->
+
 Let's see a minimal example below. You can run it with `python main.py`:
 
 ```py title="main.py"
@@ -21,7 +23,12 @@ from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 logfire.configure()
 Psycopg2Instrumentor().instrument()
 
-cnx = psycopg2.connect(database='Database')
+cnx = psycopg2.connect(database='database')
+
+cursor = cnx.cursor()
+cursor.execute("SELECT * FROM Table")
+
+cnx.close()
 ```
 
 You can read more about the Psycopg2 OpenTelemetry package [here][opentelemetry-psycopg2].

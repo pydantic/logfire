@@ -73,7 +73,7 @@ import logfire
 logfire.install_auto_tracing(modules=['app'])
 ```
 
-You can read more about this on the [Auto Tracing](auto_tracing.md) section.
+You can read more about this on the [Auto Tracing](usage/auto_tracing.md) section.
 
 ### CLI
 

@@ -1,4 +1,4 @@
-Pydantic Logfire already sends metrics to the configured metrics backend.
+**Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
 ## System Metrics
 

@@ -42,12 +42,17 @@ validation:
   unrecognized_links: warn
 
 nav:
-  - Logfire:
+  - Get Started:
       - Home: index.md
       - Installation: install.md
       - Configuration: configuration.md
-      - Auto Tracing: auto_tracing.md
-      - Metrics: metrics.md
+      - Help with Logfire: help.md
+  - Usage:
+      - Metrics: usage/metrics.md
+      - Testing: usage/testing.md
+      - Auto Tracing: usage/auto_tracing.md
+      - Backfill: usage/backfill.md
+      - Sampling: usage/sampling.md
   - Integrations:
       - Integrations: integrations/index.md
       - Pydantic: integrations/pydantic.md
@@ -66,10 +71,6 @@ nav:
       - Logging: integrations/logging.md
       - ASGI: integrations/asgi.md
       - WSGI: integrations/wsgi.md
-  - Advanced:
-      - Backfill: advanced/backfill.md
-      - Sampling: advanced/sampling.md
-      - Testing: advanced/testing.md
   - Cookbook:
       - Cookbook: cookbook/index.md
       - Image Transformation: cookbook/image_transformation.md

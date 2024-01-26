@@ -1,5 +1,8 @@
 # Cookbook
 
+!!! warning
+    This is a work in progress.
+
 The following recipes are available:
 
 - Set up logfire on an existent project

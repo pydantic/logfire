@@ -53,7 +53,7 @@ The `record` config accepts following values:
   * `metrics`: Send only metrics.
 
 
-[Sampling](../advanced/sampling.md) can be configured by `trace_sample_rate` key in [`plugin_settings`][plugin_settings].
+[Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in [`plugin_settings`][plugin_settings].
 
 ```py
 from pydantic import BaseModel
