@@ -85,10 +85,11 @@ class BaseValidateHandler:
         self._record = record
 
         # As the counter name should be less than 63 chars, we only get the last 40 chars of model name
-        successful_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-successful-validation'
-        self._successful_validation_counter = _create_counter(name=successful_validation_counter_name)
-        failed_validation_counter_name = f'{schema_type_path.name.split(".")[-1][-40:]}-failed-validation'
-        self._failed_validation_counter = _create_counter(name=failed_validation_counter_name)
+        # There are characters not allowed, we need to replace them, see:
+        # https://github.com/open-telemetry/opentelemetry-python/blob/18c0cb4c0de9af5ab9783d6c7770e57b448c3bf2/opentelemetry-api/src/opentelemetry/metrics/_internal/instrument.py#L41
+        model_name = re.sub(r'[^-_./a-zA-Z0-9]', '_', schema_type_path.name.split('.')[-1][-40:])
+        self._successful_validation_counter = _create_counter(name=f'{model_name}-successful-validation')
+        self._failed_validation_counter = _create_counter(name=f'{model_name}-failed-validation')
 
         self._logfire = logfire
         trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
