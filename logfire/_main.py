@@ -100,6 +100,7 @@ class Logfire:
 
         ```py
         import logfire
+
         with logfire.with_sample_rate(0.5):
             logfire.info('new log 1')
         ```
@@ -252,6 +253,7 @@ class Logfire:
 
         ```py
         import logfire
+
 
         @logfire.instrument('This is a span {a=}')
         def my_function(a: int):

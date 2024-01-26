@@ -1,22 +1,47 @@
 # [Pydantic][pydantic]
 
-Pydantic allows users to create [plugins](https://docs.pydantic.dev/latest/concepts/plugins/) that
-can be used to extend the functionality of the library.
+<!-- TODO(Marcelo): Replace comments when mkdocstrings supports function parameter links. -->
 
-Logfire has a Pydantic plugin to instrument Pydantic models. The plugin provides logs and metrics
+Logfire has a [Pydantic plugin][pydantic-plugin] to instrument Pydantic models. The plugin provides logs and metrics
 about model validation. The plugin is **disabled** by default. You can enable it using the
-[`pydantic_plugin_record`](../configuration.md) configuration.
-
-You can blacklist modules and modules by using [`pydantic_plugin_exclude`](../configuration.md), and whitelist
-using [`pydantic_plugin_include`](../configuration.md).
-
-You can also change Logfire Pydantic plugin configuration by using [`plugin_settings`][plugin_settings] config.
+[`pydantic_plugin`][logfire.configure] configuration.
+<!-- [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
 
 ```py
+from logfire import PydanticPluginOptions, configure
+
+configure(pydantic_plugin=PydanticPluginOptions(record='all'))
+```
+
+By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
+using the [`pydantic_plugin`][logfire.configure] configuration.
+<!-- using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
+
+```py
+from logfire import PydanticPluginOptions, configure
+
+configure(pydantic_plugin=PydanticPluginOptions(record='all', include=('openai')))
+```
+
+You can also disable instrumentation for your own modules using the
+[`pydantic_plugin`][logfire.configure] configuration.
+<!-- [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
+
+```py
+from logfire import PydanticPluginOptions, configure
+
+configure(pydantic_plugin=PydanticPluginOptions(record='all', exclude=('app.api.v1')))
+```
+
+If you want more granular control over the plugin, you can use the the [`plugin_settings`][plugin_settings] class
+parameter in your Pydantic models.
+
+```py
+from logfire.integrations.pydantic_plugin import PluginSettings
 from pydantic import BaseModel
 
 
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'failure'}}):
+class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})):
     ...
 ```
 
@@ -56,11 +81,9 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag
 
 ## Integration with other libraries
 
-### FastAPI
-
 ### OpenAI
-
 
 
 [plugin_settings]: https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.plugin_settings
 [pydantic]: https://docs.pydantic.dev/latest/
+[pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/

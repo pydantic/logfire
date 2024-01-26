@@ -9,7 +9,7 @@ from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
 
-from logfire import _config_params as config_params
+from logfire import _config_params as config_params, _metrics as metrics
 
 
 def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) -> str:
@@ -20,6 +20,33 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
     markdown = install_extras_table(markdown, page)
+    if page.file.src_uri == 'metrics.md':
+        check_documented_system_metrics(markdown, page)
+    return markdown
+
+
+def check_documented_system_metrics(markdown: str, page: Page) -> str:
+    """Check that all system metrics are documented.
+
+    The system metrics are the ones defined in `logfire._metrics.DEFAULT_CONFIG`.
+
+    The documentation is in `metrics.md`. The metrics are documented in bullet points, like this:
+    * `system.cpu.time`: The CPU time spent in different modes.
+    * `system.cpu.utilization`: The CPU utilization in different modes.
+
+    This function checks that all the metrics in `DEFAULT_CONFIG` are documented.
+    """
+    metrics_documented: set[str] = set()
+    for line in markdown.splitlines():
+        match = re.search(r'\* `(.*)`: ', line)
+        if match:
+            metrics_documented.add(match.group(1))
+
+    # Check that all the metrics are documented.
+    for metric in metrics.DEFAULT_CONFIG:
+        if metric not in metrics_documented:
+            raise RuntimeError(f'Metric {metric} is not documented on the metrics page.')
+
     return markdown
 
 
