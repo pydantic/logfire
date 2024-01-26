@@ -273,7 +273,9 @@ class LogfireTestExporter:
     """
 
     exporter: TestExporter
+    """The `TestExporter` instance."""
     metrics_reader: InMemoryMetricReader
+    """The `InMemoryMetricReader` instance."""
 
 
 @pytest.fixture

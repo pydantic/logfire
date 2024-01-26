@@ -22,7 +22,18 @@ from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 
 logfire.configure()
 
-app = ...
+
+async def app(scope, receive, send):
+    assert scope["type"] == "http"
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"content-type", b"text/plain"), ("content-length", b"13")],
+        }
+    )
+    await send({"type": "http.response.body", "body": b"Hello, world!"})
+
 app = OpenTelemetryMiddleware(app)
 
 if __name__ == "__main__":

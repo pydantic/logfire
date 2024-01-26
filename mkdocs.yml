@@ -42,7 +42,7 @@ validation:
   unrecognized_links: warn
 
 nav:
-  - Get Started:
+  - Logfire:
       - Home: index.md
       - Installation: install.md
       - Configuration: configuration.md

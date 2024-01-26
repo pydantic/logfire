@@ -10,7 +10,7 @@ Install `logfire` with the `requests` extra:
 
 ## Usage
 
-```py
+```py title="main.py"
 import logfire
 import requests
 from opentelemetry.instrumentation.requests import RequestsInstrumentor

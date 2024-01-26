@@ -2,7 +2,7 @@
 
 Logfire can act as a sink for standard library logging by emitting a Logfire log for every standard library log record.
 
-```py
+```py title="main.py"
 from logging import basicConfig, getLogger
 
 from logfire.integrations.logging import LogfireLoggingHandler

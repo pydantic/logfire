@@ -1,7 +1,10 @@
 # Integrations
 
-Since **Pydantic Logfire** is [OpenTelemetry][opentelemetry] compliant, it can be used with any OpenTelemetry
-instrumentation package. Below you can find some examples of how to use it with some of the most popular packages.
+Since **Pydantic Logfire** is [OpenTelemetry][opentelemetry] compatible, it can be used with any OpenTelemetry
+instrumentation package. You can find the list of all OpenTelemetry instrumentation packages
+[here](https://opentelemetry-python-contrib.readthedocs.io/en/latest/).
+
+Below you can see the list of documented integrations.
 
 If a package you are using is not listed here, please let us know on our [Slack][slack]!
 
@@ -12,7 +15,7 @@ If a package you are using is not listed here, please let us know on our [Slack]
 | [FastAPI](fastapi.md)         |              |
 | [Starlette](starlette.md)     |              |
 | [Django](django.md)           |              |
-| [Flask](flask.md)             |
+| [Flask](flask.md)             |              |
 
 ## HTTP Clients
 

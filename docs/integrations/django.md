@@ -10,7 +10,7 @@ Install `logfire` with the `django` extra:
 
 ## Usage
 
-You need to add the `DjangoInstrumentor` to your code before your application is started.
+You need to add the [`DjangoInstrumentor`][django-instrumentor] to your code before your application is started.
 
 In the `manage.py` please add the following lines:
 
@@ -50,3 +50,4 @@ You can read more about the Django OpenTelemetry package [here][opentelemetry-dj
 
 [django]: https://www.djangoproject.com/
 [opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
+[django-instrumentor]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html#opentelemetry.instrumentation.django.DjangoInstrumentor
