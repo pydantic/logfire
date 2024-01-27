@@ -1,6 +1,6 @@
 """Logfire is the observability tool focused on developer experience."""
 
-from ._auto_trace import AutoTraceModule, install_auto_tracing
+from ._auto_trace import AutoTraceModule
 from ._auto_trace.rewrite_ast import no_auto_trace
 from ._config import ConsoleOptions, PydanticPluginOptions, configure
 from ._main import LevelName, Logfire, LogfireSpan
@@ -22,6 +22,7 @@ error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
+install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 
 

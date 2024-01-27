@@ -3,10 +3,12 @@ from __future__ import annotations
 import ast
 import uuid
 from dataclasses import dataclass
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import logfire
-from logfire._main import Logfire
+
+if TYPE_CHECKING:
+    from logfire._main import Logfire
 
 
 def exec_source(source: str, filename: str, module_name: str, globs: dict[str, Any], logfire: Logfire) -> None:

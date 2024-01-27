@@ -6,12 +6,13 @@ from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import Callable, Iterator, Sequence
-
-from logfire._main import Logfire
+from typing import TYPE_CHECKING, Callable, Iterator, Sequence
 
 from .rewrite_ast import exec_source
 from .types import AutoTraceModule
+
+if TYPE_CHECKING:
+    from logfire._main import Logfire
 
 
 @dataclass

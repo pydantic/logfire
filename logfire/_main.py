@@ -28,7 +28,8 @@ from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
 from logfire.version import VERSION
 
-from . import _async
+from . import AutoTraceModule, _async
+from ._auto_trace import install_auto_tracing
 from ._stack_info import StackInfo, get_caller_stack_info, get_filepath_attribute
 
 try:
@@ -499,6 +500,28 @@ class Logfire:
             i.e. it's not necessary to use this as a context manager.
         """
         return _async.log_slow_callbacks(self, slow_duration)
+
+    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None) -> None:
+        """Install automatic tracing.
+
+        This will trace all function calls in the modules specified by the modules argument.
+        It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
+
+        NOTE: This function MUST be called before any of the modules are imported.
+
+        This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
+        may prevent it from working.
+        It relies on being able to retrieve the source code via at least one other existing finder in the meta path,
+        so it may not work if standard finders are not present or if the source code is not available.
+        A modified version of the source code is then compiled and executed in place of the original module.
+
+        Args:
+            modules: List of module names to trace, or a function which returns True for modules that should be traced.
+                     If a list is provided, any submodules within a given module will also be traced.
+                     Defaults to the root of the calling module, so e.g. calling this inside the module `foo.bar`
+                     will trace all functions in `foo`, `foo.bar`, `foo.spam`, etc.
+        """
+        install_auto_tracing(self, modules)
 
     def instrument_fastapi(
         self,
