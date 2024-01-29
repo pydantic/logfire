@@ -14,7 +14,7 @@ class AutoTraceModule:
     """
 
     name: str
-    """Fully qualifed absolute name of the module being imported."""
+    """Fully qualified absolute name of the module being imported."""
 
     filename: str | None
     """Filename of the module being imported."""

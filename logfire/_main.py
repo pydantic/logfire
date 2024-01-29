@@ -110,6 +110,7 @@ class Logfire:
         with logfire.with_sample_rate(0.5):
             logfire.info('new log 1')
         ```
+
         Args:
             sample_rate: The sampling ratio to use.
 
@@ -239,7 +240,7 @@ class Logfire:
 
         Args:
             msg_template: The template for the span message.
-            span_name: The span name. If not provided, the msg_template will be used.
+            span_name: The span name. If not provided, the `msg_template` will be used.
             attributes: The arguments to format the span message template with.
         """
         return self._span(
