@@ -1,6 +1,6 @@
 # Auto-tracing
 
-The [`logfire.install_auto_tracing`][logfire.install_auto_tracing]
+The [`logfire.install_auto_tracing`][logfire.Logfire.install_auto_tracing]
 will trace all function calls in the specified modules.
 
 This works by changing how those modules are imported,

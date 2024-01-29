@@ -47,7 +47,7 @@ nav:
       - Installation: install.md
       - Configuration: configuration.md
       - Help with Logfire: help.md
-  - Usage:
+  - Concepts:
       - Metrics: usage/metrics.md
       - Testing: usage/testing.md
       - Auto Tracing: usage/auto_tracing.md
@@ -74,7 +74,6 @@ nav:
   - Cookbook:
       - Cookbook: cookbook/index.md
       - Image Transformation: cookbook/image_transformation.md
-      - FastAPI Application: cookbook/fastapi.md
       - Web Scraper: cookbook/web_scraper.md
   - SDK API Docs:
       - Logfire: api/logfire.md
