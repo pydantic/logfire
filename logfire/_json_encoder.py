@@ -3,17 +3,16 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import json
-from collections import deque
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
-from functools import cached_property
+from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -54,231 +53,233 @@ except ModuleNotFoundError:  # pragma: no cover
     sqlalchemy = None
     sa_inspect = None
 
-
-__all__ = 'LogfireEncoder', 'logfire_json_dumps', 'json_dumps_traceback'
+__all__ = 'logfire_json_dumps', 'json_dumps_traceback'
 
 NUMPY_DIMENSION_MAX_SIZE = 10
 """The maximum size of a dimension of a numpy array."""
 
-
-class EncoderFunction(Protocol):
-    def __call__(self, obj: Any, /) -> Any:
-        ...
+JsonValue = Union[int, float, str, bool, None, List['JsonValue'], 'JsonDict']
+JsonDict = Dict[str, JsonValue]
 
 
-class LogfireEncoder(json.JSONEncoder):
-    @staticmethod
-    def _bytes_encoder(o: Any) -> str:
-        """Encode bytes using repr() to get a string representation of the bytes object.
+def _bytes_encoder(o: bytes) -> str:
+    """Encode bytes using repr() to get a string representation of the bytes object.
 
-        We remove the leading 'b' and the quotes around the string representation.
+    We remove the leading 'b' and the quotes around the string representation.
 
-        Examples:
-            >>> print(b'hello')
-            b'hello'
-            >>> print(LogfireEncoder._bytes_encoder(b'hello'))
-            hello
-        """
-        return repr(o)[2:-1]
+    Examples:
+        >>> print(b'hello')
+        b'hello'
+        >>> print(_bytes_encoder(b'hello'))
+        hello
+    """
+    return repr(o)[2:-1]
 
-    @staticmethod
-    def _bytearray_encoder(o: Any) -> str:
-        return LogfireEncoder._bytes_encoder(bytes(o))
 
-    @staticmethod
-    def _set_encoder(o: Any) -> list[Any]:
-        try:
-            return sorted(o)
-        except TypeError:
-            return list(o)
+def _bytearray_encoder(o: bytearray) -> str:
+    return _bytes_encoder(bytes(o))
 
-    @staticmethod
-    def _to_isoformat(o: Any) -> str:
-        return o.isoformat()
 
-    @staticmethod
-    def _pandas_data_frame_encoder(o: Any) -> list[Any]:
-        """Encode pandas data frame by extracting important information.
+def _set_encoder(o: set[Any]) -> JsonValue:
+    try:
+        return to_json_value(sorted(o))
+    except TypeError:
+        return to_json_value(list(o))
 
-        It summarizes rows and columns if they are more than limit.
-        e.g. The data part of a data frame like:
-        [
-            [1, 2, 3, 4, 5],
-            [2, 3, 6, 8, 10],
-            [3, 6, 9, 12, 15],
-            [4, 8, 12, 16, 20],
-            [5, 10, 15, 20, 25],
-        ]
-        will be summarized to:
-        [
-            [1, 2, 4, 5],
-            [2, 3, 8, 10],
-            [4, 8, 16, 20],
-            [5, 10, 20, 25],
-        ]
-        """
-        import pandas
 
-        max_rows = pandas.get_option('display.max_rows')
-        max_columns = pandas.get_option('display.max_columns')
+def _to_isoformat(o: Any) -> str:
+    return o.isoformat()
 
-        col_middle = max_columns // 2
-        column_count = len(o.columns)
 
-        rows: list[Any] = []
-        row_count = len(o)
+def _pandas_data_frame_encoder(o: Any) -> JsonValue:
+    """Encode pandas data frame by extracting important information.
 
-        if row_count > max_rows:
-            row_middle = max_rows // 2
-            df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
+    It summarizes rows and columns if they are more than limit.
+    e.g. The data part of a data frame like:
+    [
+        [1, 2, 3, 4, 5],
+        [2, 3, 6, 8, 10],
+        [3, 6, 9, 12, 15],
+        [4, 8, 12, 16, 20],
+        [5, 10, 15, 20, 25],
+    ]
+    will be summarized to:
+    [
+        [1, 2, 4, 5],
+        [2, 3, 8, 10],
+        [4, 8, 16, 20],
+        [5, 10, 20, 25],
+    ]
+    """
+    import pandas
+
+    max_rows = pandas.get_option('display.max_rows')
+    max_columns = pandas.get_option('display.max_columns')
+
+    col_middle = max_columns // 2
+    column_count = len(o.columns)
+
+    rows: list[Any] = []
+    row_count = len(o)
+
+    if row_count > max_rows:
+        row_middle = max_rows // 2
+        df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
+    else:
+        df_rows = o.iterrows()
+
+    for _, row in df_rows:
+        if column_count > max_columns:
+            rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
         else:
-            df_rows = o.iterrows()
+            rows.append(list(row))
 
-        for _, row in df_rows:
-            if column_count > max_columns:
-                rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
-            else:
-                rows.append(list(row))
+    return to_json_value(rows)
 
-        return rows
 
-    @staticmethod
-    def _numpy_array_encoder(o: Any) -> dict[str, Any]:
-        """Encode numpy array by extracting important information.
+def _numpy_array_encoder(o: Any) -> JsonValue:
+    """Encode numpy array by extracting important information.
 
-        It summarizes rows and columns if they are more than limit.
-        e.g. The data part of a data frame like:
-        [
-            [1, 2, 3, 4, 5],
-            [2, 3, 6, 8, 10],
-            [3, 6, 9, 12, 15],
-            [4, 8, 12, 16, 20],
-            [5, 10, 15, 20, 25],
-        ]
-        will be summarized to:
-        [
-            [1, 2, 4, 5],
-            [2, 3, 8, 10],
-            [4, 8, 16, 20],
-            [5, 10, 20, 25],
-        ]
-        """
-        # If we reach here, numpy is installed.
-        assert numpy and isinstance(o, numpy.ndarray)
-        shape = o.shape
-        dimensions = o.ndim
+    It summarizes rows and columns if they are more than limit.
+    e.g. The data part of a data frame like:
+    [
+        [1, 2, 3, 4, 5],
+        [2, 3, 6, 8, 10],
+        [3, 6, 9, 12, 15],
+        [4, 8, 12, 16, 20],
+        [5, 10, 15, 20, 25],
+    ]
+    will be summarized to:
+    [
+        [1, 2, 4, 5],
+        [2, 3, 8, 10],
+        [4, 8, 16, 20],
+        [5, 10, 20, 25],
+    ]
+    """
+    # If we reach here, numpy is installed.
+    assert numpy and isinstance(o, numpy.ndarray)
+    shape = o.shape
+    dimensions = o.ndim
 
-        if isinstance(o, numpy.matrix):
-            o = o.A  # type: ignore[reportUnknownMemberType]
+    if isinstance(o, numpy.matrix):
+        o = o.A  # type: ignore[reportUnknownMemberType]
 
-        for dimension in range(dimensions):
-            # In case of multiple dimensions, we limit the dimension size by the NUMPY_DIMENSION_MAX_SIZE.
-            half = min(shape[dimension], NUMPY_DIMENSION_MAX_SIZE) // 2
-            # Slicing and concatenating arrays along the specified axis
-            slices = [slice(None)] * dimensions
-            slices[dimension] = slice(0, half)
-            front = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
+    for dimension in range(dimensions):
+        # In case of multiple dimensions, we limit the dimension size by the NUMPY_DIMENSION_MAX_SIZE.
+        half = min(shape[dimension], NUMPY_DIMENSION_MAX_SIZE) // 2
+        # Slicing and concatenating arrays along the specified axis
+        slices = [slice(None)] * dimensions
+        slices[dimension] = slice(0, half)
+        front = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
 
-            slices[dimension] = slice(-half, None)
-            end = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
-            o = numpy.concatenate((front, end), axis=dimension)  # type: ignore[reportUnknownVariableType]
+        slices[dimension] = slice(-half, None)
+        end = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
+        o = numpy.concatenate((front, end), axis=dimension)  # type: ignore[reportUnknownVariableType]
 
-        return o.tolist()
+    return to_json_value(o.tolist())
 
-    @staticmethod
-    def _pydantic_model_encoder(o: Any) -> dict[str, Any]:
-        assert pydantic and isinstance(o, pydantic.BaseModel)
-        return o.model_dump()
 
-    @staticmethod
-    def _get_sqlalchemy_data(o: Any) -> dict[str, Any]:
-        if sa_inspect is not None:
-            state = sa_inspect(o)
-            deferred = state.unloaded
-        else:
-            deferred = set()  # type: ignore
+def _pydantic_model_encoder(o: Any) -> JsonValue:
+    assert pydantic and isinstance(o, pydantic.BaseModel)
+    return to_json_value(o.model_dump())
 
-        return {
-            field: getattr(o, field) if field not in deferred else '<deferred>' for field in o.__mapper__.attrs.keys()
-        }
 
-    @cached_property
-    def encoder_by_type(self) -> dict[type[Any], EncoderFunction]:
-        lookup: dict[type[Any], EncoderFunction] = {
-            set: self._set_encoder,
-            frozenset: self._set_encoder,
-            bytes: self._bytes_encoder,
-            bytearray: self._bytearray_encoder,
-            datetime.date: self._to_isoformat,
-            datetime.datetime: self._to_isoformat,
-            datetime.time: self._to_isoformat,
-            datetime.timedelta: lambda o: str(o.total_seconds()),
-            Decimal: str,
-            Enum: lambda o: o.value,
-            deque: list,
-            GeneratorType: repr,
-            IPv4Address: str,
-            IPv4Interface: str,
-            IPv4Network: str,
-            IPv6Address: str,
-            IPv6Interface: str,
-            IPv6Network: str,
-            PosixPath: str,
-            Pattern: lambda o: o.pattern,
-            UUID: str,
-            Exception: str,
-        }
-        if pydantic:  # pragma: no cover
-            lookup.update(
-                {
-                    pydantic.AnyUrl: str,
-                    pydantic.NameEmail: str,
-                    pydantic.SecretBytes: str,
-                    pydantic.SecretStr: str,
-                    pydantic.BaseModel: self._pydantic_model_encoder,
-                }
-            )
+def _get_sqlalchemy_data(o: Any) -> JsonValue:
+    if sa_inspect is not None:
+        state = sa_inspect(o)
+        deferred = state.unloaded
+    else:
+        deferred = set()  # type: ignore
 
-        if pandas:  # pragma: no cover
-            lookup.update({pandas.DataFrame: self._pandas_data_frame_encoder})
-        if numpy:  # pragma: no cover
-            lookup.update({numpy.ndarray: self._numpy_array_encoder})
+    return to_json_value(
+        {field: getattr(o, field) if field not in deferred else '<deferred>' for field in o.__mapper__.attrs.keys()}
+    )
 
-        return lookup
 
-    def encode(self, o: Any) -> Any:
-        if isinstance(o, dict):
-            o = {key if isinstance(key, str) else repr(key): value for key, value in o.items()}  # type: ignore
-        return super().encode(o)
+EncoderFunction = Callable[[Any], JsonValue]
 
-    def default(self, o: Any) -> Any:
-        if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
+
+@lru_cache(maxsize=None)
+def encoder_by_type() -> dict[type[Any], EncoderFunction]:
+    lookup: dict[type[Any], EncoderFunction] = {
+        set: _set_encoder,
+        frozenset: _set_encoder,
+        bytes: _bytes_encoder,
+        bytearray: _bytearray_encoder,
+        datetime.date: _to_isoformat,
+        datetime.datetime: _to_isoformat,
+        datetime.time: _to_isoformat,
+        datetime.timedelta: lambda o: str(o.total_seconds()),
+        Decimal: str,
+        Enum: lambda o: to_json_value(o.value),
+        GeneratorType: repr,
+        IPv4Address: str,
+        IPv4Interface: str,
+        IPv4Network: str,
+        IPv6Address: str,
+        IPv6Interface: str,
+        IPv6Network: str,
+        PosixPath: str,
+        Pattern: lambda o: to_json_value(o.pattern),
+        UUID: str,
+        Exception: str,
+    }
+    if pydantic:  # pragma: no cover
+        lookup.update(
+            {
+                pydantic.AnyUrl: str,
+                pydantic.NameEmail: str,
+                pydantic.SecretBytes: str,
+                pydantic.SecretStr: str,
+                pydantic.BaseModel: _pydantic_model_encoder,
+            }
+        )
+
+    if pandas:  # pragma: no cover
+        lookup.update({pandas.DataFrame: _pandas_data_frame_encoder})
+    if numpy:  # pragma: no cover
+        lookup.update({numpy.ndarray: _numpy_array_encoder})
+
+    return lookup
+
+
+def to_json_value(o: Any) -> JsonValue:
+    try:
+        if isinstance(o, (int, float, str, bool, type(None))):
+            return o
+        elif dataclasses.is_dataclass(o):
+            return to_json_value(dataclasses.asdict(o))
         elif isinstance(o, Mapping):
-            return dict(o)  # type: ignore
+            return {key if isinstance(key, str) else repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
         elif attrs is not None and attrs.has(o):
-            return attrs.asdict(o)
+            return to_json_value(attrs.asdict(o))
         elif is_sqlalchemy(o):
-            return self._get_sqlalchemy_data(o)
+            return _get_sqlalchemy_data(o)
 
         # Check the class type and its superclasses for a matching encoder
         for base in o.__class__.__mro__[:-1]:
             try:
-                encoder = self.encoder_by_type[base]
+                encoder = encoder_by_type()[base]
             except KeyError:
                 pass
             else:
                 return encoder(o)
 
         if isinstance(o, Sequence):
-            return list(o)  # type: ignore
+            return [to_json_value(item) for item in o]  # type: ignore
+    except Exception:
+        pass
 
-        # In case we don't know how to encode, use `repr()`.
-        return repr(o)
+    # In case we don't know how to encode, use `repr()`.
+    try:
+        return repr(o)  # type: ignore
+    except Exception:
+        return '<unrepresentable>'
 
 
 def logfire_json_dumps(obj: Any) -> str:
-    return json.dumps(obj, cls=LogfireEncoder, separators=(',', ':'))
+    return json.dumps(to_json_value(obj), separators=(',', ':'))
 
 
 def _traceback_default(obj: Any):

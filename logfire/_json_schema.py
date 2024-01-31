@@ -28,7 +28,7 @@ from pathlib import PosixPath
 from types import GeneratorType
 from typing import Any, Callable, Mapping, Sequence, cast
 
-from logfire._json_encoder import is_sqlalchemy
+from logfire._json_encoder import is_sqlalchemy, to_json_value
 
 try:
     import pydantic
@@ -158,6 +158,8 @@ def logfire_json_schema(obj: dict[str, Any]) -> str | None:
     json_schema = _mapping_schema(obj, is_top_level=True)
     if json_schema == {'type': 'object'}:
         return None
+
+    json_schema = to_json_value(json_schema)
 
     if pydantic:
         import pydantic_core

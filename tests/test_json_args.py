@@ -338,6 +338,7 @@ class AttrsType:
                 'x-python-datatype': 'Enum',
                 'enum': [1, 'str', {'t': 1}],
             },
+            id='enum_with_complex_values',
         ),
         pytest.param(
             deque([4, 5]),
@@ -808,6 +809,23 @@ class AttrsType:
                 },
             },
             id='attrs',
+        ),
+        pytest.param(
+            [{str: bytes, int: float}],
+            "[{<class 'str'>: <class 'bytes'>, <class 'int'>: <class 'float'>}]",
+            '[{"<class \'str\'>":"<class \'bytes\'>","<class \'int\'>":"<class ' "'float'>\"}]",
+            {
+                'items': {
+                    'properties': {
+                        "<class 'int'>": {'type': 'object', 'x-python-datatype': 'unknown'},
+                        "<class 'str'>": {'type': 'object', 'x-python-datatype': 'unknown'},
+                    },
+                    'type': 'object',
+                },
+                'type': 'array',
+                'x-python-datatype': 'list',
+            },
+            id='dict_of_types_in_list',
         ),
     ],
 )
