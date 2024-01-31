@@ -3,7 +3,7 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.11.0"
+version = "0.11.1"
 description = "The observability framework focused on developer experience! 🚀"
 authors = ["Pydantic Team <hello@pydantic.dev>"]
 license = "MIT"

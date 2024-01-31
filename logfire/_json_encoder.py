@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 else:
     try:
         from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
-    except ModuleNotFoundError:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         DeclarativeBase = type('DeclarativeBase', (), {})
         DeclarativeMeta = type('DeclarativeMeta', (), {})
 
