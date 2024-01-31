@@ -4,8 +4,9 @@ from contextlib import contextmanager
 from typing import Any, Callable, ContextManager, Literal
 
 import fastapi.routing
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI, Response
 from fastapi.routing import APIRoute, APIWebSocketRoute
+from fastapi.security import SecurityScopes
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.semconv.trace import SpanAttributes
 from starlette.requests import Request
@@ -54,7 +55,11 @@ def instrument_fastapi(
             # Shallow copy these so that the user can safely modify them, but we don't tell them that.
             # We do explicitly tell them that the contents should not be modified.
             # Making a deep copy could be very expensive and maybe even impossible.
-            'values': result[0].copy(),
+            'values': {
+                k: v
+                for k, v in result[0].items()
+                if not isinstance(v, (Request, WebSocket, BackgroundTasks, SecurityScopes, Response))
+            },
             'errors': result[1].copy(),
         }
 

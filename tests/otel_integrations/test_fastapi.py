@@ -1,7 +1,9 @@
 import pytest
 from dirty_equals import IsJson, IsUrl
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI, Response
+from fastapi.security import SecurityScopes
 from opentelemetry.propagate import inject
+from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
@@ -19,7 +21,14 @@ def app() -> FastAPI:
         return PlainTextResponse('middleware test')
 
     @app.get('/other', name='other_route_name', operation_id='other_route_operation_id')
-    async def other_route(foo: str, bar: int):
+    async def other_route(
+        foo: str,
+        bar: int,
+        request: Request,
+        response: Response,
+        background_tasks: BackgroundTasks,
+        security_scopes: SecurityScopes,
+    ):
         pass
 
     return app
