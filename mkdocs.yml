@@ -116,5 +116,8 @@ plugins:
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true
+            parameter_headings: true
+          import:
+          - https://docs.python-requests.org/en/master/objects.inv
 hooks:
   - docs/plugins/main.py

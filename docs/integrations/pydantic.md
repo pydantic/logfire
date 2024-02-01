@@ -4,8 +4,7 @@
 
 Logfire has a [Pydantic plugin][pydantic-plugin] to instrument Pydantic models. The plugin provides logs and metrics
 about model validation. The plugin is **disabled** by default. You can enable it using the
-[`pydantic_plugin`][logfire.configure] configuration.
-<!-- [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
+[`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
 ```py
 from logfire import PydanticPluginOptions, configure
@@ -14,8 +13,7 @@ configure(pydantic_plugin=PydanticPluginOptions(record='all'))
 ```
 
 By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
-using the [`pydantic_plugin`][logfire.configure] configuration.
-<!-- using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
+using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
 ```py
 from logfire import PydanticPluginOptions, configure
@@ -24,8 +22,7 @@ configure(pydantic_plugin=PydanticPluginOptions(record='all', include=('openai')
 ```
 
 You can also disable instrumentation for your own modules using the
-[`pydantic_plugin`][logfire.configure] configuration.
-<!-- [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration. -->
+[`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
 ```py
 from logfire import PydanticPluginOptions, configure

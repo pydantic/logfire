@@ -14,12 +14,14 @@ The main advantage of tail sampling is that it can be done with more information
 
 ## Global sampling
 
-To configure sampling globally for the SDK, use the `traces_sampling_rate` option to `logfire.configure()`, the equivalent `LOGFIRE_TRACES_SAMPLING_RATE` environment variable or config file option. See [Configuration](../configuration.md) for more information.
+To configure sampling globally for the SDK, use the [`trace_sample_rate`][logfire.configure(trace_sample_rate)]
+option to [`logfire.configure()`][logfire.configure], the equivalent `LOGFIRE_TRACE_SAMPLE_RATE` environment variable
+or config file option. See [Configuration](../configuration.md) for more information.
 
 ```python
 import logfire
 
-logfire.configure(traces_sampling_rate=0.5)
+logfire.configure(trace_sample_rate=0.5)
 
 with logfire.span("my_span"):  # This span will be sampled 50% of the time
     pass
@@ -27,7 +29,8 @@ with logfire.span("my_span"):  # This span will be sampled 50% of the time
 
 ## Fine grained sampling
 
-You can tweak sampling on a per module or per code block basis using `logfire.with_trace_sample_rate()`.
+You can tweak sampling on a per module or per code block basis using
+[`logfire.with_trace_sample_rate()`][logfire.Logfire.with_trace_sample_rate].
 
 ```python
 import logfire
