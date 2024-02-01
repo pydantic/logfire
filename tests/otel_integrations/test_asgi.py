@@ -52,25 +52,29 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'GET / http send',
+            'name': 'GET / http send response.start',
             'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 4000000000,
             'end_time': 5000000000,
             'attributes': {
                 'logfire.span_type': 'span',
-                'logfire.msg': 'GET / http send',
+                'logfire.msg': 'GET / http send response.start',
                 'http.status_code': 200,
                 'type': 'http.response.start',
             },
         },
         {
-            'name': 'GET / http send',
+            'name': 'GET / http send response.body',
             'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'start_time': 6000000000,
             'end_time': 7000000000,
-            'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'GET / http send', 'type': 'http.response.body'},
+            'attributes': {
+                'logfire.span_type': 'span',
+                'logfire.msg': 'GET / http send response.body',
+                'type': 'http.response.body',
+            },
         },
         {
             'name': 'GET /',

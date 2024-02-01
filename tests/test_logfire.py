@@ -1457,9 +1457,9 @@ def test_large_int(exporter: TestExporter) -> None:
 
 def test_readable_span_signature():
     # This is to test that we are providing all the arguments we can when
-    # constructing ReadableSpans in PendingSpanProcessor,
+    # constructing ReadableSpans (e.g. in PendingSpanProcessor and SpanProcessorWrapper)
     # i.e. if this test fails it means that the OTEL SDK has been updated
-    # and PendingSpanProcessor needs to be updated to add the new arguments.
+    # and places in our code constructing ReadableSpans needs to be updated to add the new arguments.
     signature = inspect.signature(ReadableSpan.__init__)
     assert set(signature.parameters.keys()) == {
         'self',
