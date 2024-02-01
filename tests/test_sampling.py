@@ -45,6 +45,9 @@ def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:
     return roots
 
 
+@pytest.mark.skipif(
+    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
+)
 @pytest.mark.parametrize('sample_rate', [-1, 1.5])
 def test_invalid_sample_rate(sample_rate: float) -> None:
     with pytest.raises(ValueError, match='sample_rate must be between 0 and 1'):
@@ -72,6 +75,9 @@ def test_sample_rate_config() -> None:
     assert len(exporter.exported_spans_as_dict()) == 6
 
 
+@pytest.mark.skipif(
+    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
+)
 def test_sample_rate_runtime() -> None:
     exporter = TestExporter()
 
@@ -93,6 +99,9 @@ def test_sample_rate_runtime() -> None:
     assert len(exporter.exported_spans_as_dict()) == 102
 
 
+@pytest.mark.skipif(
+    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
+)
 def test_outer_sampled_inner_not() -> None:
     exporter = TestExporter()
 
@@ -118,6 +127,9 @@ def test_outer_sampled_inner_not() -> None:
     ]
 
 
+@pytest.mark.skipif(
+    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
+)
 def test_outer_and_inner_sampled() -> None:
     exporter = TestExporter()
 
@@ -149,6 +161,9 @@ def test_outer_and_inner_sampled() -> None:
     ]
 
 
+@pytest.mark.skipif(
+    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
+)
 def test_sampling_rate_does_not_get_overwritten() -> None:
     exporter = TestExporter()
 

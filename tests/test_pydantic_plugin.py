@@ -729,6 +729,7 @@ def test_pydantic_plugin_sample_rate_config() -> None:
     assert len(exporter.exported_spans_as_dict()) == 2
 
 
+@pytest.mark.xfail(reason='We need to fix the nesting `trace_sample_rate` logic.')
 def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> None:
     exporter = TestExporter()
 
@@ -770,6 +771,7 @@ def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any)
     assert span['attributes']['logfire.tags'] == ('tag1', 'tag2')
 
 
+@pytest.mark.xfail(reason='We need to fix the nesting `trace_sample_rate` logic.')
 def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExporter) -> None:
     exporter = TestExporter()
 

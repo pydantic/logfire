@@ -9,7 +9,7 @@ from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
-with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
+# with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -50,7 +50,7 @@ __all__ = (
     'instrument_fastapi',
     'AutoTraceModule',
     'with_tags',
-    'with_trace_sample_rate',
+    # 'with_trace_sample_rate',
     'load_spans_from_file',
     'no_auto_trace',
 )

@@ -50,7 +50,7 @@ The `record` config accepts following values:
   * `metrics`: Send only metrics.
 
 
-[Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in [`plugin_settings`][plugin_settings].
+<!-- [Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in [`plugin_settings`][plugin_settings].
 
 ```py
 from pydantic import BaseModel
@@ -58,7 +58,7 @@ from pydantic import BaseModel
 
 class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
     ...
-```
+``` -->
 
 Tags can be included by adding the `tags` key in [`plugin_settings`][plugin_settings].
 

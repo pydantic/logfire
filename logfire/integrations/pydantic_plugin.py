@@ -91,10 +91,10 @@ class BaseValidateHandler:
         self._successful_validation_counter = _create_counter(name=f'{model_name}-successful-validation')
         self._failed_validation_counter = _create_counter(name=f'{model_name}-failed-validation')
 
-        self._logfire = logfire
-        trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
-        if trace_sample_rate:
-            self._logfire = logfire.with_trace_sample_rate(float(trace_sample_rate))
+        self._logfire = logfire.DEFAULT_LOGFIRE_INSTANCE
+        # trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
+        # if trace_sample_rate:
+        #     self._logfire = self._logfire.with_trace_sample_rate(float(trace_sample_rate))
 
         tags = _plugin_settings.get('logfire', {}).get('tags')
         if tags:

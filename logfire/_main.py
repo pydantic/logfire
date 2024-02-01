@@ -107,7 +107,7 @@ class Logfire:
         ```py
         import logfire
 
-        with logfire.with_sample_rate(0.5):
+        with logfire.with_trace_sample_rate(0.5):
             logfire.info('new log 1')
         ```
 

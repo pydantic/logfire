@@ -27,7 +27,7 @@ with logfire.span("my_span"):  # This span will be sampled 50% of the time
     pass
 ```
 
-## Fine grained sampling
+<!-- ## Fine grained sampling
 
 You can tweak sampling on a per module or per code block basis using
 [`logfire.with_trace_sample_rate()`][logfire.Logfire.with_trace_sample_rate].
@@ -41,4 +41,4 @@ with sampled.span("outer"):  # This span will be sampled 50% of the time
     # `with sampled.with_trace_sample_rate(0.1).span("inner")` would also work
     with logfire.with_trace_sample_rate(0.1).span("inner"):  # This span will be sampled 10% of the time
         pass
-```
+``` -->
