@@ -14,7 +14,7 @@ from pydantic.plugin import SchemaTypePath
 from pydantic_core import core_schema
 
 import logfire
-from logfire._config import GLOBAL_CONFIG, PydanticPluginOptions
+from logfire._config import GLOBAL_CONFIG, PydanticPlugin
 from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 
@@ -52,7 +52,7 @@ def test_check_plugin_installed():
 def test_disable_logfire_pydantic_plugin() -> None:
     logfire.configure(
         send_to_logfire=False,
-        pydantic_plugin=PydanticPluginOptions(record='off'),
+        pydantic_plugin=PydanticPlugin(record='off'),
         metric_readers=[InMemoryMetricReader()],
     )
     plugin = LogfirePydanticPlugin()
@@ -126,7 +126,7 @@ def test_logfire_plugin_include_exclude_models(
 ) -> None:
     logfire.configure(
         send_to_logfire=False,
-        pydantic_plugin=PydanticPluginOptions(record='all', include=include, exclude=exclude),
+        pydantic_plugin=PydanticPlugin(record='all', include=include, exclude=exclude),
         metric_readers=[InMemoryMetricReader()],
     )
     plugin = LogfirePydanticPlugin()

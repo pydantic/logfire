@@ -117,7 +117,10 @@ plugins:
               ignore_init_summary: true
             merge_init_into_class: true
             parameter_headings: true
+            show_signature_annotations: true
+            signature_crossrefs: true
           import:
-          - https://docs.python-requests.org/en/master/objects.inv
+            - url: https://docs.python.org/3/objects.inv
+            - url: https://docs.pydantic.dev/latest/objects.inv
 hooks:
   - docs/plugins/main.py
