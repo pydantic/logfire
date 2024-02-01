@@ -243,6 +243,8 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             attributes: The arguments to format the span message template with.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         return self._span(
             msg_template,
             attributes,
@@ -382,6 +384,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('trace', msg_template, attributes, stack_offset=1)
 
     def debug(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -397,6 +401,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('debug', msg_template, attributes, stack_offset=1)
 
     def info(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -412,6 +418,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('info', msg_template, attributes, stack_offset=1)
 
     def notice(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -427,6 +435,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('notice', msg_template, attributes, stack_offset=1)
 
     def warn(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -442,6 +452,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('warn', msg_template, attributes, stack_offset=1)
 
     def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -457,6 +469,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('error', msg_template, attributes, stack_offset=1)
 
     def fatal(self, msg_template: LiteralString, /, **attributes: Any) -> None:
@@ -472,6 +486,8 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
         """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('fatal', msg_template, attributes, stack_offset=1)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:

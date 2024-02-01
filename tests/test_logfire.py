@@ -1287,6 +1287,42 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     ]
 
 
+@pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal', 'span'))
+def test_forbid_methods_with_leading_underscore_on_attributes(method: str, exporter: TestExporter) -> None:
+    with pytest.raises(ValueError, match='Attribute keys cannot start with an underscore.'):
+        getattr(logfire, method)('test {_foo=}', _foo='bar')
+
+    with pytest.raises(ValueError, match='Attribute keys cannot start with an underscore.'):
+        getattr(logfire, method)('test {__foo=}', __foo='bar')
+
+
+def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> None:
+    logfire.log('info', 'test {_foo=}', attributes={'_foo': 'bar'})
+
+    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
+        {
+            'name': 'test _foo=bar',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'test {_foo=}',
+                'logfire.msg': 'test _foo=bar',
+                'code.filepath': 'test_logfire.py',
+                'code.function': 'test_log_with_leading_underscore_on_attributes',
+                'code.lineno': 123,
+                '_foo': 'bar',
+                'logfire.json_schema': '{"type":"object","properties":{"_foo":{}}}',
+            },
+        }
+    ]
+
+
 def test_large_int(exporter: TestExporter) -> None:
     with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
         with logfire.span('test {value=}', value=2**63 + 1):
