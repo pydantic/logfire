@@ -511,10 +511,10 @@ class Logfire:
 
         Returns:
             A context manager that will revert the patch when exited.
-            This context manager doesn't take into account threads or other concurrency.
-            Calling this method will immediately apply the patch
-            without waiting for the context manager to be opened,
-            i.e. it's not necessary to use this as a context manager.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the patch
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
         """
         return _async.log_slow_callbacks(self, slow_duration)
 
@@ -524,19 +524,22 @@ class Logfire:
         This will trace all function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
 
-        NOTE: This function MUST be called before any of the modules are imported.
+        !!! note
+            This function MUST be called before any of the modules are imported.
 
         This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
         may prevent it from working.
+
         It relies on being able to retrieve the source code via at least one other existing finder in the meta path,
         so it may not work if standard finders are not present or if the source code is not available.
         A modified version of the source code is then compiled and executed in place of the original module.
 
         Args:
             modules: List of module names to trace, or a function which returns True for modules that should be traced.
-                     If a list is provided, any submodules within a given module will also be traced.
-                     Defaults to the root of the calling module, so e.g. calling this inside the module `foo.bar`
-                     will trace all functions in `foo`, `foo.bar`, `foo.spam`, etc.
+                If a list is provided, any submodules within a given module will also be traced.
+
+                Defaults to the root of the calling module, so e.g. calling this inside the module `foo.bar`
+                will trace all functions in `foo`, `foo.bar`, `foo.spam`, etc.
         """
         install_auto_tracing(self, modules)
 
@@ -558,26 +561,33 @@ class Logfire:
 
         Args:
             app: The FastAPI app to instrument.
-            attributes_mapper: A function that takes a `Request` or `WebSocket` and a dictionary of attributes
-                and returns a new dictionary of attributes. The input dictionary will contain:
+            attributes_mapper: A function that takes a [`Request`][fastapi.Request] or [`WebSocket`][fastapi.WebSocket]
+                and a dictionary of attributes and returns a new dictionary of attributes.
+                The input dictionary will contain:
+
                 - `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
                 - `errors`: A list of validation errors for any invalid inputs.
+
                 The returned dictionary will be used as the attributes for a log message.
                 If `None` is returned, no log message will be created.
+
                 You can use this to e.g. only log validation errors, or nothing at all.
                 You can also add custom attributes.
+
                 The default implementation will return the input dictionary unchanged.
                 The function mustn't modify the contents of `values` or `errors`.
             use_opentelemetry_instrumentation: If True (the default) then
-                `opentelemetry.instrumentation.fastapi.FastAPIInstrumentor` will also instrument the app.
-                See https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
+                [`FastAPIInstrumentor`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor]
+                will also instrument the app.
+
+                See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
 
         Returns:
             A context manager that will revert the instrumentation when exited.
-            This context manager doesn't take into account threads or other concurrency.
-            Calling this method will immediately apply the instrumentation
-            without waiting for the context manager to be opened,
-            i.e. it's not necessary to use this as a context manager.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
         """
         from .integrations._fastapi import instrument_fastapi
 

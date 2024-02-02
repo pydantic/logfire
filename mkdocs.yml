@@ -82,8 +82,8 @@ nav:
       - Propagate: api/propagate.md
       - Exceptions: api/exceptions.md
       - Integrations:
-        - api/integrations/pydantic_plugin.md
-        - api/integrations/logging.md
+          - api/integrations/pydantic_plugin.md
+          - api/integrations/logging.md
 
 markdown_extensions:
   - tables
@@ -106,7 +106,7 @@ markdown_extensions:
       alternate_style: true
 
 watch:
-- logfire
+  - logfire
 
 plugins:
   - search
@@ -128,5 +128,7 @@ plugins:
           import:
             - url: https://docs.python.org/3/objects.inv
             - url: https://docs.pydantic.dev/latest/objects.inv
+            - url: https://opentelemetry-python-contrib.readthedocs.io/en/latest/objects.inv
+            - url: https://fastapi.tiangolo.com/objects.inv
 hooks:
   - docs/plugins/main.py
