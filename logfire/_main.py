@@ -41,6 +41,7 @@ from typing_extensions import ParamSpec
 from logfire._formatter import logfire_format
 
 from ._constants import (
+    ATTRIBUTES_EXCEPTION_TRACEBACK_KEY,
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -746,7 +747,9 @@ def _exit_span(
         tb = rich.traceback.Traceback.from_exception(exc_type, exc_value, traceback)
         tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
         attributes: dict[str, otel_types.AttributeValue] = {
-            'exception.logfire.trace': json_dumps_traceback(tb.trace),
+            ATTRIBUTES_EXCEPTION_TRACEBACK_KEY: json_dumps_traceback(tb.trace),
+            ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'error',
+            ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
         }
         if ValidationError is not None and isinstance(exc_value, ValidationError):
             err_json = exc_value.json(include_url=False)

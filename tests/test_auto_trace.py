@@ -4,7 +4,6 @@ import sys
 from importlib.machinery import SourceFileLoader
 
 import pytest
-from dirty_equals import IsJson
 
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
 from logfire._auto_trace import LogfireFinder
@@ -151,25 +150,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                         'exception.message': 'list index out of range',
                         'exception.stacktrace': 'IndexError: list index out of range',
                         'exception.escaped': 'True',
-                        'exception.logfire.trace': IsJson(
-                            stacks=[
-                                {
-                                    'exc_type': 'IndexError',
-                                    'exc_value': 'list index out of range',
-                                    'syntax_error': None,
-                                    'is_cause': False,
-                                    'frames': [
-                                        {
-                                            'filename': 'foo.py',
-                                            'lineno': 123,
-                                            'name': 'bar',
-                                            'line': '',
-                                            'locals': None,
-                                        }
-                                    ],
-                                }
-                            ]
-                        ),
+                        'exception.logfire.trace': '{"stacks": [{"exc_type": "IndexError", "exc_value": "list index out of range", "syntax_error": null, "is_cause": false, "frames": [{"filename": "foo.py", "lineno": 123, "name": "bar", "line": "", "locals": null}]}]}',
+                        'logfire.level_name': 'error',
+                        'logfire.level_num': 17,
                     },
                 }
             ],
