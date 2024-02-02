@@ -81,6 +81,9 @@ nav:
       - Backfill: api/backfill.md
       - Propagate: api/propagate.md
       - Exceptions: api/exceptions.md
+      - Integrations:
+        - api/integrations/pydantic_plugin.md
+        - api/integrations/logging.md
 
 markdown_extensions:
   - tables
@@ -101,6 +104,9 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.tabbed:
       alternate_style: true
+
+watch:
+- logfire
 
 plugins:
   - search

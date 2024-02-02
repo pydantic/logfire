@@ -30,6 +30,26 @@ if TYPE_CHECKING:
 METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
 
 
+class PluginSettings(TypedDict, total=False):
+    """A typed dict for the Pydantic plugin settings.
+
+    This is how you can use the [`PluginSettings`][logfire.integrations.pydantic_plugin.PluginSettings]
+    with a Pydantic model:
+
+    ```py
+    from logfire.integrations.pydantic_plugin import PluginSettings
+    from pydantic import BaseModel
+
+
+    class Model(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'all'})):
+        a: int
+    ```
+    """
+
+    logfire: LogfireSettings
+    """Settings for the logfire integration."""
+
+
 class LogfireSettings(TypedDict, total=False):
     """Settings for the logfire integration."""
 
@@ -38,22 +58,17 @@ class LogfireSettings(TypedDict, total=False):
     tags: list[str]
     """Tags to add to the spans."""
     record: Literal['all', 'failure', 'metrics']
-    """What to record.""
+    """What to record.
 
     The following values are supported:
+
     * `all`: Record all validation events.
     * `failure`: Record only validation failures.
     * `metrics`: Record only validation metrics.
     """
 
 
-class PluginSettings(TypedDict, total=False):
-    """Settings for the plugin."""
-
-    logfire: LogfireSettings
-
-
-USER_STACK_OFFSET = 3
+_USER_STACK_OFFSET = 3
 """The number of frames to skip when logging from user code."""
 
 
@@ -134,7 +149,7 @@ class BaseValidateHandler:
                 'debug',
                 msg_template='Validation successful {result=!r}',
                 attributes={'result': result},
-                stack_offset=USER_STACK_OFFSET,
+                stack_offset=_USER_STACK_OFFSET,
             )
 
         self._successful_validation_counter.add(1)
@@ -156,7 +171,7 @@ class BaseValidateHandler:
                 'error_count': error_count,
                 'errors': error.errors(include_url=False),
             },
-            stack_offset=USER_STACK_OFFSET,
+            stack_offset=_USER_STACK_OFFSET,
         )
         self._failed_validation_counter.add(1)
         self.span_stack.close()
@@ -171,7 +186,7 @@ class BaseValidateHandler:
             'error',
             msg_template='{exception_type=}: {exception_msg=}',
             attributes={'exception': type(exception).__name__, 'exception_msg': exception},
-            stack_offset=USER_STACK_OFFSET,
+            stack_offset=_USER_STACK_OFFSET,
         )
         self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
 
@@ -254,9 +269,12 @@ class ValidateStringsHandler(BaseValidateHandler):
 class LogfirePydanticPlugin:
     """Implements `pydantic.plugin.PydanticPluginProtocol`.
 
-    Environment Variables:
-        LOGFIRE_DISABLE_PYDANTIC_PLUGIN: Set to `1` or `true` to disable the plugin.
-            TODO(lig): Use PYDANTIC_DISABLE_PLUGINS instead. See https://github.com/pydantic/pydantic/issues/7709
+    Set the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable to `true` to disable the plugin.
+
+    Note:
+        In the future, you'll be able to use the `PYDANTIC_DISABLE_PLUGINS` instead.
+
+        See [pydantic/pydantic#7709](https://github.com/pydantic/pydantic/issues/7709) for more information.
     """
 
     def new_schema_validator(
@@ -296,7 +314,7 @@ class LogfirePydanticPlugin:
         if record == 'off':
             return None, None, None
 
-        if include_model(schema, schema_type_path):
+        if _include_model(schema, schema_type_path):
             return (
                 ValidatePythonHandler(schema, config, plugin_settings, schema_type_path, record),
                 ValidateJsonHandler(schema, config, plugin_settings, schema_type_path, record),
@@ -312,14 +330,14 @@ plugin = LogfirePydanticPlugin()
 IGNORED_MODULE_PREFIXES: tuple[str, ...] = 'fastapi.', 'logfire_backend.'
 
 
-def include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
+def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
     include = GLOBAL_CONFIG.pydantic_plugin.include
     exclude = GLOBAL_CONFIG.pydantic_plugin.exclude
 
     schema_type = schema['type']
     if schema_type in {'function-after', 'function-before', 'function-wrap'}:
-        return include_model(schema['schema'])  # type: ignore
+        return _include_model(schema['schema'])  # type: ignore
 
     # check if the model is in ignored model
     if any(schema_type_path.module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):

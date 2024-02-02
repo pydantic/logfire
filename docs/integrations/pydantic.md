@@ -47,7 +47,8 @@ class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'
 
 ### Record
 
-The `record` is used to configure what to record. It can be one of the following values:
+The [`record`][logfire.integrations.pydantic_plugin.LogfireSettings.record] is used to configure what to record.
+It can be one of the following values:
 
   * `off`: Disable instrumentation. This is default value.
   * `all`: Send traces and metrics for all events.
@@ -70,14 +71,17 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample
 ### Tags
 
 Tags are used to add additional information to the traces, and metrics. They can be included by
-adding the `tags` key in [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings].
+adding the [`tags`][logfire.integrations.pydantic_plugin.LogfireSettings.tags] key in
+[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings].
 
 ```py
 from pydantic import BaseModel
 
 
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}):
-    ...
+class Foo(
+  BaseModel,
+  plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
+):
 ```
 
 `tags` value can be one of the following options:

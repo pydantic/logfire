@@ -1,0 +1,1 @@
+::: logfire.integrations.logging

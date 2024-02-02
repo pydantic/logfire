@@ -37,7 +37,20 @@ RESERVED_ATTRS: tuple[str, ...] = (
 
 
 class LogfireLoggingHandler(LoggingHandler):
-    """A logging handler that sends logs to Logfire."""
+    """A logging handler that sends logs to Logfire.
+
+    ```py
+    from logging import basicConfig, getLogger
+
+    from logfire.integrations.logging import LogfireLoggingHandler
+
+    basicConfig(handlers=[LogfireLoggingHandler()])
+
+    logger = getLogger(__name__)
+
+    logger.error('{first_name=} failed!', extra={'first_name': 'Fred'})
+    ```
+    """
 
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.
