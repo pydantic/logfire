@@ -84,11 +84,5 @@ class Foo(
 ):
 ```
 
-`tags` value can be one of the following options:
-
-  * List of strings. e.g. `['tag1', 'tag2']`
-  * Tuple of strings. e.g. `('tag1', 'tag2')`
-  * Comma separated string. e.g. `'tag1,tag2'`
-
 [pydantic]: https://docs.pydantic.dev/latest/
 [pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/

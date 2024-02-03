@@ -114,7 +114,7 @@ class BaseValidateHandler:
         tags = _plugin_settings.get('logfire', {}).get('tags')
         if tags:
             if isinstance(tags, str):
-                tags = map(str.strip, tags.split(','))
+                tags = [tags]
             self._logfire = self._logfire.with_tags(*tags)
 
     def _on_enter(

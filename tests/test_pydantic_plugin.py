@@ -750,7 +750,7 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
     assert len(exporter.exported_spans_as_dict()) == 6
 
 
-@pytest.mark.parametrize('tags', ['tag1,tag2', 'tag1 , tag2 ', ['tag1', 'tag2'], ('tag1', 'tag2')])
+@pytest.mark.parametrize('tags', [['tag1', 'tag2'], ('tag1', 'tag2')])
 def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any) -> None:
     exporter = TestExporter()
 
