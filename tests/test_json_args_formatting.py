@@ -6,7 +6,6 @@ from logfire._json_formatter import json_args_value_formatter, json_args_value_f
 from logfire._json_types import DataType, JSONSchema
 
 
-# TODO(Marcelo): Add test with complex lists.
 @pytest.mark.parametrize(
     'value,schema,formatted_value',
     [
