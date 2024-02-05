@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
-import json
 import re
 import uuid
 from collections import deque
@@ -29,6 +28,7 @@ from types import GeneratorType
 from typing import Any, Callable, Mapping, Sequence, cast
 
 from logfire._json_encoder import is_sqlalchemy, to_json_value
+from logfire._utils import JsonDict, dump_json, safe_repr
 
 try:
     import pydantic
@@ -63,7 +63,7 @@ __all__ = 'create_json_schema', 'logfire_json_schema'
 
 
 @lru_cache
-def type_to_schema() -> dict[type[Any], dict[str, Any] | Callable[[Any], dict[str, Any]]]:
+def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any], JsonDict]]:
     return {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
@@ -109,7 +109,7 @@ def type_to_schema() -> dict[type[Any], dict[str, Any] | Callable[[Any], dict[st
 _type_to_schema = None
 
 
-def create_json_schema(obj: Any) -> dict[str, Any]:
+def create_json_schema(obj: Any) -> JsonDict:
     """Create a JSON Schema from the given object.
 
     Args:
@@ -159,22 +159,15 @@ def logfire_json_schema(obj: dict[str, Any]) -> str | None:
     if json_schema == {'type': 'object'}:
         return None
 
-    json_schema = to_json_value(json_schema)
-
-    if pydantic:
-        import pydantic_core
-
-        return pydantic_core.to_json(json_schema).decode()
-    else:  # pragma: no cover
-        return json.dumps(json_schema, separators=(',', ':'))
+    return dump_json(json_schema)
 
 
-def _dataclass_schema(obj: Any) -> dict[str, str]:
+def _dataclass_schema(obj: Any) -> JsonDict:
     # NOTE: The `x-python-datatype` is "dataclass" for both standard dataclasses and Pydantic dataclasses.
     # We don't need to distinguish between them on the frontend, or to reconstruct the type on the JSON formatter.
-    schema = {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'dataclass'}
+    schema: JsonDict = {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'dataclass'}
 
-    properties: dict[str, dict[str, Any]] = {}
+    properties: JsonDict = {}
     for field in dataclasses.fields(obj):
         if field_schema := create_json_schema(getattr(obj, field.name)):
             properties[field.name] = field_schema
@@ -183,15 +176,15 @@ def _dataclass_schema(obj: Any) -> dict[str, str]:
     return schema
 
 
-def _bytes_schema(obj: bytes) -> dict[str, str]:
-    schema = {'type': 'string', 'x-python-datatype': 'bytes'}
+def _bytes_schema(obj: bytes) -> JsonDict:
+    schema: JsonDict = {'type': 'string', 'x-python-datatype': 'bytes'}
     if obj.__class__.__name__ != 'bytes':
         schema['title'] = obj.__class__.__name__
     return schema
 
 
-def _bytearray_schema(obj: bytearray) -> dict[str, str]:
-    schema = {'type': 'string', 'x-python-datatype': 'bytearray'}
+def _bytearray_schema(obj: bytearray) -> JsonDict:
+    schema: JsonDict = {'type': 'string', 'x-python-datatype': 'bytearray'}
     if obj.__class__.__name__ != 'bytearray':
         schema['title'] = obj.__class__.__name__
     return schema
@@ -199,7 +192,7 @@ def _bytearray_schema(obj: bytearray) -> dict[str, str]:
 
 # NOTE: We don't handle enums where members are not basic types (str, int, bool, float) very well.
 # The "type" will always be "object".
-def _enum_schema(obj: Enum) -> dict[str, str | list[Any]]:
+def _enum_schema(obj: Enum) -> JsonDict:
     enum_values = [e.value for e in obj.__class__]
     enum_types = set(type(value).__name__ for value in enum_values)
     if all(t in {'str', 'int', 'bool', 'float'} for t in enum_types):
@@ -211,18 +204,18 @@ def _enum_schema(obj: Enum) -> dict[str, str | list[Any]]:
         'type': type_,
         'title': obj.__class__.__name__,
         'x-python-datatype': 'Enum',
-        'enum': enum_values,
+        'enum': to_json_value(enum_values),
     }
 
 
-def _mapping_schema(obj: Any, is_top_level: bool = False) -> dict[str, str]:
+def _mapping_schema(obj: Any, is_top_level: bool = False) -> JsonDict:
     obj = cast(Mapping[Any, Any], obj)
-    schema: dict[str, Any] = {'type': 'object'}
-    properties: dict[str, dict[str, Any]] = {}
+    schema: JsonDict = {'type': 'object'}
+    properties: JsonDict = {}
     for k, v in obj.items():
         value = create_json_schema(v)
         if value != {} or is_top_level:
-            properties[k] = value
+            properties[k if isinstance(k, str) else safe_repr(k)] = value
     if properties:
         schema['properties'] = properties
     if obj.__class__.__name__ != 'dict':
@@ -231,7 +224,7 @@ def _mapping_schema(obj: Any, is_top_level: bool = False) -> dict[str, str]:
     return schema
 
 
-def _array_schema(obj: list[Any] | tuple[Any, ...] | deque[Any] | set[Any] | frozenset[Any]) -> dict[str, str]:
+def _array_schema(obj: list[Any] | tuple[Any, ...] | deque[Any] | set[Any] | frozenset[Any]) -> JsonDict:
     schema: dict[str, Any] = {'type': 'array', 'x-python-datatype': obj.__class__.__name__}
     if isinstance(obj, (set, frozenset)):
         try:
@@ -265,22 +258,22 @@ def _array_schema(obj: list[Any] | tuple[Any, ...] | deque[Any] | set[Any] | fro
     return schema
 
 
-def _generator_schema(obj: GeneratorType[Any, Any, Any]) -> dict[str, str]:
+def _generator_schema(obj: GeneratorType[Any, Any, Any]) -> JsonDict:
     return {'type': 'array', 'x-python-datatype': 'generator', 'title': obj.__class__.__name__}
 
 
-def _exception_schema(obj: Exception) -> dict[str, str]:
+def _exception_schema(obj: Exception) -> JsonDict:
     return {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'Exception'}
 
 
-def _pydantic_model_schema(obj: Any) -> dict[str, Any]:
+def _pydantic_model_schema(obj: Any) -> JsonDict:
     assert pydantic and isinstance(obj, pydantic.BaseModel)
-    schema: dict[str, str | dict[str, Any]] = {
+    schema: JsonDict = {
         'type': 'object',
         'title': obj.__class__.__name__,
         'x-python-datatype': 'PydanticModel',
     }
-    properties: dict[str, dict[str, Any]] = {}
+    properties: JsonDict = {}
     for key in obj.model_fields.keys():
         if field_schema := create_json_schema(getattr(obj, key)):
             properties[key] = field_schema
@@ -293,7 +286,7 @@ def _pydantic_model_schema(obj: Any) -> dict[str, Any]:
     return schema
 
 
-def _pandas_schema(obj: Any) -> dict[str, Any]:
+def _pandas_schema(obj: Any) -> JsonDict:
     assert pandas and isinstance(obj, pandas.DataFrame)
 
     row_count, column_count = obj.shape
@@ -316,7 +309,7 @@ def _pandas_schema(obj: Any) -> dict[str, Any]:
     }
 
 
-def _numpy_schema(obj: Any) -> dict[str, Any]:
+def _numpy_schema(obj: Any) -> JsonDict:
     import numpy
 
     assert isinstance(obj, numpy.ndarray)
@@ -329,7 +322,7 @@ def _numpy_schema(obj: Any) -> dict[str, Any]:
     }
 
 
-def _attrs_schema(obj: Any) -> dict[str, str]:
+def _attrs_schema(obj: Any) -> JsonDict:
     import attrs
 
     obj = cast(attrs.AttrsInstance, obj)
@@ -338,7 +331,7 @@ def _attrs_schema(obj: Any) -> dict[str, str]:
         'title': obj.__class__.__name__,
         'x-python-datatype': 'attrs',
     }
-    properties: dict[str, dict[str, Any]] = {}
+    properties: JsonDict = {}
     for key in obj.__attrs_attrs__:
         if field_schema := create_json_schema(getattr(obj, key.name)):
             properties[key.name] = field_schema
@@ -347,7 +340,7 @@ def _attrs_schema(obj: Any) -> dict[str, str]:
     return schema
 
 
-def _sqlalchemy_schema(obj: Any) -> dict[str, str]:
+def _sqlalchemy_schema(obj: Any) -> JsonDict:
     assert sqlalchemy and sa_inspect
 
     schema = {
@@ -355,7 +348,7 @@ def _sqlalchemy_schema(obj: Any) -> dict[str, str]:
         'title': obj.__class__.__name__,
         'x-python-datatype': 'sqlalchemy',
     }
-    properties: dict[str, dict[str, Any]] = {}
+    properties: JsonDict = {}
     for key in sa_inspect(obj).attrs.keys():
         if field_schema := create_json_schema(getattr(obj, key)):
             properties[key] = field_schema

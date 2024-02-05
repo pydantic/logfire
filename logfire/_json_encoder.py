@@ -12,8 +12,10 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Callable
 from uuid import UUID
+
+from logfire._utils import JsonValue, safe_repr
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
@@ -57,9 +59,6 @@ __all__ = 'logfire_json_dumps', 'json_dumps_traceback'
 
 NUMPY_DIMENSION_MAX_SIZE = 10
 """The maximum size of a dimension of a numpy array."""
-
-JsonValue = Union[int, float, str, bool, None, List['JsonValue'], 'JsonDict']
-JsonDict = Dict[str, JsonValue]
 
 
 def _bytes_encoder(o: bytes) -> str:
@@ -251,7 +250,7 @@ def to_json_value(o: Any) -> JsonValue:
         elif dataclasses.is_dataclass(o):
             return to_json_value(dataclasses.asdict(o))
         elif isinstance(o, Mapping):
-            return {key if isinstance(key, str) else repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
+            return {key if isinstance(key, str) else safe_repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
         elif attrs is not None and attrs.has(o):
             return to_json_value(attrs.asdict(o))
         elif is_sqlalchemy(o):
@@ -272,10 +271,7 @@ def to_json_value(o: Any) -> JsonValue:
         pass
 
     # In case we don't know how to encode, use `repr()`.
-    try:
-        return repr(o)  # type: ignore
-    except Exception:
-        return '<unrepresentable>'
+    return safe_repr(o)
 
 
 def logfire_json_dumps(obj: Any) -> str:

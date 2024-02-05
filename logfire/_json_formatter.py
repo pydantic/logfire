@@ -6,6 +6,7 @@ from functools import partial
 from typing import Any, Callable, cast
 
 from ._json_types import ArraySchema, DataType, JSONSchema
+from ._utils import safe_repr
 
 
 class JsonArgsValueFormatter:
@@ -73,10 +74,10 @@ class JsonArgsValueFormatter:
                     assert func is not None, f'Unknown data type {data_type}'
                     func(indent_current, value, schema)
             else:
-                self._write('', '', False, 0, repr(value), None)
+                self._write('', '', False, 0, safe_repr(value), None)
         else:
             if use_repr:
-                value = repr(value)
+                value = safe_repr(value)
             self._write('', '', False, 0, value, None)
 
     def _write(
@@ -92,7 +93,7 @@ class JsonArgsValueFormatter:
             open_ = f'{cls}{open_}'
 
         if use_repr:
-            value = repr(value)
+            value = safe_repr(value)
 
         self._stream.write(f'{open_}{value}{after_}')
 

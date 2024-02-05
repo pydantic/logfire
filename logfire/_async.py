@@ -8,6 +8,7 @@ from types import CoroutineType
 from typing import TYPE_CHECKING, Any, ContextManager
 
 from logfire._stack_info import StackInfo, get_code_object_info, get_stack_info_from_frame
+from logfire._utils import safe_repr
 
 if TYPE_CHECKING:
     from logfire._main import Logfire
@@ -96,13 +97,6 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
     name: str = (
         getattr(callback, '__qualname__', '') or getattr(callback, '__name__', '') or result.get('code.function', '')
     )
-    if not name:
-        try:
-            name = repr(callback)
-        except Exception:
-            try:
-                name = f'<{type(callback).__name__} object>'
-            except Exception:
-                name = '<unknown>'
+    name = name or safe_repr(callback)
     result['name'] = f'callback {name}'
     return result
