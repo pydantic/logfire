@@ -40,6 +40,34 @@ def test_log_methods_without_kwargs(method: str):
     assert warning.filename.endswith('test_logfire.py')
 
 
+def test_instrument_with_no_args(exporter: TestExporter) -> None:
+    @logfire.instrument()
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
+        {
+            'name': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_instrument_with_no_args.<locals>.foo',
+                'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+                'x': 2,
+                'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+            },
+        }
+    ]
+
+
 def test_instrument_without_kwargs():
     with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
 
@@ -627,9 +655,9 @@ def test_instrument(exporter: TestExporter):
     assert hello_world(123) == 'hello 123'
 
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == [
         {
-            'name': 'tests.test_logfire.test_instrument.<locals>.hello_world (pending)',
+            'name': 'hello-world {a=} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -637,7 +665,7 @@ def test_instrument(exporter: TestExporter):
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_instrument',
+                'code.function': 'test_instrument.<locals>.hello_world',
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.msg': 'hello-world a=123',
@@ -647,7 +675,7 @@ def test_instrument(exporter: TestExporter):
             },
         },
         {
-            'name': 'tests.test_logfire.test_instrument.<locals>.hello_world',
+            'name': 'hello-world {a=}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -655,7 +683,7 @@ def test_instrument(exporter: TestExporter):
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_instrument',
+                'code.function': 'test_instrument.<locals>.hello_world',
                 'a': 123,
                 'logfire.msg_template': 'hello-world {a=}',
                 'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
@@ -667,32 +695,16 @@ def test_instrument(exporter: TestExporter):
 
 
 def test_instrument_extract_false(exporter: TestExporter):
-    @logfire.instrument('hello-world', extract_args=False)
+    @logfire.instrument('hello {a}!', extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
     assert hello_world(123) == 'hello 123'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
         {
-            'name': 'tests.test_logfire.test_instrument_extract_false.<locals>.hello_world (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument_extract_false',
-                'logfire.msg_template': 'hello-world',
-                'logfire.msg': 'hello-world',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
-            },
-        },
-        {
-            'name': 'tests.test_logfire.test_instrument_extract_false.<locals>.hello_world',
+            'name': 'hello {a}!',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -700,12 +712,41 @@ def test_instrument_extract_false(exporter: TestExporter):
             'attributes': {
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
-                'code.function': 'test_instrument_extract_false',
-                'logfire.msg_template': 'hello-world',
+                'code.function': 'test_instrument_extract_false.<locals>.hello_world',
+                'logfire.msg_template': 'hello {a}!',
                 'logfire.span_type': 'span',
-                'logfire.msg': 'hello-world',
+                'logfire.msg': 'hello {a}!',
             },
-        },
+        }
+    ]
+
+
+def test_instrument_complex_args(exporter: TestExporter):
+    @logfire.instrument('hello {thing}!')
+    def hello_world(thing: dict[str, int]) -> str:
+        return f'hello {thing}'
+
+    assert hello_world({'a': 123}) == "hello {'a': 123}"
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
+        {
+            'name': 'hello {thing}!',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_instrument_complex_args.<locals>.hello_world',
+                'logfire.msg_template': 'hello {thing}!',
+                'logfire.msg': "hello {'a': 123}!",
+                'logfire.json_schema': '{"type":"object","properties":{"thing":{"type":"object"}}}',
+                'thing': '{"a":123}',
+                'logfire.span_type': 'span',
+            },
+        }
     ]
 
 

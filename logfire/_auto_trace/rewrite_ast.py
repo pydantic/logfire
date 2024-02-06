@@ -3,9 +3,10 @@ from __future__ import annotations
 import ast
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import logfire
+from logfire._ast_utils import BaseTransformer, LogfireArgs
 
 if TYPE_CHECKING:
     from logfire._main import Logfire
@@ -27,23 +28,16 @@ def exec_source(source: str, filename: str, module_name: str, globs: dict[str, A
     exec(code, globs, globs)
 
 
-def rewrite_ast(source: str, filename: str, logfire_name: str, module_name: str, logfire: Logfire) -> ast.AST:
+def rewrite_ast(source: str, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire) -> ast.AST:
     tree = ast.parse(source)
-    transformer = Transformer(logfire_name, filename, module_name, logfire)
+    logfire_args = LogfireArgs(logfire_instance._tags + ['auto-trace'], logfire_instance._sample_rate)  # type: ignore
+    transformer = AutoTraceTransformer(logfire_args, logfire_name, filename, module_name)
     return transformer.visit(tree)
 
 
 @dataclass
-class Transformer(ast.NodeTransformer):
-    logfire_span_name: str
-    filename: str
-    module_name: str
-    logfire: Logfire
-
-    def __post_init__(self):
-        # Names of functions and classes that we're currently inside,
-        # so we can construct the qualified name of the current function.
-        self.qualname_stack: list[str] = []
+class AutoTraceTransformer(BaseTransformer):
+    """Trace all encountered functions except those explicitly marked with `@no_auto_trace`."""
 
     def check_no_auto_trace(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:
         """Return true if the node has a `@no_auto_trace` or `@logfire.no_auto_trace` decorator."""
@@ -65,59 +59,13 @@ class Transformer(ast.NodeTransformer):
         if self.check_no_auto_trace(node):
             return node
 
-        self.qualname_stack.append(node.name)
-        # We need to call generic_visit here to modify any functions defined inside the class.
-        node = cast(ast.ClassDef, self.generic_visit(node))
-        self.qualname_stack.pop()
-        return node
+        return super().visit_ClassDef(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
         if self.check_no_auto_trace(node):
             return node
 
-        self.qualname_stack.append(node.name)
-        qualname = '.'.join(self.qualname_stack)
-        self.qualname_stack.append('<locals>')
-        # We need to call generic_visit here to modify any classes/functions nested inside.
-        self.generic_visit(node)
-        self.qualname_stack.pop()  # <locals>
-        self.qualname_stack.pop()  # node.name
-
-        msg, attributes = self.logfire._fast_span_attributes(  # type: ignore
-            self.filename, self.module_name, qualname, node.lineno
-        )
-        attributes_stmt = ast.parse(repr(attributes)).body[0]
-        assert isinstance(attributes_stmt, ast.Expr)
-        attributes_node = attributes_stmt.value
-        # Replace the body of the function with:
-        #     with <logfire_span_name>('Calling ...'):
-        #         <original body>
-        span = ast.With(
-            items=[
-                ast.withitem(
-                    context_expr=ast.Call(
-                        func=ast.Name(id=self.logfire_span_name, ctx=ast.Load()),
-                        args=[ast.Constant(value=msg), attributes_node],
-                        keywords=[],
-                    ),
-                )
-            ],
-            body=node.body,
-            type_comment=node.type_comment,
-        )
-        return ast.fix_missing_locations(
-            ast.copy_location(
-                type(node)(
-                    name=node.name,
-                    args=node.args,
-                    body=[span],
-                    decorator_list=node.decorator_list,
-                    returns=node.returns,
-                    type_comment=node.type_comment,
-                ),
-                node,
-            )
-        )
+        return super().visit_FunctionDef(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
 

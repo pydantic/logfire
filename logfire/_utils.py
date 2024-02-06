@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, TypeVar, Union
+
+T = TypeVar('T')
 
 JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
 JsonDict = Dict[str, JsonValue]
@@ -16,6 +18,13 @@ else:
 
     def dump_json(obj: JsonValue) -> str:
         return pydantic_core.to_json(obj).decode()
+
+
+def uniquify_sequence(seq: Sequence[T]) -> list[T]:
+    """Remove duplicates from a sequence preserving order."""
+    seen: set[T] = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
 
 
 def safe_repr(obj: Any) -> str:

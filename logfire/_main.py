@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from functools import cached_property, wraps
-from inspect import Parameter as SignatureParameter, signature as inspect_signature
+from functools import cached_property
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -25,11 +24,13 @@ from typing_extensions import LiteralString
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
+from logfire._instrument import LogfireArgs, instrument
 from logfire.version import VERSION
 
 from . import AutoTraceModule, _async
 from ._auto_trace import install_auto_tracing
-from ._stack_info import StackInfo, get_caller_stack_info, get_filepath_attribute
+from ._stack_info import get_caller_stack_info
+from ._utils import uniquify_sequence
 
 try:
     from pydantic import ValidationError
@@ -188,32 +189,28 @@ class Logfire:
             self._spans_tracer,
         )
 
-    def _fast_span(self, msg: LiteralString, attributes: otel_types.Attributes) -> FastLogfireSpan:
+    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
-        span = self._spans_tracer.start_span(name=msg, attributes=attributes)
+        span = self._spans_tracer.start_span(name=name, attributes=attributes)
         return FastLogfireSpan(span)
 
-    def _fast_span_attributes(
-        self, filename: str, module_name: str, function_name: str, lineno: int
-    ) -> tuple[str, dict[str, otel_types.AttributeValue]]:
-        stack_info: StackInfo = {
-            **get_filepath_attribute(filename),
-            'code.lineno': lineno,
-            'code.function': function_name,
-        }
-        msg = f'Calling {module_name}.{function_name}'
-        attributes: dict[str, otel_types.AttributeValue] = {
-            **stack_info,
-            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg,
-            ATTRIBUTES_MESSAGE_KEY: msg,
-            ATTRIBUTES_TAGS_KEY: tuple(uniquify_sequence(self._tags + ['auto-trace'])),
-        }
-        if self._sample_rate not in (None, 1):
-            attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = self._sample_rate
-        return msg, attributes
+    def _instrument_span_with_args(
+        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
+    ) -> FastLogfireSpan:
+        """A version of `_span` used by `@instrument` with `extract_args=True`.
+
+        This is a bit faster than `_span` but not as fast as `_fast_span` because it supports message formatting
+        and arbitrary types of attributes.
+        """
+        msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, stacklevel=4)
+        if attributes_json_schema := logfire_json_schema(function_args):
+            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
+        attributes.update(user_attributes(function_args))
+        return self._fast_span(name, attributes)
 
     def span(
         self,
@@ -249,7 +246,7 @@ class Logfire:
         msg_template: LiteralString | None = None,
         *,
         span_name: str | None = None,
-        extract_args: bool | None = None,
+        extract_args: bool = True,
     ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
         """Decorator for instrumenting a function as a span.
 
@@ -262,44 +259,17 @@ class Logfire:
             logfire.info('new log {a=}', a=a)
         ```
 
+        !!! note
+            - This decorator MUST be applied first, i.e. UNDER any other decorators.
+            - The source code of the function MUST be accessible.
+
         Args:
-            msg_template: The template for the span message. If not provided, the span name will be used.
-            span_name: The name of the span. If not provided, the function name will be used.
+            msg_template: The template for the span message. If not provided, the module and function name will be used.
+            span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
-                If not provided, this will be enabled if `msg_template` is provided and contains `{}`.
         """
-        if extract_args is None:
-            extract_args = bool(msg_template and '{' in msg_template)
-
-        def decorator(func: Callable[_PARAMS, _RETURN]) -> Callable[_PARAMS, _RETURN]:
-            nonlocal span_name
-            if span_name is None:
-                if func.__module__:
-                    span_name_ = f'{func.__module__}.{getattr(func, "__qualname__", func.__name__)}'
-                else:
-                    span_name_ = getattr(func, '__qualname__', func.__name__)
-            else:
-                span_name_ = span_name
-
-            pos_params = ()
-            if extract_args:
-                sig = inspect_signature(func)
-                pos_params = tuple(n for n, p in sig.parameters.items() if p.kind in _POSITIONAL_PARAMS)
-
-            @wraps(func)
-            def _instrument_wrapper(*args: _PARAMS.args, **kwargs: _PARAMS.kwargs) -> _RETURN:
-                if extract_args:
-                    pos_args = {k: v for k, v in zip(pos_params, args)}
-                    extracted_attributes = {**pos_args, **kwargs}
-                else:
-                    extracted_attributes = {}
-
-                with self._span(msg_template, extracted_attributes, span_name=span_name_):  # type: ignore
-                    return func(*args, **kwargs)
-
-            return _instrument_wrapper
-
-        return decorator
+        args = LogfireArgs(tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args)
+        return instrument(self, args)
 
     def log(
         self, level: LevelName, msg_template: LiteralString, attributes: dict[str, Any], stack_offset: int = 0
@@ -796,15 +766,5 @@ def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
     return stack
 
 
-_RETURN = TypeVar('_RETURN')
 _PARAMS = ParamSpec('_PARAMS')
-_POSITIONAL_PARAMS = {SignatureParameter.POSITIONAL_ONLY, SignatureParameter.POSITIONAL_OR_KEYWORD}
-
-T = TypeVar('T')
-
-
-def uniquify_sequence(seq: Sequence[T]) -> list[T]:
-    """Remove duplicates from a sequence preserving order."""
-    seen: set[T] = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
+_RETURN = TypeVar('_RETURN')
