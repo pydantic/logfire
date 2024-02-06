@@ -30,7 +30,6 @@ class ChunksFormatter(Formatter):
         *,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
-        fallback: str | None = None,
         stacklevel: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
@@ -85,13 +84,9 @@ class ChunksFormatter(Formatter):
                         # fall back to getting a key with the dots in the name
                         obj = kwargs[field_name]
                     except KeyError:
-                        if fallback:
-                            # allow it to be missing, in particular for pending spans
-                            obj = fallback
-                        else:
-                            obj = None
-                            field = exc.args[0]
-                            warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
+                        obj = '{' + field_name + '}'
+                        field = exc.args[0]
+                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -130,7 +125,6 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], fallback: str | N
         for chunk in chunks_formatter.chunks(
             format_string,
             kwargs,
-            fallback=fallback,
             stacklevel=stacklevel,
         )
     )

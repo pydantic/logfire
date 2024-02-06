@@ -1140,13 +1140,20 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
 
 
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
-    with logfire.span('{missing}') as s:
-        s.set_attribute('missing', 'value')
+    with pytest.warns(UserWarning, match=r'missing') as warnings:
+        span = logfire.span('{present} {missing}', present='here')
+
+    assert len(warnings) == 1
+    assert warnings[0].filename == __file__
+
+    with span:
+        # Previously the message was reformatted with this attribute, not any more
+        span.set_attribute('missing', 'value')
 
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '{missing} (pending)',
+            'name': '{present} {missing} (pending)',
             'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 1000000000,
@@ -1155,14 +1162,16 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
                 'code.function': 'test_format_attribute_added_after_pending_span_sent',
-                'logfire.msg_template': '{missing}',
-                'logfire.msg': '...',
+                'present': 'here',
+                'logfire.msg_template': '{present} {missing}',
+                'logfire.msg': 'here {missing}',
+                'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
                 'logfire.span_type': 'pending_span',
                 'logfire.pending_parent_id': '0000000000000000',
             },
         },
         {
-            'name': '{missing}',
+            'name': '{present} {missing}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -1171,20 +1180,15 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
                 'code.function': 'test_format_attribute_added_after_pending_span_sent',
-                'logfire.msg_template': '{missing}',
+                'present': 'here',
+                'logfire.msg_template': '{present} {missing}',
+                'logfire.msg': 'here {missing}',
+                'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
                 'logfire.span_type': 'span',
                 'missing': 'value',
-                'logfire.msg': 'value',
             },
         },
     ]
-
-    with pytest.warns(UserWarning, match=r'missing') as warnings:
-        with logfire.span('{missing}') as s:
-            pass
-
-    assert len(warnings) == 1
-    assert warnings[0].filename == __file__
 
 
 def check_project_name(expected_project_name: str) -> None:

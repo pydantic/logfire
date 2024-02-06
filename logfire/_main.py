@@ -10,7 +10,6 @@ from typing import (
     Callable,
     ContextManager,
     Sequence,
-    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -149,7 +148,6 @@ class Logfire:
         *,
         span_name: str | None = None,
         stacklevel: int = 3,
-        decorator: bool = False,
     ) -> LogfireSpan:
         stack_info = get_caller_stack_info(stacklevel=stacklevel)
 
@@ -164,7 +162,7 @@ class Logfire:
         else:
             span_name_ = msg_template
         format_kwargs = {'span_name': span_name_, **merged_attributes}
-        log_message = logfire_format(msg_template, format_kwargs, fallback='...', stacklevel=stacklevel)
+        log_message = logfire_format(msg_template, format_kwargs, stacklevel=stacklevel + 2)
 
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -184,16 +182,10 @@ class Logfire:
         if sample_rate is not None and sample_rate != 1:
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        exit_stacklevel = stacklevel + (2 if decorator else 1)
         return LogfireSpan(
             span_name_,
             otlp_attributes,
             self._spans_tracer,
-            {
-                'format_string': msg_template,
-                'kwargs': merged_attributes,
-                'stacklevel': exit_stacklevel,
-            },
         )
 
     def _fast_span(self, msg: LiteralString, attributes: otel_types.Attributes) -> FastLogfireSpan:
@@ -302,7 +294,7 @@ class Logfire:
                 else:
                     extracted_attributes = {}
 
-                with self._span(msg_template, extracted_attributes, span_name=span_name_, decorator=True):  # type: ignore
+                with self._span(msg_template, extracted_attributes, span_name=span_name_):  # type: ignore
                     return func(*args, **kwargs)
 
             return _instrument_wrapper
@@ -625,14 +617,12 @@ class LogfireSpan(ReadableSpan):
         span_name: str,
         otlp_attributes: dict[str, otel_types.AttributeValue],
         tracer: Tracer,
-        format_args: _FormatArgs,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._end_on_exit: bool | None = None
         self._token: None | object = None
-        self._format_args = format_args
         self._span: None | trace_api.Span = None
         self.end_on_exit = True
 
@@ -661,16 +651,6 @@ class LogfireSpan(ReadableSpan):
 
         assert self._span is not None
         _exit_span(self._span, exc_type, exc_value, traceback)
-
-        # We allow attributes to be set while the span is active, so we need to
-        # reformat the message in case any new attributes were added.
-        format_args = self._format_args
-        log_message = logfire_format(
-            format_string=format_args['format_string'],
-            kwargs={'span_name': self._span_name, **format_args['kwargs']},
-            stacklevel=format_args['stacklevel'],
-        )
-        self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, log_message)
 
         end_on_exit_ = self.end_on_exit
         if end_on_exit_:
@@ -721,7 +701,6 @@ class LogfireSpan(ReadableSpan):
             self._otlp_attributes[key] = value
         else:
             self._span.set_attribute(key, value)
-        self._format_args['kwargs'][key] = value
 
 
 OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)
@@ -758,12 +737,6 @@ def _exit_span(
         span.record_exception(exc_value, attributes=attributes, escaped=True)
     else:
         span.set_status(OK_STATUS)
-
-
-class _FormatArgs(TypedDict):
-    format_string: LiteralString
-    kwargs: dict[str, Any]
-    stacklevel: int
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
