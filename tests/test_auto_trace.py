@@ -138,6 +138,8 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'logfire.span_type': 'span',
                 'logfire.tags': ('auto-trace',),
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
             },
             'events': [
                 {
@@ -149,8 +151,6 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                         'exception.stacktrace': 'IndexError: list index out of range',
                         'exception.escaped': 'True',
                         'exception.logfire.trace': '{"stacks": [{"exc_type": "IndexError", "exc_value": "list index out of range", "syntax_error": null, "is_cause": false, "frames": [{"filename": "foo.py", "lineno": 123, "name": "bar", "line": "", "locals": null}]}]}',
-                        'logfire.level_name': 'error',
-                        'logfire.level_num': 17,
                     },
                 }
             ],

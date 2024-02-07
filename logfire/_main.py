@@ -2,7 +2,17 @@ from __future__ import annotations
 
 import warnings
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -510,6 +520,7 @@ class Logfire:
         ]
         | None = None,
         use_opentelemetry_instrumentation: bool = True,
+        excluded_urls: str | Iterable[str] | None = None,
     ) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -530,6 +541,10 @@ class Logfire:
 
                 The default implementation will return the input dictionary unchanged.
                 The function mustn't modify the contents of `values` or `errors`.
+            excluded_urls: A string of comma-separated regexes which will exclude a request from tracing if the full URL
+                matches any of the regexes. This applies to both the Logfire and OpenTelemetry instrumentation.
+                If not provided, the environment variables
+                `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` and `OTEL_PYTHON_EXCLUDED_URLS` will be checked.
             use_opentelemetry_instrumentation: If True (the default) then
                 [`FastAPIInstrumentor`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor]
                 will also instrument the app.
@@ -549,6 +564,7 @@ class Logfire:
             self,
             app,
             attributes_mapper=attributes_mapper,
+            excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
         )
 
@@ -898,12 +914,16 @@ def _exit_span(
         tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
         attributes: dict[str, otel_types.AttributeValue] = {
             ATTRIBUTES_EXCEPTION_TRACEBACK_KEY: json_dumps_traceback(tb.trace),
-            ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'error',
-            ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
         }
+        span.set_attributes(
+            {
+                ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'error',
+                ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
+            }
+        )
         if ValidationError is not None and isinstance(exc_value, ValidationError):
             err_json = exc_value.json(include_url=False)
-            span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, exc_value.json(include_url=False))
+            span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
             attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
         span.record_exception(exc_value, attributes=attributes, escaped=True)
     else:

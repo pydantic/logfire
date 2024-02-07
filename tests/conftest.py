@@ -1,6 +1,7 @@
 import builtins
 
-# Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parseimport anyio._backends._asyncio
+# Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
+import anyio._backends._asyncio  # noqa
 import pytest
 from devtools.pytest_plugin import insert_assert
 from opentelemetry import trace

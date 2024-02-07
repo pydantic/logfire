@@ -107,7 +107,18 @@ def attributes_mapper(request, attributes):
 logfire.instrument_fastapi(app, attributes_mapper=attributes_mapper)
 ```
 
-NOTE: The `attributes_mapper` function mustn't modify the contents of `values` or `errors`.
+!!! note
+    The [`attributes_mapper`][logfire.Logfire.instrument_fastapi(attributes_mapper)] function mustn't modify the
+    contents of `values` or `errors`.
+
+## Excluding URLs from instrumentation
+
+To avoid tracing certain URLs, you can specify a string of comma-separated regexes which will be matched against the full request URL. This can be passed to:
+
+- [`instrument_fastapi`][logfire.Logfire.instrument_fastapi] as [`excluded_urls`][logfire.Logfire.instrument_fastapi(excluded_urls)], e.g: `logfire.instrument_fastapi(app, excluded_urls='/health')`
+- [`FastAPIInstrumentor.instrument_app`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument_app] as `excluded_urls` (only needed if you're already using the OpenTelemetry FastAPI Instrumentation directly)
+- The environment variable `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`.
+- The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
 
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
