@@ -23,7 +23,7 @@ This same mechanism can be used to bulk load data, for example if you are import
 
 First create a dump file:
 
-```python
+```py
 from datetime import datetime
 
 from logfire.backfill import Log, PrepareBackfill, StartSpan

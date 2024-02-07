@@ -12,6 +12,12 @@ with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
+force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
+log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
+install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
+instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
+
+# Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
 trace = DEFAULT_LOGFIRE_INSTANCE.trace
 debug = DEFAULT_LOGFIRE_INSTANCE.debug
@@ -20,10 +26,14 @@ notice = DEFAULT_LOGFIRE_INSTANCE.notice
 warn = DEFAULT_LOGFIRE_INSTANCE.warn
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
-force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
-log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
-install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
-instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
+
+# Metrics
+metric_counter = DEFAULT_LOGFIRE_INSTANCE.metric_counter
+metric_histogram = DEFAULT_LOGFIRE_INSTANCE.metric_histogram
+metric_up_down_counter = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter
+metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
+metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
+metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
 
 
 __version__ = VERSION

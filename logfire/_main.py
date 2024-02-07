@@ -2,21 +2,12 @@ from __future__ import annotations
 
 import warnings
 from functools import cached_property
-from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    ContextManager,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Sequence, TypeVar, Union, cast
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 import rich.traceback
+from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
@@ -59,12 +50,12 @@ from ._json_encoder import json_dumps_traceback, logfire_json_dumps
 from ._json_schema import logfire_json_schema
 from ._tracer import ProxyTracerProvider
 
-_CWD = Path('.').resolve()
-
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+
+_METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire', VERSION)  # type: ignore
 
 
 class Logfire:
@@ -560,6 +551,216 @@ class Logfire:
             attributes_mapper=attributes_mapper,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
         )
+
+    def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
+        """Create a counter metric.
+
+        A counter is a cumulative metric that represents a single numerical value that only ever goes up.
+
+        ```py
+        import logfire
+
+        counter = logfire.metric_counter('exceptions', unit='1', description='Number of exceptions caught')
+
+        try:
+            raise Exception('oops')
+        except Exception:
+            counter.add(1)
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#counter) about
+        counters.
+
+        Args:
+            name: The name of the metric.
+            unit: The unit of the metric.
+            description: The description of the metric.
+
+        Returns:
+            The counter metric.
+        """
+        return _METER.create_counter(name, unit, description)
+
+    def metric_histogram(self, name: str, *, unit: str = '', description: str = '') -> Histogram:
+        """Create a histogram metric.
+
+        A histogram is a metric that samples observations (usually things like request durations or response sizes).
+
+        ```py
+        import logfire
+
+        histogram = logfire.metric_histogram('bank.amount_transferred', unit='$', description='Amount transferred')
+
+
+        def transfer(amount: int):
+            histogram.record(amount)
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram) about
+
+        Args:
+            name: The name of the metric.
+            unit: The unit of the metric.
+            description: The description of the metric.
+
+        Returns:
+            The histogram metric.
+        """
+        return _METER.create_histogram(name, unit, description)
+
+    def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
+        """Create an up-down counter metric.
+
+        An up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
+        down.
+
+        ```py
+        import logfire
+
+        up_down_counter = logfire.metric_up_down_counter('users.logged_in', unit='1', description='Users logged in')
+
+
+        def on_login(user):
+            up_down_counter.add(1)
+
+
+        def on_logout(user):
+            up_down_counter.add(-1)
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#updowncounter) about
+        up-down counters.
+
+        Args:
+            name: The name of the metric.
+            unit: The unit of the metric.
+            description: The description of the metric.
+
+        Returns:
+            The up-down counter metric.
+        """
+        return _METER.create_up_down_counter(name, unit, description)
+
+    def metric_counter_callback(
+        self,
+        name: str,
+        *,
+        callbacks: Sequence[CallbackT],
+        unit: str = '',
+        description: str = '',
+    ) -> None:
+        """Create a counter metric that uses a callback to collect observations.
+
+        The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
+
+        ```py
+        import logfire
+        import psutil
+        from opentelemetry.metrics import CallbackOptions, Observation
+
+
+        def cpu_usage_callback(options: CallbackOptions):
+            cpu_percents = psutil.cpu_percent(percpu=True)
+
+            for i, cpu_percent in enumerate(cpu_percents):
+                yield Observation(cpu_percent, {'cpu': i})
+
+
+        cpu_usage_counter = logfire.metric_counter_callback(
+            'system.cpu.usage',
+            callbacks=[cpu_usage_callback],
+            unit='%',
+            description='CPU usage',
+        )
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-counter)
+        about asynchronous counter.
+
+        Args:
+            name: The name of the metric.
+            callbacks: A sequence of callbacks that return an iterable of
+                [Observation](https://opentelemetry-python.readthedocs.io/en/latest/api/metrics.html#opentelemetry.metrics.Observation).
+            unit: The unit of the metric.
+            description: The description of the metric.
+        """
+        _METER.create_observable_counter(name, callbacks, unit, description)
+
+    def metric_gauge_callback(
+        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
+    ) -> None:
+        """Create a gauge metric that uses a callback to collect observations.
+
+        The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
+
+        ```py
+        import threading
+
+        import logfire
+        from opentelemetry.metrics import CallbackOptions, Observation
+
+
+        def thread_count_callback(options: CallbackOptions):
+            yield Observation(threading.active_count())
+
+
+        logfire.metric_gauge_callback(
+            'system.thread_count',
+            callbacks=[thread_count_callback],
+            unit='1',
+            description='Number of threads',
+        )
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-gauge)
+        about asynchronous gauge.
+
+        Args:
+            name: The name of the metric.
+            callbacks: A sequence of callbacks that return an iterable of
+                [Observation](https://opentelemetry-python.readthedocs.io/en/latest/api/metrics.html#opentelemetry.metrics.Observation).
+            unit: The unit of the metric.
+            description: The description of the metric.
+        """
+        _METER.create_observable_gauge(name, callbacks, unit, description)
+
+    def metric_up_down_counter_callback(
+        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
+    ) -> None:
+        """Create an up-down counter metric that uses a callback to collect observations.
+
+        The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
+        down.
+
+        ```py
+        import logfire
+        from opentelemetry.metrics import CallbackOptions, Observation
+
+        items = []
+
+
+        def inventory_callback(options: CallbackOptions):
+            yield Observation(len(items))
+
+
+        logfire.metric_up_down_counter_callback(
+            name='store.inventory',
+            description='Number of items in the inventory',
+            callbacks=[inventory_callback],
+        )
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-updowncounter)
+        about asynchronous up-down counters.
+
+        Args:
+            name: The name of the metric.
+            callbacks: A sequence of callbacks that return an iterable of
+                [Observation](https://opentelemetry-python.readthedocs.io/en/latest/api/metrics.html#opentelemetry.metrics.Observation).
+            unit: The unit of the metric.
+            description: The description of the metric.
+        """
+        _METER.create_observable_up_down_counter(name, callbacks, unit, description)
 
 
 class FastLogfireSpan:

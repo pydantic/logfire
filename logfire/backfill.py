@@ -29,7 +29,7 @@ from .exporters._file import FileSpanExporter
 try:
     from pydantic import BaseModel, ConfigDict, Field
 except ImportError as e:
-    raise ImportError('pydantic is required to use logfire.import, run `pip install logfire[backfill]`') from e
+    raise ImportError('Pydantic is required to use `logfire.import`, run `pip install pydantic`.') from e
 
 
 __all__ = 'generate_trace_id', 'generate_span_id', 'Log', 'StartSpan', 'PrepareBackfill'

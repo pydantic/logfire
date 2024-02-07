@@ -59,7 +59,7 @@ if sys.platform == 'darwin':
 
 def configure_metrics(meter_provider: MeterProvider) -> None:
     if INSTRUMENTOR is None:
-        raise RuntimeError('install logfire[system-metrics] to use `collect_system_metrics=True`.')
+        raise RuntimeError('Install logfire[system-metrics] to use `collect_system_metrics=True`.')
 
     # we need to call uninstrument() otherwise instrument() will do nothing
     # even if the meter provider is different

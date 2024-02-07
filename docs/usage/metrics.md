@@ -36,6 +36,5 @@ Logfire collects the following system metrics:
 
 ## Custom Metrics
 
-Logfire allows you to send custom metrics to the configured metrics backend.
-
-<!-- TODO(Marcelo): Document how the user can send custom metrics. -->
+Metrics are a great way to record number values where you want to see an aggregation of the data (e.g. over time),
+rather than the individual values.
