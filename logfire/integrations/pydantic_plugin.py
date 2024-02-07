@@ -134,7 +134,7 @@ class BaseValidateHandler:
                     schema_name=self.schema_name,
                     validation_method=self.validation_method,
                     input_data=input_data,
-                    span_name=f'pydantic.{self.validation_method}',
+                    _span_name=f'pydantic.{self.validation_method}',
                 )
             )
 

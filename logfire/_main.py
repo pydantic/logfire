@@ -148,24 +148,15 @@ class Logfire:
         msg_template: LiteralString,
         attributes: dict[str, Any],
         *,
-        span_name: str | None = None,
+        _span_name: str | None = None,
         stacklevel: int = 3,
     ) -> LogfireSpan:
         stack_info = get_caller_stack_info(stacklevel=stacklevel)
-
         merged_attributes = {**stack_info, **attributes}
-        merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
-
         tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
 
-        span_name_: str
-        if span_name is not None:
-            span_name_ = span_name
-        else:
-            span_name_ = msg_template
-        format_kwargs = {'span_name': span_name_, **merged_attributes}
-        log_message = logfire_format(msg_template, format_kwargs, stacklevel=stacklevel + 2)
-
+        log_message = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
+        merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
         otlp_attributes = user_attributes(merged_attributes)
@@ -185,7 +176,7 @@ class Logfire:
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         return LogfireSpan(
-            span_name_,
+            _span_name or msg_template,
             otlp_attributes,
             self._spans_tracer,
         )
@@ -216,8 +207,9 @@ class Logfire:
     def span(
         self,
         msg_template: LiteralString,
+        /,
         *,
-        span_name: str | None = None,
+        _span_name: str | None = None,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -231,15 +223,16 @@ class Logfire:
 
         Args:
             msg_template: The template for the span message.
-            span_name: The span name. If not provided, the `msg_template` will be used.
+            _span_name: The span name. If not provided, the `msg_template` will be used.
             attributes: The arguments to format the span message template with.
+                Attributes starting with an underscore are not allowed.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
         return self._span(
             msg_template,
             attributes,
-            span_name=span_name,
+            _span_name=_span_name,
         )
 
     def instrument(

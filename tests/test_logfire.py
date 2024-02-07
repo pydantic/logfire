@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 import logfire
-from logfire import Logfire, LogfireSpan
+from logfire import Logfire
 from logfire._config import LogfireConfig, configure
 from logfire._constants import (
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
@@ -83,7 +83,7 @@ def test_instrument_without_kwargs():
 
 def test_span_without_kwargs(exporter: TestExporter) -> None:
     with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
-        with logfire.span('test {foo}', span_name='test span'):
+        with logfire.span('test {foo}'):
             pass  # pragma: no cover
 
     warning = warnings.pop()
@@ -91,7 +91,7 @@ def test_span_without_kwargs(exporter: TestExporter) -> None:
 
 
 def test_span_with_kwargs(exporter: TestExporter) -> None:
-    with logfire.span('test {name=} {number}', span_name='test span', name='foo', number=3, extra='extra') as s:
+    with logfire.span('test {name=} {number}', _span_name='test span', name='foo', number=3, extra='extra') as s:
         pass
 
     assert s.name == 'test span'
@@ -146,8 +146,8 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
 
 
 def test_span_with_parent(exporter: TestExporter) -> None:
-    with logfire.span('{type} span', span_name='test parent span', type='parent') as p:
-        with logfire.span('{type} span', span_name='test child span', type='child') as c:
+    with logfire.span('{type} span', _span_name='test parent span', type='parent') as p:
+        with logfire.span('{type} span', _span_name='test child span', type='child') as c:
             pass
 
     assert p.name == 'test parent span'
@@ -239,7 +239,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
 
 def test_span_with_tags(exporter: TestExporter) -> None:
     with logfire.with_tags('tag1', 'tag2').span(
-        'test {name} {number}', span_name='test span', name='foo', number=3, extra='extra'
+        'test {name} {number}', _span_name='test span', name='foo', number=3, extra='extra'
     ) as s:
         pass
 
@@ -353,65 +353,6 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
                 'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
                 'logfire.span_type': 'span',
                 'logfire.msg': 'test name=foo 3',
-            },
-        },
-    ]
-
-
-def test_span_use_span_name_in_formatting(exporter: TestExporter) -> None:
-    with logfire.span('test {name=} {number} {span_name}', span_name='bar', name='foo', number=3, extra='extra') as s:
-        pass
-
-    assert isinstance(s, LogfireSpan)
-    assert s.name == 'bar'
-    assert s.parent is None
-    assert s.start_time is not None and s.end_time is not None
-    assert s.start_time < s.end_time
-    assert len(s.events) == 0
-    assert s.attributes is not None
-    assert ATTRIBUTES_TAGS_KEY not in s.attributes
-    assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test name=foo 3 bar'
-    assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name=} {number} {span_name}'
-
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'bar (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_use_span_name_in_formatting',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number} {span_name}',
-                'logfire.msg': 'test name=foo 3 bar',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
-            },
-        },
-        {
-            'name': 'bar',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_use_span_name_in_formatting',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number} {span_name}',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test name=foo 3 bar',
             },
         },
     ]
@@ -826,7 +767,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
         a: int
 
     def run(a: str) -> None:
-        with logfire.span('test', span_name='test span'):
+        with logfire.span('test', _span_name='test span'):
             Model(a=a)  # type: ignore
 
     with pytest.raises(ValidationError):
