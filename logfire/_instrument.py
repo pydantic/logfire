@@ -66,6 +66,7 @@ def transform_code(func_code: CodeType, args: LogfireArgs):
         raise ValueError('lambda functions cannot be instrumented')
 
     module = inspect.getmodule(func_code)
+    assert module is not None
     filename = inspect.getsourcefile(func_code)
 
     # We have to process the entire source file, not just the function definition,
