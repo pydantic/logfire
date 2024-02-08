@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import os
 
 import pytest
 from opentelemetry import trace
@@ -352,7 +351,6 @@ def test_show_parents_console_exporter_interleaved() -> None:
     ]
 
 
-@pytest.mark.skipif('CI' not in os.environ, reason='Skip except on CI as different envs have different ansi codes')
 def test_verbose_attributes(exporter: TestExporter) -> None:
     d = {'a': 1, 'b': 2}
     logfire.info('Hello {name}!', name='world', d=d)

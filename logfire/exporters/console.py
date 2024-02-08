@@ -5,6 +5,7 @@ Inspired by https://opentelemetry-python.readthedocs.io/en/latest/_modules/opent
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
@@ -60,6 +61,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             force_terminal = colors == 'always'
         self._console = Console(
+            color_system='standard' if os.environ.get('PYTEST_CURRENT_TEST') else 'auto',
             file=self._output,
             force_terminal=force_terminal,
             highlight=False,
