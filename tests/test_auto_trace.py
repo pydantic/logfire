@@ -6,7 +6,11 @@ from importlib.machinery import SourceFileLoader
 import pytest
 
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
-from logfire._auto_trace import LogfireFinder
+from logfire._auto_trace import (
+    AutoTraceModuleAlreadyImportedException,
+    AutoTraceModuleAlreadyImportedWarning,
+    LogfireFinder,
+)
 from logfire._auto_trace.import_hook import LogfireLoader
 from logfire._auto_trace.rewrite_ast import rewrite_ast
 from logfire.testing import TestExporter
@@ -164,9 +168,20 @@ def test_default_modules() -> None:
     imported_modules = set(sys.modules.items())
 
     # Test the default module filter argument of install_auto_tracing.
+    # Since we're in `tests.test_auto_trace`, it should match anything in the `tests` package.
+    # Since this has obviously already been imported, it requires `check_imported_modules='ignore'`.
+    with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests' matches modules to trace"):
+        install_auto_tracing()
+
+    with pytest.raises(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests' matches modules to trace"):
+        install_auto_tracing(check_imported_modules='warn')
+
+    with pytest.raises(ValueError):
+        install_auto_tracing(check_imported_modules='other')
+
     # This should match anything in the `tests` package, so remove the finder at the end of the test.
     meta_path = sys.meta_path.copy()
-    install_auto_tracing()
+    install_auto_tracing(check_imported_modules='ignore')
     assert sys.meta_path[1:] == meta_path
     finder = sys.meta_path[0]
 

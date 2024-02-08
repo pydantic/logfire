@@ -2,17 +2,7 @@ from __future__ import annotations
 
 import warnings
 from functools import cached_property
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    ContextManager,
-    Iterable,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -475,14 +465,19 @@ class Logfire:
         """
         return _async.log_slow_callbacks(self, slow_duration)
 
-    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None) -> None:
+    def install_auto_tracing(
+        self,
+        modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None,
+        *,
+        check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
+    ) -> None:
         """Install automatic tracing.
 
         This will trace all function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
 
         !!! note
-            This function MUST be called before any of the modules are imported.
+            This function MUST be called before any of the modules to be traced are imported.
 
         This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
         may prevent it from working.
@@ -497,8 +492,11 @@ class Logfire:
 
                 Defaults to the root of the calling module, so e.g. calling this inside the module `foo.bar`
                 will trace all functions in `foo`, `foo.bar`, `foo.spam`, etc.
+            check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
+                modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
+                Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
-        install_auto_tracing(self, modules)
+        install_auto_tracing(self, modules, check_imported_modules=check_imported_modules)
 
     def instrument_fastapi(
         self,
