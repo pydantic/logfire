@@ -21,9 +21,10 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
         headers = {}
         inject(headers)
         response = client.get('/', headers=headers)
-
-    assert response.status_code == 200
-    assert response.text == 'middleware test'
+        # Read the response to ensure that the OTEL middleware span ends
+        # before the outer logfire span to avoid confusion.
+        assert response.status_code == 200
+        assert response.text == 'middleware test'
 
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
@@ -45,26 +46,11 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
             },
         },
         {
-            'name': 'outside request handler',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test_wsgi.py',
-                'code.lineno': 123,
-                'code.function': 'test_wsgi_middleware',
-                'logfire.msg_template': 'outside request handler',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'outside request handler',
-            },
-        },
-        {
             'name': 'GET /',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
-            'end_time': 5000000000,
+            'end_time': 4000000000,
             'attributes': {
                 'http.method': 'GET',
                 'http.server_name': 'localhost',
@@ -76,6 +62,21 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
                 'logfire.span_type': 'span',
                 'logfire.msg': 'GET /',
                 'http.status_code': 200,
+            },
+        },
+        {
+            'name': 'outside request handler',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 5000000000,
+            'attributes': {
+                'code.filepath': 'test_wsgi.py',
+                'code.function': 'test_wsgi_middleware',
+                'code.lineno': 123,
+                'logfire.msg_template': 'outside request handler',
+                'logfire.msg': 'outside request handler',
+                'logfire.span_type': 'span',
             },
         },
     ]
