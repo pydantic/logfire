@@ -88,6 +88,7 @@ test = [
     "opentelemetry-instrumentation-asgi",
     "opentelemetry-instrumentation-wsgi",
     "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-flask",
     "opentelemetry-instrumentation-httpx",
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-sqlalchemy",

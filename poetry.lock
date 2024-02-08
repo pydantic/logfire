@@ -2408,9 +2408,9 @@ requests = ["opentelemetry-instrumentation-requests", "requests"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy", "sqlalchemy"]
 starlette = ["opentelemetry-instrumentation-starlette", "starlette"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
-test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "requests", "sqlalchemy", "starlette"]
+test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-flask", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "requests", "sqlalchemy", "starlette"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "f29e007099dd5f4cb05fd0ce2cef8d7ec92d1038f462ae8d4d633b83d954a114"
+content-hash = "35ffd96513e263e5114c9dcd017a16ccd40f8261ae3015ead081e8ec79929715"
