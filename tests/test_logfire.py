@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import inspect
-import json
 import re
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Callable, cast
+from typing import Callable
 
 import pytest
-from dirty_equals import IsPositive, IsStr
+from dirty_equals import IsJson, IsStr
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -702,64 +701,66 @@ def test_validation_error_on_instrument(exporter: TestExporter):
     with pytest.raises(ValidationError):
         run('haha')
 
-    s = exporter.exported_spans.pop()
-    assert len(s.events) == 1
-    event = s.events[0]
-    assert event.name == 'exception' and event.attributes
-    assert event.attributes.get('exception.type') == 'ValidationError'
-    assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
-    assert event.attributes.get('exception.stacktrace') is not None
-
-    data = json.loads(cast(str, event.attributes.get('exception.logfire.data')))
-    # insert_assert(data)
-    assert data == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
         {
-            'type': 'int_parsing',
-            'loc': ['a'],
-            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-            'input': 'haha',
+            'name': 'hello-world {a=}',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.lineno': 123,
+                'code.function': 'test_validation_error_on_instrument.<locals>.run',
+                'logfire.msg_template': 'hello-world {a=}',
+                'logfire.msg': 'hello-world a=haha',
+                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                'a': 'haha',
+                'logfire.span_type': 'span',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
+                'exception.logfire.data': IsJson(
+                    [
+                        {
+                            'type': 'int_parsing',
+                            'loc': ['a'],
+                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                            'input': 'haha',
+                        }
+                    ]
+                ),
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': 2000000000,
+                    'attributes': {
+                        'exception.type': 'ValidationError',
+                        'exception.message': IsStr(
+                            regex='1 validation error for Model\na\n  '
+                            'Input should be a valid integer, unable to parse string as an integer .+',
+                            regex_flags=re.DOTALL,
+                        ),
+                        'exception.stacktrace': IsStr(
+                            regex='For further information visit https://errors.pydantic.dev/.+'
+                        ),
+                        'exception.escaped': 'True',
+                        'exception.logfire.data': IsJson(
+                            [
+                                {
+                                    'type': 'int_parsing',
+                                    'loc': ['a'],
+                                    'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                    'input': 'haha',
+                                }
+                            ]
+                        ),
+                    },
+                }
+            ],
         }
     ]
-
-    errors = json.loads(cast(str, event.attributes.get('exception.logfire.trace')))
-    # insert_assert(errors)
-    assert errors == {
-        'stacks': [
-            {
-                'exc_type': 'ValidationError',
-                'exc_value': IsStr(
-                    regex=(
-                        re.escape(
-                            '1 validation error for Model\n'
-                            'a\n'
-                            '  Input should be a valid integer, unable to parse string as an integer '
-                            "[type=int_parsing, input_value='haha', input_type=str]\n"
-                        )
-                        + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'
-                    ),
-                    regex_flags=re.MULTILINE,
-                ),
-                'syntax_error': None,
-                'is_cause': False,
-                'frames': [
-                    {
-                        'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
-                        'lineno': IsPositive(),
-                        'name': 'run',
-                        'line': '',
-                        'locals': None,
-                    },
-                    {
-                        'filename': IsStr(regex=r'.*/pydantic/main.py'),
-                        'lineno': IsPositive(),
-                        'name': '__init__',
-                        'line': '',
-                        'locals': None,
-                    },
-                ],
-            }
-        ]
-    }
 
 
 def test_validation_error_on_span(exporter: TestExporter) -> None:
@@ -773,64 +774,64 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
     with pytest.raises(ValidationError):
         run('haha')
 
-    s = exporter.exported_spans.pop()
-    assert len(s.events) == 1
-    event = s.events[0]
-    assert event.name == 'exception' and event.attributes
-    assert event.attributes.get('exception.type') == 'ValidationError'
-    assert '1 validation error for Model' in cast(str, event.attributes.get('exception.message'))
-    assert event.attributes.get('exception.stacktrace') is not None
-
-    data = json.loads(cast(bytes, event.attributes.get('exception.logfire.data')))
-    # insert_assert(data)
-    assert data == [
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
         {
-            'type': 'int_parsing',
-            'loc': ['a'],
-            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-            'input': 'haha',
+            'name': 'test span',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.function': 'run',
+                'code.lineno': 123,
+                'logfire.msg_template': 'test',
+                'logfire.msg': 'test',
+                'logfire.span_type': 'span',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
+                'exception.logfire.data': IsJson(
+                    [
+                        {
+                            'type': 'int_parsing',
+                            'loc': ['a'],
+                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                            'input': 'haha',
+                        }
+                    ]
+                ),
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': 2000000000,
+                    'attributes': {
+                        'exception.type': 'ValidationError',
+                        'exception.message': IsStr(
+                            regex='1 validation error for Model\na\n  '
+                            'Input should be a valid integer, unable to parse string as an integer .+',
+                            regex_flags=re.DOTALL,
+                        ),
+                        'exception.stacktrace': IsStr(
+                            regex='For further information visit https://errors.pydantic.dev/.+'
+                        ),
+                        'exception.escaped': 'True',
+                        'exception.logfire.data': IsJson(
+                            [
+                                {
+                                    'type': 'int_parsing',
+                                    'loc': ['a'],
+                                    'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                    'input': 'haha',
+                                }
+                            ]
+                        ),
+                    },
+                }
+            ],
         }
     ]
-
-    errors = json.loads(cast(bytes, event.attributes.get('exception.logfire.trace')))
-    # insert_assert(errors)
-    assert errors == {
-        'stacks': [
-            {
-                'exc_type': 'ValidationError',
-                'exc_value': IsStr(
-                    regex=(
-                        re.escape(
-                            '1 validation error for Model\n'
-                            'a\n'
-                            '  Input should be a valid integer, unable to parse string as an integer '
-                            "[type=int_parsing, input_value='haha', input_type=str]\n"
-                        )
-                        + r'    For further information visit https://errors\.pydantic\.dev/[\d\.]+/v/int_parsing'
-                    ),
-                    regex_flags=re.MULTILINE,
-                ),
-                'syntax_error': None,
-                'is_cause': False,
-                'frames': [
-                    {
-                        'filename': IsStr(regex=r'.*/tests/test_logfire.py'),
-                        'lineno': IsPositive(),
-                        'name': 'run',
-                        'line': '',
-                        'locals': None,
-                    },
-                    {
-                        'filename': IsStr(regex=r'.*/pydantic/main.py'),
-                        'lineno': IsPositive(),
-                        'name': '__init__',
-                        'line': '',
-                        'locals': None,
-                    },
-                ],
-            }
-        ]
-    }
 
 
 @dataclass

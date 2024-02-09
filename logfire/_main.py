@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Liter
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
-import rich.traceback
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
@@ -32,7 +31,6 @@ from typing_extensions import ParamSpec
 from logfire._formatter import logfire_format
 
 from ._constants import (
-    ATTRIBUTES_EXCEPTION_TRACEBACK_KEY,
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -46,7 +44,7 @@ from ._constants import (
     OTLP_MAX_INT_SIZE,
     LevelName,
 )
-from ._json_encoder import json_dumps_traceback, logfire_json_dumps
+from ._json_encoder import logfire_json_dumps
 from ._json_schema import logfire_json_schema
 from ._tracer import ProxyTracerProvider
 
@@ -900,18 +898,14 @@ def _exit_span(
                 description=f'{exc_type.__name__}: {exc_value}',
             )
         )
-        # insert a more detailed breakdown of pydantic errors
-        tb = rich.traceback.Traceback.from_exception(exc_type, exc_value, traceback)
-        tb.trace.stacks = [_filter_frames(stack) for stack in tb.trace.stacks]
-        attributes: dict[str, otel_types.AttributeValue] = {
-            ATTRIBUTES_EXCEPTION_TRACEBACK_KEY: json_dumps_traceback(tb.trace),
-        }
         span.set_attributes(
             {
                 ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'error',
                 ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
             }
         )
+        # insert a more detailed breakdown of pydantic errors
+        attributes: dict[str, otel_types.AttributeValue] = {}
         if ValidationError is not None and isinstance(exc_value, ValidationError):
             err_json = exc_value.json(include_url=False)
             span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
@@ -970,12 +964,6 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
         prepared[NULL_ARGS_KEY] = tuple(null_args)
 
     return prepared
-
-
-def _filter_frames(stack: rich.traceback.Stack) -> rich.traceback.Stack:
-    """Filter out the `record_exception` call itself."""
-    stack.frames = [f for f in stack.frames if not (f.filename.endswith('logfire/_main.py') and f.name.startswith('_'))]
-    return stack
 
 
 _PARAMS = ParamSpec('_PARAMS')

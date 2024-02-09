@@ -397,7 +397,6 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                         'exception.message': 'test exception',
                         'exception.stacktrace': 'ValueError: test exception',
                         'exception.escaped': 'True',
-                        'exception.logfire.trace': IsJson(),
                     },
                 }
             ],
@@ -474,7 +473,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'exception.message': '[]',
                         'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
                         'exception.escaped': 'True',
-                        'exception.logfire.trace': IsJson(),
                     },
                 }
             ],

@@ -154,7 +154,6 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                         'exception.message': 'list index out of range',
                         'exception.stacktrace': 'IndexError: list index out of range',
                         'exception.escaped': 'True',
-                        'exception.logfire.trace': '{"stacks": [{"exc_type": "IndexError", "exc_value": "list index out of range", "syntax_error": null, "is_cause": false, "frames": [{"filename": "foo.py", "lineno": 123, "name": "bar", "line": "", "locals": null}]}]}',
                     },
                 }
             ],

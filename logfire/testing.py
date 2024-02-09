@@ -1,7 +1,6 @@
 """Testing utilities for Logfire."""
 from __future__ import annotations
 
-import json
 import random
 import sys
 from collections.abc import Sequence
@@ -98,14 +97,6 @@ class TestExporter(SpanExporter):
                         if line.strip()
                     )
                     attributes['exception.stacktrace'] = last_line
-                if 'exception.logfire.trace' in attributes:
-                    trace = json.loads(cast(str, attributes['exception.logfire.trace']))
-                    stacks = trace['stacks']
-                    for stack in stacks:
-                        for frame in stack['frames']:
-                            frame['filename'] = Path(frame['filename']).name
-                            frame['lineno'] = fixed_line_number
-                    attributes['exception.logfire.trace'] = json.dumps(trace)
             return res
 
         def build_span(span: ReadableSpan) -> dict[str, Any]:

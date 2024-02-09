@@ -78,7 +78,6 @@ def test_observability(logfire_test_exporter: LogfireTestExporter) -> None:
                         'exception.message': 'an exception!',
                         'exception.stacktrace': 'Exception: an exception!',
                         'exception.escaped': 'True',
-                        'exception.logfire.trace': '{"stacks": [{"exc_type": "Exception", "exc_value": "an exception!", "syntax_error": null, "is_cause": false, "frames": [{"filename": "test.py", "lineno": 123, "name": "test_observability", "line": "", "locals": null}]}]}',
                     },
                 }
             ],
