@@ -1890,6 +1890,24 @@ tomli = {version = ">=1.0.0", markers = "python_version < \"3.11\""}
 testing = ["argcomplete", "attrs (>=19.2.0)", "hypothesis (>=3.56)", "mock", "nose", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
 
 [[package]]
+name = "pytest-django"
+version = "4.8.0"
+description = "A Django plugin for pytest."
+optional = true
+python-versions = ">=3.8"
+files = [
+    {file = "pytest-django-4.8.0.tar.gz", hash = "sha256:5d054fe011c56f3b10f978f41a8efb2e5adfc7e680ef36fb571ada1f24779d90"},
+    {file = "pytest_django-4.8.0-py3-none-any.whl", hash = "sha256:ca1ddd1e0e4c227cf9e3e40a6afc6d106b3e70868fd2ac5798a22501271cd0c7"},
+]
+
+[package.dependencies]
+pytest = ">=7.0.0"
+
+[package.extras]
+docs = ["sphinx", "sphinx-rtd-theme"]
+testing = ["Django", "django-configurations (>=2.0)"]
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -2408,9 +2426,9 @@ requests = ["opentelemetry-instrumentation-requests", "requests"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy", "sqlalchemy"]
 starlette = ["opentelemetry-instrumentation-starlette", "starlette"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
-test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-flask", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "requests", "sqlalchemy", "starlette"]
+test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "django", "eval-type-backport", "fastapi", "gitpython", "httpx", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-django", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-flask", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pandas", "pydantic", "pytest", "pytest-django", "requests", "sqlalchemy", "starlette"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "35ffd96513e263e5114c9dcd017a16ccd40f8261ae3015ead081e8ec79929715"
+content-hash = "6345a62cc9f15aeff640b2079f7caa8d79d013f9e36140ddf8d80993f4999e3c"
