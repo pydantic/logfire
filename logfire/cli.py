@@ -1,13 +1,12 @@
 """The CLI for Logfire."""
 import argparse
 import importlib
+import importlib.util
 import os
-import pkgutil
 import platform
 import shutil
 import sys
 import warnings
-from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import Iterator
 
@@ -133,14 +132,6 @@ OTEL_PACKAGES: 'set[str]' = {
 OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm'}
 
 
-@contextmanager
-def suppress_stdout():
-    """Suppress stdout."""
-    with open(os.devnull, 'w') as null:
-        with redirect_stdout(null):
-            yield
-
-
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend the opentelemetry package that can be used with it."""
     console = Console(file=sys.stderr)
@@ -152,29 +143,15 @@ def parse_inspect(args: argparse.Namespace) -> None:
     warnings.simplefilter('ignore', category=UserWarning)
 
     packages: 'dict[str, str]' = {}
-    for _, name, _ in pkgutil.iter_modules():
-        # If from stdlib, skip.
-        if name in sys.builtin_module_names:
-            continue
-        # The antigravity module is a joke in the Python docs, and it opens a web browser.
-        if name.startswith('antigravity'):
-            continue
-        try:
-            with suppress_stdout():
-                module = importlib.import_module(name)
-        # We may have side-effects, and we don't want to crash the CLI.
-        except Exception:
+    for name in OTEL_PACKAGES:
+        # Check if the package can be imported (without actually importing it).
+        if importlib.util.find_spec(name) is None:
             continue
 
-        if module.__name__ not in OTEL_PACKAGES:
-            continue
-
-        otel_package = OTEL_PACKAGE_LINK.get(module.__name__, module.__name__)
+        otel_package = OTEL_PACKAGE_LINK.get(name, name)
         otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
 
-        try:
-            importlib.import_module(otel_package_import)
-        except ImportError:
+        if importlib.util.find_spec(otel_package_import) is None:
             packages[name] = otel_package
 
     # Drop packages that are dependencies of other packages.
