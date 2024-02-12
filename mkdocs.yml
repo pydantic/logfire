@@ -84,6 +84,7 @@ nav:
       - Integrations:
           - api/integrations/pydantic_plugin.md
           - api/integrations/logging.md
+  - Roadmap: roadmap.md
 
 markdown_extensions:
   - tables
