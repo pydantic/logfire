@@ -10,26 +10,16 @@ from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString
+from typing_extensions import LiteralString, ParamSpec
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
 from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
+from logfire._formatter import logfire_format
 from logfire._instrument import LogfireArgs, instrument
 from logfire.version import VERSION
 
 from . import AutoTraceModule, _async
 from ._auto_trace import install_auto_tracing
-from ._stack_info import get_caller_stack_info
-from ._utils import uniquify_sequence
-
-try:
-    from pydantic import ValidationError
-except ImportError:
-    ValidationError = None
-from typing_extensions import ParamSpec
-
-from logfire._formatter import logfire_format
-
 from ._constants import (
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -45,13 +35,25 @@ from ._constants import (
     LevelName,
 )
 from ._json_encoder import logfire_json_dumps
-from ._json_schema import logfire_json_schema
+from ._json_schema import (
+    JsonSchemaProperties,
+    attributes_json_schema,
+    attributes_json_schema_properties,
+    create_json_schema,
+)
+from ._stack_info import get_caller_stack_info
 from ._tracer import ProxyTracerProvider
+from ._utils import uniquify_sequence
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+
+try:
+    from pydantic import ValidationError
+except ImportError:
+    ValidationError = None
 
 _METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire', VERSION)  # type: ignore
 
@@ -149,8 +151,8 @@ class Logfire:
 
         otlp_attributes = user_attributes(merged_attributes)
 
-        if attributes_json_schema := logfire_json_schema(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
+        if json_schema_properties := attributes_json_schema_properties(attributes):
+            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
@@ -167,6 +169,7 @@ class Logfire:
             _span_name or msg_template,
             otlp_attributes,
             self._spans_tracer,
+            json_schema_properties,
         )
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
@@ -187,8 +190,8 @@ class Logfire:
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
         attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, stacklevel=4)
-        if attributes_json_schema := logfire_json_schema(function_args):
-            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
+        if json_schema_properties := attributes_json_schema_properties(function_args):
+            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
         attributes.update(user_attributes(function_args))
         return self._fast_span(name, attributes)
 
@@ -291,8 +294,8 @@ class Logfire:
             ATTRIBUTES_MESSAGE_KEY: msg,
             **otlp_attributes,
         }
-        if attributes_json_schema := logfire_json_schema(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema
+        if json_schema_properties := attributes_json_schema_properties(attributes):
+            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
@@ -793,10 +796,14 @@ class LogfireSpan(ReadableSpan):
         span_name: str,
         otlp_attributes: dict[str, otel_types.AttributeValue],
         tracer: Tracer,
+        json_schema_properties: JsonSchemaProperties,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
+        self._json_schema_properties = json_schema_properties
+
+        self._added_attributes = False
         self._end_on_exit: bool | None = None
         self._token: None | object = None
         self._span: None | trace_api.Span = None
@@ -830,7 +837,7 @@ class LogfireSpan(ReadableSpan):
 
         end_on_exit_ = self.end_on_exit
         if end_on_exit_:
-            self._span.end()
+            self.end()
 
         self._token = None
 
@@ -864,19 +871,25 @@ class LogfireSpan(ReadableSpan):
         if self._span is None:
             raise RuntimeError('Span has not been started')
         if self._span.is_recording():
+            if self._added_attributes:
+                self._span.set_attribute(
+                    ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                )
+
             self._span.end()
 
-    def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
+    def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
         Args:
             key: The key of the attribute.
             value: The value of the attribute.
         """
-        if self._span is None:
-            self._otlp_attributes[key] = value
-        else:
-            self._span.set_attribute(key, value)
+        self._added_attributes = True
+        self._json_schema_properties[key] = create_json_schema(value)
+        key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
+        if self._span is not None:
+            self._span.set_attribute(key, otel_value)
 
 
 OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)
@@ -939,31 +952,42 @@ def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.Attribut
 
     This will convert any non-OpenTelemetry compatible types to JSON.
     """
-    prepared: dict[str, otel_types.AttributeValue] = {}
-    null_args: list[str] = []
+    otlp_attributes: dict[str, otel_types.AttributeValue] = {}
 
     for key, value in attributes.items():
-        if value is None:
-            null_args.append(key)
-        elif isinstance(value, int):
-            if value > OTLP_MAX_INT_SIZE:
-                warnings.warn(
-                    f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
-                    ' if you need support for sending larger integers, please open a feature request',
-                    UserWarning,
-                )
-                prepared[key] = str(value)
-            else:
-                prepared[key] = value
-        elif isinstance(value, (str, bool, float)):
-            prepared[key] = value
+        set_user_attribute(otlp_attributes, key, value)
+
+    return otlp_attributes
+
+
+def set_user_attribute(
+    otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any
+) -> tuple[str, otel_types.AttributeValue]:
+    """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
+
+    Returns the final key and value that was added to the dictionary.
+    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
+    """
+    otel_value: otel_types.AttributeValue
+    if value is None:
+        otel_value = cast('list[str]', otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
+        key = NULL_ARGS_KEY
+    elif isinstance(value, int):
+        if value > OTLP_MAX_INT_SIZE:
+            warnings.warn(
+                f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
+                ' if you need support for sending larger integers, please open a feature request',
+                UserWarning,
+            )
+            otel_value = str(value)
         else:
-            prepared[key] = logfire_json_dumps(value)
-
-    if null_args:
-        prepared[NULL_ARGS_KEY] = tuple(null_args)
-
-    return prepared
+            otel_value = value
+    elif isinstance(value, (str, bool, float)):
+        otel_value = value
+    else:
+        otel_value = logfire_json_dumps(value)
+    otlp_attributes[key] = otel_value
+    return key, otel_value
 
 
 _PARAMS = ParamSpec('_PARAMS')

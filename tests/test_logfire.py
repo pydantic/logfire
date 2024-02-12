@@ -1122,6 +1122,36 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
     ]
 
 
+def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> None:
+    with logfire.span('hi', a={'b': 1}) as span:
+        span.set_attribute('c', {'d': 2})
+        span.set_attribute('e', None)
+        span.set_attribute('f', None)
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'hi',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.function': 'test_complex_attribute_added_after_span_started',
+                'code.lineno': 123,
+                'a': '{"b":1}',
+                'logfire.msg_template': 'hi',
+                'logfire.msg': 'hi',
+                'logfire.span_type': 'span',
+                'c': '{"d":2}',
+                'logfire.null_args': ('e', 'f'),
+                'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{},"f":{}}}',
+            },
+        }
+    ]
+
+
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
     with pytest.warns(UserWarning, match=r'missing') as warnings:
         span = logfire.span('{present} {missing}', present='here')
@@ -1166,7 +1196,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                 'present': 'here',
                 'logfire.msg_template': '{present} {missing}',
                 'logfire.msg': 'here {missing}',
-                'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"present":{},"missing":{}}}',
                 'logfire.span_type': 'span',
                 'missing': 'value',
             },

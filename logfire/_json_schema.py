@@ -25,7 +25,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PosixPath
 from types import GeneratorType
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Callable, Mapping, NewType, Sequence, cast
 
 from logfire._json_encoder import is_sqlalchemy, to_json_value
 from logfire._utils import JsonDict, dump_json, safe_repr
@@ -59,7 +59,7 @@ except ModuleNotFoundError:  # pragma: no cover
     sqlalchemy = None
     sa_inspect = None
 
-__all__ = 'create_json_schema', 'logfire_json_schema'
+__all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema'
 
 
 @lru_cache
@@ -147,19 +147,25 @@ def create_json_schema(obj: Any) -> JsonDict:
 
 
 # NOTE: The code related attributes are merged with the logfire function attributes on
-# `auto_install_tracing` and when using our stdlib logging handler. We need to remove them
+# `install_auto_tracing` and when using our stdlib logging handler. We need to remove them
 # from the JSON Schema, as we only want to have the ones that the user passes in.
 _CODE_KEYS = {'code.lineno', 'code.filepath', 'code.function', 'code.namespace'}
 
 
-def logfire_json_schema(obj: dict[str, Any]) -> str | None:
-    obj = {k: v for k, v in obj.items() if k not in _CODE_KEYS}
+JsonSchemaProperties = NewType('JsonSchemaProperties', JsonDict)
 
-    json_schema = _mapping_schema(obj, is_top_level=True)
-    if json_schema == {'type': 'object'}:
-        return None
 
-    return dump_json(json_schema)
+# The value of the span attribute with key ATTRIBUTES_JSON_SCHEMA_KEY,
+# representing the JSON schema of the user-defined attributes.
+def attributes_json_schema(properties: JsonSchemaProperties) -> str:
+    return dump_json({'type': 'object', 'properties': properties})
+
+
+# This becomes the value of `properties` above.
+def attributes_json_schema_properties(attributes: dict[str, Any]) -> JsonSchemaProperties:
+    return JsonSchemaProperties(
+        {key: create_json_schema(value) for key, value in attributes.items() if key not in _CODE_KEYS}
+    )
 
 
 def _dataclass_schema(obj: Any) -> JsonDict:
@@ -208,13 +214,13 @@ def _enum_schema(obj: Enum) -> JsonDict:
     }
 
 
-def _mapping_schema(obj: Any, is_top_level: bool = False) -> JsonDict:
+def _mapping_schema(obj: Any) -> JsonDict:
     obj = cast(Mapping[Any, Any], obj)
     schema: JsonDict = {'type': 'object'}
     properties: JsonDict = {}
     for k, v in obj.items():
         value = create_json_schema(v)
-        if value != {} or is_top_level:
+        if value != {}:
             properties[k if isinstance(k, str) else safe_repr(k)] = value
     if properties:
         schema['properties'] = properties
