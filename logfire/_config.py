@@ -123,7 +123,9 @@ def configure(
         send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
         token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` it defaults to the value of the environment variable `LOGFIRE_TOKEN` if set, otherwise if
             `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
-        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable, or the service name.
+        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable, or the service name. Project name accepts
+            a string value containing alphanumeric characters and hyphens (-). The hyphen character must not be located at the beginning or end of the string and should appear
+            in between alphanumeric characters.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
         service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
         trace_sample_rate: Sampling ratio for spans, if `None` uses the `LOGFIRE_SAMPLING_RATIO` environment variable or the `OTEL_TRACES_SAMPLER_ARG` env variable, or defaults to `1.0`.
