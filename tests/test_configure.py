@@ -19,6 +19,7 @@ from logfire._config import (
     ConsoleOptions,
     LogfireConfig,
     LogfireConfigError,
+    sanitize_project_name,
 )
 from logfire.integrations._executors import serialize_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -788,3 +789,15 @@ def test_config_serializable():
     """
     logfire.configure(send_to_logfire=False)
     assert isinstance(serialize_config(), dict)
+
+
+def test_sanitize_project_name():
+    assert sanitize_project_name('foo') == 'foo'
+    assert sanitize_project_name('FOO') == 'foo'
+    assert sanitize_project_name('  foo - bar!!') == 'foobar'
+    assert sanitize_project_name('  Foo - BAR!!') == 'foobar'
+    assert sanitize_project_name('') == 'untitled'
+    assert sanitize_project_name('-') == 'untitled'
+    assert sanitize_project_name('...') == 'untitled'
+    long_name = 'abcdefg' * 20
+    assert sanitize_project_name(long_name) == long_name[:41]

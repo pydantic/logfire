@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import dataclasses
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -122,7 +123,7 @@ def configure(
         send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
         token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` it defaults to the value of the environment variable `LOGFIRE_TOKEN` if set, otherwise if
             `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
-        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable.
+        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable, or the service name.
         service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
         service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
         trace_sample_rate: Sampling ratio for spans, if `None` uses the `LOGFIRE_SAMPLING_RATIO` environment variable or the `OTEL_TRACES_SAMPLER_ARG` env variable, or defaults to `1.0`.
@@ -495,7 +496,7 @@ class LogfireConfig(_LogfireConfigData):
                         # create a token by asking logfire.dev to create a new project
                         new_credentials = LogfireCredentials.create_new_project(
                             logfire_api_url=self.base_url,
-                            requested_project_name=self.project_name or self.service_name,
+                            requested_project_name=self.project_name or sanitize_project_name(self.service_name),
                             session=self.logfire_api_session,
                         )
                         new_credentials.write_creds_file(self.data_dir)
@@ -744,3 +745,10 @@ except ImportError:
         import subprocess
 
         return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+
+
+def sanitize_project_name(name: str) -> str:
+    """Convert `name` to a string suitable for the `requested_project_name` API parameter."""
+    # Project names are limited to 50 characters, but the backend may also add 9 characters
+    # if the project name already exists, so we limit it to 41 characters.
+    return re.sub(r'[^a-zA-Z0-9]', '', name).lower()[:41] or 'untitled'
