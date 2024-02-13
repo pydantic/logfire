@@ -139,11 +139,11 @@ class Logfire:
         attributes: dict[str, Any],
         *,
         _span_name: str | None = None,
+        _tags: Sequence[str] | None = None,
         stacklevel: int = 3,
     ) -> LogfireSpan:
         stack_info = get_caller_stack_info(stacklevel=stacklevel)
         merged_attributes = {**stack_info, **attributes}
-        tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
 
         log_message = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
@@ -154,8 +154,9 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
+        tags = (self._tags or []) + list(_tags or [])
         if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
+            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
         sample_rate = (
             self._sample_rate
@@ -200,6 +201,7 @@ class Logfire:
         msg_template: LiteralString,
         /,
         *,
+        _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         **attributes: Any,
     ) -> LogfireSpan:
@@ -215,7 +217,9 @@ class Logfire:
         Args:
             msg_template: The template for the span message.
             _span_name: The span name. If not provided, the `msg_template` will be used.
-            attributes: The arguments to format the span message template with.
+            _tags: An optional sequence of tags to include in the span.
+
+            attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
         if any(k.startswith('_') for k in attributes):
@@ -223,6 +227,7 @@ class Logfire:
         return self._span(
             msg_template,
             attributes,
+            _tags=_tags,
             _span_name=_span_name,
         )
 
@@ -257,7 +262,12 @@ class Logfire:
         return instrument(self, args)
 
     def log(
-        self, level: LevelName, msg_template: LiteralString, attributes: dict[str, Any], stack_offset: int = 0
+        self,
+        level: LevelName,
+        msg_template: LiteralString,
+        attributes: dict[str, Any],
+        tags: Sequence[str] | None = None,
+        stack_offset: int = 0,
     ) -> None:
         """Log a message.
 
@@ -271,6 +281,7 @@ class Logfire:
             level: The level of the log.
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            tags: An optional sequence of tags to include in the log.
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
@@ -283,7 +294,6 @@ class Logfire:
         stack_info = get_caller_stack_info(stacklevel)
 
         merged_attributes = {**stack_info, **attributes}
-        tags, merged_attributes = _merge_tags_into_attributes(merged_attributes, self._tags)
         msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
@@ -297,8 +307,9 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
+        tags = (self._tags or []) + list(tags or [])
         if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = tags
+            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
         sample_rate = (
             self._sample_rate
@@ -319,7 +330,7 @@ class Logfire:
             span.set_status(trace_api.Status(trace_api.StatusCode.OK))
             span.end(start_time)
 
-    def trace(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def trace(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log a trace message.
 
         ```py
@@ -331,12 +342,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('trace', msg_template, attributes, stack_offset=1)
+        self.log('trace', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def debug(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def debug(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log a debug message.
 
         ```py
@@ -348,12 +360,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('debug', msg_template, attributes, stack_offset=1)
+        self.log('debug', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def info(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def info(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log an info message.
 
         ```py
@@ -365,12 +378,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('info', msg_template, attributes, stack_offset=1)
+        self.log('info', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def notice(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def notice(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log a notice message.
 
         ```py
@@ -382,12 +396,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('notice', msg_template, attributes, stack_offset=1)
+        self.log('notice', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def warn(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def warn(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log a warning message.
 
         ```py
@@ -399,12 +414,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('warn', msg_template, attributes, stack_offset=1)
+        self.log('warn', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def error(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def error(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log an error message.
 
         ```py
@@ -416,12 +432,13 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('error', msg_template, attributes, stack_offset=1)
+        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags)
 
-    def fatal(self, msg_template: LiteralString, /, **attributes: Any) -> None:
+    def fatal(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
         """Log a fatal message.
 
         ```py
@@ -433,10 +450,11 @@ class Logfire:
         Args:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('fatal', msg_template, attributes, stack_offset=1)
+        self.log('fatal', msg_template, attributes, stack_offset=1, tags=_tags)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
@@ -929,22 +947,6 @@ def _exit_span(
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
-
-
-def _merge_tags_into_attributes(
-    attributes: dict[str, Any], tags: list[str]
-) -> tuple[Sequence[str] | None, dict[str, Any]]:
-    # merge tags into attributes preserving any existing tags
-    if ATTRIBUTES_TAGS_KEY in attributes:
-        res, attributes = (
-            cast('list[str]', attributes[ATTRIBUTES_TAGS_KEY]) + tags,
-            {k: v for k, v in attributes.items() if k != ATTRIBUTES_TAGS_KEY},
-        )
-    else:
-        res = tags
-    if res:
-        return uniquify_sequence(res), attributes
-    return None, attributes
 
 
 def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:

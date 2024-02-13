@@ -1499,3 +1499,47 @@ def test_readable_span_signature():
         # it'll still make it in the final span.
         'instrumentation_info',
     }
+
+
+def test_tags(exporter: TestExporter) -> None:
+    lf = logfire.with_tags('tag1', 'tag2')
+    with lf.span('a span', _tags=('tag2', 'tag3')):
+        lf.info('a log', _tags=('tag4', 'tag1'))
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'a log',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'a log',
+                'logfire.msg': 'a log',
+                'code.filepath': 'test_logfire.py',
+                'code.function': 'test_tags',
+                'code.lineno': 123,
+                'logfire.tags': ('tag1', 'tag2', 'tag4'),
+            },
+        },
+        {
+            'name': 'a span',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'code.filepath': 'test_logfire.py',
+                'code.function': 'test_tags',
+                'code.lineno': 123,
+                'logfire.msg_template': 'a span',
+                'logfire.msg': 'a span',
+                'logfire.tags': ('tag1', 'tag2', 'tag3'),
+                'logfire.span_type': 'span',
+            },
+        },
+    ]
