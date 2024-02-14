@@ -25,7 +25,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PosixPath
 from types import GeneratorType
-from typing import Any, Callable, Mapping, NewType, Sequence, cast
+from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 
 from logfire._json_encoder import is_sqlalchemy, to_json_value
 from logfire._utils import JsonDict, dump_json, safe_repr
@@ -171,15 +171,7 @@ def attributes_json_schema_properties(attributes: dict[str, Any]) -> JsonSchemaP
 def _dataclass_schema(obj: Any) -> JsonDict:
     # NOTE: The `x-python-datatype` is "dataclass" for both standard dataclasses and Pydantic dataclasses.
     # We don't need to distinguish between them on the frontend, or to reconstruct the type on the JSON formatter.
-    schema: JsonDict = {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'dataclass'}
-
-    properties: JsonDict = {}
-    for field in dataclasses.fields(obj):
-        if field_schema := create_json_schema(getattr(obj, field.name)):
-            properties[field.name] = field_schema
-    if properties:
-        schema['properties'] = properties
-    return schema
+    return _custom_object_schema(obj, 'dataclass', (field.name for field in dataclasses.fields(obj)))
 
 
 def _bytes_schema(obj: bytes) -> JsonDict:
@@ -214,16 +206,17 @@ def _enum_schema(obj: Enum) -> JsonDict:
     }
 
 
+# Schemas for values that are already JSON serializable, i.e. that don't need to be included
+# (except at the top level) because the frontend can just render them as plain JSON.
+PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'})
+
+
 def _mapping_schema(obj: Any) -> JsonDict:
     obj = cast(Mapping[Any, Any], obj)
-    schema: JsonDict = {'type': 'object'}
-    properties: JsonDict = {}
-    for k, v in obj.items():
-        value = create_json_schema(v)
-        if value != {}:
-            properties[k if isinstance(k, str) else safe_repr(k)] = value
-    if properties:
-        schema['properties'] = properties
+    schema: JsonDict = {
+        'type': 'object',
+        **_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}),
+    }
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'
         schema['title'] = obj.__class__.__name__
@@ -231,7 +224,10 @@ def _mapping_schema(obj: Any) -> JsonDict:
 
 
 def _array_schema(obj: list[Any] | tuple[Any, ...] | deque[Any] | set[Any] | frozenset[Any]) -> JsonDict:
-    schema: dict[str, Any] = {'type': 'array', 'x-python-datatype': obj.__class__.__name__}
+    schema: dict[str, Any] = {'type': 'array'}
+    if type(obj) != list:  # noqa: E721
+        schema['x-python-datatype'] = obj.__class__.__name__
+
     if isinstance(obj, (set, frozenset)):
         try:
             obj = sorted(obj)
@@ -251,7 +247,7 @@ def _array_schema(obj: list[Any] | tuple[Any, ...] | deque[Any] | set[Any] | fro
 
         if previous_schema is not None and item_schema != previous_schema:
             use_items_key = False
-        if item_schema != {}:
+        if item_schema not in PLAIN_SCHEMAS:
             found_non_empty_schema = True
 
         previous_schema = item_schema
@@ -274,22 +270,7 @@ def _exception_schema(obj: Exception) -> JsonDict:
 
 def _pydantic_model_schema(obj: Any) -> JsonDict:
     assert pydantic and isinstance(obj, pydantic.BaseModel)
-    schema: JsonDict = {
-        'type': 'object',
-        'title': obj.__class__.__name__,
-        'x-python-datatype': 'PydanticModel',
-    }
-    properties: JsonDict = {}
-    for key in obj.model_fields.keys():
-        if field_schema := create_json_schema(getattr(obj, key)):
-            properties[key] = field_schema
-    extras = obj.model_extra or {}
-    for key in extras.keys():
-        if field_schema := create_json_schema(getattr(obj, key)):
-            properties[key] = field_schema
-    if properties:
-        schema['properties'] = properties
-    return schema
+    return _custom_object_schema(obj, 'PydanticModel', [*obj.model_fields, *(obj.model_extra or {})])
 
 
 def _pandas_schema(obj: Any) -> JsonDict:
@@ -332,32 +313,30 @@ def _attrs_schema(obj: Any) -> JsonDict:
     import attrs
 
     obj = cast(attrs.AttrsInstance, obj)
-    schema = {
-        'type': 'object',
-        'title': obj.__class__.__name__,
-        'x-python-datatype': 'attrs',
-    }
-    properties: JsonDict = {}
-    for key in obj.__attrs_attrs__:
-        if field_schema := create_json_schema(getattr(obj, key.name)):
-            properties[key.name] = field_schema
-    if properties:
-        schema['properties'] = properties
-    return schema
+    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__))
 
 
 def _sqlalchemy_schema(obj: Any) -> JsonDict:
     assert sqlalchemy and sa_inspect
+    return _custom_object_schema(obj, 'sqlalchemy', sa_inspect(obj).attrs.keys())
 
-    schema = {
+
+def _properties(properties: dict[str, Any]) -> JsonDict:
+    schema_properties: JsonDict = {}
+    for key, value in properties.items():
+        if (value_schema := create_json_schema(value)) not in PLAIN_SCHEMAS:
+            schema_properties[key] = value_schema
+
+    if schema_properties:
+        return {'properties': schema_properties}
+    else:
+        return {}
+
+
+def _custom_object_schema(obj: Any, datatype_name: str, keys: Iterable[str]) -> JsonDict:
+    return {
         'type': 'object',
         'title': obj.__class__.__name__,
-        'x-python-datatype': 'sqlalchemy',
+        'x-python-datatype': datatype_name,
+        **_properties({key: getattr(obj, key) for key in keys}),
     }
-    properties: JsonDict = {}
-    for key in sa_inspect(obj).attrs.keys():
-        if field_schema := create_json_schema(getattr(obj, key)):
-            properties[key] = field_schema
-    if properties:
-        schema['properties'] = properties
-    return schema

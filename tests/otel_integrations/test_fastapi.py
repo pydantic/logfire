@@ -296,7 +296,6 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                             'values': {'type': 'object'},
                             'errors': {
                                 'type': 'array',
-                                'x-python-datatype': 'list',
                                 'items': {
                                     'type': 'object',
                                     'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},

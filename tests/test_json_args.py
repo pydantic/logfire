@@ -18,6 +18,7 @@ import numpy
 import pandas
 import pytest
 from attrs import define
+from dirty_equals._other import IsJson
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -135,14 +136,14 @@ class AttrsType:
             ['a', 1, True],
             "['a', 1, True]",
             '["a",1,true]',
-            {'type': 'array', 'x-python-datatype': 'list'},
+            {'type': 'array'},
             id='list',
         ),
         pytest.param(
             [],
             '[]',
             '[]',
-            {'type': 'array', 'x-python-datatype': 'list'},
+            {'type': 'array'},
             id='empty_list',
         ),
         pytest.param(
@@ -151,7 +152,6 @@ class AttrsType:
             '[{"t":10},{"t":20},{"t":30}]',
             {
                 'type': 'array',
-                'x-python-datatype': 'list',
                 'items': {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'},
             },
             id='list_with_items_key',
@@ -162,7 +162,6 @@ class AttrsType:
             '["a",1,true,{"t":10}]',
             {
                 'type': 'array',
-                'x-python-datatype': 'list',
                 'prefixItems': [
                     {},
                     {},
@@ -823,7 +822,6 @@ class AttrsType:
                     'type': 'object',
                 },
                 'type': 'array',
-                'x-python-datatype': 'list',
             },
             id='dict_of_types_in_list',
         ),
@@ -917,7 +915,7 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         'logfire.level_num': 9,
         'logfire.msg_template': 'test message {a=} {complex_list=} {complex_dict=}',
         'logfire.msg': "test message a=1 complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), 'dataclass': test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), 'pydantic_dataclass': test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}",
-        'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","x-python-datatype":"list","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+        'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
         'code.filepath': 'test_json_args.py',
         'code.lineno': 123,
         'code.function': 'test_log_non_scalar_complex_args',
@@ -925,3 +923,82 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
         'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
     }
+
+
+def test_log_dicts_and_lists(exporter: TestExporter) -> None:
+    # Test that JSON schemas don't describe plain JSON values (except at the top level), especially lists and dicts.
+    # In other words, test that PLAIN_SCHEMAS is being used correctly and successfully.
+    class Model(BaseModel):
+        values: list[int]
+
+    @dataclass
+    class Dataclass:
+        values: dict[str, int]
+
+    @pydantic_dataclass
+    class PydanticDataclass:
+        values: list[dict[str, int]]
+
+    logfire.info(
+        'hi',
+        list_of_lists=[[1, 2], [3, 4]],
+        list_of_dicts=[{'a': 1}, {'b': 2}],
+        dict_of_lists={'a': [1, 2], 'b': [3, 4]},
+        dict_of_dicts={'a': {'a': 1}, 'b': {'b': 2}},
+        complex_list=[1, 2, {'a': {'b': {'c': ['d']}}}, {'b': [2]}, True, False, None, 'a', 'b', [1, 2]],
+        complex_dict={'a': 1, 'b': {'c': {'d': [1, 2]}}},
+        list_of_objects=[
+            Model(values=[1, 2]),
+            Dataclass(values={'a': 1, 'b': 2}),
+            PydanticDataclass(values=[{'a': 1, 'b': 2}, {'c': 3, 'd': 4}]),
+        ],
+    )
+
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'hi',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'hi',
+                'logfire.msg': 'hi',
+                'code.filepath': 'test_json_args.py',
+                'code.function': 'test_log_dicts_and_lists',
+                'code.lineno': 123,
+                'list_of_lists': '[[1,2],[3,4]]',
+                'list_of_dicts': '[{"a":1},{"b":2}]',
+                'dict_of_lists': '{"a":[1,2],"b":[3,4]}',
+                'dict_of_dicts': '{"a":{"a":1},"b":{"b":2}}',
+                'complex_list': '[1,2,{"a":{"b":{"c":["d"]}}},{"b":[2]},true,false,null,"a","b",[1,2]]',
+                'complex_dict': '{"a":1,"b":{"c":{"d":[1,2]}}}',
+                'list_of_objects': '[{"values":[1,2]},{"values":{"a":1,"b":2}},{"values":[{"a":1,"b":2},{"c":3,"d":4}]}]',
+                'logfire.json_schema': IsJson(
+                    {
+                        'type': 'object',
+                        'properties': {
+                            'list_of_lists': {'type': 'array'},
+                            'list_of_dicts': {'type': 'array'},
+                            'dict_of_lists': {'type': 'object'},
+                            'dict_of_dicts': {'type': 'object'},
+                            'complex_list': {'type': 'array'},
+                            'complex_dict': {'type': 'object'},
+                            'list_of_objects': {
+                                'type': 'array',
+                                'prefixItems': [
+                                    {'type': 'object', 'title': 'Model', 'x-python-datatype': 'PydanticModel'},
+                                    {'type': 'object', 'title': 'Dataclass', 'x-python-datatype': 'dataclass'},
+                                    {'type': 'object', 'title': 'PydanticDataclass', 'x-python-datatype': 'dataclass'},
+                                ],
+                            },
+                        },
+                    }
+                ),
+            },
+        }
+    ]
