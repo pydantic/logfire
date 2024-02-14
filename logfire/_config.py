@@ -433,19 +433,19 @@ class LogfireConfig(_LogfireConfigData):
         """Configure internals to start exporting traces and metrics."""
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
         try:
-            resource_attributes: dict[str, Any] = {
+            otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
                 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
             }
             if self.service_version:
-                resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
-            resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
-            if resource_attributes_from_env:
-                for _field in resource_attributes_from_env.split(','):
+                otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+            otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
+            if otel_resource_attributes_from_env:
+                for _field in otel_resource_attributes_from_env.split(','):
                     key, value = _field.split('=')
-                    resource_attributes[key.strip()] = value.strip()
+                    otel_resource_attributes[key.strip()] = value.strip()
 
-            resource = Resource.create(resource_attributes)
+            resource = Resource.create(otel_resource_attributes)
             tracer_provider = SDKTracerProvider(
                 sampler=ParentBasedTraceIdRatio(self.trace_sample_rate),
                 resource=resource,

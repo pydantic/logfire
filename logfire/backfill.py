@@ -70,7 +70,7 @@ class Log(BaseModel):
     parent_span_id: Union[int, None] = None
     timestamp: Union[datetime, None] = None
     formatted_msg: Union[str, None] = None
-    resource_attributes: Dict[str, Any] = Field(default_factory=dict)
+    otel_resource_attributes: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StartSpan(BaseModel):
@@ -88,7 +88,7 @@ class StartSpan(BaseModel):
     parent_span_id: Union[int, None] = None
     start_timestamp: Union[datetime, None] = None
     formatted_msg: Union[str, None] = None
-    resource_attributes: Dict[str, Any] = Field(default_factory=dict)
+    otel_resource_attributes: Dict[str, Any] = Field(default_factory=dict)
 
     def end(self, end_timestamp: datetime) -> 'Span':
         """End the span at a given timestamp."""
@@ -103,7 +103,7 @@ class StartSpan(BaseModel):
             start_timestamp=self.start_timestamp,
             end_timestamp=end_timestamp,
             formatted_msg=self.formatted_msg,
-            resource_attributes=self.resource_attributes,
+            otel_resource_attributes=self.otel_resource_attributes,
         )
 
 
@@ -171,7 +171,7 @@ class PrepareBackfill:
                 ),
                 parent=parent_context,
                 resource=Resource.create(
-                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.resource_attributes}
+                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.otel_resource_attributes}
                 ),
                 instrumentation_scope=InstrumentationScope(
                     name='logfire',
@@ -215,7 +215,7 @@ class PrepareBackfill:
                 ),
                 parent=None,
                 resource=Resource.create(
-                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.resource_attributes}
+                    {ResourceAttributes.SERVICE_NAME: data.service_name, **data.otel_resource_attributes}
                 ),
                 instrumentation_scope=InstrumentationScope(
                     name='logfire',

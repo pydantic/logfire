@@ -672,7 +672,7 @@ def test_otel_service_name_env_var() -> None:
     ]
 
 
-def test_otel_resource_attributes_env_var() -> None:
+def test_otel_otel_resource_attributes_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
@@ -704,7 +704,7 @@ def test_otel_resource_attributes_env_var() -> None:
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
                 'code.lineno': 123,
-                'code.function': 'test_otel_resource_attributes_env_var',
+                'code.function': 'test_otel_otel_resource_attributes_env_var',
             },
             'resource': {
                 'attributes': {
@@ -719,7 +719,7 @@ def test_otel_resource_attributes_env_var() -> None:
     ]
 
 
-def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_var() -> None:
+def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
@@ -754,7 +754,7 @@ def test_otel_service_name_has_priority_on_resource_attributes_service_name_env_
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
                 'code.lineno': 123,
-                'code.function': 'test_otel_service_name_has_priority_on_resource_attributes_service_name_env_var',
+                'code.function': 'test_otel_service_name_has_priority_on_otel_resource_attributes_service_name_env_var',
             },
             'resource': {
                 'attributes': {

@@ -22,7 +22,7 @@ def test_write_spans_and_logs() -> None:
             span_id=1,
             trace_id=2,
             start_timestamp=datetime(2023, 1, 1, 0, 0, 0),
-            resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+            otel_resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
         )
         log = Log(
             msg_template='GET {path=}',
@@ -34,7 +34,7 @@ def test_write_spans_and_logs() -> None:
             parent_span_id=1,
             timestamp=datetime(2023, 1, 1, 0, 0, 0),
             formatted_msg='GET /test',
-            resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+            otel_resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
         )
         prep_backfill.write(log)
         prep_backfill.write(span.end(datetime(2023, 1, 2, 0, 0, 1)))
@@ -181,7 +181,7 @@ def test_parser(read_chunk_size: int) -> None:
                 span_id=x + 1,
                 trace_id=1,
                 start_timestamp=datetime(2023, 1, 1, 0, 0, x),
-                resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+                otel_resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
             )
             spans.append(span)
         log = Log(
@@ -194,7 +194,7 @@ def test_parser(read_chunk_size: int) -> None:
             parent_span_id=1,
             timestamp=datetime(2023, 1, 1, 0, 0, 0),
             formatted_msg='GET /test',
-            resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
+            otel_resource_attributes={'telemetry.sdk.version': '1.0.0'},  # to make output deterministic
         )
         prep_backfill.write(log)
         for span in spans:
