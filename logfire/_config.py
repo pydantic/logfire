@@ -113,7 +113,6 @@ def configure(
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
     logfire_api_session: requests.Session | None = None,
-    otlp_span_exporter: SpanExporter | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
 ) -> None:
     """Configure the logfire SDK.
@@ -148,7 +147,6 @@ def configure(
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used. Pass an empty list to disable metrics.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
-        otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
     """
@@ -171,7 +169,6 @@ def configure(
         default_span_processor=default_span_processor,
         metric_readers=metric_readers,
         logfire_api_session=logfire_api_session,
-        otlp_span_exporter=otlp_span_exporter,
         pydantic_plugin=pydantic_plugin,
     )
     GLOBAL_CONFIG.initialize()
@@ -244,9 +241,6 @@ class _LogfireConfigData:
     logfire_api_session: requests.Session | None = None
     """The session to use when checking the Logfire backend"""
 
-    otlp_span_exporter: SpanExporter | None = None
-    """The OTLP span exporter to use"""
-
     def load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -270,7 +264,6 @@ class _LogfireConfigData:
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
-        otlp_span_exporter: SpanExporter | None,
         pydantic_plugin: PydanticPlugin | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -316,7 +309,6 @@ class _LogfireConfigData:
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
         self.logfire_api_session = logfire_api_session
-        self.otlp_span_exporter = otlp_span_exporter
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -366,7 +358,6 @@ class LogfireConfig(_LogfireConfigData):
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
         logfire_api_session: requests.Session | None = None,
-        otlp_span_exporter: SpanExporter | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -396,7 +387,6 @@ class LogfireConfig(_LogfireConfigData):
             default_span_processor=default_span_processor,
             metric_readers=metric_readers,
             logfire_api_session=logfire_api_session,
-            otlp_span_exporter=otlp_span_exporter,
             pydantic_plugin=pydantic_plugin,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -518,10 +508,7 @@ class LogfireConfig(_LogfireConfigData):
                 otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
                 otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
                 if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
-                    if self.otlp_span_exporter:
-                        span_exporter = self.otlp_span_exporter
-                    else:
-                        span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
+                    span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
                     span_exporter = FallbackSpanExporter(
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                     )

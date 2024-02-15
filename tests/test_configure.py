@@ -21,6 +21,7 @@ from logfire._config import (
     LogfireConfigError,
     sanitize_project_name,
 )
+from logfire.exporters._fallback import FallbackSpanExporter
 from logfire.integrations._executors import serialize_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -526,17 +527,27 @@ def test_configure_fallback_path(tmp_path: str) -> None:
 
     class FailureExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            # This should cause FallbackSpanExporter to call its own fallback file exporter.
             return SpanExportResult.FAILURE
 
-    path = Path(tmp_path) / 'logfire_spans.bin'
+    def default_span_processor(fallback_exporter: SpanExporter) -> SimpleSpanProcessor:
+        # It's OK if this changes and the exporter seen by default_span_processor is no longer a FallbackSpanExporter.
+        # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
+        assert isinstance(fallback_exporter, FallbackSpanExporter)
+        fallback_exporter.exporter = FailureExporter
+
+        return SimpleSpanProcessor(fallback_exporter)
+
     logfire.configure(
         data_dir=Path(tmp_path),
         token='abc',
-        default_span_processor=SimpleSpanProcessor,
-        otlp_span_exporter=FailureExporter(),
+        default_span_processor=default_span_processor,
         logfire_api_session=logfire_api_session,
         metric_readers=[InMemoryMetricReader()],
     )
+
+    path = Path(tmp_path) / 'logfire_spans.bin'
+    assert not path.exists()
 
     with logfire.span('test'):
         pass
