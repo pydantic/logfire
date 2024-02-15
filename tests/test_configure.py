@@ -430,44 +430,6 @@ def test_propagate_config_to_tags() -> None:
     ]
 
 
-def test_set_request_headers() -> None:
-    time_generator = TimeGenerator()
-
-    session = requests.Session()
-    session.headers.update({'X-Test': 'test'})
-    response = requests.Response()
-    response._content = b'\n\x00'
-    response.status_code = 200
-    responses = [response] * 5
-    adapter = StubAdapter(requests=[], responses=responses)
-    session.adapters['https://'] = adapter
-
-    logfire_api_session = requests.Session()
-    response = requests.Response()
-    response.status_code = 200
-    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response])
-    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
-
-    configure(
-        send_to_logfire=True,
-        console=False,
-        ns_timestamp_generator=time_generator,
-        id_generator=IncrementalIdGenerator(),
-        default_otlp_span_exporter_session=session,
-        logfire_api_session=logfire_api_session,
-        default_span_processor=SimpleSpanProcessor,
-        metric_readers=[InMemoryMetricReader()],
-        token='123',
-    )
-
-    with logfire.span('root'):
-        with logfire.span('child'):
-            logfire.info('test1')
-
-    # insert_assert([r.headers.get('X-Test', None) for r in adapter.requests])
-    assert [r.headers.get('X-Test', None) for r in adapter.requests] == ['test', 'test', 'test', 'test', 'test']
-
-
 def test_read_config_from_environment_variables() -> None:
     assert LogfireConfig().pydantic_plugin.record == 'off'
 

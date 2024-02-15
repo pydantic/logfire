@@ -112,7 +112,6 @@ def configure(
     processors: Sequence[SpanProcessor] | None = None,
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
-    default_otlp_span_exporter_session: requests.Session | None = None,
     logfire_api_session: requests.Session | None = None,
     otlp_span_exporter: SpanExporter | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
@@ -148,7 +147,6 @@ def configure(
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used. Pass an empty list to disable metrics.
-        default_otlp_span_exporter_session: Session configuration for the OTLP span exporter.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         otlp_span_exporter: OTLP span exporter to use. If `None` defaults to [`OTLPSpanExporter`](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html#opentelemetry.exporter.otlp.OTLPSpanExporter)
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
@@ -172,7 +170,6 @@ def configure(
         processors=processors,
         default_span_processor=default_span_processor,
         metric_readers=metric_readers,
-        default_otlp_span_exporter_session=default_otlp_span_exporter_session,
         logfire_api_session=logfire_api_session,
         otlp_span_exporter=otlp_span_exporter,
         pydantic_plugin=pydantic_plugin,
@@ -244,9 +241,6 @@ class _LogfireConfigData:
     default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
-    default_otlp_span_exporter_session: requests.Session | None = None
-    """The session to use when sending requests to the Logfire API"""
-
     logfire_api_session: requests.Session | None = None
     """The session to use when checking the Logfire backend"""
 
@@ -275,7 +269,6 @@ class _LogfireConfigData:
         processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
-        default_otlp_span_exporter_session: requests.Session | None,
         logfire_api_session: requests.Session | None,
         otlp_span_exporter: SpanExporter | None,
         pydantic_plugin: PydanticPlugin | None,
@@ -322,7 +315,6 @@ class _LogfireConfigData:
         self.processors = processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
-        self.default_otlp_span_exporter_session = default_otlp_span_exporter_session
         self.logfire_api_session = logfire_api_session
         self.otlp_span_exporter = otlp_span_exporter
         if self.service_version is None:
@@ -373,7 +365,6 @@ class LogfireConfig(_LogfireConfigData):
         processors: Sequence[SpanProcessor] | None = None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
-        default_otlp_span_exporter_session: requests.Session | None = None,
         logfire_api_session: requests.Session | None = None,
         otlp_span_exporter: SpanExporter | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
@@ -404,7 +395,6 @@ class LogfireConfig(_LogfireConfigData):
             processors=processors,
             default_span_processor=default_span_processor,
             metric_readers=metric_readers,
-            default_otlp_span_exporter_session=default_otlp_span_exporter_session,
             logfire_api_session=logfire_api_session,
             otlp_span_exporter=otlp_span_exporter,
             pydantic_plugin=pydantic_plugin,
@@ -523,9 +513,7 @@ class LogfireConfig(_LogfireConfigData):
                     logfire_api_session.headers.update(headers)
                     self.check_logfire_backend(logfire_api_session)
 
-                session = self.default_otlp_span_exporter_session or OTLPExporterHttpSession(
-                    max_body_size=OTLP_MAX_BODY_SIZE
-                )
+                session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
                 otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
                 otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
