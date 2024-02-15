@@ -334,7 +334,7 @@ from logfire._json_types import DataType, JSONSchema
     2,
     3,
 ])""",
-            id='Sequence',
+            id='CustomSequence',
         ),
         pytest.param(
             'MyArbitraryType(12)',
@@ -655,7 +655,7 @@ def test_nested_json_args_value_formatting():
             [1, 2, 3],
             {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'MySequence'},
             'MySequence([1, 2, 3])',
-            id='Sequence',
+            id='CustomSequence',
         ),
         pytest.param(
             'MyArbitraryType(12)',

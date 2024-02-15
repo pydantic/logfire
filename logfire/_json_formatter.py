@@ -120,13 +120,13 @@ class JsonArgsValueFormatter:
         self._stream.write(open_)
 
         first = True
-        item_schema = (schema or {}).get('items')
+        items_schema = (schema or {}).get('items')
         prefix_items = (schema or {}).get('prefixItems')
         if shape := (schema or {}).get('x-shape'):
             if len(shape) > 1:
                 # We convert to list because we don't want the "array(" prefix to be added
                 # when we call _format_list_like recursively.
-                item_schema = {'x-shape': shape[1:], 'type': 'array', 'x-python-datatype': 'list'}
+                items_schema = {'x-shape': shape[1:], 'type': 'array', 'x-python-datatype': 'list'}
         for i, v in enumerate(value):
             if first:
                 first = False
@@ -136,7 +136,9 @@ class JsonArgsValueFormatter:
                 # write comma here not after so that we don't have a trailing comma
                 self._stream.write(comma)
             self._stream.write(before)
-            self._format(indent_new, True, v, item_schema or (prefix_items[i] if prefix_items else None))  # type: ignore
+
+            item_schema = prefix_items[i] if prefix_items and len(prefix_items) > i else items_schema
+            self._format(indent_new, True, v, item_schema)  # type: ignore
 
         if self._newlines and not first:
             self._stream.write(comma)
