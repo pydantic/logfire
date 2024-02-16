@@ -24,4 +24,9 @@ def collect_package_info() -> Packages:
     """
     distributions = metadata.distributions()
     distributions = sorted(distributions, key=lambda dist: (dist.name, dist.version))
-    return [{'name': dist.name, 'version': dist.version} for dist in distributions]
+    return [
+        {'name': dist.name, 'version': dist.version}
+        for dist in distributions
+        #  TODO remove this condition once we can store this information more efficiently
+        if dist.name in {'logfire', 'opentelemetry-sdk'}
+    ]
