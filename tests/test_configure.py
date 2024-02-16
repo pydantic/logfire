@@ -534,7 +534,7 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         # It's OK if this changes and the exporter seen by default_span_processor is no longer a FallbackSpanExporter.
         # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
         assert isinstance(fallback_exporter, FallbackSpanExporter)
-        fallback_exporter.exporter = FailureExporter
+        fallback_exporter.exporter = FailureExporter()
 
         return SimpleSpanProcessor(fallback_exporter)
 
