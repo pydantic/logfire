@@ -23,7 +23,7 @@ def instrument_fastapi(
     logfire_instance: Logfire,
     app: FastAPI,
     *,
-    attributes_mapper: Callable[
+    request_attributes_mapper: Callable[
         [
             Request | WebSocket,
             dict[str, Any],
@@ -39,7 +39,7 @@ def instrument_fastapi(
     See `Logfire.instrument_fastapi` for more details.
     """
     logfire_instance = logfire_instance.with_tags('fastapi')
-    attributes_mapper = attributes_mapper or _default_attributes_mapper
+    request_attributes_mapper = request_attributes_mapper or _default_request_attributes_mapper
 
     if not isinstance(excluded_urls, (str, type(None))):
         # FastAPIInstrumentor expects a comma-separated string, not a list.
@@ -88,18 +88,18 @@ def instrument_fastapi(
             instrumented_values.request = request
             result = (instrumented_values, *result[1:])
 
-        attributes = attributes_mapper(request, attributes)
+        attributes = request_attributes_mapper(request, attributes)
         if not attributes:
             # The user can return None to indicate that they don't want to log anything.
             # We don't document it, but returning `False`, `{}` etc. seems like it should also work.
             return result
 
-        # attributes_mapper may have removed the errors, so we need .get() here.
+        # request_attributes_mapper may have removed the errors, so we need .get() here.
         level: Literal['error', 'debug'] = 'error' if attributes.get('errors') else 'debug'
 
         # Add a few basic attributes about the request, particularly so that the user can group logs by endpoint.
         # Usually this will all be inside a span added by FastAPIInstrumentor with more detailed attributes.
-        # We only add these attributes after the attributes_mapper so that the user
+        # We only add these attributes after the request_attributes_mapper so that the user
         # doesn't rely on what we add here - they can use `request` instead.
         if isinstance(request, Request):
             attributes[SpanAttributes.HTTP_METHOD] = request.method
@@ -154,7 +154,7 @@ def instrument_fastapi(
     return uninstrument_context()
 
 
-def _default_attributes_mapper(
+def _default_request_attributes_mapper(
     _request: Request | WebSocket,
     attributes: dict[str, Any],
 ):

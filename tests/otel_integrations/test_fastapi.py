@@ -45,13 +45,13 @@ def app() -> FastAPI:
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def auto_instrument_fastapi(app: FastAPI):
-    def attributes_mapper(request, attributes):
+    def request_attributes_mapper(request, attributes):
         if request.scope['route'].name == 'other_route_name':
             attributes['custom_attr'] = 'custom_value'
             return attributes
 
     # uninstrument at the end of each test
-    with logfire.instrument_fastapi(app, attributes_mapper=attributes_mapper):
+    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper):
         yield
 
 

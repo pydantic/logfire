@@ -82,7 +82,7 @@ By default this will contain the following attributes:
 - `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
 - `errors`: A list of validation errors for any invalid inputs.
 
-You can customize this by passing an `attributes_mapper` function to `instrument_fastapi`. This function will be called
+You can customize this by passing an `request_attributes_mapper` function to `instrument_fastapi`. This function will be called
 with the `Request` or `WebSocket` object and the default attributes dictionary. It should return a new dictionary of
 attributes, or `None` to skip logging this request. For example:
 
@@ -92,7 +92,7 @@ import logfire
 app = ...
 
 
-def attributes_mapper(request, attributes):
+def request_attributes_mapper(request, attributes):
     if attributes["errors"]:
         # Only log validation errors, not valid arguments
         return {
@@ -104,11 +104,11 @@ def attributes_mapper(request, attributes):
         return None
 
 
-logfire.instrument_fastapi(app, attributes_mapper=attributes_mapper)
+logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper)
 ```
 
 !!! note
-    The [`attributes_mapper`][logfire.Logfire.instrument_fastapi(attributes_mapper)] function mustn't modify the
+    The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't modify the
     contents of `values` or `errors`.
 
 ## Excluding URLs from instrumentation

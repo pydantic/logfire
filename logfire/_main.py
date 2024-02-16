@@ -521,7 +521,7 @@ class Logfire:
         self,
         app: FastAPI,
         *,
-        attributes_mapper: Callable[
+        request_attributes_mapper: Callable[
             [
                 Request | WebSocket,
                 dict[str, Any],
@@ -536,7 +536,7 @@ class Logfire:
 
         Args:
             app: The FastAPI app to instrument.
-            attributes_mapper: A function that takes a [`Request`][fastapi.Request] or [`WebSocket`][fastapi.WebSocket]
+            request_attributes_mapper: A function that takes a [`Request`][fastapi.Request] or [`WebSocket`][fastapi.WebSocket]
                 and a dictionary of attributes and returns a new dictionary of attributes.
                 The input dictionary will contain:
 
@@ -573,7 +573,7 @@ class Logfire:
         return instrument_fastapi(
             self,
             app,
-            attributes_mapper=attributes_mapper,
+            request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
         )
