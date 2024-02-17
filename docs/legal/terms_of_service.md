@@ -1,6 +1,6 @@
 # Logfire Terms of Service
 
-**Last update: 2023-02-16**
+**Last update: 2023-02-17**
 
 Pydantic Services Inc. (**"PSI"**, **"we"**, **"us"**, or **"our"**), offers a cloud-based Observability service
 (**"Logfire Cloud"**) to persons or entities (**"you"**, **"your"** or **"Customer"**) according to the

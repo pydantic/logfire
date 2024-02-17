@@ -1,6 +1,6 @@
 # Logfire Data Processing Addendum
 
-**Last update: 2023-02-16**
+**Last update: 2023-02-17**
 
 This Data Processing Addendum (including its Exhibits) (**"Addendum"**) is incorporated into and forms part of and is
 subject to the terms and conditions of the [Logfire Terms of Service](terms_of_service.md) (the **"Logfire Terms"**)
@@ -89,8 +89,8 @@ notice without undue-delay and within the time frame required under Data Protect
 * **EEA, Swiss, and UK Standard Contractual Clauses**. If Customer Personal Data originating in the European
   Economic Area (**"EEA"**), Switzerland, and/or the United Kingdom is transferred by Customer to _PSI_ in a
   country that has not been found to provide an adequate level of protection under applicable Data Protection Laws,
-  the parties agree that the transfer shall be governed by the UK Standard Contractual Clauses or the Current EU
-  Standard Contractual Clauses, as applicable, located [here](standard_contractual_clauses.md). For
+  the parties agree that the transfer shall be governed by the UK Standard Contractual Clauses or the
+  Current EU Standard Contractual Clauses, as applicable. For
   purposes of this Addendum, the **"UK Standard Contractual Clauses"** mean the Standard Contractual Clauses for data
   controller to data processor transfers approved by the European Commission in decision 2010/87/EU, and the
   **"Current EU Standard Contractual Clauses"** mean the Standard Contractual Clauses approved by the European

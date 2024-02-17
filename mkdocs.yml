@@ -91,7 +91,6 @@ nav:
       - Service Level Agreement: legal/service_level_agreement.md
       - Data Processing Addendum: legal/data_processing_addendum.md
       - Cloud Subprocessors: legal/cloud_subprocessors.md
-      - Standard Contractual Clauses: legal/standard_contractual_clauses.md
 
 markdown_extensions:
   - tables

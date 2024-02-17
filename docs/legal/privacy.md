@@ -1,555 +1,501 @@
-# Privacy Policy
-
-**Last update: 2023-02-16**
-
-Pydantic Services Inc. (**"PSI"**, **"we"**, **"us"**, or **"our"**) provides a cloud-based Observability service, and
-other software and services (the "**Services**"). This Privacy Policy explains our online and offline personal
-information practices, the kinds of personal information we may collect, how we intend to use and share that personal
-information, and how you can exercise your privacy rights.
-
-## 1. Scope
-
-This privacy policy governs our processing of personal information via our websites located at `pydantic.dev` and `logfire.dev` (the
-"**Site**"), our Services, and any other _PSI_ websites, products, or services that link to this Privacy Policy. To
-make this Privacy Policy easier to read, our Site, Services, websites, and other products and services are collectively
-called "**Services**" This Privacy Policy is intended to meet requirements globally, including those in North America,
-Europe, APAC, and other jurisdictions. By using our Services, you consent to the collection, use, and disclosure of
-personal information in accordance with this Privacy Policy.
-
-**[An Important Note:]** This Privacy Policy does not apply to any of the personal information that our
-customers may collect and process using the _Logfire Cloud_ ("**Customer Data**"). Our customers are controllers of
-the Customer Data and their respective privacy policies govern their collection and use of Customer Data. We act as a
-processor for our customers' Customer Data and our processing of Customer Data is governed by the contracts that we have
-in place with our customers, not this Privacy Policy. Any questions or requests relating to Customer Data should be
-directed to our customers.
-
-## 2. Personal Information We Collect And How We Use It {#personal-info}
-
-The types of personal information we collect (directly from you or from third parties) and our privacy practices depend
-on the nature of the relationship you have with us, our Services, and the requirements of applicable law.
-
-We collect information that you provide to us, information we obtain automatically when you use our Services, and
-information from other sources such as third-party services and organizations. Below are the ways we collect personal
-information and how we use it.
-
-### 2.1. Types of Personal Information We Collect
-
-_PSI_ collects Personal Information regarding its current,
-prospective, and former customers and users (collectively "**Individuals**").
-
-#### Information You Provide Directly to Us
-
-When you use the Services or engage in certain activities, such as registering for an account, responding to surveys,
-requesting Services or information, or contacting us directly, we may ask you to provide some or all of the following
-types of information:
-
-- **Account Creation:** We may collect information when you create an account with us, such as your name, your company
-  name, email address, photograph, or avatar.
-- **Paid Subscriptions and Other Transactions:** We may collect personal information and details associated with your
-  subscriptions to our Services and other transactions, including payment information, such as a credit card number or
-  bank account numbers. Credit card payments made via our Services are processed by third-party payment processors
-  (e.g., Stripe). We do not directly collect or store any credit card information entered through our Services, but we
-  may receive information associated with your credit card information (e.g. your billing details).
-
-##### Communications with Us
-
-We may collect personal information from you such as name, job title, company, phone number,
-email address, or mailing address when you choose to request information about our Services, register for our
-newsletter, community forum or blog, request to receive customer or technical support, or otherwise communicate with us.
-
-##### Surveys
-
-From time to time, we may contact you to participate in online surveys. If you do decide to participate,
-you may be asked to provide certain information which may include personal information. All information collected from
-your participation in our surveys is provided by you voluntarily. We may use such information to improve our Services
-and in any manner consistent with the policies provided herein.
-
-##### Interactive Features
-
-The social media sites we use may contain interactive functionality that allow you to engage
-with other users such as our LinkedIn, YouTube, Twitch, or Facebook pages; through Twitter, Slack, and GitHub; or on
-other social media sites. You may post content or comments to our community workspaces and forums, blogs, and other
-social media sites (the "**User Materials**"), participate in surveys, and otherwise interact with the Services and
-with other users. If you use any interactive functionality that requests or permits you to provide personal information,
-we and other third parties may collect the personal information that you provide in the course of using these
-interactive features. If you choose to submit content to any public area of the Services, such content will be
-considered "public" and will not be subject to the privacy protections set forth herein.
-
-##### Sweepstakes or Contests
-
-We may collect personal information you provide for any sweepstakes or contests that we
-offer. In some jurisdictions, we are required to publicly share information of sweepstakes and contest winners.
-
-##### Conferences, Trade Shows, and Other Events
-
-We may collect personal information from individuals when we attend or
-host conferences, trade shows, and other events.
-
-##### Business Development and Strategic Partnerships
-
-We may collect personal information from individuals and third
-parties to assess and pursue potential business opportunities.
-
-### Information Collected Automatically
-
-We may collect personal information automatically when you use our Services:
-
-- **Automatic Data Collection:** We may collect certain information automatically through our software or Services or
-  through other methods of web or software analysis, such as your Internet protocol (IP) address, cookie identifiers,
-  unique Service identifier, and other device identifiers that are automatically assigned to your computer or device
-  when you access the Internet, hardware type and configuration, operating system, software version, data and usage
-  information about the software or Services, Internet service provider, browser type and language, pages that you
-  visit before and after using the Services, the date and time of your visit, the amount of time you spend on each
-  page, information about the links you click and pages you view within the Services, and other actions taken through
-  use of the software or Services such as preferences.
-- **Crash Reports:** If you send them, we may also receive crash reports with more detailed diagnostic information
-  about your device and the activities that led to the crash.
-- **Cookies, Pixel Tags/Web Beacons, and Cookie Technologies:** We, as well as third parties that provide content or
-  other functionality on our Services, may use cookies, pixel tags, local storage, and other technologies ("**Cookie
-  Technologies**") to automatically collect information through the Services. We use Cookie Technologies that allow
-  us to record certain pieces of information whenever you visit or interact with our Services, messaging, and tools.
-
-Our uses of such Cookie Technologies fall into the following general categories:
-
-- **Operationally Necessary:** We may use first-party or third-party Cookie Technologies that are necessary for the
-  operation of our Services. This includes Cookie Technologies that allow you access to our Services and that are
-  required to identify irregular website behavior, prevent fraudulent activity and improve security, or that allow you
-  to make use of our functions;
-- **Performance Related:** We may use first-party or third-party Cookie Technologies to assess the performance of our
-  Services, including as part of our analytic practices (see Analytics below) to help us understand how Individuals
-  use our Services, determine whether they have viewed an item or link, or to improve our Services;
-- **Functionality Related:** We may use first-party or third-party Cookie Technologies that allow us to offer you
-  enhanced functionality when accessing or using our Services;
-- **Advertising or Targeting Related:** We may use first-party or third-party Cookie Technologies to deliver content,
-  including ads relevant to your interests on third-party sites. This includes using Cookie Technologies to understand
-  the usefulness to you of the advertisements and content that has been delivered to you, such as whether you have
-  clicked on an advertisement.
-
-If you would like to opt out of the non-operationally-necessary Cookie Technologies we employ on our Services, you may
-do so by blocking, deleting, or disabling them as your browser or device permits. Please also see ["Your Privacy Choices
-and Rights"](#choices-and-rights) below to understand your choices regarding these Cookie Technologies.
-
-- **Analytics.** We may use analytics services to collect information regarding visitor behavior and visitor
-  demographics on some of our Services, and to develop Site content. Some of our analytics partners include:
-  - **Google Analytics:** For more information about Google Analytics, please visit [Google Analytics' Privacy
-    Policy](https://policies.google.com/technologies/partner-sites). You can opt out of
-    Google's collection and processing of data generated by your use of the Services by clicking
-    [here](https://tools.google.com/dlpage/gaoptout).
-- **Social Media Features, Forums, Blogs and Widgets:** Our Services may include social media features such as the
-  LinkedIn, Twitter, Twitch, Mastodon, and YouTube buttons, community Slack workspaces, community forums, or blog features.
-  These social media features may collect your IP address, which page you are visiting on our Services, and may set
-  cookies to enable the social media features to function properly. These social media features are either hosted by a
-  third-party or hosted directly on our Services. Your interactions with these social media features are governed by
-  the privacy policy of the company providing it.
-- **Information from Other Sources:** We may receive information about you from other sources, including through
-  third-party services and organizations to supplement information provided by you. This supplemental information
-  allows us to verify information that you have provided to us and to enhance our ability to provide you with
-  information about our business and Services. For example, if you access our Services through a third-party
-  application, such as a third-party login service or a social networking site, we may collect information about you
-  from that third-party application that you have made available via your privacy settings.
-
-### 2.2 How _PSI_ Uses Your Information
-
-We acquire, hold, use, and process personal information about Individuals for a variety of business purposes, including:
-
-#### A. To Provide our Services
-
-_PSI_ may use information about you to fulfill our contractual obligations with you
-and provide you with our Services including to:
-
-- Generally manage your information and accounts;
-- Respond to questions, comments, and other requests;
-- Provide access to certain areas, functionalities, and features of our Services;
-- Contact you to answer requests for customer support or technical support;
-- Allow you to register for events.
-- Communicate with you about your account, activities on our Services and policy changes; and
-- Process your financial information and other payment methods for Services purchased.
-
-#### B. Administrative Purposes
-
-We may use personal information about you for administrative purposes in our legitimate
-interest, including to:
-
-- Detect security incidents, protect against malicious, deceptive, fraudulent or illegal activity, and prosecute those
-  responsible for such activity;
-- Measure interest and engagement in our Services;
-- Improve, upgrade, or enhance our Services;
-- Develop new products and Services;
-- Ensure internal quality control and safety;
-- Verify Individual identity;
-- Debug to identify and repair errors with our Services;
-- Audit related to interactions, transactions, and other compliance activities;
-- Share information with third parties as needed to provide the Services;
-- Communicate about Individual accounts and activities on our Services and systems, and, in our discretion, changes to
-  any _PSI_ policy;
-- Send email to the email address you provide to us to verify your account and for informational and operational
-  purposes, such as account management, customer support, or system maintenance;
-- Process payment for Services purchased;
-- Process applications and transactions;
-- Prevent potentially prohibited or illegal activities;
-- Verify your country of location to comply with any legal obligations;
-- Comply with our legal obligations; or
-- Enforce our policies and terms.
-
-#### C. Marketing and Advertising Our Products and Services
-
-_PSI_ may use personal information to provide you with
-materials about offers, products, and services that may be of interest to you, including new content, advertisements, or
-Services. We may provide you with these materials or advertisements by social media or email, via "interest-based" or
-"personalized advertising,", as permitted by applicable law. You may opt out of the use of your personal information for
-marketing purposes.
-
-#### D. Research and Development
-
-_PSI_ may use personal information to create non-identifiable information that we
-may use alone or in the aggregate with information obtained from other sources, in order to help us to optimally deliver
-our existing Services or develop new Services. From time to time, _PSI_ may perform research (online and offline)
-via surveys. We may engage third parties to conduct such surveys on our behalf. All survey responses are voluntary, and
-the information collected will be used for research and reporting purposes to help us better serve Individuals by
-learning more about their needs and the quality of the Services we provide. The survey responses may be utilized to
-determine the effectiveness of our Services, various types of communications, advertising campaigns, and/or promotional
-activities. If an Individual participates in a survey, the information given will be used along with that of other study
-participants. We may share anonymous Individual and aggregate data for research and analysis purposes.
-
-#### E. Direct Mail, Email, and Outbound Telemarketing
-
-Individuals who provide us with personal information, or whose
-personal information we obtain from third parties, may receive periodic emails, newsletters, or other communications
-from us with information on _PSI_'s Services or our business partners' products and services or upcoming special
-offers/events we believe may be of interest. We offer the option to decline these communications at no cost to the
-Individual by contacting us as set forth in ["Contact Us"](#contact) below.
-
-#### F. Anonymous and Aggregated Information Use
-
-_PSI_ may use personal information and other information about you
-to create anonymized and aggregated information, such as de-identified demographic information, de-identified location
-information, information about the computer or device from which you access our Services, or other analyses we create.
-Anonymized and aggregated information is used for a variety of functions, including the measurement of visitors'
-interest in and use of various portions or features of the Services. Anonymized or aggregated information is not
-personal information, and we may use such information in a number of ways, including research, internal analysis,
-analytics, and any other legally permissible purposes. We may share this information within _PSI_ and with third
-parties for our or their purposes in an anonymized or aggregated form that is designed to prevent anyone from
-identifying you.
-
-#### G. Other Uses
-
-_PSI_ may use personal information for which we have a legitimate interest, such as direct
-marketing, individual or market research, anti-fraud protection, or any other purpose disclosed to you at the time you
-provide personal information or with your consent.
-
-### 2.3 Third-Party Websites, Social Media Platforms, and APIs/SDKs
-
-#### Third-Party Websites
-
-The Services may contain links to other websites and other websites may reference or link to
-our Services. These other domains and websites are not controlled by us, and we do not endorse or make any
-representations about third-party websites or social media platforms. We encourage our users to read the privacy
-policies of each and every website and application with which they interact. We do not endorse, screen, or approve, and
-we are not responsible for the privacy practices or content of such other websites or applications.
-
-#### Social Media Platforms
-
-Our Services may include publicly accessible blogs, community forums, or messaging features.
-The Services may also contain links and interactive features with various social media platforms. If you already use
-these platforms, their cookies may be set on your device when using our Services. You should be aware that personal
-information which you voluntarily include and transmit online in a publicly accessible blog, chat room, social media
-platform, or otherwise online, or that you share in an open forum may be viewed and used by others without any
-restrictions. We are unable to control such uses of your information when interacting with a social media platform, and
-by using such third parties you assume the risk that the personal information provided by you may be viewed and used by
-third parties for any number of purposes.
-
-#### API/SDKs
-
-We may use third-party Application Program Interfaces ("APIs") and Software Development Kits ("SDKs") as
-part of the functionality of our Services. For more information about our use of APIs and SDKs, please contact us as set
-forth in ["Contact Us"](#contact) below.
-
-## 3. How _PSI_ May Disclose Your Information
-
-We may disclose your information as described in this Privacy Policy for a variety of business purposes, including with
-our third-party service providers to provide our Services, to comply with legal obligations, to protect and defend our
-rights and property, in the event of a major business transaction such as a merger, sale or asset transfer, as described
-below, or with your permission.
-
-### 3.1 Disclosures to Provide our Services
-
-The categories of third parties with whom we may share your information are described below.
-
-- **Service Providers:** We may share any information we receive with vendors and service providers who use that
-  information to help us provide our Services. The types of service providers (processors) to whom we entrust personal
-  information include service providers for: (i) provision of IT and related services; (ii) provision of information
-  and Services you have requested; (iii) payment processing; and (iv) customer service activities.
-- **Business Partners:** We may share personal information with our business partners to provide you with a product or
-  service that you have requested. We may also provide personal information to business partners with whom we may
-  jointly offer products or services, or whose products or services we believe may be of interest to you. In such
-  cases, our business partner's name will appear, along with ours.
-- **Affiliates:** We may share your personal information with our company affiliates.
-- **Other Users:** The content you post may be displayed on the Services. Other users of the Services may be able to
-  see some information about you, such as your name if you post a comment. We are not responsible for privacy
-  practices of the other users who will view and use the posted information.
-- **Advertising Partners:** _PSI_ may allow third-party advertising partners to set tracking tools (e.g., cookies)
-  to collect information regarding your activities (e.g., your IP address, page(s) visited, time of day) on our
-  Services. We may also share such de-identified information as well as selected personal information (such as
-  demographic information and past purchase history) we have collected with third-party advertising partners. These
-  advertising partners may use this information (and similar information collected from other websites) for purposes
-  of delivering targeted advertisements to you when you visit non-_PSI_ related websites within their networks.
-  This practice is commonly referred to as "interest-based advertising" or "online behavioral advertising." We may
-  allow access to other data collected by the Services to facilitate transmittal of information that may be useful,
-  relevant, valuable or otherwise of interest to you. If you prefer that we do not share your personal information
-  with third-party advertising partners, you may opt out of such sharing at no cost by following the instructions
-  described below under "Your Privacy Choices and Rights".
-
-### 3.2. Disclosures to Protect Us or Others (e.g., as Required by Law and Similar Disclosures)
-
-We may access, preserve, and disclose your personal information, other account information, and content if we believe
-doing so is required or appropriate to: (i) comply with law enforcement or national security requests and legal process,
-such as a court order or subpoena; (ii) respond to your requests; (iii) protect your, our, or others' rights, property,
-or safety; (iv) enforce our policies or contracts; (v) collect amounts owed to us; (vi) prevent physical harm or
-financial loss; (vii) assist in connection with an investigation or prosecution of suspected or actual illegal activity;
-or (viii) disclose your personal information in good faith where it is otherwise necessary or advisable under applicable
-laws.
-
-### 3.3. Disclosure in the Event of Merger, Sale, or Other Asset Transfers
-
-If we are involved in a merger, acquisition, financing due diligence, reorganization, bankruptcy, receivership, sale of
-company assets, or transition of service to another provider, then your information may be sold or transferred as part
-of such a transaction as permitted by law and/or contract. In such event, we will endeavor to direct the transferee to
-use Personal Information in a manner that is consistent with the Privacy Policy in effect at the time such Personal
-Information was collected.
-
-## 4. International Data Transfers.
-
-You agree that all personal information collected via or by _PSI_ may be transferred, processed, and stored anywhere
-in the world, including but not limited to the United States, the European Union, in the cloud, on our servers, on the
-servers of our affiliates or the servers of our service providers. These countries may have data protection laws that
-are different from the laws where you live. We endeavor to safeguard your information consistent with the requirements
-of applicable laws, but your personal information may be accessible to law enforcement or other authorities pursuant to
-a lawful request. By providing information to _PSI_, you explicitly consent to the storage of your personal
-information in these locations.
-
-## 5. Your Privacy Choices and Rights {#choices-and-rights}
-
-### 5.1 Your Privacy Choices
-
-The privacy choices you may have about your personal information are determined by
-applicable law and are described below.
-
-#### A. Email and Telephone Communications
-
-If you receive an unwanted marketing email from us, you can use the
-unsubscribe link found at the bottom of the email to opt out of receiving future emails. We will process your request
-within a reasonable time after receipt. We may also send you certain non-promotional or transaction-related
-communications regarding _PSI_ and our Services, and you will not be able to opt out of those communications.
-
-#### B. "Do Not Track"
-
-Do Not Track ("**DNT**") is a privacy preference that users can set in certain web browsers. DNT
-is a way for users to inform websites and services that they do not want certain information about their webpage visits
-collected over time and across websites or online services. Please note that we do not respond to or honor DNT signals
-or similar mechanisms transmitted by web browsers.
-
-#### C. Cookies and Interest-Based Advertising
-
-You may stop or restrict the placement of cookies on your computer or
-remove them from your browser by adjusting your web browser preferences. Please note that cookie-based opt-outs are not
-effective on mobile applications. However, on many mobile devices, application users may opt out of certain mobile ads
-via their device settings. See [http://www.networkadvertising.org/mobile-choice](http://www.networkadvertising.org/mobile-choice).
-
-The online advertising industry also provides websites from which you may opt out of receiving targeted ads from our
-data partners and our Third-Party advertising partners that participate in self-regulatory programs. You can access
-these, and also learn more about targeted advertising and consumer choice and privacy, at
-[https://optout.networkadvertising.org/](https://optout.networkadvertising.org/),
-or [http://www.youronlinechoices.eu](http://www.youronlinechoices.eu),
-[https://youradchoices.ca/](https://youradchoices.ca/) and
-[https://optout.aboutads.info](https://optout.aboutads.info).
-
-To be clear, whether you are using our opt-out or an online industry opt-out, these cookie-based opt-outs must be
-performed on each device and browser that you wish to have opted-out. For example, if you have opted-out on your
-computer browser, that opt-out will not be effective on your mobile device. You must separately opt out on each device.
-Advertisements on third-party websites that contain the AdChoices link and that link to this Privacy Policy may have
-been directed to you based on information collected by advertising partners over time and across websites. These
-advertisements provide a mechanism to opt out of the advertising partners' use of this information for interest-based
-advertising purposes. Even if you opt out, we may still collect and use information regarding your activities on our
-Services and/or information from the advertisements on third-party websites for non-interest based advertising purposes,
-such as to determine how to optimize our Services.
-
-### 5.2 Your Privacy Choices
-
-In accordance with applicable law, you may have the right to:
-
-- **Access Personal Information** about you, including:
-  1. confirming whether we are processing your personal
-  information;
-  2. obtaining access to or a copy of your personal information in a structured, commonly used, and
-  machine readable format; and
-  3. receiving an electronic copy of personal information that you have provided to
-  us, or asking us to send that information to another company in a structured, commonly used, and machine readable
-  format (the "right of data portability");
-- **Request Correction** of your personal information where it is inaccurate or incomplete. In some cases, we may
-  provide self-service tools that enable you to update your personal information;
-- **Request Deletion** of your personal information;
-- **Request Restriction of or Object** to our processing of your personal information including where the processing
-  of your personal information is based on our legitimate interest or for direct marketing purposes; and
-- **Withdraw your Consent** to our processing of your personal information. Please note that your withdrawal will only
-  take effect for future processing and will not affect the lawfulness of processing before the withdrawal.
-
-Although we make a good faith efforts to provide you with access to your personal information, there may be
-circumstances in which we are unable to provide access, including but not limited to: where the information contains
-legal privilege, would compromise others' privacy or other legitimate rights, where the burden or expense of providing
-access would be disproportionate to the risks to the Individual's privacy in the case in question or where it is
-commercially proprietary. If we determine that access should be restricted in any particular instance, we will provide
-you with an explanation of why that determination has been made and a contact point for any further inquiries. To
-protect your privacy, we will take commercially reasonable steps to verify your identity before granting access to or
-making any changes to your personal information.
-
-## 6. Retention of Personal Information
-
-_PSI_ retains the personal information we receive as described in this Privacy Policy for as long as you use our
-Services or as necessary to fulfill the purpose(s) for which it was collected, provide our Services, resolve disputes,
-establish legal defenses, conduct audits, pursue legitimate business purposes, enforce our agreements, and comply with
-applicable laws.
-
-## 7. Security of Your Information
-
-We take steps to ensure that your information is treated securely and in accordance with this Privacy Policy.
-Unfortunately, the Internet cannot be guaranteed to be 100% secure, and we cannot ensure or warrant the security of any
-information you provide to us. To the fullest extent permitted by applicable law, we do not accept liability for
-unintentional disclosure.
-
-By using our Services or providing personal information to us, you agree that we may communicate with you electronically
-regarding security, privacy, and administrative issues relating to your use of the Services. If we learn of a security
-system's breach, we may attempt to notify you electronically by posting a notice on the Site or sending an e-mail to
-you. You may have a legal right to receive this notice in writing.
-
-## 8. International Users
-
-By using the Services, _PSI_ will transfer data to the United States and other global jurisdictions. By choosing to
-visit the Site, utilize the Services or otherwise provide information to us, you agree that any dispute over privacy or
-the terms contained in this Privacy Policy will be governed by the laws of New York, United States and the adjudication
-of any disputes arising in connection with _PSI_ or the Services will be in accordance with the Terms.
-
-If you are visiting from the European Union or other regions with laws governing data collection and use, please note
-that you are agreeing to the transfer of your information to the United States and to processing of your data globally.
-By providing your personal Information, you consent to any transfer and processing in accordance with this Policy.
-
-## 9. Children's Information
-
-The Services are not directed to children under 13 years of age (or other age as required by local law), and _PSI_
-does not knowingly collect personal information from children under 13 years of age (or other age as required by local
-law). If you are a parent or guardian and learn that your child has uploaded personal information to our Services
-without your consent, you may alert us as described in ["Contact Us"](#contact) below. If we learn
-that a child has provided us with personal information in violation of applicable law, we will promptly take steps to
-delete such information, unless with have a legal obligation to keep it.
-
-## 10. Other Provisions
-
-### 10.1 Supervisory Authority
-
-If you have any questions about our privacy practices, this Privacy Policy, or how to
-lodge a complaint with the appropriate authority, please contact us as described in ["Contact Us"](#contact) below.
-We will address your concerns and attempt to resolve any privacy issues in a timely manner.
-
-### 10.2 Changes to our Privacy Policy
-
-We may revise this Privacy Policy from time to time in our sole discretion. If
-there are any material changes to this Privacy Policy, we will notify you as required by applicable law. You understand
-and agree that you will be deemed to have accepted the updated Privacy Policy if you continue to use our Services after
-the new Privacy Policy takes effect.
-
-### 10.3 New Uses of Personal Information
-
-Additionally, before we use personal information for any new purpose not
-originally authorized by you, we will endeavor to provide information regarding the new purpose and give you the
-opportunity to opt out. Where your consent for the processing of personal information is otherwise required by law or
-contract, we will endeavor to comply with the law or contract.
-
-## 11. Supplemental Notice for California Residents
-
-This Supplemental Notice for California Residents only applies to our processing of personal information that is subject
-to the California Consumer Privacy Act of 2018 ("**CCPA**"). The CCPA provides California residents with the right to
-know what categories of personal information _PSI_ has collected about them, and whether _PSI_ disclosed that
-personal information for a business purpose (e.g., to a service provider) in the preceding 12 months. California
-residents can find this information below:
-
-### Categories
-
-* **Identifiers:** (such as name, address, email address, phone number, other account information, and cookies)
-  - Data analytics providers
-  - Service providers
-  - Other users you interact with/public (names and username on our community forum)
-* Personal information categories listed in the California Customer Records statute (Cal. Civ. Code §1798.80(e)):
-  - Data analytics providers
-  - Other users you interact with/public (names and username on our community forum)
-* **Commercial information** Records of personal property, products or services purchased, obtained, or considered,
-  or other purchasing or consuming histories or tendencies:
-  - Service providers
-* **Internet or other electronic network activity** Browsing history, search history, information on a consumer's
-  interaction with an internet website, application, or advertisement:
-  - Data analytics providers
-  - Service providers
-* **Professional or employment-related information** Current or past job history or performance evaluations:
-  - Service providers (recruiting services)
-
-The categories of sources from which we collect personal information and our business and commercial purposes for using
-personal information are set forth in ["Types of Personal Information We Collect and How We Use It"](#personal-info).
-
-### "Sales" of Personal Information under the CCPA
-
-For purposes of the CCPA, _PSI_ does not "sell" personal information, nor do we have actual knowledge of any "sale"
-of personal information of minors under 16 years of age, as the term "sell" is commonly understood. That said, we do
-share personal information with certain third-party advertisers for retargeting purposes, which may be considered a
-"sale" under the CCPA. To the extent that such sharing is considered a "sale" under the CCPA, you may opt-out of having
-your information shared by disabling third-party cookies on your device, or by contacting us as set forth in
-["Contact Us"](#contact) below.
-
-### Additional Privacy Rights for California Residents
-
-#### Non-Discrimination
-
-California residents have the right not to receive discriminatory treatment by us for the
-exercise of their rights conferred by the CCPA.
-
-#### Authorized Agent
-
-Only you, or someone legally authorized to act on your behalf, may make a verifiable consumer
-request related to your personal information. You may also make a verifiable consumer request on behalf of your minor
-child. To designate an authorized agent, please contact us as set forth in "Contact Us" below and provide written
-authorization signed by you and your designated agent.
-
-#### Verification
-
-To protect your privacy, we will take the following steps to verify your identity before fulfilling
-your request. When you make a request, we will ask you to provide sufficient information that allows us to reasonably
-verify you are the person about whom we collected personal information or an authorized representative, which may
-include asking you to answer questions regarding your account and use of our Services.
-
-If you are a California resident and would like to exercise any of your rights under the CCPA, please contact us as set
-forth in ["Contact Us"](#contact) below. We will process such requests in accordance with applicable laws.
-
-#### Accessibility
-
-This Privacy Policy uses industry-standard technologies and was developed in line with the World Wide
-Web Consortium's Web Content Accessibility Guidelines, version 2.1. If you wish to print this policy, please do so from
-your web browser or by saving the page as a PDF.
-
-#### California Shine the Light
-
-The California "Shine the Light" law permits users who are California residents to
-request and obtain from us once a year, free of charge, a list of the third parties to whom we have disclosed their
-personal information (if any) for their direct marketing purposes in the prior calendar year, as well as the type of
-personal information disclosed to those parties. Except as otherwise provided in this Privacy Policy, _PSI_ does not
-share personal information with third parties for their own marketing purposes.
-
-## 12. Supplemental Notice for Nevada Residents
-
-If you are a resident of Nevada, you have the right to opt-out of the sale of certain personal information to third
-parties who intend to license or sell that personal information. You can exercise this right by contacting us at
-[legal@pydantic.dev](mailto:legal@pydantic.dev)
-with the subject line "Nevada Do Not Sell Request" and providing us with your name and the email address associated with
-your account. Please note that we do not currently sell your personal information as sales are defined in Nevada Revised
-Statutes Chapter 603A. If you have any questions, please contact us as set forth below.
-
-## 13. Contact Us {#contact}
-
-If you would like to contact us about our privacy practices, this Privacy Policy or to exercise any of your rights as
-described in this Privacy Policy, please email us at [legal@pydantic.dev](mailto:legal@pydantic.dev).
+# Logfire Privacy Statement
+
+**Last update: 2023-02-17**
+
+Welcome to the Logfire Privacy Statement. This is where we describe how we handle your "Personal Data", which is
+information that is directly linked or can be linked to you. It applies to the Personal Data that
+Pydantic Services Inc. (**"PSI"**) processes as the "Data Controller" when you interact with websites, applications,
+and services that display this Statement (collectively, "Services").
+
+This Statement does not apply to services or products that do not display this Statement, where relevant.
+
+## Personal Data We Collect
+
+Personal Data is collected from you directly, automatically from your device, and also from third parties. The Personal
+Data _PSI_ processes when you use the Services depends on variables like how you interact with our Services (such as
+through web interfaces, command line applications), the features you use and your method of accessing the Services.
+Below, we detail the information we collect through each of these channels:
+
+### From You
+
+- Account Data: We collect certain information when you open an account such as your _PSI_ handle, name, email
+  address, password, payment information and transaction information.
+- User Content and Files: When you use our Services, we collect Personal Data included as part of the information you
+  provide such as code, inputs, text, documents, images, or feedback.
+- Demographic information: In some cases, you provide us with ethnicity, gender, or similar demographic details.
+- Feedback Data: This consists of information you submit through surveys, reviews, or interactive features.
+- Payment Information: For paid subscriptions, we collect details like name, billing address, and payment specifics.
+- Profile Information: We collect information to create a user profile, which may include a photo, additional email
+  addresses, job title, or biography.
+- Sales and Marketing Data: This includes information provided for promotional communications, such as name, email
+  address, and company name.
+- Support Data: When you seek customer support, we collect details like code, text, or multimedia files.
+
+### Automatically
+
+- Buttons, Tools, and Content from Other Companies: Our Services may contain links or buttons that lead to third-party
+  services like Twitter or LinkedIn. Use of these features may result in data collection. Engaging with these buttons,
+  tools, or content may automatically send certain browser information to these companies. Please review the privacy
+  statements of these companies for more information.
+- Essential Cookies and Similar Tracking Technologies: We use cookies and similar technologies to provide essential
+  functionality like storing settings and recognizing you while using our Services.
+- Non-essential Cookies: Depending on your jurisdiction, we may use online analytics products that use cookies to help
+  us analyze how de-identified users use our Services and to enhance your experience when you use the Services. We may
+  also employ third-party Cookies to gather data for interest-based advertising. In some jurisdictions, we only use
+  non-essential cookies after obtaining your consent. See this section for more details and control options.
+- Email Marketing Interactions: Our emails may have web beacons that offer information on your device type, email
+  client, email reception, opens, and link clicks.
+- Geolocation Information: Depending on the Service's functionality, we collect regional geolocation data
+- Service Usage Information: We collect data about your interactions with the Services, such as IP address, device
+  information, session details, date and time of requests, device type and ID, operating system and application version,
+  information related to your contributions to repositories, and performance of specific features or Services.
+- Website Usage Data: We automatically log data about your Website interactions, including the referring site, date and
+  time of visit, pages viewed, and links clicked.
+
+### From Third Parties
+
+- Information from Other Users of the Services: Other users may share information about you when they submit issues and
+  comments. We may also receive information about you if you are identified as a representative or administrator on your
+  company's account.
+- Publicly Available Sources: We may acquire information about you from publicly available sources like public _PSI_
+  repositories.
+- Services you linked to your _PSI_ account: When you or your administrator integrate third-party apps or services
+  with our Services, we receive information based on your settings with those services. This can include details like
+  your name and email from services like Google for authentication. The information we receive depends on the
+  third-party's settings and privacy policies. Always review these to understand what data is shared with our Services.
+- Vendors, Partners, and Affiliates: We may receive information about you from third parties, like vendors, resellers,
+  partners, or affiliates for the purposes outlined in this statement.
+
+## Processing Purposes: How We Use Your Personal Data
+
+The Personal Data we process depends on your interaction and access methods with our Services, including the interfaces,
+features used, and your preferred access tools.
+This section details all the potential ways _PSI_ may process your Personal Data:
+
+- Business Operations: We use Personal Data for activities like billing, accounting, and compensation. This includes
+  creating aggregated statistical data for internal reporting, financial reporting, revenue planning, capacity planning,
+  and forecast modeling (including product strategy).
+- Communication: We use Personal Data to inform you about new Services, features, offers, promotions, and other
+  pertinent information. This also includes sending confirmations, invoices, technical notices, updates, security alerts,
+  and administrative messages.
+- Inference: We generate new information from other data we collect to derive likely preferences or other
+  characteristics. For instance, we infer your general geographic location based on your IP address.
+- Personalization: We use Personal Data to customize the Service to your preferences, to evaluate the effectiveness of
+  enterprise business ads and promotional communications, and to ensure a seamless and consistent user experience.
+- Safety and Security: To promote safety, integrity, and security across our Services, we process Personal Data, using
+  both automated and, at times, manual techniques for abuse detection, prevention, and violations of terms of service.
+- Service Provision: We use Personal Data to deliver and update our Services as configured and used by You, and to make
+  ongoing personalized experiences and recommendations.
+- Troubleshooting: We use Personal Data to identify and resolve technical issues.
+- Ongoing Service Performance: Personal Data helps us keep the Services up to date and performant, and meet user
+  productivity, reliability, efficacy, quality, privacy, accessibility and security needs.
+- Complying with and resolving legal obligations: including responding to Data Subject Requests for Personal Data
+  processed by _PSI_ as Controller (for example website data), tax requirements, agreements and disputes.
+- Delivering Professional Services: We use Personal Data to deliver training, consulting or implementation
+  ("Professional Services"). This includes providing technical support, professional planning, advice, guidance, data
+  migration, deployment, and solution/software development services.
+- Improving Professional Services: Enhancing delivery, efficacy, quality, and security of Professional Services and the
+  underlying product(s) based on issues identified while providing Professional Services, including fixing software
+  defects, and otherwise keeping the Professional Services up to date and performant.
+
+When carrying out these activities, _PSI_ practices data minimization and uses the minimum amount of Personal
+Information required.
+
+## Sharing of Personal Data
+
+We may share Personal Data with the following recipients:
+
+- Abuse and Fraud Prevention Entities: We may disclose Personal Data based on a good faith belief it is needed to
+  prevent fraud, abuse, or attacks on our Services, or to protect the safety of _PSI_ and our users.
+- Affiliates: Personal Data may be shared with _PSI_ affiliates, including Microsoft, to facilitate customer service,
+  marketing and advertising, order fulfillment, billing, technical support, and legal and compliance obligations. Our
+  affiliates may only use the Personal Data in a manner consistent with this Privacy Statement.
+- Logfire Organization Accounts: If an organization adds you to their Logfire account, we might share Personal Data with
+  that organization to fulfill the commercial relationship. In such a case, your use of the Services is protected by a
+  data protection agreement and terms between your organization and _PSI_
+- Competent Authorities: We may disclose Personal Data to authorized law enforcement, regulators, courts, or other
+  public authorities in response to lawful requests or to protect our rights and safety.
+- Corporate Transaction Entities: we might disclose Personal Data within the limits of the law and in accordance with
+  this Privacy Statement for strategic business transactions such as sales or a merger.
+- Partners and Resellers: We cooperate with third-parties that offer sales, consulting, support, and technical services
+  for our Services. We may share your data with these partners and resellers where allowed, and with your consent when
+  required.
+- Subprocessors and Service Providers: We may use vendors to provide services on our behalf, including hosting,
+  marketing, advertising, social, analytics, support ticketing, credit card processing, or security services. They are
+  bound by contractual obligations to ensure the security, privacy, and confidentiality of your information. Please
+  see [our list of sub-processors](cloud_subprocessors.md).
+- Other Third-party Applications: Upon your instruction, we may share Personal Data with third-party applications
+  available on our Marketplace. You are responsible for the data you instruct us to share with these applications.
+- Other Users and the Public: Depending on your account settings, we may share Personal Data with other users of the
+  Services and the public. You control what information is made public. To adjust your settings, visit User Settings in
+  your profile. Please be aware that any information you share in a collaborative context may become publicly accessible.
+
+## Private data: _PSI_ Access
+
+If your _PSI_ account has private data, you control the access to that information. _PSI_ personnel dp not
+access private information without your consent except as provided in this Privacy Statement and for:
+
+- during beta testing of or platform
+- security purposes
+- automated scanning or manual review for known vulnerabilities, active malware, or other content known to violate our
+  [Terms of Service](terms_of_service.md)
+- to assist the repository owner with a support matter
+- to maintain the integrity of the Services, or
+- to comply with our legal obligations if we have reason to believe the contents are in violation of the law.
+
+_PSI_ will provide you with notice regarding private data access unless:
+
+- doing so is prohibited by law
+- _PSI_ acted in response to a security threat or other risk to security, or
+- our main platform is in a "beta" state
+
+## Lawful Bases for Processing Personal Data (Applicable to EEA and UK End Users)
+
+_PSI_ processes Personal Data in compliance with the GDPR, ensuring a lawful basis for each processing activity. The
+basis varies depending on the data type and the context, including how you access the services. Our processing
+activities typically fall under these lawful bases:
+
+- Contractual Necessity: Processing is required to fulfill our contractual duties to you, in accordance with the _PSI_
+  Terms of Service.
+- Legal Obligation: We process data when it's necessary to comply with applicable laws or to protect the rights,
+  safety, and property of _PSI_, our affiliates, users, or third parties.
+- Legitimate Interests: We process data for purposes that are in our legitimate interests, such as securing our
+  Services, communicating with you, and improving our Services. This is done only when these interests are not overridden
+  by your data protection rights or your fundamental rights and freedoms.
+- Consent: We process data when you have explicitly consented to such processing. When we rely on consent as the legal
+  basis, you have the right to withdraw your consent for data processing at any time. The procedures for withdrawal are
+  detailed in this Statement and available on our website.
+
+## Your Privacy Rights
+
+Depending on your residence location, you may have specific legal rights regarding your Personal Data:
+
+- The right to access the data collected about you
+- The right to request detailed information about the specific types of Personal Data we've collected over the past 12
+months, including data disclosed for business purposes
+- The right to rectify or update inaccurate or incomplete Personal Data under certain circumstances
+- The right to erase or limit the processing of your Personal Data under specific conditions
+- The right to object to the processing of your Personal Data, as allowed by applicable law
+- The right to withdraw consent, where processing is based on your consent
+- The right to receive your collected Personal Data in a structured, commonly used, and machine-readable format to
+facilitate its transfer to another company, where technically feasible
+
+To exercise these rights, please [contact us](#contact) and follow the instructions provided.. To
+verify your identity for security, we may request extra information before addressing your data-related request. Please
+[contact our Data Protection Officer](#contact) for any feedback or concerns. Depending on your region,
+you have the right to complain to your local Data Protection Authority. European users can find authority contacts on
+the European Data Protection Board website, and UK users on the Information Commissioner's Office website.
+
+We aim to promptly respond to requests in compliance with legal requirements. Please note that we may retain certain
+data as necessary for legal obligations or for establishing, exercising, or defending legal claims.
+
+## International data transfers
+
+_PSI_ stores and processes Personal Data in a variety of locations, including your local region, the United States,
+and other countries where _PSI_, its affiliates, subsidiaries, or subprocessors have operations. We transfer Personal
+Data from the European Union, the United Kingdom, and Switzerland to countries that the European Commission has not
+recognized as having an adequate level of data protection. When we engage in such transfers, we generally rely on the
+standard contractual clauses published by the European Commission under
+[Commission Implementing Decision 2021/914](https://eur-lex.europa.eu/eli/dec_impl/2021/914/oj),
+help protect your rights and enable these protections
+to travel with your data. To learn more about the European Commission's decisions on the adequacy of the protection of
+personal data in the countries where _PSI_ processes personal data, see this article on the
+[European Commission website](https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/adequacy-decisions_en).
+
+## Data Privacy Framework (DPF)
+
+_PSI_ also complies with the EU-U.S. Data Privacy Framework (EU-U.S. DPF), the UK Extension to the EU-U.S. DPF, and
+the Swiss-U.S. Data Privacy Framework (Swiss-U.S. DPF) as set forth by the U.S. Department of Commerce. _PSI_ has
+certified to the U.S. Department of Commerce that it adheres to the EU-U.S. Data Privacy Framework Principles (EU-U.S.
+DPF Principles) with regard to the processing of personal data received from the European Union in reliance on the
+EU-U.S. DPF and from the United Kingdom (and Gibraltar) in reliance on the UK Extension to the EU-U.S. DPF. _PSI_ has
+certified to the U.S. Department of Commerce that it adheres to the Swiss-U.S. Data Privacy Framework Principles
+(Swiss-U.S. DPF Principles) with regard to the processing of personal data received from Switzerland in reliance on the
+Swiss-U.S. DPF. If there is any conflict between the terms in this privacy statement and the EU-U.S. DPF Principles
+and/or the Swiss-U.S. DPF Principles, the Principles shall govern. To learn more about the Data Privacy Framework
+(DPF) program, and to view our certification, please visit <https://www.dataprivacyframework.gov/>.
+
+_PSI_ has the responsibility for the processing of Personal Data it receives under the Data Privacy Framework (DPF)
+Principles and subsequently transfers to a third party acting as an agent on _PSI_'s behalf. _PSI_ shall remain
+liable under the DPF Principles if its agent processes such Personal Data in a manner inconsistent with the DPF
+Principles, unless the organization proves that it is not responsible for the event giving rise to the damage.
+
+### Dispute resolution process
+
+In compliance with the EU-U.S. DPF, the UK Extension to the EU-U.S. DPF, and the Swiss-U.S. DPF, _PSI_ commits to
+resolve DPF Principles-related complaints about our collection and use of your personal information. EU, UK, and Swiss
+individuals with inquiries or complaints regarding our handling of personal data received in reliance on the EU-U.S.
+DPF, the UK Extension, and the Swiss-U.S. DPF should first [contact us](#contact).
+
+If you do not receive timely acknowledgment of your DPF Principles-related complaint from us, or if we have not
+addressed your DPF Principles-related complaint to your satisfaction, please visit <https://go.adr.org/dpf_irm.html>
+for more information or to file a complaint. The services of the International Centre for Dispute Resolution are
+provided at no cost to you.
+
+An individual has the possibility, under certain conditions, to invoke binding arbitration for complaints regarding DPF
+compliance not resolved by any of the other DPF mechanisms. For additional information visit
+<https://www.dataprivacyframework.gov/s/article/ANNEX-I-introduction-dpf>.
+
+### Government Enforcement
+
+_PSI_ is subject to the investigatory and enforcement powers of the Federal Trade Commission (FTC). Under Section 5 of
+the Federal Trade Commission Act (15 U.S.C. § 45), an organization's failure to abide by commitments to implement the
+DPF Principles may be challenged as deceptive by the FTC. The FTC has the power to prohibit such misrepresentations
+through administrative orders or by seeking court orders.
+
+## Security and Retention
+
+_PSI_ uses appropriate administrative, technical, and physical security controls to protect your Personal Data. We'll
+retain your Personal Data as long as your account is active and as needed to fulfill contractual obligations, comply
+with legal requirements, resolve disputes, and enforce agreements. The retention duration depends on the purpose of
+data collection and any legal obligations.
+
+## Security
+
+_PSI_ uses administrative, technical, and physical security controls where appropriate to protect your Personal Data.
+
+## Information for Minors
+
+Our Services are not intended for individuals under the age of 13. We do not intentionally gather Personal Data from
+such individuals. If you become aware that a minor has provided us with Personal Data, please [contact us](#contact).
+
+## Changes to Our Privacy Statement
+
+_PSI_ may periodically revise this Privacy Statement. If there are material changes to the statement, we will provide
+at least 30 days prior notice by updating our website or sending an email to your primary email address associated with
+your _PSI_ account.
+
+## Our use of cookies and tracking technologies
+
+### Cookies and tracking technologies
+
+_PSI_ uses cookies to provide, secure and improve our Service or to develop new features and functionality of our
+Service. For example, we use them to (i) keep you logged in, (ii) remember your preferences, (iii) identify your device
+for security and fraud purposes, including as needed to maintain the integrity of our Service, (iv) compile statistical
+reports, and (v) provide information and insight for future development of _PSI_.
+
+For Marketing Pages, we may also use non-essential cookies to (i) gather information about enterprise
+users' interests and online activities to personalize their experiences, including by making the ads, content,
+recommendations, and marketing seen or received more relevant and (ii) serve and measure the effectiveness of targeted
+advertising and other marketing efforts. If you disable the non-essential cookies on the Marketing Pages,
+the ads, content, and marketing you see may be less relevant.
+
+Our emails to users may contain a pixel tag, which is a small, clear image that can tell us whether or not you have
+opened an email and what your IP address is. We use this pixel tag to make our email communications more effective and
+to make sure we are not sending you unwanted email.
+
+The length of time a cookie will stay on your browser or device depends on whether it is a "persistent" or "session"
+cookie. Session cookies will only stay on your device until you stop browsing. Persistent cookies stay until they
+expire or are deleted. The expiration time or retention period applicable to persistent cookies depends on the purpose
+of the cookie collection and tool used. You may be able to delete cookie data. For more information, see
+["What are your cookie choices and controls?"](#cookie-choices-controls).
+
+#### What are cookies and similar technologies?
+
+We use cookies and similar technologies, such as web beacons, local storage, and mobile analytics, to operate and
+provide our Services. When visiting Marketing Pages, these and additional
+cookies, like advertising IDs, may be used for sales and marketing purposes.
+
+Cookies are small text files stored by your browser on your device. A cookie can later be read when your browser
+connects to a web server in the same domain that placed the cookie. The text in a cookie contains a string of numbers
+and letters that may uniquely identify your device and can contain other information as well. This allows the web
+server to recognize your browser over time, each time it connects to that web server.
+
+Web beacons are electronic images (also called "single-pixel" or "clear GIFs") that are contained within a website or
+email. When your browser opens a webpage or email that contains a web beacon, it automatically connects to the web
+server that hosts the image (typically operated by a third party). This allows that web server to log information about
+your device and to set and read its own cookies. In the same way, third-party content on our websites (such as embedded
+videos, plug-ins, or ads) results in your browser connecting to the third-party web server that hosts that content.
+
+Mobile identifiers for analytics can be accessed and used by apps on mobile devices in much the same way that websites
+access and use cookies. When visiting Marketing Pages, on a mobile device these
+may allow us and our third-party analytics and advertising partners to collect data for sales and marketing purposes.
+
+We may also use so-called "flash cookies" (also known as "Local Shared Objects" or "LSOs") to collect and store
+information about your use of our Services. Flash cookies are commonly used for advertisements and videos.
+
+#### How do we and our partners use cookies and similar technologies?
+
+The _PSI_ Services use cookies and similar technologies for a variety of purposes, including to store your preferences
+and settings, enable you to sign-in, analyze how our Services perform, track your interaction with the Services,
+develop inferences, combat fraud, and fulfill other legitimate purposes. Some of these cookies and technologies may be
+provided by third parties, including service providers and advertising partners. For example, our analytics and
+advertising partners may use these technologies in our Services to collect personal information (such as the pages you
+visit, the links you click on, and similar usage information, identifiers, and device information) related to your
+online activities over time and across Services for various purposes, including targeted advertising. _PSI_ will place
+non-essential cookies on pages where we market products and services to enterprise customers.
+
+We and/or our partners also share the information we collect or infer with third parties for these purposes.
+
+The table below provides additional information about how we use different types of cookies:
+
+| Purpose           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|:------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Required Cookies  | _PSI_ uses required cookies to perform essential website functions and to provide the services. For example, cookies are used to log you in, save your language preferences, provide a shopping cart experience, improve performance, route traffic between web servers, detect the size of your screen, determine page load times, improve user experience, and for audience measurement. These cookies are necessary for our websites to work.   |
+| Analytics | We allow third parties to use analytics cookies to understand how you use our websites so we can make them better. For example, cookies are used to gather information about the pages you visit and how many clicks you need to accomplish a task. We also use some analytics cookies to provide personalized advertising.                                                                                                                         |
+| Social Media | _PSI_ and third parties use social media cookies to show you ads and content based on your social media profiles and activity on _PSI_'s websites. This ensures that the ads and content you see on our websites and on social media will better reflect your interests. This also enables third parties to develop and improve their products, which they may use on websites that are not owned or operated by _PSI_.                           |
+| Advertising | In addition, _PSI_ and third parties use advertising cookies to show you new ads based on ads you've already seen. Cookies also track which ads you click or purchases you make after clicking an ad. This is done both for payment purposes and to show you ads that are more relevant to you. For example, cookies are used to detect when you click an ad and to show you ads based on your social media interests and website browsing history. |
+
+#### What are your cookie choices and controls? {#cookie-choices-controls}
+
+You have several options to disable non-essential cookies:
+
+Any _PSI_ page that serves non-essential cookies will have a link in the page's footer to cookie settings. You
+can express your preferences at any time by clicking on that linking and updating your settings.
+
+You can control the cookies you encounter on the web using a variety of widely-available tools. For example:
+
+- If your browser sends a [Do Not Track](https://en.wikipedia.org/wiki/Do_Not_Track) (DNT) signal, _PSI_ will not set
+  non-essential cookies and will not load third party resources which set non-essential cookies.
+- Many browsers provide cookie controls which may limit the types of cookies you encounter online. Check out the
+  documentation for your browser to learn more.
+- If you enable a browser extension designed to block tracking, such as
+  [Privacy Badger](https://en.wikipedia.org/wiki/Privacy_Badger), non-essential cookies set by a website or third
+  parties may be disabled.
+- If you enable a browser extension designed to block unwanted content, such as
+  [uBlock Origin](https://en.wikipedia.org/wiki/UBlock_Origin), non-essential cookies will be disabled to the extent
+  that content that sets non-essential cookies will be blocked.
+- You may use the Global Privacy Control (GPC) to communicate your privacy preferences. If _PSI_ detects the GPC
+  signal from your device, _PSI_ will not share your data (we do not sell your data).
+  To learn more, visit [Global Privacy Control — Take Control Of Your Privacy](https://globalprivacycontrol.org/)
+- Advertising controls. Our advertising partners may participate in associations that provide simple ways to opt out of
+  ad targeting, which you can access at:
+- United States: [NAI](http://optout.networkadvertising.org) and [DAA](http://optout.aboutads.info/)
+- Canada: [Digital Advertising Alliance of Canada](https://youradchoices.ca/)
+- Europe: [European Digital Advertising Alliance](http://www.youronlinechoices.com/)
+
+These choices are specific to the browser you are using. If you access our Services from other devices or browsers,
+take these actions from those systems to ensure your choices apply to the data collected when you use those systems.
+
+## US State Specific Information
+
+This section provides extra information specifically for residents of certain US states that have distinct data privacy
+laws and regulations. These laws may grant specific rights to residents of these states when the laws come into effect.
+This section uses the term "personal information" as an equivalent to the term "Personal Data."
+
+### Privacy Rights
+
+These rights are common to the US State privacy laws:
+
+- Right to Knowledge and Correction: You have the right to request details on the specific personal information we've
+  collected about you and the right to correct inaccurate information. You can exercise this right by contacting us. You
+  can also access and edit basic account information in your settings.
+- Right to Know Data Recipients: We share your information with service providers for legitimate business operations,
+  such as data storage and hosting. For more details, please see "Sharing Your Information" below.
+- Right to request Deletion: You reserve the right to request the deletion of your data, barring a few exceptions. Such
+  exceptions include circumstances where we are required to retain data to comply with legal obligations, detect
+  fraudulent activity, investigate reports of abuse or other violations of our Terms of Service, or rectify security
+  issues. Upon receiving your verified request, we will promptly delete your personal information (unless an exception
+  applies), and instruct our service providers to do the same. We employ brief retention terms by design.
+- Right to a Timely Response: You are allowed to make two free requests in any 12-month period. We commit to responding
+  to your request within 45 days. In complex cases, we may extend our response time by an additional 45 days.
+- Non-Discrimination: We will not hold it against you when you exercise any of your rights. On the contrary, we
+  encourage you to review your privacy settings closely and contact us with any questions.
+
+### Notice of Collection of Personal Information
+
+We may collect various categories of personal information about our website visitors and users of "Services" which
+includes _PSI_ applications, software, products, or services. That information includes identifiers/contact
+information, demographic information, payment information, commercial information, internet or electronic network
+activity information, geolocation data, audio, electronic, visual, or similar information, and inferences drawn from
+such information.
+
+We collect this information for various purposes. This includes identifying accessibility gaps and offering targeted
+support, fostering diversity and representation, providing services, troubleshooting, conducting business operations
+such as billing and security, improving products and supporting research, communicating important information, ensuring
+personalized experiences, and promoting safety and security.
+
+### Exercising your Privacy Rights
+
+To make an access, deletion, correction, or opt-out request, please [contact us](#contact) and
+follow the instructions provided. We may need to verify your identity before processing your request. If you choose to
+use an authorized agent to submit a request on your behalf, please ensure they have your signed permission or power of
+attorney as required.
+
+To opt out of the sharing of your personal information, you can click on the "Do Not Share My Personal Information"
+link on the footer of our Websites or use the Global Privacy Control ("GPC") if available. Authorized agents can also
+submit opt-out requests on your behalf.
+
+### California
+
+#### Mandatory Disclosures
+
+We also make the following disclosures for purposes of compliance with California privacy law:
+
+- We collected the following categories of personal information in the last 12 months: identifiers/contact information,
+  demographic information (such as gender), payment card information associated with you, commercial information,
+  Internet or other electronic network activity information, geolocation data, audio, electronic, visual or similar
+  information, and inferences drawn from the above.
+- The sources of personal information from whom we collected are: directly from you, automatically or from third
+  parties.
+- The business or commercial purposes of collecting personal information are as summarized above and in our Privacy
+  Statement under Processing Purposes.
+- We disclosed the following categories of personal information for a business purpose in the last 12 months:
+  identifiers/contact information, demographic information (such as gender and rough geographic location), payment
+  information, commercial information, Internet or other electronic network activity information, geolocation data,
+  audio, electronic, visual or similar information, and inferences drawn from the above. We disclosed each category to
+  third-party business partners and service providers, third-party sites or platforms such as social networking sites,
+  and other third parties as described in the Sharing of Personal Data section of our Privacy Statement.
+- As defined by applicable law, we "shared" the following categories of personal information in the last 12 months:
+  identifiers/contact information, Internet or other electronic network activity information, and inferences drawn from
+  the above. We shared each category to or with advertising networks, data analytics providers, and social networks.
+- The business or commercial purpose of sharing personal information is to assist us with marketing, advertising, and
+  audience measurement.
+- We do not "sell" or "share" the personal information of known minors under 16 years of age.
+
+#### Shine the Light Act
+
+Under California Civil Code section 1798.83, also known as the "Shine the Light" law, California residents who have
+provided personal information to a business with which the individual has established a business relationship for
+personal, family, or household purposes ("California Customers") may request information about whether the business has
+disclosed personal information to any third parties for the third parties' direct marketing purposes. Please be aware
+that we do not disclose personal information to any third parties for their direct marketing purposes as defined by
+this law. California Customers may request further information about our compliance with this law by [contacting us](#contact).
+Please note that businesses are required to respond to one request per California Customer
+each year and may not be required to respond to requests made by means other than through the designated email address.
+
+#### Removal of Content
+
+California residents under the age of 18 who are registered users of online sites, services, or applications have a
+right under California Business and Professions Code Section 22581 to remove, or request and obtain removal of, content
+or information they have publicly posted.
+
+To request that we remove such content or information, please send a detailed description of the specific content or
+information you wish to have removed via the Email provided in the [Contact Us](#contact) section. Please be aware that your
+request does not guarantee complete or comprehensive removal of content or information posted online and that the law
+may not permit or require removal in certain circumstances. If you have any questions about our privacy practices with
+respect to California residents, please [contact us](#contact).
+
+We value the trust you place in us and are committed to handling your personal information with care and respect. If
+you have any questions or concerns about our privacy practices, please email our Data Protection Officer
+as described below in the [Contact Us](#contact) section.
+
+### Colorado/Connecticut/Virginia
+
+If you live in Colorado, Connecticut, or Virginia you have some additional rights:
+
+- If we deny your rights request, you have the right to appeal that decision. We will provide you with the necessary
+  information to submit an appeal at that time.
+- You have the right to opt out of profiling in furtherance of decisions that produce legal or similarly significant
+  effects concerning the consumer. _PSI_ does not engage in such profiling as defined by Colorado law, so there's no
+  need to opt out.
+
+### Nevada
+
+We do not sell your covered information, as defined under Chapter 603A of the Nevada Revised Statutes. If you still
+have questions about your covered information or anything else in our Privacy Statement, please [contact us](#contact).
+
+## Contact Us {#contact}
+
+If you would like to contact us about our privacy practices, related matters referenced in this document,
+please email us at [legal@pydantic.dev](mailto:legal@pydantic.dev).
+
+## Attribution
+
+This document is based on the
+[GitHub Privacy Statement](https://github.com/github/docs/blob/main/content/site-policy/privacy-policies/github-general-privacy-statement.md)
+which is open source under the
+[Creative Commons Attribution 4.0 International](https://github.com/github/docs/blob/ad26ef5e7b11be2cfa9be1f57bddb460b61cf39a/LICENSE)
+License.
+
+If you spot a mistake, please [contact us](#contact).

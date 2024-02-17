@@ -1,6 +1,6 @@
 # Logfire Subprocessors
 
-**Last update: 2023-02-16**
+**Last update: 2023-02-17**
 
 Pydantic Services Inc. (**"PSI"**) uses certain Subprocessors to assist in providing the Logfire Service.
 Subprocessors are _PSI_'s authorized vendors and third-party service providers that Process Customer Personal Data.
@@ -10,25 +10,15 @@ Customer and _PSI_, as applicable.
 
 ### Cloud Infrastructure Providers
 
-_PSI_ may engage the following entities to process Customer Personal Data that you include in your use of _PSI_
-Services:
+_PSI_ may engage the following entities to process Customer Personal Data that you include in your use of the Logfire
+Service:
 
-| Third-party Entity    | Description of Processing | Corporate Location |
-|-----------------------|---------------------------|--------------------|
-| Google Cloud Platform | Infrastructure Provider   | United States      |
-| Timescale, Inc.       | Infrastructure Provider   | United States      |
-| Cloudflare, Inc.      | Infrastructure Provider   | United States      |
-| Amazon Web Services   | Infrastructure Provider   | United States      |
-
-### Other Third-Party Subprocessors
-
-To provide support and perform other service functions, _PSI_ may also engage the following entities to process
-Customer Personal Data on your behalf:
-
-| Third-party Entity                 | Description of Processing | Corporate Location |
-|------------------------------------|---------------------------|--------------------|
-| Google LLC                         | Infrastructure Provider   | United States      |
-| Slack Technologies, LLC            | Infrastructure Provider   | United States      |
-| Functional Software, Inc. (Sentry) | Infrastructure Provider   | United States      |
-| GitHub, Inc.                       | Infrastructure Provider   | United States      |
-| Pulumi Corporation                 | Infrastructure Provider   | United States      |
+| Third-party Entity                 | Description of Processing                            | Corporate Location |
+|------------------------------------|------------------------------------------------------|--------------------|
+| Google Cloud Platform              | Cloud Hosted Infrastructure and Data Hosting         | United States      |
+| Timescale, Inc.                    | Managed Database Hosting                             | United States      |
+| Cloudflare, Inc.                   | Content Delivery Services                            | United States      |
+| Amazon Web Services                | Cloud Hosted Infrastructure and Data Hosting         | United States      |
+| Google LLC                         | Email Hosting, document storage & Video Conferencing | United States      |
+| Slack Technologies, LLC            | Instant messaging and document transfer              | United States      |
+| Functional Software, Inc. (Sentry) | Error capturing & reporting                          | United States      |
