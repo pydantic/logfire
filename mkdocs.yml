@@ -85,12 +85,21 @@ nav:
           - api/integrations/pydantic_plugin.md
           - api/integrations/logging.md
   - Roadmap: roadmap.md
+  - Legal:
+      - Terms of Service: legal/terms_of_service.md
+      - Privacy Policy: legal/privacy.md
+      - Service Level Agreement: legal/service_level_agreement.md
+      - Data Processing Addendum: legal/data_processing_addendum.md
+      - Cloud Subprocessors: legal/cloud_subprocessors.md
+      - Standard Contractual Clauses: legal/standard_contractual_clauses.md
 
 markdown_extensions:
   - tables
   - toc:
       permalink: true
       title: Page contents
+      # this only affects `/legal/` since (at time of change) there are no `h5` in the rest of the docs
+      toc_depth: 4
   - admonition
   - attr_list
   - md_in_html
