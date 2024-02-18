@@ -1,5 +1,7 @@
 import json
 
+from dirty_equals import IsPartialDict
+
 from logfire import VERSION, info
 from logfire.testing import TestExporter
 
@@ -16,4 +18,4 @@ def test_collect_resources(exporter: TestExporter) -> None:
     resource = resources[0]
     data = json.loads(resource['attributes']['logfire.package_versions'])
 
-    assert {'name': 'logfire', 'version': VERSION} in data and len(data) > 1
+    assert data == IsPartialDict({'logfire': VERSION})

@@ -629,8 +629,8 @@ def test_otel_service_name_env_var() -> None:
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
-                'code.lineno': 123,
                 'code.function': 'test_otel_service_name_env_var',
+                'code.lineno': 123,
             },
             'resource': {
                 'attributes': {
@@ -676,8 +676,8 @@ def test_otel_otel_resource_attributes_env_var() -> None:
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
-                'code.lineno': 123,
                 'code.function': 'test_otel_otel_resource_attributes_env_var',
+                'code.lineno': 123,
             },
             'resource': {
                 'attributes': {
@@ -726,8 +726,8 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
                 'code.filepath': 'test_configure.py',
-                'code.lineno': 123,
                 'code.function': 'test_otel_service_name_has_priority_on_otel_resource_attributes_service_name_env_var',
+                'code.lineno': 123,
             },
             'resource': {
                 'attributes': {

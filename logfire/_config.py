@@ -415,7 +415,7 @@ class LogfireConfig(_LogfireConfigData):
         try:
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
-                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info()),
+                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
