@@ -1,4 +1,3 @@
---extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
 logfire
 beautifulsoup4==4.12.2
 httpx==0.25.0

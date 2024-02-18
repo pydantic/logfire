@@ -1,33 +1,27 @@
 To install the latest version of Logfire using `pip`, run the following command:
 
 ```bash
-pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+pip install logfire
 ```
 
 Or if you're using `poetry`:
 
 ```bash
-poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-poetry add --source logfire-source logfire
+poetry add logfire
 ```
 
 You can also add it to your project requirements:
 
 ```txt title='requirements.txt'
---extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
 logfire
 ```
 
 Or add to `pyproject.toml` if you're using `poetry`:
 
 ```toml title='pyproject.toml'
-[[tool.poetry.source]]
-name = "logfire-source"
-url = "https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/"
-
 [tool.poetry.dependencies]
 python = "^3.8"
-logfire = {version = "*", source = "logfire-source"}
+logfire = "*"
 ```
 
 ## Extra Dependencies
@@ -41,21 +35,19 @@ For example, to install with the extra dependencies for `fastapi` and `httpx`, y
 === "PIP"
 
     ```bash
-    pip install "logfire[fastapi,httpx]" --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    pip install "logfire[fastapi,httpx]"
     ```
 
     If you have a `requirements.txt`, you can add the extra dependencies to the `requirements.txt` file:
 
     ```txt title='requirements.txt'
-    --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
     logfire[fastapi,httpx]
     ```
 
 === "Poetry"
 
     ```bash
-    poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-    poetry add --source logfire-source "logfire[fastapi,httpx]"
+    poetry add "logfire[fastapi,httpx]"
     ```
 
     If you are using `poetry`, and have a `pyproject.toml`, you can add the
@@ -64,7 +56,7 @@ For example, to install with the extra dependencies for `fastapi` and `httpx`, y
     ```toml title='pyproject.toml'
     [tool.poetry.dependencies]
     python = "^3.8"
-    logfire = {version = "*", source = "logfire-source", extras = ["fastapi", "httpx"]}
+    logfire = {version = "*", extras = ["fastapi", "httpx"]}
     ```
 
 ---

@@ -104,14 +104,12 @@ def install_logfire(markdown: str, page: Page) -> str:
     instructions = f"""
 === "PIP"
     ```bash
-    pip install {package} --extra-index-url \\
-        https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+    pip install {package}
     ```
 
 === "Poetry"
     ```bash
-    poetry source add logfire-source https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
-    poetry add --source logfire-source {package}
+    poetry add {package}
     ```
 """
     return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)

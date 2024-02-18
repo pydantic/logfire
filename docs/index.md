@@ -41,7 +41,7 @@ use it (not just one guy in the corner called Keith who's currently on holiday).
 To install the latest version of Logfire using `pip`, run the following command:
 
 ```bash
-pip install logfire --extra-index-url https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/wheels/
+pip install logfire
 ```
 
 For other installation methods, including using `poetry` or `requirements.txt`, see [Installation](install.md).

@@ -1,3 +1,3 @@
-# logfire
+# Logfire
 
-WIP
+In beta, coming soon...
