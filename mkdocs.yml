@@ -1,7 +1,7 @@
 site_name: Pydantic Logfire
 site_description: Logfire
 strict: true
-site_url: https://logfire.dev/
+site_url: https://docs.logfire.dev
 
 # TODO(Marcelo): Uncomment the following when the package gets its own repository.
 # repo_name: pydantic/logfire
@@ -10,6 +10,7 @@ site_url: https://logfire.dev/
 
 theme:
   name: "material"
+  custom_dir: "docs/overrides"
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
