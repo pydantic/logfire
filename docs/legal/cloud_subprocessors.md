@@ -1,14 +1,12 @@
 # Logfire Subprocessors
 
-**Last update: 2023-02-17**
+**Last update: 2024-02-19**
 
 Pydantic Services Inc. (**"PSI"**) uses certain Subprocessors to assist in providing the Logfire Service.
 Subprocessors are _PSI_'s authorized vendors and third-party service providers that Process Customer Personal Data.
 Capitalized terms not defined on this page have the meanings ascribed to them by the terms set forth in the
 [Logfire Data Processing Addendum](data_processing_addendum.md) or other separate data processing agreement between
 Customer and _PSI_, as applicable.
-
-### Cloud Infrastructure Providers
 
 _PSI_ may engage the following entities to process Customer Personal Data that you include in your use of the Logfire
 Service:

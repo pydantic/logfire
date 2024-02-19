@@ -1,6 +1,6 @@
 # Logfire Terms of Service
 
-**Last update: 2023-02-17**
+**Last update: 2024-02-17**
 
 Pydantic Services Inc. (**"PSI"**, **"we"**, **"us"**, or **"our"**), offers a cloud-based Observability service
 (**"Logfire Cloud"**) to persons or entities (**"you"**, **"your"** or **"Customer"**) according to the
@@ -104,7 +104,7 @@ Orders made under the Customer's Account.
 
 ### 3.4 Service Levels
 
-_PSI_ will use commercially reasonable efforts to provide individual _Logfire Cloud_ to you
+_PSI_ will use commercially reasonable efforts to provide the _Logfire Cloud_ to you
 in accordance with the _PSI_ Service Level Agreement ("SLA"), currently available [here](service_level_agreement.md),
 and which may be modified from time to time. Except as set forth in the SLA, however, _Logfire Cloud_ are not subject to
 any particular service levels or service availability, and they are provided to the Customer strictly on an "as is" and
@@ -189,13 +189,19 @@ explicitly authorized by _PSI_ in writing.
 
 ### 5.2 Unauthorized Access and Activities
 
-You must not (a) disable, interfere with, or circumvent any aspect of _Logfire Cloud_; (b) attempt to disable or circumvent any security mechanisms used by _Logfire Cloud_; (c) perform any
-security penetration tests or security assessment activities, unless otherwise explicitly authorized by _PSI_'s Head
-of Operations or Information Security in writing; (d) access or use _Logfire Cloud_ in a way intended to avoid
-incurring fees or exceeding usage limits or quotas; (e) use _Logfire Cloud_, or any interfaces provided with _Logfire Cloud_, to access any other product or service of _PSI_ or its subcontractors in a manner that violates
-their applicable Terms of Service; (f) use _Logfire Cloud_ in a way that poses a risk to _Logfire Cloud_ or any
-third party; or (g) interfere with the use of _Logfire Cloud_, or the equipment used to provide _Logfire Cloud_,
-by others.
+You must not:
+
+1. Disable, interfere with, or circumvent any aspect of _Logfire Cloud_;
+2. Attempt to disable or circumvent any security mechanisms used by _Logfire Cloud_;
+3. Perform any security penetration tests, load tests, or security assessment activities, unless otherwise explicitly
+   authorized by _PSI_'s CEO (Samuel Colvin) in writing;
+4. Access or use _Logfire Cloud_ in a way intended to avoid
+   incurring fees or exceeding usage limits or quotas;
+5. Use _Logfire Cloud_, or any interfaces provided with _Logfire Cloud_, to access any other product or service of
+   _PSI_ or its subcontractors in a manner that violates
+  their applicable Terms of Service;
+6. Use _Logfire Cloud_ in a way that poses a risk to _Logfire Cloud_ or any third party; or
+7. Interfere with the use of _Logfire Cloud_, or the equipment used to provide _Logfire Cloud_, by others.
 
 ### 5.3 Prohibited Use of _Logfire Cloud_
 
@@ -216,11 +222,12 @@ intended for such use and _PSI_ bears no responsibility for any harmful impact r
 
 ### 5.4 Unauthorized Content
 
-You must not submit, store, or process Content in _Logfire Cloud_ that (a) is illegal,
-harmful, fraudulent, infringing, offensive, or in violation of privacy rights; (b) violates these _Logfire Terms_, any
-application law, or any third-party's Intellectual Property Rights or other rights; (c) constitutes protected health
-information; or (d) entails cardholder or sensitive authentication data unless such data is message-level encrypted by
-you.
+You must not submit, store, or process Content in _Logfire Cloud_ that
+
+1. Is illegal, harmful, fraudulent, infringing, offensive, or in violation of privacy rights;
+2. Violates these _Logfire Terms_, any application law, or any third-party's Intellectual Property Rights or other rights;
+3. Constitutes protected health information; or
+4. Entails cardholder or sensitive authentication data unless such data is message-level encrypted by you.
 
 ### 5.5 Compliance with Laws
 
@@ -534,7 +541,7 @@ direct damages arising in connection with:
 
 _PSI_ and our affiliates' and licensors' aggregate liability under these _Logfire Terms_ will be limited to
 (a) the amount you actually pay us under these _Logfire Terms_ for _Logfire Cloud_ that gave rise to the claim during the 6
-months immediately preceding the incident giving rise to the claim, or (b) fifty thousand usd ($50,000),
+months immediately preceding the incident giving rise to the claim, or (b) fifty thousand USD ($50,000),
 whichever is less. These limitations shall apply notwithstanding any failure of essential purpose of any limited remedy.
 
 ## 14. Term and Termination
@@ -659,9 +666,8 @@ provide source code or related information in connection with the Third Party So
 
 ### 15.9 Use of Name and Logo
 
-_PSI_ may identify the Customer as a customer in its marketing and sales activities,
-and may use the Customer's trade names, services marks, and logos in marketing materials, customer lists, press
-releases, articles, websites, advertisements, or other promotional activities.
+_PSI_ will obtain written agreement from any Customer before using their trade names, services marks, or logos
+in marketing materials, customer lists, press releases, articles, websites, advertisements, or other promotional activities.
 
 ### 15.10 Force Majeure
 

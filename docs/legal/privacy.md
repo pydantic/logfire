@@ -1,6 +1,6 @@
 # Logfire Privacy Statement
 
-**Last update: 2023-02-17**
+**Last update: 2024-02-19**
 
 Welcome to the Logfire Privacy Statement. This is where we describe how we handle your "Personal Data", which is
 information that is directly linked or can be linked to you. It applies to the Personal Data that
@@ -18,7 +18,7 @@ Below, we detail the information we collect through each of these channels:
 
 ### From You
 
-- Account Data: We collect certain information when you open an account such as your _PSI_ handle, name, email
+- Account Data: We collect certain information when you open an account such as your GitHub handle, name, email
   address, password, payment information and transaction information.
 - User Content and Files: When you use our Services, we collect Personal Data included as part of the information you
   provide such as code, inputs, text, documents, images, or feedback.
@@ -40,28 +40,28 @@ Below, we detail the information we collect through each of these channels:
 - Essential Cookies and Similar Tracking Technologies: We use cookies and similar technologies to provide essential
   functionality like storing settings and recognizing you while using our Services.
 - Non-essential Cookies: Depending on your jurisdiction, we may use online analytics products that use cookies to help
-  us analyze how de-identified users use our Services and to enhance your experience when you use the Services. We may
-  also employ third-party Cookies to gather data for interest-based advertising. In some jurisdictions, we only use
-  non-essential cookies after obtaining your consent. See this section for more details and control options.
+  us analyze how de-identified users use our Services and to enhance your experience when you use the Services. In some
+  jurisdictions, we only use non-essential cookies after obtaining your consent.
+  See ["What are your cookie choices and controls?"](#cookie-choices-controls) for more details and control options.
 - Email Marketing Interactions: Our emails may have web beacons that offer information on your device type, email
   client, email reception, opens, and link clicks.
 - Geolocation Information: Depending on the Service's functionality, we collect regional geolocation data
 - Service Usage Information: We collect data about your interactions with the Services, such as IP address, device
   information, session details, date and time of requests, device type and ID, operating system and application version,
-  information related to your contributions to repositories, and performance of specific features or Services.
+  information related to your contributions, and performance of specific features or Services.
 - Website Usage Data: We automatically log data about your Website interactions, including the referring site, date and
   time of visit, pages viewed, and links clicked.
 
 ### From Third Parties
 
-- Information from Other Users of the Services: Other users may share information about you when they submit issues and
-  comments. We may also receive information about you if you are identified as a representative or administrator on your
+- Information from Other Users of the Services: Other users may share information about you when they create comments.
+  We may also receive information about you if you are identified as a representative or administrator on your
   company's account.
-- Publicly Available Sources: We may acquire information about you from publicly available sources like public _PSI_
-  repositories.
+- Publicly Available Sources: We may acquire information about you from publicly available sources like public
+  GitHub profiles and repositories.
 - Services you linked to your _PSI_ account: When you or your administrator integrate third-party apps or services
   with our Services, we receive information based on your settings with those services. This can include details like
-  your name and email from services like Google for authentication. The information we receive depends on the
+  your name and email from services like GitHub or Google for authentication. The information we receive depends on the
   third-party's settings and privacy policies. Always review these to understand what data is shared with our Services.
 - Vendors, Partners, and Affiliates: We may receive information about you from third parties, like vendors, resellers,
   partners, or affiliates for the purposes outlined in this statement.
@@ -107,7 +107,7 @@ We may share Personal Data with the following recipients:
 
 - Abuse and Fraud Prevention Entities: We may disclose Personal Data based on a good faith belief it is needed to
   prevent fraud, abuse, or attacks on our Services, or to protect the safety of _PSI_ and our users.
-- Affiliates: Personal Data may be shared with _PSI_ affiliates, including Microsoft, to facilitate customer service,
+- Affiliates: Personal Data may be shared with _PSI_ affiliates, to facilitate customer service,
   marketing and advertising, order fulfillment, billing, technical support, and legal and compliance obligations. Our
   affiliates may only use the Personal Data in a manner consistent with this Privacy Statement.
 - Logfire Organization Accounts: If an organization adds you to their Logfire account, we might share Personal Data with
@@ -126,28 +126,26 @@ We may share Personal Data with the following recipients:
   see [our list of sub-processors](cloud_subprocessors.md).
 - Other Third-party Applications: Upon your instruction, we may share Personal Data with third-party applications
   available on our Marketplace. You are responsible for the data you instruct us to share with these applications.
-- Other Users and the Public: Depending on your account settings, we may share Personal Data with other users of the
-  Services and the public. You control what information is made public. To adjust your settings, visit User Settings in
-  your profile. Please be aware that any information you share in a collaborative context may become publicly accessible.
 
 ## Private data: _PSI_ Access
 
-If your _PSI_ account has private data, you control the access to that information. _PSI_ personnel dp not
-access private information without your consent except as provided in this Privacy Statement and for:
+You control the access to your _PSI_ account. _PSI_ personnel do not access private information without your consent
+except as provided in this Privacy Statement and for:
 
-- during beta testing of or platform
 - security purposes
 - automated scanning or manual review for known vulnerabilities, active malware, or other content known to violate our
   [Terms of Service](terms_of_service.md)
 - to assist the repository owner with a support matter
 - to maintain the integrity of the Services, or
 - to comply with our legal obligations if we have reason to believe the contents are in violation of the law.
+- understanding usage patterns and platform behavior during [beta testing](service_level_agreement.md#beta-definition)
+  of the Logfire platform
 
 _PSI_ will provide you with notice regarding private data access unless:
 
 - doing so is prohibited by law
 - _PSI_ acted in response to a security threat or other risk to security, or
-- our main platform is in a "beta" state
+- our main platform is in a ["beta" state](service_level_agreement.md#beta-definition)
 
 ## Lawful Bases for Processing Personal Data (Applicable to EEA and UK End Users)
 
@@ -274,12 +272,6 @@ Service. For example, we use them to (i) keep you logged in, (ii) remember your 
 for security and fraud purposes, including as needed to maintain the integrity of our Service, (iv) compile statistical
 reports, and (v) provide information and insight for future development of _PSI_.
 
-For Marketing Pages, we may also use non-essential cookies to (i) gather information about enterprise
-users' interests and online activities to personalize their experiences, including by making the ads, content,
-recommendations, and marketing seen or received more relevant and (ii) serve and measure the effectiveness of targeted
-advertising and other marketing efforts. If you disable the non-essential cookies on the Marketing Pages,
-the ads, content, and marketing you see may be less relevant.
-
 Our emails to users may contain a pixel tag, which is a small, clear image that can tell us whether or not you have
 opened an email and what your IP address is. We use this pixel tag to make our email communications more effective and
 to make sure we are not sending you unwanted email.
@@ -293,8 +285,7 @@ of the cookie collection and tool used. You may be able to delete cookie data. F
 #### What are cookies and similar technologies?
 
 We use cookies and similar technologies, such as web beacons, local storage, and mobile analytics, to operate and
-provide our Services. When visiting Marketing Pages, these and additional
-cookies, like advertising IDs, may be used for sales and marketing purposes.
+provide our Services.
 
 Cookies are small text files stored by your browser on your device. A cookie can later be read when your browser
 connects to a web server in the same domain that placed the cookie. The text in a cookie contains a string of numbers
@@ -307,34 +298,28 @@ server that hosts the image (typically operated by a third party). This allows t
 your device and to set and read its own cookies. In the same way, third-party content on our websites (such as embedded
 videos, plug-ins, or ads) results in your browser connecting to the third-party web server that hosts that content.
 
-Mobile identifiers for analytics can be accessed and used by apps on mobile devices in much the same way that websites
-access and use cookies. When visiting Marketing Pages, on a mobile device these
-may allow us and our third-party analytics and advertising partners to collect data for sales and marketing purposes.
-
-We may also use so-called "flash cookies" (also known as "Local Shared Objects" or "LSOs") to collect and store
-information about your use of our Services. Flash cookies are commonly used for advertisements and videos.
-
 #### How do we and our partners use cookies and similar technologies?
 
 The _PSI_ Services use cookies and similar technologies for a variety of purposes, including to store your preferences
 and settings, enable you to sign-in, analyze how our Services perform, track your interaction with the Services,
 develop inferences, combat fraud, and fulfill other legitimate purposes. Some of these cookies and technologies may be
-provided by third parties, including service providers and advertising partners. For example, our analytics and
-advertising partners may use these technologies in our Services to collect personal information (such as the pages you
-visit, the links you click on, and similar usage information, identifiers, and device information) related to your
-online activities over time and across Services for various purposes, including targeted advertising. _PSI_ will place
-non-essential cookies on pages where we market products and services to enterprise customers.
+provided by third parties.
 
 We and/or our partners also share the information we collect or infer with third parties for these purposes.
 
-The table below provides additional information about how we use different types of cookies:
+The points below provides additional information about how we use different types of cookies:
 
-| Purpose           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|:------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Required Cookies  | _PSI_ uses required cookies to perform essential website functions and to provide the services. For example, cookies are used to log you in, save your language preferences, provide a shopping cart experience, improve performance, route traffic between web servers, detect the size of your screen, determine page load times, improve user experience, and for audience measurement. These cookies are necessary for our websites to work.   |
-| Analytics | We allow third parties to use analytics cookies to understand how you use our websites so we can make them better. For example, cookies are used to gather information about the pages you visit and how many clicks you need to accomplish a task. We also use some analytics cookies to provide personalized advertising.                                                                                                                         |
-| Social Media | _PSI_ and third parties use social media cookies to show you ads and content based on your social media profiles and activity on _PSI_'s websites. This ensures that the ads and content you see on our websites and on social media will better reflect your interests. This also enables third parties to develop and improve their products, which they may use on websites that are not owned or operated by _PSI_.                           |
-| Advertising | In addition, _PSI_ and third parties use advertising cookies to show you new ads based on ads you've already seen. Cookies also track which ads you click or purchases you make after clicking an ad. This is done both for payment purposes and to show you ads that are more relevant to you. For example, cookies are used to detect when you click an ad and to show you ads based on your social media interests and website browsing history. |
+##### Required Cookies
+
+_PSI_ uses required cookies to perform essential website functions and to provide the services.
+For example, cookies are used to log you in, save your language preferences, provide a shopping cart experience,
+improve performance, route traffic between web servers, detect the size of your screen, determine page load times,
+improve user experience, and for audience measurement. These cookies are necessary for our websites to work.
+
+##### Analytics
+
+We may use third party services which use analytics cookies to understand how you use our websites so we can make them better.
+For example, cookies may be used to gather information about the pages you visit and how many clicks you need to accomplish a task.
 
 #### What are your cookie choices and controls? {#cookie-choices-controls}
 
@@ -438,7 +423,7 @@ We also make the following disclosures for purposes of compliance with Californi
   and other third parties as described in the Sharing of Personal Data section of our Privacy Statement.
 - As defined by applicable law, we "shared" the following categories of personal information in the last 12 months:
   identifiers/contact information, Internet or other electronic network activity information, and inferences drawn from
-  the above. We shared each category to or with advertising networks, data analytics providers, and social networks.
+  the above.
 - The business or commercial purpose of sharing personal information is to assist us with marketing, advertising, and
   audience measurement.
 - We do not "sell" or "share" the personal information of known minors under 16 years of age.

@@ -1,6 +1,6 @@
 # Logfire Data Processing Addendum
 
-**Last update: 2023-02-17**
+**Last update: 2024-02-17**
 
 This Data Processing Addendum (including its Exhibits) (**"Addendum"**) is incorporated into and forms part of and is
 subject to the terms and conditions of the [Logfire Terms of Service](terms_of_service.md) (the **"Logfire Terms"**)
@@ -46,8 +46,7 @@ Terms.
   otherwise seeks to Process Customer Personal Data in a manner that is inconsistent with Customer's instructions.
 * **Authorization to Use Subprocessors**. To the extent necessary to fulfill _PSI_'s contractual
   obligations under the _Logfire Terms_, Customer hereby authorizes _PSI_ to engage Subprocessors. We maintain a list
-  of our [Subprocessors](cloud_subprocessors.md) which we will update
-  at least 7 days before the addition of or replacement of any Subprocessor.
+  of our [Subprocessors](cloud_subprocessors.md) which we will update at least 7 days before the addition of or replacement of any Subprocessor.
 * **_PSI_ and Subprocessor Compliance**. _PSI_ agrees to (i) enter into a written agreement with
   Subprocessors regarding such Subprocessors' Processing of Customer Personal Data that imposes on such Subprocessors
   data protection requirements for Customer Personal Data that are consistent with this Addendum; and (ii) remain
