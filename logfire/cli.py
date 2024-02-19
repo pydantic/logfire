@@ -20,7 +20,7 @@ from logfire._config import LogfireCredentials
 from logfire.version import VERSION
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
-BASE_DOCS_URL = 'https://files.logfire.dev/NOdO2jZhxNh8ert5YFYfWkFa9IBVsT7Jher4y8sh6YlXSb9V1d/docs/'
+BASE_DOCS_URL = 'https://docs.logfire.dev/'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
 
 
