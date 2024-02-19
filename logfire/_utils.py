@@ -42,3 +42,12 @@ def safe_repr(obj: Any) -> str:
         return f'<{type(obj).__name__} object>'
     except Exception:
         return '<unknown (repr failed)>'
+
+
+def truncate_string(s: str, *, max_length: int, middle: str = '...') -> str:
+    """Return a string at most max_length characters long, with `middle` in the middle if truncated."""
+    if len(s) <= max_length:
+        return s
+    remaining_length = max_length - len(middle)
+    half = remaining_length // 2
+    return s[:half] + middle + s[-half:]

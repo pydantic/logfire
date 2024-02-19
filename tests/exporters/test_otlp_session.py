@@ -1,9 +1,10 @@
 from typing import Any, Iterable, cast
 
+import pytest
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
-from logfire.exporters._otlp import OTLPExporterHttpSession
+from logfire.exporters._otlp import BodyTooLargeError, OTLPExporterHttpSession
 
 
 class SinkHTTPAdapter(HTTPAdapter):
@@ -17,7 +18,7 @@ class SinkHTTPAdapter(HTTPAdapter):
             else:
                 # assume a generator
                 body = request.body
-                for chunk in cast('Iterable[bytes]', body):
+                for chunk in cast(Iterable[bytes], body):
                     total += len(chunk)
         resp = Response()
         resp.status_code = 200
@@ -28,16 +29,16 @@ class SinkHTTPAdapter(HTTPAdapter):
 def test_max_body_size_bytes() -> None:
     s = OTLPExporterHttpSession(max_body_size=10)
     s.mount('http://', SinkHTTPAdapter())
-    try:
-        s.post('http://example.com', data='1234567890')
-    except ValueError as e:
-        assert str(e) == 'Request body is too large (10 bytes), must be less than 10 bytes.'
+    s.post('http://example.com', data='1234567890')
+    with pytest.raises(BodyTooLargeError) as e:
+        s.post('http://example.com', data='1234567890XXX')
+    assert str(e.value) == 'Request body is too large (13 bytes), must be less than 10 bytes.'
 
 
 def test_max_body_size_generator() -> None:
     s = OTLPExporterHttpSession(max_body_size=10)
     s.mount('http://', SinkHTTPAdapter())
-    try:
+    s.post('http://example.com', data=iter([b'abc'] * 3))
+    with pytest.raises(BodyTooLargeError) as e:
         s.post('http://example.com', data=iter([b'abc'] * 100))
-    except ValueError as e:
-        assert str(e) == 'Request body is too large (12 bytes), must be less than 10 bytes.'
+    assert str(e.value) == 'Request body is too large (12 bytes), must be less than 10 bytes.'

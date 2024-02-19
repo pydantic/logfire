@@ -11,6 +11,9 @@ _CWD = Path('.').resolve()
 
 StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
 
+STACK_INFO_KEYS = set(StackInfo.__annotations__.keys())
+assert STACK_INFO_KEYS == {'code.filepath', 'code.lineno', 'code.function'}
+
 
 def get_filepath_attribute(file: str) -> StackInfo:
     path = Path(file)

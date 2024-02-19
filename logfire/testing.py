@@ -12,7 +12,7 @@ import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import Event, ReadableSpan
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pydantic import BaseModel
 
@@ -29,9 +29,10 @@ class TestExporter(SpanExporter):
     def __init__(self) -> None:
         self.exported_spans: list[ReadableSpan] = []
 
-    def export(self, spans: Sequence[ReadableSpan]) -> None:  # type: ignore[override]
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Exports a batch of telemetry data."""
         self.exported_spans.extend(spans)
+        return SpanExportResult.SUCCESS
 
     def clear(self) -> None:
         """Clears the collected spans."""

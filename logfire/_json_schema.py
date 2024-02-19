@@ -28,6 +28,7 @@ from types import GeneratorType
 from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 
 from logfire._json_encoder import is_sqlalchemy, to_json_value
+from logfire._stack_info import STACK_INFO_KEYS
 from logfire._utils import JsonDict, dump_json, safe_repr
 
 try:
@@ -146,12 +147,6 @@ def create_json_schema(obj: Any) -> JsonDict:
     return {'type': 'object', 'x-python-datatype': 'unknown'}
 
 
-# NOTE: The code related attributes are merged with the logfire function attributes on
-# `install_auto_tracing` and when using our stdlib logging handler. We need to remove them
-# from the JSON Schema, as we only want to have the ones that the user passes in.
-_CODE_KEYS = {'code.lineno', 'code.filepath', 'code.function', 'code.namespace'}
-
-
 JsonSchemaProperties = NewType('JsonSchemaProperties', JsonDict)
 
 
@@ -164,7 +159,10 @@ def attributes_json_schema(properties: JsonSchemaProperties) -> str:
 # This becomes the value of `properties` above.
 def attributes_json_schema_properties(attributes: dict[str, Any]) -> JsonSchemaProperties:
     return JsonSchemaProperties(
-        {key: create_json_schema(value) for key, value in attributes.items() if key not in _CODE_KEYS}
+        # NOTE: The code related attributes are merged with the logfire function attributes on
+        # `install_auto_tracing` and when using our stdlib logging handler. We need to remove them
+        # from the JSON Schema, as we only want to have the ones that the user passes in.
+        {key: create_json_schema(value) for key, value in attributes.items() if key not in STACK_INFO_KEYS}
     )
 
 

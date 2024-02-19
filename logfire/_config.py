@@ -46,7 +46,7 @@ from ._tracer import PendingSpanProcessor, ProxyTracerProvider
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
-from .exporters._otlp import OTLPExporterHttpSession
+from .exporters._otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters._processor_wrapper import SpanProcessorWrapper
 from .exporters.console import (
     ConsoleColorsValues,
@@ -509,6 +509,7 @@ class LogfireConfig(_LogfireConfigData):
                 otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
                 if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
                     span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
+                    span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = FallbackSpanExporter(
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                     )
