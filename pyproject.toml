@@ -4,8 +4,17 @@
 [tool.poetry]
 name = "logfire"
 version = "0.13.0"
-description = "The observability framework focused on developer experience! 🚀"
-authors = ["Pydantic Team <hello@pydantic.dev>"]
+description = "Coming soon..."
+authors = [
+    "Pydantic Team <hello@pydantic.dev>",
+    "Samuel Colvin <samuel@pydantic.dev>",
+    "Hasan Ramezani <hasan@pydantic.dev>",
+    "Adrian Garcia Badaracco <adrian@pydantic.dev>",
+    "David Montague <david@pydantic.dev>",
+    "Marcelo Trylesinski <marcelo@pydantic.dev>",
+    "David Hewitt <david.hewitt@pydantic.dev>",
+    "Alex Hall <alex@pydantic.dev>",
+]
 license = "MIT"
 readme = "README.md"
 
