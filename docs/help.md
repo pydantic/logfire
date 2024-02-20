@@ -14,4 +14,8 @@ The [SDK API documentation](api/logfire.md) give reference docs for the Logfire 
 
 The [Pydantic Logfire Slack][slack] is a great place to ask questions, and get help.
 
+## :material-email: Email
+
+You can also email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
