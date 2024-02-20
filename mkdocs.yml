@@ -33,14 +33,17 @@ theme:
     - announce.dismiss
     # - navigation.sections
     - navigation.tabs
-  # logo: 'logo-white.svg'
-  # favicon: 'favicon.png'
+  logo: 'logo-white.svg'
+  favicon: 'favicon.png'
 
 # https://www.mkdocs.org/user-guide/configuration/#validation
 validation:
   omitted_files: warn
   absolute_links: warn
   unrecognized_links: warn
+
+extra_css:
+  - 'extra/tweaks.css'
 
 nav:
   - Get Started:
