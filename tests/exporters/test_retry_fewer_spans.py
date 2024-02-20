@@ -75,7 +75,7 @@ def test_retry_fewer_spans_with_some_spans_too_large(exporter: TestExporter):
     # In reality, one exporter would receive both the original (not too big) spans and the error logs.
     assert exporter.exported_spans_as_dict(fixed_line_number=None, strip_filepaths=False) == [
         {
-            'name': f'Failed to export a span of size 20,000,000 bytes: test span name {too_big_span_id}',
+            'name': 'Failed to export a span of size {size:,} bytes: {span_name}',
             'context': {'trace_id': error_log_span_id, 'span_id': error_log_span_id, 'is_remote': False},
             'parent': None,
             'start_time': error_log_span_id * 1000000000,

@@ -28,7 +28,7 @@ def test_slow_async_callbacks(exporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict(fixed_line_number=None))
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == [
         {
-            'name': 'Async callback mock_block blocked for 2.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,
@@ -49,7 +49,7 @@ def test_slow_async_callbacks(exporter) -> None:
             },
         },
         {
-            'name': 'Async task foo 1 (foo) blocked for 2.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,
@@ -70,7 +70,7 @@ def test_slow_async_callbacks(exporter) -> None:
             },
         },
         {
-            'name': 'Async task bar 1 (bar) blocked for 2.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,
@@ -91,7 +91,7 @@ def test_slow_async_callbacks(exporter) -> None:
             },
         },
         {
-            'name': 'Async task bar 1 (bar) blocked for 3.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,
@@ -112,7 +112,7 @@ def test_slow_async_callbacks(exporter) -> None:
             },
         },
         {
-            'name': 'Async task foo 2 (foo) blocked for 2.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,
@@ -133,7 +133,7 @@ def test_slow_async_callbacks(exporter) -> None:
             },
         },
         {
-            'name': 'Async task bar 1 (bar) blocked for 4.000 seconds',
+            'name': 'Async {name} blocked for {duration:.3f} seconds',
             'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
             'parent': None,
             'start_time': IsInt,

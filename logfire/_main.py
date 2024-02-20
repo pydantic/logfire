@@ -322,7 +322,7 @@ class Logfire:
         start_time = self._config.ns_timestamp_generator()
 
         span = self._logs_tracer.start_span(
-            msg,
+            msg_template,
             attributes=otlp_attributes,
             start_time=start_time,
         )

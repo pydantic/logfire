@@ -152,7 +152,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -277,7 +277,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation successful result=MyModel(x=1)',
+            'name': 'Validation successful {result=!r}',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -354,7 +354,7 @@ def test_pydantic_plugin_python_error_record_failure(
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -375,7 +375,7 @@ def test_pydantic_plugin_python_error_record_failure(
             },
         },
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
             'parent': None,
             'start_time': 2000000000,
@@ -430,7 +430,7 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -481,7 +481,7 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation successful result=MyModel(x=1)',
+            'name': 'Validation successful {result=!r}',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -531,7 +531,7 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -582,7 +582,7 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation successful result=MyModel(x=1)',
+            'name': 'Validation successful {result=!r}',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -632,7 +632,7 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation on MyModel failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'start_time': 2000000000,
@@ -685,7 +685,7 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
-            'name': 'Validation on MyDataclass failed',
+            'name': 'Validation on {schema_name} failed',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,

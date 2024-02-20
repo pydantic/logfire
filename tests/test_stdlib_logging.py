@@ -12,7 +12,7 @@ def test_stdlib_logging(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict(fixed_line_number=None))
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == [
         {
-            'name': 'first_name=Fred is in trouble!',
+            'name': '{first_name=} is in trouble!',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,

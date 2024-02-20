@@ -358,7 +358,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     # insert_assert(spans)
     assert spans == [
         ReadableSpanModel(
-            name='Hello world!',
+            name='Hello {name}!',
             context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
             parent=None,
             start_time=1000000000,

@@ -838,8 +838,9 @@ def test_log_non_scalar_args(
 
     s = exporter.exported_spans[0]
 
-    assert s.name.startswith(f'test message var={value_repr}'), s.name
+    assert s.name == 'test message {var=}'
     assert s.attributes, "Span doesn't have attributes"
+    assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
     assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
@@ -870,7 +871,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
 
     s = exporter.exported_spans[0]
 
-    assert s.name.startswith(
+    assert s.attributes['logfire.msg'].startswith(
         'test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at'
     )
     assert s.attributes['var'] == '{"id":1,"name":"test name"}'

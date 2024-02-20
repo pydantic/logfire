@@ -472,7 +472,7 @@ def test_log(exporter: TestExporter, level: str):
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test foo 2 null',
+            'name': 'test {name} {number} {none}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -500,8 +500,7 @@ def test_log_equals(exporter: TestExporter) -> None:
 
     s = exporter.exported_spans[0]
 
-    assert s.name == 'test message foo=foo bar=3'
-    assert s.attributes is not None
+    assert s.attributes['logfire.msg'] == 'test message foo=foo bar=3'
     assert s.attributes['foo'] == 'foo'
     assert s.attributes['bar'] == 3
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test message {foo=} {bar=}'
@@ -511,7 +510,7 @@ def test_log_equals(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test message foo=foo bar=3',
+            'name': 'test message {foo=} {bar=}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -548,7 +547,7 @@ def test_log_with_tags(exporter: TestExporter):
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test foo 2',
+            'name': 'test {name} {number}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -846,13 +845,11 @@ def test_json_args(exporter: TestExporter) -> None:
 
     assert len(exporter.exported_spans) == 2
     s = exporter.exported_spans[0]
-    assert s.name == 'test message foo=Foo(x=1, y=2)'
-    assert s.attributes is not None
+    assert s.attributes['logfire.msg'] == 'test message foo=Foo(x=1, y=2)'
     assert s.attributes['foo'] == '{"x":1,"y":2}'
 
     s = exporter.exported_spans[1]
-    assert s.name == 'test message foos=[Foo(x=1, y=2)]'
-    assert s.attributes is not None
+    assert s.attributes['logfire.msg'] == 'test message foos=[Foo(x=1, y=2)]'
     assert s.attributes['foos'] == '[{"x":1,"y":2}]'
 
 
@@ -1239,7 +1236,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': '123',
+            'name': '{http.status}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
@@ -1319,7 +1316,7 @@ def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> No
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
         {
-            'name': 'test _foo=bar',
+            'name': 'test {_foo=}',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
             'start_time': 1000000000,
