@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple, TypeVar, Union
 
 T = TypeVar('T')
@@ -51,3 +53,19 @@ def truncate_string(s: str, *, max_length: int, middle: str = '...') -> str:
     remaining_length = max_length - len(middle)
     half = remaining_length // 2
     return s[:half] + middle + s[-half:]
+
+
+def read_toml_file(path: Path) -> dict[str, Any]:
+    """Read a TOML file and return the parsed data.
+
+    It wraps the `tomllib.load` function from Python 3.11 or the `tomli.load` function from older versions.
+    """
+    if sys.version_info >= (3, 11):
+        from tomllib import load as load_toml
+    else:
+        from tomli import load as load_toml
+
+    with path.open('rb') as f:
+        data = load_toml(f)
+
+    return data

@@ -1,5 +1,8 @@
 """The CLI for Logfire."""
+from __future__ import annotations
+
 import argparse
+import datetime
 import importlib
 import importlib.util
 import os
@@ -7,8 +10,10 @@ import platform
 import shutil
 import sys
 import warnings
+import webbrowser
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, TypedDict, cast
+from urllib.parse import urljoin
 
 import requests
 from rich.console import Console
@@ -17,11 +22,15 @@ from rich.table import Table
 
 import logfire._config
 from logfire._config import LogfireCredentials
+from logfire._constants import LOGFIRE_BASE_URL
+from logfire._login import poll_for_token, request_device_code
+from logfire._utils import read_toml_file
 from logfire.version import VERSION
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://docs.logfire.dev/'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
+GITHUB_CLIENT_ID = '8cb77606ce18f76d36ce'
 
 
 def version_callback() -> None:
@@ -32,6 +41,7 @@ def version_callback() -> None:
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
 
 
+# TODO(Marcelo): Needs to be updated to reflect `logfire login`.
 def parse_whoami(args: argparse.Namespace) -> None:
     """Get your dashboard url and project name."""
     data_dir = Path(args.data_dir)
@@ -93,7 +103,7 @@ def parse_backfill(args: argparse.Namespace) -> None:
 
 # TODO(Marcelo): Automatically check if this list should be updated.
 # NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
-OTEL_PACKAGES: 'set[str]' = {
+OTEL_PACKAGES: set[str] = {
     'aio_pika',
     'aiohttp',
     'aiopg',
@@ -142,7 +152,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
-    packages: 'dict[str, str]' = {}
+    packages: dict[str, str] = {}
     for name in OTEL_PACKAGES:
         # Check if the package can be imported (without actually importing it).
         if importlib.util.find_spec(name) is None:
@@ -178,7 +188,76 @@ def parse_inspect(args: argparse.Namespace) -> None:
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]https://logfire.dev/docs[/link]')
 
 
-def main(args: 'list[str] | None' = None) -> None:
+class UserTokenData(TypedDict):
+    """User token data."""
+
+    token: str
+    expiration: str
+
+
+class DefaultFile(TypedDict):
+    """Content of the default.toml file."""
+
+    tokens: dict[str, UserTokenData]
+
+
+def parse_login(args: argparse.Namespace) -> None:
+    """Login to Logfire."""
+    console = Console(file=sys.stderr)
+    logfire_url = cast(str, args.logfire_url)
+    github_client_id = cast(str, args.github_client_id)
+
+    home_logfire = Path.home() / '.logfire'
+    home_logfire.mkdir(exist_ok=True)
+    default_file = home_logfire / 'default.toml'
+    if default_file.is_file():
+        data = cast(DefaultFile, read_toml_file(default_file))
+        for url, info in data['tokens'].items():
+            if url == logfire_url and datetime.datetime.now() < datetime.datetime.fromisoformat(info['expiration']):
+                console.print(f'You are already logged in. Credentials are stored in [bold]{default_file}[/].')
+                return
+    else:
+        data: DefaultFile = {'tokens': {}}
+
+    with requests.Session() as session:
+        session.headers.update({'Accept': 'application/json'})
+        res = request_device_code(session, github_client_id)
+
+        console.print(f'First copy your one-time code: [bold]{res["user_code"]}[/]')
+        console.input('Press [bold]Enter[/] to open github.com in your browser...')
+        try:
+            webbrowser.open(res['verification_uri'], new=2)
+        except webbrowser.Error:
+            console.print(f'Please open [bold]{res["verification_uri"]}[/] in your browser to authenticate.')
+        console.print('Waiting for the user to authenticate...')
+
+        access_token = poll_for_token(
+            session, client_id=github_client_id, interval=res['interval'], device_code=res['device_code']
+        )
+
+        login_endpoint = urljoin(logfire_url, '/v1/login/')
+        machine_name = platform.uname()[1]
+        res = session.post(
+            login_endpoint,
+            headers={'Authorization': f'{access_token}'},
+            params={'machine_name': machine_name},
+        )
+        res.raise_for_status()
+        data['tokens'] = {logfire_url: res.json()}
+
+    # There's no standard library package to write TOML files, so we'll write it manually.
+    with default_file.open('w') as f:
+        for url, info in data['tokens'].items():
+            f.write(f'[tokens."{url}"]\n')
+            f.write(f'token = "{info["token"]}"\n')
+            f.write(f'expiration = "{info["expiration"]}"\n')
+
+    console.print('Successfully authenticated!')
+    console.print(f"You're logged in. Credentials are stored in [bold]{default_file}[/].")
+    # TODO(Marcelo): Add a message to inform which commands can be used.
+
+
+def main(args: list[str] | None = None) -> None:
     """Run the CLI."""
     parser = argparse.ArgumentParser(prog='Logfire', description='The CLI for Logfire.', add_help=True)
     parser.add_argument('--version', action='store_true', help='Show version and exit.')
@@ -202,6 +281,11 @@ def main(args: 'list[str] | None' = None) -> None:
         'inspect', help='Inspect installed packages, and recommend OTel package that can be used with it.'
     )
     cmd_inspect.set_defaults(func=parse_inspect)
+
+    cmd_login = subparsers.add_parser('login', help='Login to Logfire.')
+    cmd_login.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
+    cmd_login.add_argument('--github-client-id', default=GITHUB_CLIENT_ID, help='GitHub client ID.')
+    cmd_login.set_defaults(func=parse_login)
 
     namespace = parser.parse_args(args)
     if namespace.version:

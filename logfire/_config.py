@@ -4,7 +4,6 @@ import dataclasses
 import json
 import os
 import re
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +31,8 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.semconv.resource import ResourceAttributes
 from typing_extensions import Self
+
+from logfire._utils import read_toml_file
 
 from ._collect_system_info import collect_package_info
 from ._config_params import ParamManager, PydanticPluginRecordValues
@@ -322,16 +323,7 @@ class _LogfireConfigData:
         if not config_file.exists():
             return {}
         try:
-            if sys.version_info >= (3, 11):
-                import tomllib
-
-                with config_file.open('rb') as f:
-                    data = tomllib.load(f)
-            else:
-                import rtoml
-
-                with config_file.open() as f:
-                    data = rtoml.load(f)
+            data = read_toml_file(config_file)
             return data.get('tool', {}).get('logfire', {})
         except Exception as exc:
             raise LogfireConfigError(f'Invalid config file: {config_file}') from exc
