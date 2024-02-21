@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import datetime
 import importlib
 import importlib.util
 import os
@@ -12,7 +11,7 @@ import sys
 import warnings
 import webbrowser
 from pathlib import Path
-from typing import Iterator, TypedDict, cast
+from typing import Iterator, cast
 from urllib.parse import urljoin
 
 import requests
@@ -23,7 +22,7 @@ from rich.table import Table
 import logfire._config
 from logfire._config import LogfireCredentials
 from logfire._constants import LOGFIRE_BASE_URL
-from logfire._login import poll_for_token, request_device_code
+from logfire._login import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from logfire._utils import read_toml_file
 from logfire.version import VERSION
 
@@ -31,6 +30,7 @@ BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io
 BASE_DOCS_URL = 'https://docs.logfire.dev/'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
 GITHUB_CLIENT_ID = '8cb77606ce18f76d36ce'
+"""GitHub client ID used to authenticate with Logfire."""
 
 
 def version_callback() -> None:
@@ -188,34 +188,17 @@ def parse_inspect(args: argparse.Namespace) -> None:
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]https://logfire.dev/docs[/link]')
 
 
-class UserTokenData(TypedDict):
-    """User token data."""
-
-    token: str
-    expiration: str
-
-
-class DefaultFile(TypedDict):
-    """Content of the default.toml file."""
-
-    tokens: dict[str, UserTokenData]
-
-
 def parse_login(args: argparse.Namespace) -> None:
     """Login to Logfire."""
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
     github_client_id = cast(str, args.github_client_id)
 
-    home_logfire = Path.home() / '.logfire'
-    home_logfire.mkdir(exist_ok=True)
-    default_file = home_logfire / 'default.toml'
-    if default_file.is_file():
-        data = cast(DefaultFile, read_toml_file(default_file))
-        for url, info in data['tokens'].items():
-            if url == logfire_url and datetime.datetime.now() < datetime.datetime.fromisoformat(info['expiration']):
-                console.print(f'You are already logged in. Credentials are stored in [bold]{default_file}[/].')
-                return
+    if DEFAULT_FILE.is_file():
+        data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
+        if is_logged_in(data, logfire_url):
+            console.print(f'You are already logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/].')
+            return
     else:
         data: DefaultFile = {'tokens': {}}
 
@@ -243,17 +226,18 @@ def parse_login(args: argparse.Namespace) -> None:
             params={'machine_name': machine_name},
         )
         res.raise_for_status()
-        data['tokens'] = {logfire_url: res.json()}
+        data['tokens'][logfire_url] = res.json()
 
+    HOME_LOGFIRE.mkdir(exist_ok=True)
     # There's no standard library package to write TOML files, so we'll write it manually.
-    with default_file.open('w') as f:
+    with DEFAULT_FILE.open('w') as f:
         for url, info in data['tokens'].items():
             f.write(f'[tokens."{url}"]\n')
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
     console.print('Successfully authenticated!')
-    console.print(f"You're logged in. Credentials are stored in [bold]{default_file}[/].")
+    console.print(f"You're logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/].")
     # TODO(Marcelo): Add a message to inform which commands can be used.
 
 

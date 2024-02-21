@@ -7,7 +7,13 @@ radically simpler and more enjoyable way.
 
 ### Easy to get started! :rocket:
 
-It's as simple as `pip install logfire`, and...
+It's as simple as `pip install logfire`, and run...
+
+```bash
+$ logfire login
+```
+
+Then in your code:
 
 ```py
 import logfire

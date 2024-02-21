@@ -7,7 +7,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, Sequence
+from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 
 import requests
@@ -30,9 +30,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.semconv.resource import ResourceAttributes
+from rich.prompt import Confirm, Prompt
 from typing_extensions import Self
-
-from logfire._utils import read_toml_file
 
 from ._collect_system_info import collect_package_info
 from ._config_params import ParamManager, PydanticPluginRecordValues
@@ -42,8 +41,10 @@ from ._constants import (
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
+from ._login import DEFAULT_FILE, DefaultFile, is_logged_in
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import PendingSpanProcessor, ProxyTracerProvider
+from ._utils import read_toml_file
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
@@ -227,6 +228,9 @@ class _LogfireConfigData:
     id_generator: IdGenerator
     """The ID generator to use"""
 
+    logfire_api_session: requests.Session
+    """The session to use when checking the Logfire backend"""
+
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
 
@@ -238,9 +242,6 @@ class _LogfireConfigData:
 
     default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
-
-    logfire_api_session: requests.Session | None = None
-    """The session to use when checking the Logfire backend"""
 
     def load_configuration(
         self,
@@ -309,7 +310,7 @@ class _LogfireConfigData:
         self.processors = processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
-        self.logfire_api_session = logfire_api_session
+        self.logfire_api_session = logfire_api_session or requests.Session()
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -467,12 +468,27 @@ class LogfireConfig(_LogfireConfigData):
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
                     if not credentials_from_local_file:
-                        # create a token by asking logfire.dev to create a new project
-                        new_credentials = LogfireCredentials.create_new_project(
-                            logfire_api_url=self.base_url,
-                            requested_project_name=self.project_name or sanitize_project_name(self.service_name),
-                            session=self.logfire_api_session,
-                        )
+                        if os.getenv('LOGFIRE_ANONYMOUS_PROJECT_ENABLED') == 'true':
+                            new_credentials = LogfireCredentials.create_anonymous_project(
+                                logfire_api_url=self.base_url,
+                                requested_project_name=self.project_name or sanitize_project_name(self.service_name),
+                                session=self.logfire_api_session,
+                            )
+                        else:
+                            user_token = None
+                            if DEFAULT_FILE.is_file():
+                                data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
+                                if is_logged_in(data, self.base_url):
+                                    user_token = data['tokens'][self.base_url]['token']
+                            if user_token is None:
+                                raise LogfireConfigError('You are not logged in. Please run `logfire login` to log in.')
+                            new_credentials = LogfireCredentials.create_project(
+                                logfire_api_url=self.base_url,
+                                user_token=user_token,
+                                project_name=self.project_name,
+                                service_name=self.service_name,
+                                session=self.logfire_api_session,
+                            )
                         new_credentials.write_creds_file(self.data_dir)
                         if self.show_summary:
                             new_credentials.print_token_summary()
@@ -491,9 +507,8 @@ class LogfireConfig(_LogfireConfigData):
                 }
                 # NOTE: Only check the backend if we didn't call it already.
                 if new_credentials is None:
-                    logfire_api_session = self.logfire_api_session or requests.Session()
-                    logfire_api_session.headers.update(headers)
-                    self.check_logfire_backend(logfire_api_session)
+                    self.logfire_api_session.headers.update(headers)
+                    self.check_logfire_backend()
 
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
@@ -561,14 +576,14 @@ class LogfireConfig(_LogfireConfigData):
             return self.initialize()
         return self._tracer_provider
 
-    def check_logfire_backend(self, session: requests.Session) -> None:
+    def check_logfire_backend(self) -> None:
         """Check that the token is valid, and the Logfire API is reachable.
 
         Raises:
             LogfireConfigError: If the token is invalid or the Logfire API is not reachable.
         """
         try:
-            response = session.get(urljoin(self.base_url, '/v1/health'))
+            response = self.logfire_api_session.get(urljoin(self.base_url, '/v1/health'))
             response.raise_for_status()
         except requests.HTTPError as e:
             if e.response is not None and (e.response.status_code == 401):
@@ -628,8 +643,72 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def create_new_project(
-        cls, *, logfire_api_url: str, requested_project_name: str, session: requests.Session | None = None
+    def create_project(
+        cls,
+        *,
+        logfire_api_url: str,
+        project_name: str | None,
+        service_name: str,
+        user_token: str,
+        session: requests.Session,
+    ) -> Self:
+        """Create a new project on logfire.dev requesting the given project name.
+
+        Args:
+            logfire_api_url: The Logfire API base URL.
+            project_name: Name for the project.
+            service_name: Name of the service.
+            user_token: The user's token to use to create the new project.
+            session: HTTP client session used to communicate with the Logfire API.
+
+        Returns:
+            The new credentials.
+
+        Raises:
+            LogfireConfigError: If there was an error creating the new project.
+        """
+        headers = COMMON_REQUEST_HEADERS | {'Authorization': user_token}
+        organizations_url = urljoin(logfire_api_url, '/v1/organizations')
+        try:
+            response = session.get(organizations_url, headers=headers)
+            response.raise_for_status()
+        except requests.ConnectionError as e:
+            raise LogfireConfigError('Error when creating new project.') from e
+
+        organizations = [item['organization_name'] for item in response.json()]
+        if len(organizations) > 1:
+            organization = Prompt.ask(
+                'Select the organization to create the project in',
+                choices=organizations,
+                default=organizations[0],
+            )
+        else:
+            organization = organizations[0]
+            Confirm.ask(f'The project will be created in the organization "{organization}". Continue?', default=True)
+
+        if project_name is None:
+            project_name = Prompt.ask('Enter the project name', default=sanitize_project_name(service_name))
+
+        url = urljoin(logfire_api_url, f'/v1/projects/{organization}')
+        try:
+            response = session.post(url, headers=headers, json={'project_name': project_name})
+            response.raise_for_status()
+        except requests.ConnectionError as e:
+            raise LogfireConfigError(f'Error creating new project at {url}') from e
+        else:
+            json_data = response.json()
+            try:
+                return cls(**json_data, logfire_api_url=logfire_api_url)
+            except TypeError as e:
+                raise LogfireConfigError(f'Invalid credentials, when creating project at {url}: {e}') from e
+
+    @classmethod
+    def create_anonymous_project(
+        cls,
+        *,
+        logfire_api_url: str,
+        requested_project_name: str,
+        session: requests.Session,
     ) -> Self:
         """Create a new project on logfire.dev requesting the given project name.
 
@@ -647,11 +726,8 @@ class LogfireCredentials:
         """
         url = urljoin(logfire_api_url, '/v1/projects/')
         try:
-            response = (session or requests).post(
-                url,
-                params={'requested_project_name': requested_project_name},
-                headers=COMMON_REQUEST_HEADERS,
-            )
+            params = {'requested_project_name': requested_project_name}
+            response = session.post(url, params=params, headers=COMMON_REQUEST_HEADERS)
             response.raise_for_status()
         except requests.ConnectionError as e:
             raise LogfireConfigError(f'Error creating new project at {url}') from e

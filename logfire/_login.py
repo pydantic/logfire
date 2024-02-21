@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import Literal, TypedDict
 
 import requests
+
+HOME_LOGFIRE = Path.home() / '.logfire'
+"""Folder used to store global configuration, and user tokens."""
+DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
+"""File used to store user tokens."""
 
 
 class LoginDeviceCodeResponse(TypedDict):
@@ -14,6 +21,19 @@ class LoginDeviceCodeResponse(TypedDict):
     verification_uri: str
     expired_in: int
     interval: int
+
+
+class UserTokenData(TypedDict):
+    """User token data."""
+
+    token: str
+    expiration: str
+
+
+class DefaultFile(TypedDict):
+    """Content of the default.toml file."""
+
+    tokens: dict[str, UserTokenData]
 
 
 def request_device_code(session: requests.Session, github_client_id: str) -> LoginDeviceCodeResponse:
@@ -112,3 +132,15 @@ def request_access_token(
         },
     )
     return response.json()
+
+
+def is_logged_in(data: DefaultFile, logfire_url: str) -> bool:
+    """Check if the user is logged in.
+
+    Returns:
+        True if the user is logged in, False otherwise.
+    """
+    for url, info in data['tokens'].items():
+        if url == logfire_url and datetime.now() < datetime.fromisoformat(info['expiration']):
+            return True
+    return False
