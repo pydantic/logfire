@@ -1,5 +1,5 @@
-site_name: Pydantic Logfire
-site_description: Logfire
+site_name: Pydantic Logfire Documentation
+site_description: Pydantic Logfire Documentation
 strict: true
 site_url: https://docs.logfire.dev
 
@@ -7,6 +7,9 @@ site_url: https://docs.logfire.dev
 # repo_name: pydantic/logfire
 # repo_url: https://github.com/pydantic/logfire
 # edit_uri: edit/main/docs/
+
+# we have this so the source.html partial is displayed
+repo_url: http://for-login-button
 
 theme:
   name: "material"
@@ -51,7 +54,7 @@ extra_javascript:
 
 nav:
   - Get Started:
-      - Home: index.md
+      - Docs: index.md
       - Installation: install.md
       - Configuration: configuration.md
       - Help with Logfire: help.md

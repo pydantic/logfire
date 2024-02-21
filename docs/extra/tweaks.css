@@ -1,5 +1,20 @@
 /* Revert hue value to that of pre mkdocs-material v9.4.0 */
 [data-md-color-scheme="slate"] {
-    --md-hue: 230;
-    --md-default-bg-color: hsla(230, 15%, 21%, 1);
+  --md-hue: 230;
+  --md-default-bg-color: hsla(230, 15%, 21%, 1);
+}
+
+.custom-login-button {
+  font-size: 0.8rem;
+  font-weight: 700;
+  float: right;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+/* make David happy - make the padding next to the login button smaller */
+.md-header__source {
+  width: auto !important;
+  margin-left: 1rem !important;
 }
