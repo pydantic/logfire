@@ -611,8 +611,8 @@ class LogfireCredentials:
     """The Logfire API token to use."""
     project_name: str
     """The name of the project."""
-    dashboard_url: str
-    """The URL to the project dashboard."""
+    project_url: str
+    """The URL for the project."""
     logfire_api_url: str
     """The Logfire API base URL."""
 
@@ -638,6 +638,10 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path}') from e
 
             try:
+                # Handle legacy key
+                dashboard_url = data.get('dashboard_url')
+                if dashboard_url is not None:
+                    data.setdefault('project_url', dashboard_url)
                 return cls(**data)
             except TypeError as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
@@ -758,10 +762,10 @@ class LogfireCredentials:
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
-        if self.dashboard_url:
+        if self.project_url:
             _print_summary(
-                f'[bold]Logfire[/bold] dashboard: [link={self.dashboard_url} cyan]{self.dashboard_url}[/link]',
-                min_content_width=len(self.dashboard_url),
+                f'[bold]Logfire[/bold] project: [link={self.project_url} cyan]{self.project_url}[/link]',
+                min_content_width=len(self.project_url),
             )
 
 

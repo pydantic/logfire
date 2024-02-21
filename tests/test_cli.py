@@ -16,7 +16,7 @@ def logfire_credentials() -> LogfireCredentials:
     return LogfireCredentials(
         token='token',
         project_name='my-project',
-        dashboard_url='https://dashboard.logfire.dev',
+        project_url='https://dashboard.logfire.dev',
         logfire_api_url='https://api.logfire.dev',
     )
 
@@ -43,7 +43,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'whoami --data-dir {str(tmp_dir_cwd)}'))
     # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == 'Logfire dashboard: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err == 'Logfire project: https://dashboard.logfire.dev\n'
 
 
 def test_whoami_without_data(capsys: pytest.CaptureFixture[str]) -> None:
@@ -58,7 +58,7 @@ def test_whoami_default_dir(
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     main(['whoami'])
     # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == 'Logfire dashboard: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err == 'Logfire project: https://dashboard.logfire.dev\n'
 
 
 def test_clean(
