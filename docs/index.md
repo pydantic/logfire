@@ -10,7 +10,7 @@ radically simpler and more enjoyable way.
 It's as simple as `pip install logfire`, and run...
 
 ```bash
-$ logfire login
+$ logfire auth
 ```
 
 Then in your code:

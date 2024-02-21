@@ -49,7 +49,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
 def test_whoami_without_data(capsys: pytest.CaptureFixture[str]) -> None:
     main(['whoami'])
     # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == 'Data not found.\n'
+    assert capsys.readouterr().err == f'No Logfire credentials found in {os.getcwd()}/.logfire\n'
 
 
 def test_whoami_default_dir(

@@ -17,6 +17,7 @@ from urllib.parse import urljoin
 import requests
 from rich.console import Console
 from rich.progress import Progress
+from rich.prompt import Confirm
 from rich.table import Table
 
 import logfire._config
@@ -41,13 +42,13 @@ def version_callback() -> None:
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
 
 
-# TODO(Marcelo): Needs to be updated to reflect `logfire login`.
+# TODO(Marcelo): Needs to be updated to reflect `logfire auth`.
 def parse_whoami(args: argparse.Namespace) -> None:
     """Get your dashboard url and project name."""
     data_dir = Path(args.data_dir)
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
-        sys.stderr.write('Data not found.\n')
+        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
     else:
         credentials.print_token_summary()
 
@@ -188,8 +189,11 @@ def parse_inspect(args: argparse.Namespace) -> None:
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]https://logfire.dev/docs[/link]')
 
 
-def parse_login(args: argparse.Namespace) -> None:
-    """Login to Logfire."""
+def parse_auth(args: argparse.Namespace) -> None:
+    """Authenticate with Logfire.
+
+    This command will authenticate the user with Logfire, and store the credentials.
+    """
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
     github_client_id = cast(str, args.github_client_id)
@@ -206,17 +210,35 @@ def parse_login(args: argparse.Namespace) -> None:
         session.headers.update({'Accept': 'application/json'})
         res = request_device_code(session, github_client_id)
 
-        console.print(f'First copy your one-time code: [bold]{res["user_code"]}[/]')
+        console.print()
+        console.print('Welcome to Logfire! :fire:')
+        console.print('Before you can send data to Logfire, we need to authenticate you.')
+        console.print()
+        user_agreed_with_terms = Confirm.ask(
+            'Please confirm that you agree to our Terms of Service '
+            '(https://docs.logfire.dev/legal/terms_of_service/) '
+            'and Privacy Policy (https://docs.logfire.dev/legal/privacy/)',
+            default=True,
+        )
+        if not user_agreed_with_terms:
+            console.print()
+            console.print('You must agree to the terms of service and privacy policy to use Logfire.')
+            exit(1)
+        console.print()
+        console.print('We use GitHub for authentication.')
+        console.print(f"You'll be prompted for this one-time code: [bold]{res['user_code']}[/]")
+        console.print()
         console.input('Press [bold]Enter[/] to open github.com in your browser...')
         try:
             webbrowser.open(res['verification_uri'], new=2)
         except webbrowser.Error:
             console.print(f'Please open [bold]{res["verification_uri"]}[/] in your browser to authenticate.')
-        console.print('Waiting for the user to authenticate...')
+        console.print('Waiting for you to authenticate with GitHub...')
 
         access_token = poll_for_token(
             session, client_id=github_client_id, interval=res['interval'], device_code=res['device_code']
         )
+        console.print('Successfully authenticated!')
 
         login_endpoint = urljoin(logfire_url, '/v1/login/')
         machine_name = platform.uname()[1]
@@ -236,8 +258,8 @@ def parse_login(args: argparse.Namespace) -> None:
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
-    console.print('Successfully authenticated!')
-    console.print(f"You're logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/].")
+    console.print()
+    console.print(f'Your Logfire credentials are stored in [bold]{DEFAULT_FILE}[/]')
     # TODO(Marcelo): Add a message to inform which commands can be used.
 
 
@@ -266,10 +288,10 @@ def main(args: list[str] | None = None) -> None:
     )
     cmd_inspect.set_defaults(func=parse_inspect)
 
-    cmd_login = subparsers.add_parser('login', help='Login to Logfire.')
+    cmd_login = subparsers.add_parser('auth', help='Authenticate with Logfire.')
     cmd_login.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
     cmd_login.add_argument('--github-client-id', default=GITHUB_CLIENT_ID, help='GitHub client ID.')
-    cmd_login.set_defaults(func=parse_login)
+    cmd_login.set_defaults(func=parse_auth)
 
     namespace = parser.parse_args(args)
     if namespace.version:
