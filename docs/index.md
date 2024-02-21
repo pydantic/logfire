@@ -15,9 +15,6 @@ import logfire
 logfire.info('Hello world!')
 ```
 
-!!! note
-    While in private beta you need to [use our install index](install.md).
-
 ### OpenTelemetry under the hood :telescope:
 
 Logfire is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can

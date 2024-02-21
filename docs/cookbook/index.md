@@ -2,7 +2,7 @@
 
 !!! warning
     This is a work in progress.
-
+<!--
 The following recipes are available:
 
 - Set up logfire on an existent project
@@ -11,4 +11,4 @@ The following recipes are available:
 2. Run `logfire inspect` to check all the opentelemetry instrumentation packages available.
 3. Add the instrumentation packages you want to use to your project.
  -->
-- Machine learning project
+- Machine learning project -->
