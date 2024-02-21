@@ -689,6 +689,14 @@ class LogfireCredentials:
         if project_name is None:
             project_name = Prompt.ask('Enter the project name', default=sanitize_project_name(service_name))
 
+        user_agreed_with_terms = Confirm.ask(
+            'Press enter to confirm you agree to our Terms of Service and Privacy Policy '
+            '(https://docs.logfire.dev/legal/terms_of_service/)',
+            default=True,
+        )
+        if not user_agreed_with_terms:
+            raise LogfireConfigError('You must agree to the terms of service and privacy policy to use Logfire.')
+
         url = urljoin(logfire_api_url, f'/v1/projects/{organization}')
         try:
             response = session.post(url, headers=headers, json={'project_name': project_name})
