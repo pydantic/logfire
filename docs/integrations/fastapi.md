@@ -68,11 +68,10 @@ FastAPIInstrumentor.instrument_app(app, **custom_kwargs)
 ```
 
 !!! question "What about the OpenTelemetry ASGI middleware?"
-If you are a more experienced user, you might be wondering about
-the [OpenTelemetry ASGI middleware][opentelemetry-asgi]. The
-    `FastAPIInstrumentor` actually wraps the ASGI middleware and adds some additional
-    information related to the routes.
-Using the ASGI middleware directly as above will also work.
+    If you are a more experienced user, you might be wondering about the [OpenTelemetry ASGI middleware][opentelemetry-asgi].
+    The `FastAPIInstrumentor` actually wraps the ASGI middleware and adds some additional information related to the routes.
+
+    Using the ASGI middleware directly as above will also work.
 
 ## Logfire instrumentation: logging endpoint arguments and validation errors
 
