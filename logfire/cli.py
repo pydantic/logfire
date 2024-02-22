@@ -201,7 +201,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):
-            console.print(f'You are already logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/].')
+            console.print(f'You are already logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/]')
             return
     else:
         data: DefaultFile = {'tokens': {}}

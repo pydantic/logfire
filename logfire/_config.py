@@ -733,7 +733,7 @@ class LogfireCredentials:
                 try:
                     result = cls(**json_data, logfire_api_url=logfire_api_url)
                     Prompt.ask(
-                        f'Project created successfully. You will be able to view it at {result.project_url}.\n'
+                        f'Project created successfully. You will be able to view it at: {result.project_url}\n'
                         'Press Enter to continue'
                     )
                     return result
