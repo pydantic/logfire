@@ -26,10 +26,7 @@ ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 
 SpanTypeType = Literal['log', 'pending_span', 'span']
 
-SPAN_TYPE_ATTRIBUTE_NAME = 'span_type'
-"""The key within OTEL attributes where logfire puts the span type."""
-
-ATTRIBUTES_SPAN_TYPE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.{SPAN_TYPE_ATTRIBUTE_NAME}'
+ATTRIBUTES_SPAN_TYPE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.span_type'
 """Used to differentiate logs, pending spans and regular spans. Absences should be interpreted as a real span."""
 
 ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.pending_parent_id'

@@ -68,17 +68,60 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     response = client.get('/with_path_param/param_val')
     assert response.status_code == 200
     assert response.json() == {'param': 'param_val'}
-    # insert_assert(exporter.exported_spans_as_dict())
 
-    span_dicts = exporter.exported_spans_as_dict()
+    span_dicts = exporter.exported_spans_as_dict(_include_pending_spans=True)
 
     # Highlights of the below mega-assert:
+    assert span_dicts[0]['name'] == 'GET /with_path_param/{param} (pending)'
+    assert span_dicts[0]['attributes']['logfire.msg'] == 'GET /with_path_param/param_val'
     assert span_dicts[-1]['name'] == 'GET /with_path_param/{param}'
     assert span_dicts[-1]['attributes']['logfire.msg'] == 'GET /with_path_param/param_val'
     # TODO maybe later the messages for "endpoint function" and "http send response" etc.
     #   should also show the target instead of the route?
 
+    # insert_assert(span_dicts)
     assert span_dicts == [
+        {
+            'name': 'GET /with_path_param/{param} (pending)',
+            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'http.scheme': 'http',
+                'http.host': 'testserver',
+                'net.host.port': 80,
+                'http.flavor': '1.1',
+                'http.target': '/with_path_param/param_val',
+                'http.url': 'http://testserver/with_path_param/param_val',
+                'http.method': 'GET',
+                'http.server_name': 'testserver',
+                'http.user_agent': 'testclient',
+                'http.route': '/with_path_param/{param}',
+                'logfire.span_type': 'pending_span',
+                'logfire.msg': 'GET /with_path_param/param_val',
+                'logfire.pending_parent_id': '0000000000000000',
+            },
+        },
+        {
+            'name': '{method} {route} endpoint function (pending)',
+            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'code.filepath': '_fastapi.py',
+                'code.function': 'patched_run_endpoint_function',
+                'code.lineno': 123,
+                'method': 'GET',
+                'route': '/with_path_param/{param}',
+                'logfire.msg_template': '{method} {route} endpoint function',
+                'logfire.msg': 'GET /with_path_param/{param} endpoint function',
+                'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                'logfire.span_type': 'pending_span',
+                'logfire.pending_parent_id': '0000000000000001',
+            },
+        },
         {
             'name': '{method} {route} endpoint function',
             'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
@@ -98,6 +141,18 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
             },
         },
         {
+            'name': 'GET /with_path_param/{param} http send (pending)',
+            'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+            'start_time': 4000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'logfire.span_type': 'pending_span',
+                'logfire.msg': 'GET /with_path_param/{param} http send',
+                'logfire.pending_parent_id': '0000000000000001',
+            },
+        },
+        {
             'name': 'GET /with_path_param/{param} http send response.start',
             'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
             'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -108,6 +163,18 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 'logfire.msg': 'GET /with_path_param/{param} http send response.start',
                 'http.status_code': 200,
                 'type': 'http.response.start',
+            },
+        },
+        {
+            'name': 'GET /with_path_param/{param} http send (pending)',
+            'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+            'start_time': 6000000000,
+            'end_time': 6000000000,
+            'attributes': {
+                'logfire.span_type': 'pending_span',
+                'logfire.msg': 'GET /with_path_param/{param} http send',
+                'logfire.pending_parent_id': '0000000000000001',
             },
         },
         {

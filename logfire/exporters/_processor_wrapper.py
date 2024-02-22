@@ -3,7 +3,12 @@ from __future__ import annotations
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
-from logfire._constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
+from logfire._constants import (
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    PENDING_SPAN_NAME_SUFFIX,
+)
 
 
 class SpanProcessorWrapper(SpanProcessor):
@@ -99,15 +104,20 @@ def _tweak_http_route_messages(span: ReadableSpan) -> ReadableSpan:
     # This is intended for OTEL instrumentations of frameworks like FastAPI, but written to be general.
     if ATTRIBUTES_MESSAGE_TEMPLATE_KEY in attributes:
         return span
+
     name = span.name
-    if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):
+    if attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) == 'pending_span':
+        non_pending_name = name[: -len(PENDING_SPAN_NAME_SUFFIX)]
+    else:
+        non_pending_name = name
+    if non_pending_name != attributes.get(ATTRIBUTES_MESSAGE_KEY):
         return span
 
     # Check that the current name/message has the form that we want to change.
     route = attributes.get('http.route')
-    if not (route and isinstance(route, str) and name.endswith(route)):
+    if not (route and isinstance(route, str) and non_pending_name.endswith(route)):
         return span
-    minus_route = name[: -len(route)]
+    minus_route = non_pending_name[: -len(route)]
     method = attributes.get('http.method')
     if not isinstance(method, str):
         method_prefix = ''
