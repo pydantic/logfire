@@ -701,16 +701,12 @@ class LogfireCredentials:
             Confirm.ask(f'The project will be created in the organization "{organization}". Continue?', default=True)
 
         project_name_default: str = project_name or sanitize_project_name(service_name)
-        project_with_name_already_exists = False
+        project_name_prompt = 'Enter the project name'
         while True:
-            if project_with_name_already_exists:
-                project_name_prompt = 'A project with that name already exists. Please enter a different project name'
-            else:
-                project_name_prompt = 'Enter the project name'
             project_name = Prompt.ask(project_name_prompt, default=project_name_default)
             while not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
-                    "The project you've entered is invalid. Valid project names:"
+                    "\nThe project you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
                     '  * may contain single hyphens\n'
                     '  * may not start or end with a hyphen\n\n'
@@ -723,8 +719,20 @@ class LogfireCredentials:
                 response = session.post(url, headers=headers, json={'project_name': project_name})
                 if response.status_code == 409:
                     project_name_default = ...  # type: ignore  # this means the value is required
-                    project_with_name_already_exists = True
+                    project_name_prompt = (
+                        '\nA project with that name already exists. Please enter a different project name'
+                    )
                     continue
+                if response.status_code == 422:
+                    error = response.json()['detail'][0]
+                    if error['loc'] == ['body', 'project_name']:
+                        project_name_default = ...  # type: ignore  # this means the value is required
+                        project_name_prompt = (
+                            f'\nThe project name you entered is invalid:\n'
+                            f'{error["msg"]}\n'
+                            f'Please enter a different project name'
+                        )
+                        continue
                 response.raise_for_status()
             except requests.ConnectionError as e:
                 raise LogfireConfigError(f'Error creating new project at {url}') from e
