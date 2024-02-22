@@ -150,5 +150,6 @@ plugins:
             - url: https://docs.pydantic.dev/latest/objects.inv
             - url: https://opentelemetry-python-contrib.readthedocs.io/en/latest/objects.inv
             - url: https://fastapi.tiangolo.com/objects.inv
+            - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
 hooks:
   - docs/plugins/main.py

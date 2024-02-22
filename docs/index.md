@@ -25,7 +25,7 @@ logfire.info('Hello world!')
 
 ### OpenTelemetry under the hood :telescope:
 
-Logfire is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can
+**Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can
 use a wealth of existing tooling and infrastructure, including
 [instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html).
 
@@ -43,7 +43,7 @@ use it (not just one guy in the corner called Keith who's currently on holiday).
 
 ## Installation
 
-To install the latest version of Logfire using `pip`, run the following command:
+To install the latest version of **Logfire** using `pip`, run the following command:
 
 ```bash
 pip install logfire
@@ -53,7 +53,7 @@ For other installation methods, including using `poetry` or `requirements.txt`, 
 
 ## Usage
 
-To use Logfire, it's simple as importing, and calling the desired function:
+To use **Logfire**, it's simple as importing, and calling the desired function:
 
 ```py
 import logfire
@@ -70,7 +70,7 @@ If you want to apply more advanced configuration, see the [Configuration](config
 
 ### Automatic instrumentation
 
-Logfire can automatically instrument all calls within specific modules.
+**Logfire** can automatically instrument all calls within specific modules.
 
 ```py
 import logfire
@@ -82,7 +82,7 @@ You can read more about this on the [Auto Tracing](usage/auto_tracing.md) sectio
 
 ### CLI
 
-Logfire comes with a CLI that can help you with some tasks.
+**Logfire** comes with a CLI that can help you with some tasks.
 
 ```bash
 {{ logfire_help }}
