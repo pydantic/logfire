@@ -3,10 +3,10 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.14.0"
+version = "0.15.0"
 description = "Coming soon..."
 authors = [
-    "Pydantic Team <hello@pydantic.dev>",
+    "Pydantic Team <engineering@pydantic.dev>",
     "Samuel Colvin <samuel@pydantic.dev>",
     "Hasan Ramezani <hasan@pydantic.dev>",
     "Adrian Garcia Badaracco <adrian@pydantic.dev>",
