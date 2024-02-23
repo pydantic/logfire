@@ -73,11 +73,11 @@ class Generator:
         return 'Generator()'
 
     def __iter__(self) -> Iterator[int]:
-        yield from range(3)
+        yield from range(3)  # pragma: no cover
 
 
 def generator() -> Iterator[int]:
-    yield from range(3)
+    yield from range(3)  # pragma: no cover
 
 
 gen = generator()
@@ -85,7 +85,7 @@ gen = generator()
 
 class MySequence(Sequence):
     def __len__(self):
-        return 2
+        return 2  # pragma: no cover
 
     def __getitem__(self, key):
         if key == 0:

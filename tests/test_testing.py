@@ -1,5 +1,7 @@
+import pytest
+
 import logfire
-from logfire.testing import TestExporter
+from logfire.testing import LogfireTestExporter, TestExporter
 
 
 def test_reset_exported_spans(exporter: TestExporter) -> None:
@@ -19,3 +21,61 @@ def test_reset_exported_spans(exporter: TestExporter) -> None:
     logfire.info('Third log!')
     assert len(exporter.exported_spans) == 1
     assert exporter.exported_spans[0].name == 'Third log!'
+
+
+def test_logfire_test_exporter_fixture(logfire_test_exporter: LogfireTestExporter) -> None:
+    with pytest.raises(Exception):
+        with logfire.span('a span!'):
+            logfire.info('a log!')
+            raise Exception('an exception!')
+
+    exporter = logfire_test_exporter.exporter
+    # insert_assert(exporter.exported_spans_as_dict())
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'a log!',
+            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'start_time': 2000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_name': 'info',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'a log!',
+                'logfire.msg': 'a log!',
+                'code.filepath': 'test_testing.py',
+                'code.function': 'test_logfire_test_exporter_fixture',
+                'code.lineno': 123,
+            },
+        },
+        {
+            'name': 'a span!',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 4000000000,
+            'attributes': {
+                'code.filepath': 'test_testing.py',
+                'code.function': 'test_logfire_test_exporter_fixture',
+                'code.lineno': 123,
+                'logfire.msg_template': 'a span!',
+                'logfire.msg': 'a span!',
+                'logfire.span_type': 'span',
+                'logfire.level_name': 'error',
+                'logfire.level_num': 17,
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': 3000000000,
+                    'attributes': {
+                        'exception.type': 'Exception',
+                        'exception.message': 'an exception!',
+                        'exception.stacktrace': 'Exception: an exception!',
+                        'exception.escaped': 'True',
+                    },
+                }
+            ],
+        },
+    ]
