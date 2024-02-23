@@ -44,6 +44,11 @@ the code of a logfire call or exception.
 
 You'll be able to create dashboards with information from multiple projects.
 
+### On-Premise Deployment
+
+We are planning to offer an on-premise deployment option for Logfire.
+This will allow you to deploy Logfire on your own infrastructure.
+
 ### Direct connection to Postgres
 
 You'll be able to connect to our Postgres database directly from an external service, and
