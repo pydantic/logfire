@@ -6,6 +6,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
@@ -578,6 +579,29 @@ class LogfireConfig(_LogfireConfigData):
         if not self._initialized:
             return self.initialize()
         return self._tracer_provider
+
+    def get_meter_provider(self) -> ProxyMeterProvider:
+        """Get a meter provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The meter provider.
+        """
+        if not self._initialized:
+            self.initialize()
+        return self._meter_provider
+
+    @cached_property
+    def meter(self) -> metrics.Meter:
+        """Get a meter from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The meter.
+        """
+        return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def check_logfire_backend(self) -> None:
         """Check that the token is valid, and the Logfire API is reachable.

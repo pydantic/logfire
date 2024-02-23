@@ -55,8 +55,6 @@ try:
 except ImportError:
     ValidationError = None
 
-_METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire', VERSION)  # type: ignore
-
 
 class Logfire:
     """The main logfire class."""
@@ -605,7 +603,7 @@ class Logfire:
         Returns:
             The counter metric.
         """
-        return _METER.create_counter(name, unit, description)
+        return self._config.meter.create_counter(name, unit, description)
 
     def metric_histogram(self, name: str, *, unit: str = '', description: str = '') -> Histogram:
         """Create a histogram metric.
@@ -632,7 +630,7 @@ class Logfire:
         Returns:
             The histogram metric.
         """
-        return _METER.create_histogram(name, unit, description)
+        return self._config.meter.create_histogram(name, unit, description)
 
     def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
         """Create an up-down counter metric.
@@ -665,7 +663,7 @@ class Logfire:
         Returns:
             The up-down counter metric.
         """
-        return _METER.create_up_down_counter(name, unit, description)
+        return self._config.meter.create_up_down_counter(name, unit, description)
 
     def metric_counter_callback(
         self,
@@ -710,7 +708,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        _METER.create_observable_counter(name, callbacks, unit, description)
+        self._config.meter.create_observable_counter(name, callbacks, unit, description)
 
     def metric_gauge_callback(
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
@@ -748,7 +746,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        _METER.create_observable_gauge(name, callbacks, unit, description)
+        self._config.meter.create_observable_gauge(name, callbacks, unit, description)
 
     def metric_up_down_counter_callback(
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
@@ -786,7 +784,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        _METER.create_observable_up_down_counter(name, callbacks, unit, description)
+        self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
 
 class FastLogfireSpan:
