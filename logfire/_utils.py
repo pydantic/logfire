@@ -46,13 +46,21 @@ def safe_repr(obj: Any) -> str:
         return '<unknown (repr failed)>'
 
 
+Truncatable = TypeVar('Truncatable', str, bytes, 'list[Any]', 'tuple[Any, ...]')
+
+
 def truncate_string(s: str, *, max_length: int, middle: str = '...') -> str:
     """Return a string at most max_length characters long, with `middle` in the middle if truncated."""
-    if len(s) <= max_length:
-        return s
+    return truncate_sequence(s, max_length=max_length, middle=middle)
+
+
+def truncate_sequence(seq: Truncatable, *, max_length: int, middle: Truncatable) -> Truncatable:
+    """Return a sequence at with `len()` at most `max_length`, with `middle` in the middle if truncated."""
+    if len(seq) <= max_length:
+        return seq
     remaining_length = max_length - len(middle)
     half = remaining_length // 2
-    return s[:half] + middle + s[-half:]
+    return seq[:half] + middle + seq[-half:]
 
 
 def read_toml_file(path: Path) -> dict[str, Any]:
