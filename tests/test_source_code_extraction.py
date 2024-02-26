@@ -117,7 +117,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
         ]
 
 
-def test_source_code_extraction_module(exporter: TestExporter, tmp_path: str) -> None:
+def test_source_code_extraction_module(exporter: TestExporter) -> None:
     exec(
         """import logfire
 with logfire.span('from module'):

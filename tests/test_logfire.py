@@ -80,7 +80,7 @@ def test_instrument_without_kwargs():
     assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
 
 
-def test_span_without_kwargs(exporter: TestExporter) -> None:
+def test_span_without_kwargs() -> None:
     with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
         with logfire.span('test {foo}'):
             pass  # pragma: no cover
@@ -1302,7 +1302,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
 
 
 @pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal', 'span'))
-def test_forbid_methods_with_leading_underscore_on_attributes(method: str, exporter: TestExporter) -> None:
+def test_forbid_methods_with_leading_underscore_on_attributes(method: str) -> None:
     with pytest.raises(ValueError, match='Attribute keys cannot start with an underscore.'):
         getattr(logfire, method)('test {_foo=}', _foo='bar')
 

@@ -46,7 +46,7 @@ TEST_SPAN = ReadableSpan(
 )
 
 
-def test_fallback_on_exception(tmp_path: str) -> None:
+def test_fallback_on_exception() -> None:
     test_exporter = TestExporter()
 
     exporter = FallbackSpanExporter(ExceptionExporter(), test_exporter)
@@ -68,7 +68,7 @@ def test_fallback_on_exception(tmp_path: str) -> None:
     ]
 
 
-def test_fallback_on_failure(tmp_path: str) -> None:
+def test_fallback_on_failure() -> None:
     test_exporter = TestExporter()
 
     exporter = FallbackSpanExporter(FailureExporter(), test_exporter)
