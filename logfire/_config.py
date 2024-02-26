@@ -99,7 +99,7 @@ class PydanticPlugin:
 
 def configure(
     *,
-    send_to_logfire: bool | None = None,
+    send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | None = None,
     project_name: str | None = None,
     service_name: str | None = None,
@@ -122,30 +122,38 @@ def configure(
     """Configure the logfire SDK.
 
     Args:
-        send_to_logfire: Whether to send logs to logfire.dev. Defaults to the value of the environment variable `LOGFIRE_SEND_TO_LOGFIRE` if set, otherwise defaults to `True`.
-        token: `anon_*`, `free_*` or `pro_*` token for logfire, if `None` it defaults to the value of the environment variable `LOGFIRE_TOKEN` if set, otherwise if
-            `send_to_logfire` is `True` a new `anon_` project will be created using `project_name`.
-        project_name: Name to request when creating a new project, if `None` uses the `LOGFIRE_PROJECT_NAME` environment variable, or the service name. Project name accepts
-            a string value containing alphanumeric characters and hyphens (-). The hyphen character must not be located at the beginning or end of the string and should appear
-            in between alphanumeric characters.
-        service_name: Name of this service, if `None` uses the `LOGFIRE_SERVICE_NAME` environment variable, or the current directory name.
-        service_version: Version of this service, if `None` uses the `LOGFIRE_SERVICE_VERSION` environment variable or the current git commit hash if available.
-        trace_sample_rate: Sampling ratio for spans, if `None` uses the `LOGFIRE_SAMPLING_RATIO` environment variable or the `OTEL_TRACES_SAMPLER_ARG` env variable, or defaults to `1.0`.
+        send_to_logfire: Whether to send logs to logfire.dev. Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment
+            variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
+            a token is present.
+        token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
+        project_name: Name to request when creating a new project. Defaults to the `LOGFIRE_PROJECT_NAME` environment
+            variable, or the service name. Project name accepts a string value containing alphanumeric characters and
+            hyphens (-). The hyphen character must not be located at the beginning or end of the string and should
+            appear in between alphanumeric characters.
+        service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable, or the current
+            directory name.
+        service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
+            current git commit hash if available.
+        trace_sample_rate: Sampling ratio for spans. Defaults to the `LOGFIRE_SAMPLING_RATIO` environment variable, or
+            the `OTEL_TRACES_SAMPLER_ARG` environment variable, or to `1.0`.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
         show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
             defaults to `True`.
-        config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the
-            current working directory.
+        config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
+            `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://api.logfire.dev.
         collect_system_metrics: Whether to collect system metrics like CPU and memory usage. If `None` uses the `LOGFIRE_COLLECT_SYSTEM_METRICS` environment variable,
             otherwise defaults to `True`.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
-        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`](https://docs.python.org/3/library/time.html#time.time_ns) from the Python standard library.
-        processors: Span processors to use. Defaults to None. If None is provided then the default span processor is used. If a sequence is passed the default processor is disabled (which disables
-            exporting of spans to Logfire's API) and the specified processors are used instead. In particular, if an empty list is provided then no span processors are used.
+        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
+            Python standard library.
+        processors: Span processors to use. Defaults to None. If None is provided then the default span processor is
+            used. If a sequence is passed the default processor is disabled (which disables exporting of spans to
+            Logfire's API) and the specified processors are used instead. In particular, if an empty list is provided
+            then no span processors are used.
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
@@ -200,7 +208,7 @@ class _LogfireConfigData:
     base_url: str
     """The base URL of the Logfire API"""
 
-    send_to_logfire: bool
+    send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire"""
 
     token: str | None
@@ -251,7 +259,7 @@ class _LogfireConfigData:
         # defaults exist is `__init__` and we don't forgot a parameter when
         # forwarding parameters from `__init__` to `load_configuration`
         base_url: str | None,
-        send_to_logfire: bool | None,
+        send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
         project_name: str | None,
         service_name: str | None,
@@ -464,7 +472,7 @@ class LogfireConfig(_LogfireConfigData):
 
             metric_readers = self.metric_readers
 
-            if self.send_to_logfire:
+            if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire:
                 new_credentials: LogfireCredentials | None = None
                 if self.token is None:
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
@@ -505,10 +513,7 @@ class LogfireConfig(_LogfireConfigData):
                     self.project_name = self.project_name or credentials_to_save.project_name
                     self.base_url = self.base_url or credentials_to_save.logfire_api_url
 
-                headers = {
-                    'User-Agent': f'logfire/{VERSION}',
-                    'Authorization': self.token,
-                }
+                headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 # NOTE: Only check the backend if we didn't call it already.
                 if new_credentials is None:
                     self.logfire_api_session.headers.update(headers)
