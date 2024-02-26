@@ -5,6 +5,11 @@ The **Pydantic Logfire** is an observability platform focused on **developer exp
 Starting with Python, we're building a platform to let developers understand their software in a
 radically simpler and more enjoyable way.
 
+<!-- Div center -->
+<div style="text-align:center">
+    <iframe width="560" height="315" src="https://www.youtube.com/embed/C-aaHfYcCeo?si=Hc9GvsxBSap9ryk8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
+
 ## Why use Pydantic Logfire?
 
 ### Easy to get started! :rocket:
