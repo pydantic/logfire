@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord
 
-from opentelemetry.context import detach
-
 from logfire import log
 
 # skip natural LogRecord attributes
@@ -62,11 +60,8 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes['code.filepath'] = record.pathname
         attributes['code.lineno'] = record.lineno
         attributes['code.function'] = record.funcName
-        try:
-            log(
-                msg_template=record.msg,  # type: ignore
-                level=record.levelname.lower(),  # type: ignore
-                attributes=attributes,
-            )
-        finally:
-            detach(id)
+        log(
+            msg_template=record.msg,  # type: ignore
+            level=record.levelname.lower(),  # type: ignore
+            attributes=attributes,
+        )
