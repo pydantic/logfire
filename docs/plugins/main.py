@@ -92,12 +92,15 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
 def install_logfire(markdown: str, page: Page) -> str:
     """Build the installation instructions for each integration."""
-    if not page.file.src_uri.startswith('integrations/'):
+    if not (page.file.src_uri.startswith('integrations/') or page.file.src_uri == 'install.md'):
         return markdown
 
     # Match instructions like "{{ install_logfire(extras=['fastapi']) }}". Get the extras, if any.
     match = re.search(r'{{ *install_logfire\((.*)\) *}}', markdown)
-    extras = match.group(1).split('=')[1].strip('[]').strip('\'"').split(',') if match else []
+    extras = []
+    if match:
+        arguments = match.group(1).split('=')
+        extras = arguments[1].strip('[]').strip('\'"').split(',') if len(arguments) > 1 else []
 
     # Build the installation instructions.
     package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
@@ -141,9 +144,10 @@ def install_extras_table(markdown: str, page: Page) -> str:
             continue
         # Add hyperlinks to the dependencies, and </br> to wrap the lines.
         deps = '</br>'.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
-        table.append(f'| {name} | {deps} |')
-        # deps = ', '.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
-        # table.append(f'| {name} | {deps} |')
+        integration_md = f'integrations/{name}.md'
+        if name == 'system-metrics':
+            integration_md = 'usage/metrics.md'
+        table.append(f'| [{name}]({integration_md}) | {deps} |')
 
     table_markdown = '\n'.join(table)
     return re.sub(r'{{ *extras_table *}}', table_markdown, markdown)

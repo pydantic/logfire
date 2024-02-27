@@ -54,7 +54,7 @@ extra_javascript:
 
 nav:
   - Get Started:
-      - Docs: index.md
+      - Home: index.md
       - Installation: install.md
       - Configuration: configuration.md
       - Help with Logfire: help.md
@@ -86,7 +86,7 @@ nav:
       - Cookbook: cookbook/index.md
       - Image Transformation: cookbook/image_transformation.md
       - Web Scraper: cookbook/web_scraper.md
-  - SDK API Docs:
+  - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
       - Backfill: api/backfill.md
@@ -148,8 +148,9 @@ plugins:
           import:
             - url: https://docs.python.org/3/objects.inv
             - url: https://docs.pydantic.dev/latest/objects.inv
-            - url: https://opentelemetry-python-contrib.readthedocs.io/en/latest/objects.inv
             - url: https://fastapi.tiangolo.com/objects.inv
+            - url: https://opentelemetry-python-contrib.readthedocs.io/en/latest/objects.inv
+            - url: https://requests.readthedocs.io/en/latest/objects.inv
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
 hooks:
   - docs/plugins/main.py

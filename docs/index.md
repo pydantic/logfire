@@ -37,7 +37,7 @@ use a wealth of existing tooling and infrastructure, including
 ### Simple, but powerful :muscle:
 
 Logfire is built with simplicity in mind, but it doesn't come at the expense of power - you can
-write SQL and Python to query and visualise your data from within the platform and with the SDK.
+write SQL and Python to query and visualize your data from within the platform and with the SDK.
 
 ### The Dashboard is for everyone :busts_in_silhouette:
 

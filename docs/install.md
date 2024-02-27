@@ -1,28 +1,6 @@
-To install the latest version of Logfire using `pip`, run the following command:
+To install the latest version of Logfire, run the following command:
 
-```bash
-pip install logfire
-```
-
-Or if you're using `poetry`:
-
-```bash
-poetry add logfire
-```
-
-You can also add it to your project requirements:
-
-```txt title='requirements.txt'
-logfire
-```
-
-Or add to `pyproject.toml` if you're using `poetry`:
-
-```toml title='pyproject.toml'
-[tool.poetry.dependencies]
-python = "^3.8"
-logfire = "*"
-```
+{{ install_logfire() }}
 
 ## Extra Dependencies
 
