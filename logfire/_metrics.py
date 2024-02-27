@@ -4,7 +4,7 @@ import dataclasses
 import sys
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Generic, Sequence, TypeVar, Union
+from typing import Any, Generic, Sequence, TypeVar
 from weakref import WeakSet
 
 from opentelemetry.metrics import (
@@ -18,10 +18,14 @@ from opentelemetry.metrics import (
     ObservableGauge,
     ObservableUpDownCounter,
     UpDownCounter,
-    # OTEL exports it as _Gauge, but we need it to implement the create_gauge abstract method.
-    _Gauge as Gauge,
 )
 from opentelemetry.util.types import Attributes
+
+try:
+    # This only exists in opentelemetry-sdk>=1.23.0
+    from opentelemetry.metrics import _Gauge as Gauge
+except ImportError:
+    Gauge = None
 
 # copied from opentelemetry/instrumentation/system_metrics/__init__.py
 DEFAULT_CONFIG = {
@@ -111,7 +115,7 @@ class _ProxyMeter(Meter):
         super().__init__(name, version=version, schema_url=schema_url)
         self._lock = Lock()
         self._meter = meter
-        self._instruments: WeakSet[_ProxyInstrumentT] = WeakSet()
+        self._instruments: WeakSet[_ProxyInstrument[Any]] = WeakSet()
 
     def set_meter(self, meter_provider: MeterProvider) -> None:
         """Called when a real meter provider is set on the creating _ProxyMeterProvider.
@@ -186,7 +190,7 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = '',
         description: str = '',
-    ) -> Gauge:
+    ):
         with self._lock:
             proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
             self._instruments.add(proxy)
@@ -327,24 +331,17 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
-    def set(
-        self,
-        amount: int | float,
-        attributes: Attributes | None = None,
-    ) -> None:
-        self._instrument.set(amount, attributes)
+if Gauge is not None:
 
-    def _create_real_instrument(self, meter: Meter) -> Gauge:
-        return meter.create_gauge(self._name, self._unit, self._description)
+    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
+        def set(
+            self,
+            amount: int | float,
+            attributes: Attributes | None = None,
+        ) -> None:
+            self._instrument.set(amount, attributes)
 
-
-_ProxyInstrumentT = Union[
-    _ProxyCounter,
-    _ProxyHistogram,
-    _ProxyObservableCounter,
-    _ProxyObservableGauge,
-    _ProxyObservableUpDownCounter,
-    _ProxyUpDownCounter,
-    _ProxyGauge,
-]
+        def _create_real_instrument(self, meter: Meter):
+            return meter.create_gauge(self._name, self._unit, self._description)
+else:
+    _ProxyGauge = None  # type: ignore
