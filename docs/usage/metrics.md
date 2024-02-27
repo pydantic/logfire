@@ -1,40 +1,30 @@
+!!! warning "🚧 Work in Progress 🚧"
+    Metrics are a work in progress, [contact us](../help.md) if you have any questions.
+
 **Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
-## System Metrics
+Let's see how to create, and use metrics in your application.
 
-By default, Logfire does not collect system metrics.
+```py
+import logfire
 
-To enable metrics, you need to install the `logfire[system-metrics]` extra:
+# Create a counter metric
+counter = logfire.metric_counter('exceptions')
 
-```bash
-pip install 'logfire[system-metrics]'
+try:
+    # Simulate an exception
+    raise Exception('oops')
+except Exception:
+    # Increment the counter
+    counter.add(1)
 ```
 
-### Available Metrics
-
-Logfire collects the following system metrics:
-
-* `system.cpu.time`: CPU time spent in different modes.
-* `system.cpu.utilization`: CPU utilization in different modes.
-* `system.memory.usage`: Memory usage.
-* `system.memory.utilization`: Memory utilization in different modes.
-* `system.swap.usage`: Swap usage.
-* `system.swap.utilization`: Swap utilization
-* `system.disk.io`: Disk I/O operations (read/write).
-* `system.disk.operations`: Disk operations (read/write).
-* `system.disk.time`: Disk time (read/write).
-* `system.network.dropped.packets`: Dropped packets (transmit/receive).
-* `system.network.packets`: Packets (transmit/receive).
-* `system.network.errors`: Network errors (transmit/receive).
-* `system.network.io`: Network I/O (transmit/receive).
-* `system.network.connections`: Network connections (family/type).
-* `system.thread_count`: Thread count.
-* `process.runtime.memory`: Process memory usage.
-* `process.runtime.cpu.time`: Process CPU time.
-* `process.runtime.gc_count`: Process garbage collection count.
+1. The `unit` parameter is optional, but it's a good practice to specify it.
+    It should be a string that represents the unit of the counter.
+    If the metric is _unitless_, you can use `'1'`.
 
 
-## Custom Metrics
+## Metric Types
 
 Metrics are a great way to record number values where you want to see an aggregation of the data (e.g. over time),
 rather than the individual values.
@@ -241,6 +231,40 @@ logfire.metric_up_down_counter_callback(
 ```
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-callback-metric].
+
+
+## System Metrics
+
+By default, **Logfire** does not collect system metrics.
+
+To enable metrics, you need to install the `logfire[system-metrics]` extra:
+
+```bash
+pip install 'logfire[system-metrics]'
+```
+
+### Available Metrics
+
+Logfire collects the following system metrics:
+
+* `system.cpu.time`: CPU time spent in different modes.
+* `system.cpu.utilization`: CPU utilization in different modes.
+* `system.memory.usage`: Memory usage.
+* `system.memory.utilization`: Memory utilization in different modes.
+* `system.swap.usage`: Swap usage.
+* `system.swap.utilization`: Swap utilization
+* `system.disk.io`: Disk I/O operations (read/write).
+* `system.disk.operations`: Disk operations (read/write).
+* `system.disk.time`: Disk time (read/write).
+* `system.network.dropped.packets`: Dropped packets (transmit/receive).
+* `system.network.packets`: Packets (transmit/receive).
+* `system.network.errors`: Network errors (transmit/receive).
+* `system.network.io`: Network I/O (transmit/receive).
+* `system.network.connections`: Network connections (family/type).
+* `system.thread_count`: Thread count.
+* `process.runtime.memory`: Process memory usage.
+* `process.runtime.cpu.time`: Process CPU time.
+* `process.runtime.gc_count`: Process garbage collection count.
 
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram

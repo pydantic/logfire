@@ -142,8 +142,8 @@ def install_extras_table(markdown: str, page: Page) -> str:
     for name, deps in extras.items():
         if name == 'test':
             continue
-        # Add hyperlinks to the dependencies, and </br> to wrap the lines.
-        deps = '</br>'.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
+        # Add hyperlinks to the dependencies, and join them with a pipe.
+        deps = ' \| '.join(f'[{dep}](https://pypi.org/project/{dep}/)' for dep in deps)
         integration_md = f'integrations/{name}.md'
         if name == 'system-metrics':
             integration_md = 'usage/metrics.md'

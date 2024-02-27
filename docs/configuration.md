@@ -12,7 +12,7 @@ For more details, please refer to our [API documentation][logfire.configure].
 
 ## Using environment variables
 
-You can use the following environment variables to configure Logfire:
+You can use the following environment variables to configure **Logfire**:
 
 {{ env_var_table }}
 
@@ -20,7 +20,7 @@ When using environment variables, you don't need to call [`logfire.configure()`]
 
 ## Using a configuration file (`pyproject.toml`)
 
-You can use the `pyproject.toml` to configure Logfire.
+You can use the `pyproject.toml` to configure **Logfire**.
 
 Here's an example:
 

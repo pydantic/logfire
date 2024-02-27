@@ -1,10 +1,10 @@
-To install the latest version of Logfire, run the following command:
+To install the latest version of **Logfire**, run the following command:
 
 {{ install_logfire() }}
 
 ## Extra Dependencies
 
-You can also install extra dependencies for Logfire.
+You can also install extra dependencies for **Logfire**.
 
 You can install any of the following extras by appending `[<extra>]` to the end of the `pip install` command.
 
