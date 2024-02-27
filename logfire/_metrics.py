@@ -18,6 +18,8 @@ from opentelemetry.metrics import (
     ObservableGauge,
     ObservableUpDownCounter,
     UpDownCounter,
+    # OTEL exports it as _Gauge, but we need it to implement the create_gauge abstract method.
+    _Gauge as Gauge,
 )
 from opentelemetry.util.types import Attributes
 
@@ -179,6 +181,17 @@ class _ProxyMeter(Meter):
             self._instruments.add(proxy)
             return proxy
 
+    def create_gauge(
+        self,
+        name: str,
+        unit: str = '',
+        description: str = '',
+    ) -> Gauge:
+        with self._lock:
+            proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
+            self._instruments.add(proxy)
+            return proxy
+
     def create_observable_gauge(
         self,
         name: str,
@@ -244,7 +257,7 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         """Create an instance of the real instrument. Implement this."""
 
 
-class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT]):
+class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
     def __init__(
         self,
         instrument: InstrumentT,
@@ -314,6 +327,18 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
+class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
+    def set(
+        self,
+        amount: int | float,
+        attributes: Attributes | None = None,
+    ) -> None:
+        self._instrument.set(amount, attributes)
+
+    def _create_real_instrument(self, meter: Meter) -> Gauge:
+        return meter.create_gauge(self._name, self._unit, self._description)
+
+
 _ProxyInstrumentT = Union[
     _ProxyCounter,
     _ProxyHistogram,
@@ -321,4 +346,5 @@ _ProxyInstrumentT = Union[
     _ProxyObservableGauge,
     _ProxyObservableUpDownCounter,
     _ProxyUpDownCounter,
+    _ProxyGauge,
 ]
