@@ -13,6 +13,8 @@ from starlette.types import ASGIApp
 import logfire
 from logfire.testing import TestExporter
 
+from .. import snapshot
+
 
 def test_asgi_middleware(exporter: TestExporter) -> None:
     # note: this also serves as a unit test of our integration with otel's various integrations
@@ -32,87 +34,92 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'inside request handler',
-            'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 3000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'inside request handler',
-                'logfire.msg': 'inside request handler',
-                'code.lineno': 123,
-                'code.filepath': 'test_asgi.py',
-                'code.function': 'homepage',
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'inside request handler',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_name': 'info',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'inside request handler',
+                    'logfire.msg': 'inside request handler',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_asgi.py',
+                    'code.function': 'homepage',
+                },
             },
-        },
-        {
-            'name': 'GET / http send response.start',
-            'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 4000000000,
-            'end_time': 5000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET / http send response.start',
-                'http.status_code': 200,
-                'type': 'http.response.start',
+            {
+                'name': 'GET / http send response.start',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET / http send response.start',
+                    'http.status_code': 200,
+                    'type': 'http.response.start',
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
+                },
             },
-        },
-        {
-            'name': 'GET / http send response.body',
-            'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 6000000000,
-            'end_time': 7000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET / http send response.body',
-                'type': 'http.response.body',
+            {
+                'name': 'GET / http send response.body',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET / http send response.body',
+                    'type': 'http.response.body',
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
+                },
             },
-        },
-        {
-            'name': 'GET /',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 8000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET /',
-                'http.scheme': 'http',
-                'http.host': 'testserver',
-                'net.host.port': 80,
-                'http.flavor': '1.1',
-                'http.target': '/',
-                'http.url': 'http://testserver/',
-                'http.method': 'GET',
-                'http.server_name': 'testserver',
-                'http.user_agent': 'testclient',
-                'http.status_code': 200,
+            {
+                'name': 'GET /',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /',
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/',
+                    'http.url': 'http://testserver/',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'http.status_code': 200,
+                },
             },
-        },
-        {
-            'name': 'outside request handler',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 9000000000,
-            'attributes': {
-                'code.lineno': 123,
-                'code.filepath': 'test_asgi.py',
-                'code.function': 'test_asgi_middleware',
-                'logfire.msg_template': 'outside request handler',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'outside request handler',
+            {
+                'name': 'outside request handler',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'code.lineno': 123,
+                    'code.filepath': 'test_asgi.py',
+                    'code.function': 'test_asgi_middleware',
+                    'logfire.msg_template': 'outside request handler',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'outside request handler',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_asgi_middleware_with_lifespan(exporter: TestExporter):

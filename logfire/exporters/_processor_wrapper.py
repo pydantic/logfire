@@ -4,9 +4,12 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from logfire._constants import (
+    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
+    LEVEL_NUMBERS,
     PENDING_SPAN_NAME_SUFFIX,
 )
 
@@ -78,7 +81,12 @@ def _tweak_asgi_span_name(span: ReadableSpan) -> ReadableSpan:
     # Strip the 'http.' or 'websocket.' prefix from the event type and add it to the span name.
     new_name = f'{name} {typ.split(".", 1)[1]}'
     if attributes.get(ATTRIBUTES_MESSAGE_KEY) == name:  # this should usually be the case
-        attributes = {**attributes, ATTRIBUTES_MESSAGE_KEY: new_name}
+        attributes = {
+            **attributes,
+            ATTRIBUTES_MESSAGE_KEY: new_name,
+            ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'debug',
+            ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['debug'],
+        }
 
     return ReadableSpan(
         name=new_name,
