@@ -23,8 +23,16 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_RESOURCE_ATTRIBUTES,
 )
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics import (
+    Counter,
+    Histogram,
+    MeterProvider,
+    ObservableCounter,
+    ObservableGauge,
+    ObservableUpDownCounter,
+    UpDownCounter,
+)
+from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
@@ -65,6 +73,16 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
+
+METRICS_PREFERRED_TEMPORALITY = {
+    Counter: AggregationTemporality.DELTA,
+    UpDownCounter: AggregationTemporality.DELTA,
+    Histogram: AggregationTemporality.DELTA,
+    ObservableCounter: AggregationTemporality.DELTA,
+    ObservableUpDownCounter: AggregationTemporality.DELTA,
+    ObservableGauge: AggregationTemporality.DELTA,
+}
+"""This should be passed as the `preferred_temporality` argument of metric readers and exporters."""
 
 
 @dataclass
@@ -157,7 +175,10 @@ def configure(
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
-        metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used. Pass an empty list to disable metrics.
+        metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used.
+            Pass an empty list to disable metrics.
+            Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
+            is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
@@ -544,6 +565,7 @@ class LogfireConfig(_LogfireConfigData):
                             OTLPMetricExporter(
                                 endpoint=self.metrics_endpoint,
                                 headers=headers,
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                             )
                         )
                     ]

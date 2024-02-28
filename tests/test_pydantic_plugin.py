@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import importlib.metadata
-import json
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from dirty_equals import IsInt
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
+from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -17,18 +16,7 @@ import logfire
 from logfire._config import GLOBAL_CONFIG, PydanticPlugin
 from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
 from logfire.testing import SeededRandomIdGenerator, TestExporter
-
-
-def _get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
-    collected_metrics = []
-    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
-
-    for resource_metric in exported_metrics['resource_metrics']:
-        for scope_metric in resource_metric['scope_metrics']:
-            for metric in scope_metric['metrics']:
-                if metric['name'].endswith('-successful-validation') or metric['name'].endswith('-failed-validation'):
-                    collected_metrics.append(metric)
-    return collected_metrics
+from tests.test_metrics import get_collected_metrics
 
 
 def test_plugin_listed():
@@ -174,7 +162,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
         }
     ]
 
-    metrics_collected = _get_collected_metrics(metrics_reader)
+    metrics_collected = get_collected_metrics(metrics_reader)
     # insert_assert(metrics_collected)
     assert metrics_collected == [
         {
@@ -190,7 +178,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                         'value': 1,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         },
@@ -207,7 +195,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                         'value': 1,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         },
@@ -228,7 +216,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
     with pytest.raises(ValidationError):
         MyModel(x='a')  # type: ignore
 
-    metrics_collected = _get_collected_metrics(metrics_reader)
+    metrics_collected = get_collected_metrics(metrics_reader)
     # insert_assert(metrics_collected)
     assert metrics_collected == [
         {
@@ -244,7 +232,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                         'value': 3,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         },
@@ -261,7 +249,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                         'value': 2,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         },
@@ -316,7 +304,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
         },
     ]
 
-    metrics_collected = _get_collected_metrics(metrics_reader)
+    metrics_collected = get_collected_metrics(metrics_reader)
     # insert_assert(metrics_collected)
     assert metrics_collected == [
         {
@@ -332,7 +320,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                         'value': 1,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         }
@@ -397,7 +385,7 @@ def test_pydantic_plugin_python_error_record_failure(
         },
     ]
 
-    metrics_collected = _get_collected_metrics(metrics_reader)
+    metrics_collected = get_collected_metrics(metrics_reader)
     # insert_assert(metrics_collected)
     assert metrics_collected == [
         {
@@ -413,7 +401,7 @@ def test_pydantic_plugin_python_error_record_failure(
                         'value': 2,
                     }
                 ],
-                'aggregation_temporality': 2,
+                'aggregation_temporality': AggregationTemporality.DELTA,
                 'is_monotonic': True,
             },
         }

@@ -1,21 +1,17 @@
-import builtins
-
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
 import anyio._backends._asyncio  # noqa
 import pytest
-from devtools.pytest_plugin import insert_assert
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from logfire import configure
+from logfire._config import METRICS_PREFERRED_TEMPORALITY
 from logfire.testing import (
     IncrementalIdGenerator,
     TestExporter,
     TimeGenerator,
 )
-
-builtins.insert_assert = insert_assert
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -40,7 +36,7 @@ def exporter() -> TestExporter:
 
 @pytest.fixture
 def metrics_reader() -> InMemoryMetricReader:
-    return InMemoryMetricReader()
+    return InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
 
 
 @pytest.fixture(autouse=True)
@@ -57,6 +53,7 @@ def config(
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
         metric_readers=[metrics_reader],
+        collect_system_metrics=False,
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

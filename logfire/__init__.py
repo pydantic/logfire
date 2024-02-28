@@ -2,7 +2,7 @@
 
 from ._auto_trace import AutoTraceModule
 from ._auto_trace.rewrite_ast import no_auto_trace
-from ._config import ConsoleOptions, PydanticPlugin, configure
+from ._config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
 from ._main import LevelName, Logfire, LogfireSpan
 from .exporters._file import load_file as load_spans_from_file
 from .version import VERSION
@@ -63,4 +63,5 @@ __all__ = (
     # 'with_trace_sample_rate',
     'load_spans_from_file',
     'no_auto_trace',
+    'METRICS_PREFERRED_TEMPORALITY',
 )
