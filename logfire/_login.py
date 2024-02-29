@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -141,6 +141,7 @@ def is_logged_in(data: DefaultFile, logfire_url: str) -> bool:
         True if the user is logged in, False otherwise.
     """
     for url, info in data['tokens'].items():
-        if url == logfire_url and datetime.now() < datetime.fromisoformat(info['expiration']):
+        # token expirations are in UTC
+        if url == logfire_url and datetime.now(tz=timezone.utc) < datetime.fromisoformat(info['expiration']):
             return True
     return False
