@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable
@@ -1540,3 +1541,47 @@ def test_tags(exporter: TestExporter) -> None:
             },
         },
     ]
+
+
+def test_exc_info(exporter: TestExporter):
+    logfire.debug('no error', _exc_info=True)
+
+    try:
+        raise TypeError('other error')
+    except TypeError as e:
+        other_error = e
+        other_exc_info = sys.exc_info()
+
+    try:
+        raise ValueError('an error')
+    except ValueError as e:
+        logfire.trace('exc0', _exc_info=other_error)
+        logfire.notice('exc1', _exc_info=other_exc_info)
+        logfire.info('exc2', _exc_info=e)
+        logfire.warn('exc3', _exc_info=True)
+        logfire.error('exc4', _exc_info=sys.exc_info())
+        logfire.exception('exc5')
+
+    span_dicts = exporter.exported_spans_as_dict()
+    # insert_assert(span_dicts)
+
+    assert len(span_dicts) == 7
+    assert 'events' not in span_dicts[0]
+
+    for span_dict in span_dicts[1:3]:
+        [event] = span_dict['events']
+        assert event['attributes'] == {
+            'exception.type': 'TypeError',
+            'exception.message': 'other error',
+            'exception.stacktrace': 'TypeError: other error',
+            'exception.escaped': 'False',
+        }
+
+    for span_dict in span_dicts[3:]:
+        [event] = span_dict['events']
+        assert event['attributes'] == {
+            'exception.type': 'ValueError',
+            'exception.message': 'an error',
+            'exception.stacktrace': 'ValueError: an error',
+            'exception.escaped': 'False',
+        }

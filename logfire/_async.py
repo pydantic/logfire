@@ -43,8 +43,10 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager
                 )
             except Exception:
                 # Don't crash the event loop for this.
-                # TODO maybe try logging something here, but catch exceptions from that too.
-                pass
+                try:
+                    logfire.exception('Error in log_slow_callbacks')
+                except Exception:
+                    pass
         return return_value
 
     asyncio.events.Handle._run = patched_run

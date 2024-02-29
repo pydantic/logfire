@@ -5,7 +5,6 @@ from typing import Any, Iterable, Sequence, cast
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.util import types as otel_types
 from requests import Session
 from requests.models import PreparedRequest, Response
 
@@ -70,7 +69,7 @@ class RetryFewerSpansSpanExporter(SpanExporter):
 
     def _log_too_large_span(self, e: BodyTooLargeError, span: ReadableSpan) -> None:
         original_attributes = span.attributes or {}
-        new_attributes: dict[str, otel_types.AttributeValue] = {'size': e.size, 'max_size': e.max_size}
+        new_attributes: dict[str, Any] = {'size': e.size, 'max_size': e.max_size}
 
         with contextlib.suppress(Exception):  # just being extra cautious
             for key in STACK_INFO_KEYS:

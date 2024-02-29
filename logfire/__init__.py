@@ -26,6 +26,7 @@ notice = DEFAULT_LOGFIRE_INSTANCE.notice
 warn = DEFAULT_LOGFIRE_INSTANCE.warn
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
+exception = DEFAULT_LOGFIRE_INSTANCE.exception
 
 # Metrics
 metric_counter = DEFAULT_LOGFIRE_INSTANCE.metric_counter

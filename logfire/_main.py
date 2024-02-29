@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import sys
+import traceback
+import typing
 import warnings
 from functools import cached_property
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
 import opentelemetry.context as context_api
@@ -54,6 +58,17 @@ try:
     from pydantic import ValidationError
 except ImportError:
     ValidationError = None
+
+
+# This is the type of the exc_info/_exc_info parameter of the log methods.
+# sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
+# We just need the exception, but we allow the user to pass the tuple because:
+# 1. It's convenient to pass the result of sys.exc_info() directly
+# 2. It mirrors the exc_info argument of the stdlib logging methods
+# 3. The argument name exc_info is very suggestive of the sys function.
+ExcInfo: typing.TypeAlias = (
+    'tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None] | BaseException | bool | None'
+)
 
 
 class Logfire:
@@ -265,6 +280,7 @@ class Logfire:
         msg_template: LiteralString,
         attributes: dict[str, Any],
         tags: Sequence[str] | None = None,
+        exc_info: ExcInfo = False,
         stack_offset: int = 0,
     ) -> None:
         """Log a message.
@@ -280,6 +296,9 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             tags: An optional sequence of tags to include in the log.
+            exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
@@ -324,11 +343,35 @@ class Logfire:
             attributes=otlp_attributes,
             start_time=start_time,
         )
-        with trace_api.use_span(span, end_on_exit=False, record_exception=False):
-            span.set_status(trace_api.Status(trace_api.StatusCode.OK))
-            span.end(start_time)
 
-    def trace(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+        if exc_info:
+            if exc_info is True:
+                exc_info = sys.exc_info()
+            if isinstance(exc_info, tuple):
+                exc_info = exc_info[1]
+            if isinstance(exc_info, BaseException):
+                if exc_info is sys.exc_info()[1]:
+                    event_attributes = {}
+                else:
+                    # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
+                    # ignoring the passed exception.
+                    # So we override the stacktrace attribute with the correct one.
+                    stacktrace = ''.join(traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__))
+                    event_attributes = {'exception.stacktrace': stacktrace}
+                span.record_exception(cast(Exception, exc_info), event_attributes)
+
+        span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+        span.end(start_time)
+
+    def trace(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log a trace message.
 
         ```py
@@ -341,12 +384,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('trace', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('trace', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def debug(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def debug(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log a debug message.
 
         ```py
@@ -359,12 +413,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('debug', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('debug', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def info(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def info(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log an info message.
 
         ```py
@@ -377,12 +442,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('info', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('info', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def notice(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def notice(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log a notice message.
 
         ```py
@@ -395,12 +471,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('notice', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('notice', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def warn(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def warn(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log a warning message.
 
         ```py
@@ -413,12 +500,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('warn', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('warn', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def error(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def error(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log an error message.
 
         ```py
@@ -431,12 +529,23 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
-    def fatal(self, msg_template: LiteralString, /, *, _tags: Sequence[str] | None = None, **attributes: Any) -> None:
+    def fatal(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = False,
+        **attributes: Any,
+    ) -> None:
         """Log a fatal message.
 
         ```py
@@ -449,10 +558,30 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('fatal', msg_template, attributes, stack_offset=1, tags=_tags)
+        self.log('fatal', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+
+    def exception(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _exc_info: ExcInfo = True,
+        **attributes: Any,
+    ) -> None:
+        """The same as `error` but with `_exc_info=True` by default.
+
+        This means that a traceback will be logged for any currently handled exception.
+        """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
@@ -906,6 +1035,26 @@ class LogfireSpan(ReadableSpan):
         key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
         if self._span is not None:
             self._span.set_attribute(key, otel_value)
+
+    def record_exception(
+        self,
+        exception: Exception,
+        attributes: otel_types.Attributes = None,
+        timestamp: int | None = None,
+        escaped: bool = False,
+    ) -> None:
+        """Records an exception as a span event.
+
+        Delegates to the OpenTelemetry SDK `Span.record_exception` method.
+        """
+        if self._span is not None:
+            # TODO https://linear.app/pydantic/issue/PYD-675/refactor-and-fix-recording-exceptions
+            self._span.record_exception(
+                exception,
+                attributes=attributes,
+                timestamp=timestamp,
+                escaped=escaped,
+            )
 
 
 OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)

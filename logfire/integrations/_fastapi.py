@@ -67,54 +67,58 @@ def instrument_fastapi(
 
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any):
         result = await original_solve_dependencies(request=request, **kwargs)
-        if not instrumenting_request(request):
-            return result
+        try:
+            if not instrumenting_request(request):
+                return result
 
-        attributes: dict[str, Any] | None = {
-            # Shallow copy these so that the user can safely modify them, but we don't tell them that.
-            # We do explicitly tell them that the contents should not be modified.
-            # Making a deep copy could be very expensive and maybe even impossible.
-            'values': {
-                k: v
-                for k, v in result[0].items()
-                if not isinstance(v, (Request, WebSocket, BackgroundTasks, SecurityScopes, Response))
-            },
-            'errors': result[1].copy(),
-        }
+            attributes: dict[str, Any] | None = {
+                # Shallow copy these so that the user can safely modify them, but we don't tell them that.
+                # We do explicitly tell them that the contents should not be modified.
+                # Making a deep copy could be very expensive and maybe even impossible.
+                'values': {
+                    k: v
+                    for k, v in result[0].items()
+                    if not isinstance(v, (Request, WebSocket, BackgroundTasks, SecurityScopes, Response))
+                },
+                'errors': result[1].copy(),
+            }
 
-        # Set the current app on `values` so that `patched_run_endpoint_function` can check it.
-        if isinstance(request, Request):
-            instrumented_values = _InstrumentedValues(result[0])
-            instrumented_values.request = request
-            result = (instrumented_values, *result[1:])
+            # Set the current app on `values` so that `patched_run_endpoint_function` can check it.
+            if isinstance(request, Request):
+                instrumented_values = _InstrumentedValues(result[0])
+                instrumented_values.request = request
+                result = (instrumented_values, *result[1:])
 
-        attributes = request_attributes_mapper(request, attributes)
-        if not attributes:
-            # The user can return None to indicate that they don't want to log anything.
-            # We don't document it, but returning `False`, `{}` etc. seems like it should also work.
-            return result
+            attributes = request_attributes_mapper(request, attributes)
+            if not attributes:
+                # The user can return None to indicate that they don't want to log anything.
+                # We don't document it, but returning `False`, `{}` etc. seems like it should also work.
+                return result
 
-        # request_attributes_mapper may have removed the errors, so we need .get() here.
-        level: Literal['error', 'debug'] = 'error' if attributes.get('errors') else 'debug'
+            # request_attributes_mapper may have removed the errors, so we need .get() here.
+            level: Literal['error', 'debug'] = 'error' if attributes.get('errors') else 'debug'
 
-        # Add a few basic attributes about the request, particularly so that the user can group logs by endpoint.
-        # Usually this will all be inside a span added by FastAPIInstrumentor with more detailed attributes.
-        # We only add these attributes after the request_attributes_mapper so that the user
-        # doesn't rely on what we add here - they can use `request` instead.
-        if isinstance(request, Request):
-            attributes[SpanAttributes.HTTP_METHOD] = request.method
-        route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
-        if route:
-            attributes.update(
-                {
-                    SpanAttributes.HTTP_ROUTE: route.path,
-                    'fastapi.route.name': route.name,
-                }
-            )
-            if isinstance(route, APIRoute):
-                attributes['fastapi.route.operation_id'] = route.operation_id
+            # Add a few basic attributes about the request, particularly so that the user can group logs by endpoint.
+            # Usually this will all be inside a span added by FastAPIInstrumentor with more detailed attributes.
+            # We only add these attributes after the request_attributes_mapper so that the user
+            # doesn't rely on what we add here - they can use `request` instead.
+            if isinstance(request, Request):
+                attributes[SpanAttributes.HTTP_METHOD] = request.method
+            route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
+            if route:
+                attributes.update(
+                    {
+                        SpanAttributes.HTTP_ROUTE: route.path,
+                        'fastapi.route.name': route.name,
+                    }
+                )
+                if isinstance(route, APIRoute):
+                    attributes['fastapi.route.operation_id'] = route.operation_id
 
-        logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
+            logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
+        except Exception:
+            logfire_instance.exception('Error logging FastAPI arguments')
+
         return result
 
     # `solve_dependencies` is actually defined in `fastapi.dependencies.utils`,
