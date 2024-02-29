@@ -142,6 +142,7 @@ def is_logged_in(data: DefaultFile, logfire_url: str) -> bool:
     """
     for url, info in data['tokens'].items():
         # token expirations are in UTC
-        if url == logfire_url and datetime.now(tz=timezone.utc) < datetime.fromisoformat(info['expiration']):
+        expiry_date = datetime.fromisoformat(info['expiration'].rstrip('Z')).replace(tzinfo=timezone.utc)
+        if url == logfire_url and datetime.now(tz=timezone.utc) < expiry_date:
             return True
     return False

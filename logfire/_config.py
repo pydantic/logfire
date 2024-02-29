@@ -725,7 +725,7 @@ class LogfireCredentials:
         Raises:
             LogfireConfigError: If there was an error creating the new project.
         """
-        headers = COMMON_REQUEST_HEADERS | {'Authorization': user_token}
+        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
         organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
         try:
             response = session.get(organizations_url, headers=headers)
