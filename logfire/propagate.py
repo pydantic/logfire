@@ -3,7 +3,8 @@ the OpenTelemetry contexts (and therefore Logfire contexts) to be transferred be
 different code running in different threads, processes or even services.
 
 In general, you should not need to use this module since Logfire will automatically
-patch `ThreadPoolExecutor` and `ProcessPoolExecutor` to carry over the context.
+patch [`ThreadPoolExecutor`][concurrent.futures.ThreadPoolExecutor] and
+[`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor] to carry over the context.
 And existing plugins exist to propagate the context with
 [requests](https://pypi.org/project/opentelemetry-instrumentation-requests/) and
 [httpx](https://pypi.org/project/opentelemetry-instrumentation-httpx/).

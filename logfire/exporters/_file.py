@@ -6,9 +6,7 @@ from pathlib import Path
 from typing import IO, Generator, Iterable, Iterator, Literal, Sequence
 
 from google.protobuf.json_format import MessageToJson
-from opentelemetry.exporter.otlp.proto.common.trace_encoder import (
-    encode_spans,
-)
+from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -153,7 +151,8 @@ def load_file(file_path: str | Path | IO[bytes] | None) -> Iterator[ExportTraceS
     Raises:
         ValueError: If the file is not a valid backup file.
 
-    Returns: An iterator over each ExportTraceServiceRequest message in the backup file.
+    Returns:
+        An iterator over each `ExportTraceServiceRequest` message in the backup file.
     """
     if file_path is None:
         file_path = Path(DEFAULT_FALLBACK_FILE_NAME)

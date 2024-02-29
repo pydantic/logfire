@@ -1,4 +1,4 @@
-"""Logfire is the observability tool focused on developer experience."""
+"""**Logfire** is the observability tool focused on developer experience."""
 
 from ._auto_trace import AutoTraceModule
 from ._auto_trace.rewrite_ast import no_auto_trace
