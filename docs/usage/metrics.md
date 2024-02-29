@@ -19,11 +19,6 @@ except Exception:
     counter.add(1)
 ```
 
-1. The `unit` parameter is optional, but it's a good practice to specify it.
-    It should be a string that represents the unit of the counter.
-    If the metric is _unitless_, you can use `'1'`.
-
-
 ## Metric Types
 
 Metrics are a great way to record number values where you want to see an aggregation of the data (e.g. over time),
