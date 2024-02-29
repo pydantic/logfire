@@ -11,6 +11,8 @@ from mkdocs.structure.pages import Page
 
 from logfire import _config_params as config_params, _metrics as metrics
 
+LOGFIRE_DIR = Path(__file__).parent.parent.parent
+
 
 def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) -> str:
     """
@@ -133,7 +135,7 @@ def install_extras_table(markdown: str, page: Page) -> str:
     if page.file.src_uri != 'install.md':
         return markdown
 
-    with open('src/packages/logfire/pyproject.toml', mode='rb') as file:
+    with (LOGFIRE_DIR / 'pyproject.toml').open(mode='rb') as file:
         pyproject = tomllib.load(file)
     extras = pyproject['tool']['poetry']['extras']
     table: list[str] = []

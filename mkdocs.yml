@@ -33,7 +33,6 @@ theme:
     - content.tabs.link
     - content.code.annotate
     - content.code.copy
-    - announce.dismiss
     # - navigation.sections
     - navigation.tabs
   logo: "logo-white.svg"
