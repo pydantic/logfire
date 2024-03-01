@@ -3,7 +3,7 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.18.1"
+version = "0.18.2"
 description = "Coming soon..."
 authors = [
     "Pydantic Team <engineering@pydantic.dev>",
@@ -57,10 +57,7 @@ opentelemetry-instrumentation-redis = { version = ">=0.42b0", optional = true }
 opentelemetry-instrumentation-system-metrics = { version = ">=0.42b0", optional = true }
 requests = { version = ">=2.31.0", optional = true }
 sqlalchemy = { version = ">=2.0.22", optional = true }
-pandas = [
-    { version = "<2.1.0", python = "3.8", optional = true },
-    { version = ">=2.1.0", python = ">=3.9", optional = true },
-]
+pandas = { version = "*", optional = true }
 attrs = { version = ">=23.1.0", optional = true }
 # gitpython is optionally used to get the current git commit hash without a subprocess call
 gitpython = { version = ">=3.1.40", optional = true }
@@ -119,9 +116,9 @@ logfire = "logfire.cli:main"
 [tool.poetry.plugins."pydantic"]
 logfire-plugin = "logfire.integrations.pydantic_plugin:plugin"
 
+[tool.poetry.plugins."pytest11"]
+logfire = "logfire.testing"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.plugins."pytest11"]
-logfire = "logfire.testing"
