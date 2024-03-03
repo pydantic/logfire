@@ -153,6 +153,8 @@ def instrument_fastapi(
             yield
         finally:
             instrumenting = False
+            fastapi.routing.solve_dependencies = original_solve_dependencies  # type: ignore
+            fastapi.routing.run_endpoint_function = original_run_endpoint_function
             FastAPIInstrumentor.uninstrument_app(app)
 
     return uninstrument_context()

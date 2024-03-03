@@ -45,6 +45,7 @@ from ._json_schema import (
     attributes_json_schema_properties,
     create_json_schema,
 )
+from ._metrics import ProxyMeterProvider
 from ._stack_info import get_caller_stack_info
 from ._tracer import ProxyTracerProvider
 from ._utils import uniquify_sequence
@@ -129,6 +130,10 @@ class Logfire:
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
         return self._config.get_tracer_provider()
+
+    @cached_property
+    def _meter_provider(self) -> ProxyMeterProvider:
+        return self._config.get_meter_provider()
 
     @cached_property
     def _logs_tracer(self) -> Tracer:
@@ -914,6 +919,10 @@ class Logfire:
             description: The description of the metric.
         """
         self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
+
+    def shutdown(self, *, fast: bool = False) -> None:
+        self._tracer_provider.shutdown()
+        self._meter_provider.shutdown(fast)
 
 
 class FastLogfireSpan:

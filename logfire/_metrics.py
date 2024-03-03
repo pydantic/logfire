@@ -19,6 +19,7 @@ from opentelemetry.metrics import (
     ObservableUpDownCounter,
     UpDownCounter,
 )
+from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.util.types import Attributes
 
 try:
@@ -102,6 +103,12 @@ class ProxyMeterProvider(MeterProvider):
             self.provider = meter_provider
             for meter in self.meters:
                 meter.set_meter(meter_provider)
+
+    def shutdown(self, fast: bool) -> None:
+        with self.lock:
+            if isinstance(self.provider, SDKMeterProvider):
+                kwargs = {'timeout_millis': 200} if fast else {}
+                self.provider.shutdown(**kwargs)
 
 
 class _ProxyMeter(Meter):

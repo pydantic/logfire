@@ -136,6 +136,7 @@ def configure(
     metric_readers: Sequence[MetricReader] | None = None,
     logfire_api_session: requests.Session | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
+    fast_shutdown: bool = False,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -182,6 +183,7 @@ def configure(
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
+        fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
     """
     GLOBAL_CONFIG.load_configuration(
         base_url=base_url,
@@ -203,6 +205,7 @@ def configure(
         metric_readers=metric_readers,
         logfire_api_session=logfire_api_session,
         pydantic_plugin=pydantic_plugin,
+        fast_shutdown=fast_shutdown,
     )
     GLOBAL_CONFIG.initialize()
 
@@ -274,6 +277,9 @@ class _LogfireConfigData:
     default_span_processor: Callable[[SpanExporter], SpanProcessor]
     """The span processor used for the logfire exporter and console exporter"""
 
+    fast_shutdown: bool
+    """Whether to shut down exporters and providers quickly, mostly used for tests"""
+
     def load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -298,6 +304,7 @@ class _LogfireConfigData:
         metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
+        fast_shutdown: bool = False,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
@@ -335,6 +342,7 @@ class _LogfireConfigData:
             include=param_manager.load_param('pydantic_plugin_include'),
             exclude=param_manager.load_param('pydantic_plugin_exclude'),
         )
+        self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
@@ -383,6 +391,7 @@ class LogfireConfig(_LogfireConfigData):
         metric_readers: Sequence[MetricReader] | None = None,
         logfire_api_session: requests.Session | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
+        fast_shutdown: bool = False,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -412,6 +421,7 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers=metric_readers,
             logfire_api_session=logfire_api_session,
             pydantic_plugin=pydantic_plugin,
+            fast_shutdown=fast_shutdown,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -455,7 +465,8 @@ class LogfireConfig(_LogfireConfigData):
                 resource=resource,
                 id_generator=self.id_generator,
             )
-            self._tracer_provider.set_provider(tracer_provider)
+            self._tracer_provider.shutdown()
+            self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors: list[SpanProcessor] = []
 
@@ -580,6 +591,7 @@ class LogfireConfig(_LogfireConfigData):
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:
                 configure_metrics(meter_provider)
+            self._meter_provider.shutdown(self.fast_shutdown)
             self._meter_provider.set_meter_provider(meter_provider)
 
             if self is GLOBAL_CONFIG and not self._initialized:
