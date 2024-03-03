@@ -465,7 +465,13 @@ class LogfireConfig(_LogfireConfigData):
                 resource=resource,
                 id_generator=self.id_generator,
             )
-            self._tracer_provider.shutdown()
+            # Note: In principle, it would be nice to shut down the existing tracer provider before replacing it via:
+            #   self._tracer_provider.shutdown()
+            # Not doing that here causes threads to leak when reconfiguring if an existing tracer provider has started
+            # a thread (e.g., with a BatchSpanProcessor), but if (naively?) trying to shut down attempts to join the
+            # threads in our InternalSpanExporter, this will cause a deadlock with asyncio thanks to the use of
+            # anyio.BlockingPortal. Samuel and David have both run into issues with this locally.
+            # TODO: We should add `self._tracer_provider.shutdown()` here if we remove the BlockingPortal.
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors: list[SpanProcessor] = []
@@ -591,7 +597,13 @@ class LogfireConfig(_LogfireConfigData):
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:
                 configure_metrics(meter_provider)
-            self._meter_provider.shutdown(self.fast_shutdown)
+            # Note: In principle, it would be nice to shut down the existing meter provider before replacing it via:
+            #   self._meter_provider.shutdown()
+            # Not doing that here causes threads to leak when reconfiguring if an existing meter provider has started
+            # a thread (e.g., with a PeriodicExportingMetricReader), but if (naively?) trying to shut down attempts to
+            # join the threads in our InternalMetricExporter, this will cause a deadlock with asyncio thanks to the use
+            # of anyio.BlockingPortal. Samuel and David have both run into issues with this locally.
+            # TODO: We should add `self._tracer_provider.shutdown()` here if we remove the BlockingPortal.
             self._meter_provider.set_meter_provider(meter_provider)
 
             if self is GLOBAL_CONFIG and not self._initialized:

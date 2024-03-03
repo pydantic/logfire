@@ -921,6 +921,12 @@ class Logfire:
         self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
     def shutdown(self, *, fast: bool = False) -> None:
+        """Shut down the OTel tracer provider and meter provider.
+
+        In particular, this should join any threads started by OTel for those providers.
+        If this method is not called before reconfiguring with new tracer/meter providers,
+        those OTel threads may be leaked.
+        """
         self._tracer_provider.shutdown()
         self._meter_provider.shutdown(fast)
 
