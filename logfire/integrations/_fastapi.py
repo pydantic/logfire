@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import contextlib
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import Any, Callable, ContextManager, Iterable, Literal
+from weakref import WeakKeyDictionary
 
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI, Response
@@ -15,7 +16,6 @@ from opentelemetry.util.http import get_excluded_urls, parse_excluded_urls
 from starlette.requests import Request
 from starlette.websockets import WebSocket
 
-import logfire
 from logfire import Logfire
 
 
@@ -38,9 +38,6 @@ def instrument_fastapi(
 
     See `Logfire.instrument_fastapi` for more details.
     """
-    logfire_instance = logfire_instance.with_tags('fastapi')
-    request_attributes_mapper = request_attributes_mapper or _default_request_attributes_mapper
-
     if not isinstance(excluded_urls, (str, type(None))):
         # FastAPIInstrumentor expects a comma-separated string, not a list.
         excluded_urls = ','.join(excluded_urls)
@@ -48,27 +45,93 @@ def instrument_fastapi(
     if use_opentelemetry_instrumentation:
         FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)  # type: ignore
 
-    # These lines, as well as the `excluded_urls_list.url_disabled` call below, are copied from OTEL.
-    if excluded_urls is None:
-        excluded_urls_list = get_excluded_urls('FASTAPI')
-    else:
-        excluded_urls_list = parse_excluded_urls(excluded_urls)
+    registry = patch_fastapi()
+    if app in registry:
+        raise ValueError('This app has already been instrumented.')
 
-    # It's conceivable that the user might call this function multiple times,
-    # and revert some of those calls with the context manager,
-    # in which case restoring the old functions could go poorly.
-    # So instead we keep the patches and just set this boolean.
-    # The downside is that performance will suffer if this is called a large number of times.
-    instrumenting = True
+    registry[app] = Instrumentation(
+        logfire_instance,
+        request_attributes_mapper or _default_request_attributes_mapper,
+        excluded_urls,
+    )
 
-    def instrumenting_request(request: Request | WebSocket) -> bool:
-        url = get_host_port_url_tuple(request.scope)[2]
-        return instrumenting and request.app == app and not excluded_urls_list.url_disabled(url)
+    @contextmanager
+    def uninstrument_context():
+        # The user isn't required (or even expected) to use this context manager,
+        # which is why the instrumenting and patching has already happened before this point.
+        # It exists mostly for tests, and just in case users want it.
+        try:
+            yield
+        finally:
+            del registry[app]
+            if use_opentelemetry_instrumentation:
+                FastAPIInstrumentor.uninstrument_app(app)
+
+    return uninstrument_context()
+
+
+@lru_cache  # only patch once
+def patch_fastapi():
+    """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
+    registry: WeakKeyDictionary[FastAPI, Instrumentation] = WeakKeyDictionary()
 
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any):
         result = await original_solve_dependencies(request=request, **kwargs)
+        if instrumentation := registry.get(request.app):
+            return await instrumentation.solve_dependencies(request, result)
+        else:
+            return result
+
+    # `solve_dependencies` is actually defined in `fastapi.dependencies.utils`,
+    # but it's imported into `fastapi.routing`, which is where we need to patch it.
+    # It also calls itself recursively, but for now we don't want to intercept those calls,
+    # so we don't patch it back into the original module.
+    original_solve_dependencies = fastapi.routing.solve_dependencies  # type: ignore
+    fastapi.routing.solve_dependencies = patched_solve_dependencies  # type: ignore
+
+    async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
+        if isinstance(values, _InstrumentedValues):
+            request = values.request
+            if instrumentation := registry.get(request.app):
+                return await instrumentation.run_endpoint_function(
+                    original_run_endpoint_function, request, dependant, values, **kwargs
+                )
+        return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+
+    original_run_endpoint_function = fastapi.routing.run_endpoint_function
+    fastapi.routing.run_endpoint_function = patched_run_endpoint_function
+
+    return registry
+
+
+class Instrumentation:
+    def __init__(
+        self,
+        logfire_instance: Logfire,
+        request_attributes_mapper: Callable[
+            [
+                Request | WebSocket,
+                dict[str, Any],
+            ],
+            dict[str, Any] | None,
+        ],
+        excluded_urls: str | None,
+    ):
+        self.logfire_instance = logfire_instance.with_tags('fastapi')
+        self.request_attributes_mapper = request_attributes_mapper
+
+        # These lines, as well as the `excluded_urls_list.url_disabled` call below, are copied from OTEL.
+        if excluded_urls is None:
+            self.excluded_urls_list = get_excluded_urls('FASTAPI')
+        else:
+            self.excluded_urls_list = parse_excluded_urls(excluded_urls)
+
+    async def solve_dependencies(
+        self, request: Request | WebSocket, result: tuple[dict[str, Any], list[Any], Any, Any, Any]
+    ):
         try:
-            if not instrumenting_request(request):
+            url = get_host_port_url_tuple(request.scope)[2]
+            if self.excluded_urls_list.url_disabled(url):
                 return result
 
             attributes: dict[str, Any] | None = {
@@ -89,7 +152,7 @@ def instrument_fastapi(
                 instrumented_values.request = request
                 result = (instrumented_values, *result[1:])
 
-            attributes = request_attributes_mapper(request, attributes)
+            attributes = self.request_attributes_mapper(request, attributes)
             if not attributes:
                 # The user can return None to indicate that they don't want to log anything.
                 # We don't document it, but returning `False`, `{}` etc. seems like it should also work.
@@ -115,49 +178,26 @@ def instrument_fastapi(
                 if isinstance(route, APIRoute):
                     attributes['fastapi.route.operation_id'] = route.operation_id
 
-            logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
+            self.logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
         except Exception:
-            logfire_instance.exception('Error logging FastAPI arguments')
+            self.logfire_instance.exception('Error logging FastAPI arguments')
 
         return result
 
-    # `solve_dependencies` is actually defined in `fastapi.dependencies.utils`,
-    # but it's imported into `fastapi.routing`, which is where we need to patch it.
-    # It also calls itself recursively, but for now we don't want to intercept those calls,
-    # so we don't patch it back into the original module.
-    original_solve_dependencies = fastapi.routing.solve_dependencies  # type: ignore
-    fastapi.routing.solve_dependencies = patched_solve_dependencies  # type: ignore
-
-    async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
-        if isinstance(values, _InstrumentedValues) and (request := values.request).app == app:
-            context = logfire.span(
-                '{method} {route} endpoint function',
-                method=request.method,
-                route=request.scope['route'].path,
-            )
-        else:
-            context = contextlib.nullcontext()
-        with context:
+    async def run_endpoint_function(
+        self,
+        original_run_endpoint_function: Any,
+        request: Request,
+        dependant: Any,
+        values: dict[str, Any],
+        **kwargs: Any,
+    ) -> Any:
+        with self.logfire_instance.span(
+            '{method} {route} endpoint function',
+            method=request.method,
+            route=request.scope['route'].path,
+        ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
-
-    original_run_endpoint_function = fastapi.routing.run_endpoint_function
-    fastapi.routing.run_endpoint_function = patched_run_endpoint_function
-
-    @contextmanager
-    def uninstrument_context():
-        # The user isn't required (or even expected) to use this context manager,
-        # which is why the instrumenting and patching has already happened before this point.
-        # It exists mostly for tests, and just in case users want it.
-        nonlocal instrumenting
-        try:
-            yield
-        finally:
-            instrumenting = False
-            fastapi.routing.solve_dependencies = original_solve_dependencies  # type: ignore
-            fastapi.routing.run_endpoint_function = original_run_endpoint_function
-            FastAPIInstrumentor.uninstrument_app(app)
-
-    return uninstrument_context()
 
 
 def _default_request_attributes_mapper(

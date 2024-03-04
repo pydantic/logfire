@@ -112,7 +112,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/with_path_param/{param}',
@@ -121,6 +121,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
+                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -131,7 +132,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/with_path_param/{param}',
@@ -139,6 +140,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /with_path_param/{param} endpoint function',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -277,7 +279,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/',
@@ -286,6 +288,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
+                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -313,7 +316,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/',
@@ -321,6 +324,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / endpoint function',
+                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -436,7 +440,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_solve_dependencies',
+                    'code.function': 'solve_dependencies',
                     'code.lineno': 123,
                     'values': '{"foo":"foo_val"}',
                     'errors': IsJson(
@@ -546,7 +550,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/exception',
@@ -556,6 +560,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'logfire.level_num': 17,
                     'logfire.level_name': 'error',
                     'logfire.msg': 'GET /exception endpoint function',
+                    'logfire.tags': ('fastapi',),
                 },
                 'events': [
                     {
@@ -623,7 +628,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': '_fastapi.py',
-                    'code.function': 'patched_run_endpoint_function',
+                    'code.function': 'run_endpoint_function',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/validation_error',
@@ -633,6 +638,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.msg': 'GET /validation_error endpoint function',
                     'logfire.level_num': 17,
                     'logfire.level_name': 'error',
+                    'logfire.tags': ('fastapi',),
                 },
                 'events': [
                     {
