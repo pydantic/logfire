@@ -356,15 +356,9 @@ class Logfire:
             if isinstance(exc_info, tuple):
                 exc_info = exc_info[1]
             if isinstance(exc_info, BaseException):
-                if exc_info is sys.exc_info()[1]:
-                    event_attributes = {}
-                else:
-                    # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
-                    # ignoring the passed exception.
-                    # So we override the stacktrace attribute with the correct one.
-                    stacktrace = ''.join(traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__))
-                    event_attributes = {'exception.stacktrace': stacktrace}
-                span.record_exception(cast(Exception, exc_info), event_attributes)
+                _record_exception(span, exc_info)
+            elif exc_info is not None:
+                raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
         span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         span.end(start_time)
@@ -946,7 +940,7 @@ class FastLogfireSpan:
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         context_api.detach(self._token)
-        _exit_span(self._span, exc_type, exc_value, traceback)
+        _exit_span(self._span, exc_value)
         self._span.end()
 
 
@@ -994,7 +988,7 @@ class LogfireSpan(ReadableSpan):
         self._token = None
 
         assert self._span is not None
-        _exit_span(self._span, exc_type, exc_value, traceback)
+        _exit_span(self._span, exc_value)
 
         end_on_exit_ = self.end_on_exit
         if end_on_exit_:
@@ -1054,7 +1048,7 @@ class LogfireSpan(ReadableSpan):
 
     def record_exception(
         self,
-        exception: Exception,
+        exception: BaseException,
         attributes: otel_types.Attributes = None,
         timestamp: int | None = None,
         escaped: bool = False,
@@ -1063,33 +1057,55 @@ class LogfireSpan(ReadableSpan):
 
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.
         """
-        if self._span is not None:
-            # TODO https://linear.app/pydantic/issue/PYD-675/refactor-and-fix-recording-exceptions
-            self._span.record_exception(
-                exception,
-                attributes=attributes,
-                timestamp=timestamp,
-                escaped=escaped,
-            )
+        if self._span is None:
+            raise RuntimeError('Span has not been started')
+
+        # Check if the span has been sampled out first, since _record_exception is somewhat expensive.
+        if not self._span.is_recording():
+            return
+
+        _record_exception(
+            self._span,
+            exception,
+            attributes=attributes,
+            timestamp=timestamp,
+            escaped=escaped,
+        )
 
 
 OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)
 
 
-def _exit_span(
-    span: trace_api.Span, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any
-) -> None:
+def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
     if not span.is_recording():
         return
 
     # record exception if present
     # isinstance is to ignore BaseException
-    if exc_type is not None and isinstance(exc_value, Exception):
-        # stolen from OTEL's codebase
+    if isinstance(exception, Exception):
+        _record_exception(span, exception, escaped=True)
+    else:
+        span.set_status(OK_STATUS)
+
+
+def _record_exception(
+    span: trace_api.Span,
+    exception: BaseException,
+    *,
+    attributes: otel_types.Attributes = None,
+    timestamp: int | None = None,
+    escaped: bool = False,
+) -> None:
+    """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+    # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
+    # `escaped=True` means that the exception is escaping the scope of the span.
+    # This means we know that the exception hasn't been handled,
+    # so we can set the OTEL status and the log level to error.
+    if escaped:
         span.set_status(
             trace_api.Status(
                 status_code=trace_api.StatusCode.ERROR,
-                description=f'{exc_type.__name__}: {exc_value}',
+                description=f'{exception.__class__.__name__}: {exception}',
             )
         )
         span.set_attributes(
@@ -1098,15 +1114,22 @@ def _exit_span(
                 ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
             }
         )
+
+    attributes = {**(attributes or {})}
+    if ValidationError is not None and isinstance(exception, ValidationError):
         # insert a more detailed breakdown of pydantic errors
-        attributes: dict[str, otel_types.AttributeValue] = {}
-        if ValidationError is not None and isinstance(exc_value, ValidationError):
-            err_json = exc_value.json(include_url=False)
-            span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
-            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
-        span.record_exception(exc_value, attributes=attributes, escaped=True)
-    else:
-        span.set_status(OK_STATUS)
+        err_json = exception.json(include_url=False)
+        span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
+        attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
+
+    if exception is not sys.exc_info()[1]:
+        # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
+        # ignoring the passed exception.
+        # So we override the stacktrace attribute with the correct one.
+        stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+        attributes['exception.stacktrace'] = stacktrace
+
+    span.record_exception(cast(Exception, exception), attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
