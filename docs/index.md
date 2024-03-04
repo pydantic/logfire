@@ -3,14 +3,20 @@
 **Pydantic Logfire** is an observability platform focused on **developer experience**.
 
 Starting with Python, we're building a platform to let developers understand their software in a
-radically simpler and more enjoyable way.
+radically simpler and more enjoyable way. Below you'll find [our founding principles for **Pydantic Logfire**](#why-logfire).
+
+Alternatively, watch our introduction from Pydantic team member [Marcelo](https://github.com/Kludex) showing you how to get started:
 
 <!-- Div center -->
 <div style="text-align:center">
     <iframe width="560" height="315" src="https://www.youtube.com/embed/C-aaHfYcCeo?si=Hc9GvsxBSap9ryk8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 </div>
 
-## Why use Pydantic Logfire?
+## Why use Pydantic Logfire? {#why-logfire}
+
+**Pydantic Logfire** is built to be the best observability platform for your Python application — from a ten-line script, to a large production application.
+
+Here are some pillars we built **Pydantic Logfire** upon to fulfil that promise:
 
 ### Easy to get started! :rocket:
 
@@ -34,10 +40,15 @@ logfire.info('Hello world!')
 use a wealth of existing tooling and infrastructure, including
 [instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html).
 
-### Simple, but powerful :muscle:
+### Python and Pydantic insights :snake:
 
-Logfire is built with simplicity in mind, but it doesn't come at the expense of power - you can
-write SQL and Python to query and visualize your data from within the platform and with the SDK.
+From rich display of Python objects to event-loop telemetry and profiling Python code, Pydantic Logfire can give you a view into how your Python is running that you can’t get from any other observability tool.
+
+Logfire also has an out-of-the-box Pydantic integration that lets you understand the data passing through your Pydantic models and get analytics on validations.
+
+### Data access with familiar SQL :abacus:
+
+Query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn. Using Postgres also means every existing tool that can connect to Postgres can query Logfire.
 
 ### The Dashboard is for everyone :busts_in_silhouette:
 
