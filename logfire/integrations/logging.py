@@ -4,6 +4,7 @@ from __future__ import annotations
 from logging import Handler as LoggingHandler, LogRecord
 
 from logfire import log
+from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes
@@ -60,6 +61,17 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes['code.filepath'] = record.pathname
         attributes['code.lineno'] = record.lineno
         attributes['code.function'] = record.funcName
+
+        # If there are args, we want to include them in the log message.
+        if record.args:
+            attributes[ATTRIBUTES_MESSAGE_KEY] = record.msg % record.args
+            if isinstance(record.args, dict):
+                attributes.update(record.args)
+            else:
+                attributes[ATTRIBUTES_LOGGING_ARGS_KEY] = record.args
+        else:
+            attributes[ATTRIBUTES_MESSAGE_KEY] = record.msg
+
         log(
             msg_template=record.msg,  # type: ignore
             level=record.levelname.lower(),  # type: ignore

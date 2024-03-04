@@ -316,7 +316,8 @@ class Logfire:
         stack_info = get_caller_stack_info(stacklevel)
 
         merged_attributes = {**stack_info, **attributes}
-        msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
+        if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+            msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',

@@ -44,6 +44,8 @@ ATTRIBUTES_MESSAGE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg'
 ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
 """Key in OTEL attributes that collects the JSON schema."""
 
+ATTRIBUTES_LOGGING_ARGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logging_args'
+
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""
 
