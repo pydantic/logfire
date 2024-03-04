@@ -1,5 +1,6 @@
 import contextlib
 
+from inline_snapshot import snapshot
 from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from opentelemetry.propagate import inject
 from starlette.applications import Starlette
@@ -12,8 +13,6 @@ from starlette.types import ASGIApp
 
 import logfire
 from logfire.testing import TestExporter
-
-from .. import snapshot
 
 
 def test_asgi_middleware(exporter: TestExporter) -> None:

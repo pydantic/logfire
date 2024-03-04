@@ -5,12 +5,11 @@ import subprocess
 from typing import Any, cast
 
 from dirty_equals._numeric import IsInt
+from inline_snapshot import snapshot
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
 
 import logfire
-
-from . import snapshot
 
 
 def test_system_metrics_collection() -> None:

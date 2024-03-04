@@ -3,6 +3,7 @@ from dirty_equals import IsJson, IsUrl
 from fastapi import BackgroundTasks, FastAPI, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import SecurityScopes
+from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -10,8 +11,6 @@ from starlette.testclient import TestClient
 
 import logfire
 from logfire.testing import TestExporter
-
-from .. import snapshot
 
 
 @pytest.fixture()
