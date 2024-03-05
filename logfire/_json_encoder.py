@@ -55,7 +55,7 @@ except ModuleNotFoundError:  # pragma: no cover
     sqlalchemy = None
     sa_inspect = None
 
-__all__ = 'logfire_json_dumps', 'json_dumps_traceback'
+__all__ = ('logfire_json_dumps',)
 
 NUMPY_DIMENSION_MAX_SIZE = 10
 """The maximum size of a dimension of a numpy array."""
@@ -276,17 +276,6 @@ def to_json_value(o: Any) -> JsonValue:
 
 def logfire_json_dumps(obj: Any) -> str:
     return json.dumps(to_json_value(obj), separators=(',', ':'))
-
-
-def _traceback_default(obj: Any):
-    if dataclasses.is_dataclass(obj):
-        return dataclasses.asdict(obj)
-    raise TypeError(f"Object of type '{obj.__class__.__name__}' is not JSON serializable")
-
-
-def json_dumps_traceback(obj: Any) -> str:
-    """Specifically for converting rich tracebacks to JSON, where dataclasses need to be converted to dicts."""
-    return json.dumps(obj, default=_traceback_default)
 
 
 def is_sqlalchemy(obj: Any) -> bool:
