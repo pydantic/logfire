@@ -1,14 +1,20 @@
+---
+hide:
+- navigation
+- toc
+---
+
 # Getting help with Logfire
 
 If you need help getting started with **Pydantic Logfire** or with advanced usage, the following sources may be useful.
 
 ## :material-help: Usage Documentation
 
-The [usage documentation](usage/metrics.md) is the most complete guide on how to use **Pydantic Logfire**.
+The [usage documentation](guide/metrics.md) is the most complete guide on how to use **Pydantic Logfire**.
 
 ## :material-api: SDK API Documentation
 
-The [SDK API documentation](api/logfire.md) give reference docs for the Logfire SDK.
+The [SDK API documentation](api/logfire.md) give reference docs for the **Logfire** SDK.
 
 ## :simple-slack: Slack
 

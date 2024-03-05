@@ -30,10 +30,14 @@ theme:
         icon: material/lightbulb
         name: "Switch to light mode"
   features:
+    - search.suggest
+    - search.highlight
     - content.tabs.link
     - content.code.annotate
     - content.code.copy
-    # - navigation.sections
+    - content.code.select
+    - navigation.indexes
+    - navigation.path
     - navigation.tabs
   logo: "logo-white.svg"
   favicon: "favicon.png"
@@ -52,39 +56,39 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Get Started:
-      - Home: index.md
-      - Installation: install.md
-      - Configuration: configuration.md
-      - Help with Logfire: help.md
-  - Concepts:
-      - Metrics: usage/metrics.md
-      - Testing: usage/testing.md
-      - Auto Tracing: usage/auto_tracing.md
-      - Backfill: usage/backfill.md
-      - Sampling: usage/sampling.md
-  - Integrations:
-      - Integrations: integrations/index.md
-      - Pydantic: integrations/pydantic.md
-      - FastAPI: integrations/fastapi.md
-      - Django: integrations/django.md
-      - Flask: integrations/flask.md
-      - Starlette: integrations/starlette.md
-      - HTTPX: integrations/httpx.md
-      - AIOHTTP: integrations/aiohttp.md
-      - Requests: integrations/requests.md
-      - PyMongo: integrations/pymongo.md
-      - Psycopg2: integrations/psycopg2.md
-      - Celery: integrations/celery.md
-      - Redis: integrations/redis.md
-      - SQLAlchemy: integrations/sqlalchemy.md
-      - Logging: integrations/logging.md
-      - ASGI: integrations/asgi.md
-      - WSGI: integrations/wsgi.md
-  - Cookbook:
-      - Cookbook: cookbook/index.md
-      - Image Transformation: cookbook/image_transformation.md
-      - Web Scraper: cookbook/web_scraper.md
+  - Intro: index.md
+  - Guide:
+      - First Steps: guide/first_steps.md
+      - Tracing: guide/tracing.md
+      - Metrics: guide/metrics.md
+      - Configuration: guide/configuration.md
+      - Integrations:
+          - Integrations: guide/integrations/index.md
+          - Pydantic: guide/integrations/pydantic.md
+          - FastAPI: guide/integrations/fastapi.md
+          - Django: guide/integrations/django.md
+          - Flask: guide/integrations/flask.md
+          - Starlette: guide/integrations/starlette.md
+          - HTTPX: guide/integrations/httpx.md
+          - AIOHTTP: guide/integrations/aiohttp.md
+          - Requests: guide/integrations/requests.md
+          - PyMongo: guide/integrations/pymongo.md
+          - Psycopg2: guide/integrations/psycopg2.md
+          - Celery: guide/integrations/celery.md
+          - Redis: guide/integrations/redis.md
+          - SQLAlchemy: guide/integrations/sqlalchemy.md
+          - Logging: guide/integrations/logging.md
+          - ASGI: guide/integrations/asgi.md
+          - WSGI: guide/integrations/wsgi.md
+      - Auto Tracing: guide/auto_tracing.md
+      - Dashboard: guide/dashboard.md
+      - SQL Explorer: guide/sql_explorer.md
+      # - Direct Connection: guide/direct_connection.md
+      - Sampling: guide/sampling.md
+      # - Data Scrubbing: guide/data_scrubbing.md
+      - Backfill: guide/backfill.md
+      - Testing: guide/testing.md
+      - Organization Structure: guide/organization_structure.md
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
@@ -94,6 +98,7 @@ nav:
       - Integrations:
           - api/integrations/pydantic_plugin.md
           - api/integrations/logging.md
+  - Help: help.md
   - Roadmap: roadmap.md
   - Legal:
       - Terms of Service: legal/terms_of_service.md

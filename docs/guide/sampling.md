@@ -16,7 +16,7 @@ The main advantage of tail sampling is that it can be done with more information
 
 To configure sampling globally for the SDK, use the [`trace_sample_rate`][logfire.configure(trace_sample_rate)]
 option to [`logfire.configure()`][logfire.configure], the equivalent `LOGFIRE_TRACE_SAMPLE_RATE` environment variable
-or config file option. See [Configuration](../configuration.md) for more information.
+or config file option. See [Configuration](configuration.md) for more information.
 
 ```python
 import logfire

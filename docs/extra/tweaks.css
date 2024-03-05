@@ -18,3 +18,14 @@
   width: auto !important;
   margin-left: 1rem !important;
 }
+
+/* Hide all ToC entries for parameters. */
+li.md-nav__item>a[href*="("] {
+  display: none;
+}
+
+/* Except for specific parameters. */
+li.md-nav__item>a[href^="#logfire.Logfire.instrument_fastapi("],
+li.md-nav__item>a[href^="#logfire.configure("] {
+  display: inline-block;
+}

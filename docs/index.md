@@ -1,16 +1,21 @@
+---
+hide:
+- navigation
+- toc
+---
+
 # Pydantic Logfire Documentation
 
 **Pydantic Logfire** is an observability platform focused on **developer experience**.
 
 Starting with Python, we're building a platform to let developers understand their software in a
 radically simpler and more enjoyable way. Below you'll find [our founding principles for **Pydantic Logfire**](#why-logfire).
-
+<!--
 Alternatively, watch our introduction from Pydantic team member [Marcelo](https://github.com/Kludex) showing you how to get started:
 
-<!-- Div center -->
 <div style="text-align:center">
-    <iframe width="560" height="315" src="https://www.youtube.com/embed/C-aaHfYcCeo?si=Hc9GvsxBSap9ryk8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-</div>
+    <iframe width="840" height="472" src="https://www.youtube.com/embed/C-aaHfYcCeo?si=Hc9GvsxBSap9ryk8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div> -->
 
 ## Why use Pydantic Logfire? {#why-logfire}
 
@@ -65,7 +70,7 @@ To install the latest version of **Logfire** using `pip`, run the following comm
 pip install logfire
 ```
 
-For other installation methods, including using `poetry` or `requirements.txt`, see [Installation](install.md).
+For other installation methods, including using `poetry` or `requirements.txt`, see [Installation](guide/first_steps.md#installation).
 
 ## Usage
 
@@ -82,7 +87,7 @@ logfire.debug('Payment details: {amount=}, {state=}', amount=100, state='OK') # 
 1. This will log `Hello world!` with `info` level.
 2. This will log `Payment details: amount=100, state=OK` with `debug` level.
 
-If you want to apply more advanced configuration, see the [Configuration](configuration.md) section.
+If you want to apply more advanced configuration, see the [Configuration](guide/configuration.md) section.
 
 ### Automatic instrumentation
 
@@ -94,7 +99,7 @@ import logfire
 logfire.install_auto_tracing(modules=['app'])
 ```
 
-You can read more about this on the [Auto Tracing](usage/auto_tracing.md) section.
+You can read more about this on the [Auto Tracing](guide/auto_tracing.md) section.
 
 ### CLI
 

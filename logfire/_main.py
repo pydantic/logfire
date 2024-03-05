@@ -89,24 +89,6 @@ class Logfire:
     def config(self) -> LogfireConfig:
         return self._config
 
-    def with_tags(self, *tags: str) -> Logfire:
-        """A new Logfire instance with the given tags applied.
-
-        ```py
-        import logfire
-
-        with logfire.with_tags('tag1'):
-            logfire.info('new log 1')
-        ```
-
-        Args:
-            tags: The tags to bind.
-
-        Returns:
-            A new Logfire instance with the tags applied.
-        """
-        return Logfire(self._tags + list(tags), self._config, self._sample_rate)
-
     def with_trace_sample_rate(self, sample_rate: float) -> Logfire:
         """A new Logfire instance with the given sampling ratio applied.
 
@@ -213,155 +195,6 @@ class Logfire:
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
         attributes.update(user_attributes(function_args))
         return self._fast_span(name, attributes)
-
-    def span(
-        self,
-        msg_template: LiteralString,
-        /,
-        *,
-        _tags: Sequence[str] | None = None,
-        _span_name: str | None = None,
-        **attributes: Any,
-    ) -> LogfireSpan:
-        """Context manager for creating a span.
-
-        ```py
-        import logfire
-
-        with logfire.span('This is a span {a=}', a='data'):
-            logfire.info('new log 1')
-        ```
-
-        Args:
-            msg_template: The template for the span message.
-            _span_name: The span name. If not provided, the `msg_template` will be used.
-            _tags: An optional sequence of tags to include in the span.
-
-            attributes: The arguments to include in the span and format the message template with.
-                Attributes starting with an underscore are not allowed.
-        """
-        if any(k.startswith('_') for k in attributes):
-            raise ValueError('Attribute keys cannot start with an underscore.')
-        return self._span(
-            msg_template,
-            attributes,
-            _tags=_tags,
-            _span_name=_span_name,
-        )
-
-    def instrument(
-        self,
-        msg_template: LiteralString | None = None,
-        *,
-        span_name: str | None = None,
-        extract_args: bool = True,
-    ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-        """Decorator for instrumenting a function as a span.
-
-        ```py
-        import logfire
-
-
-        @logfire.instrument('This is a span {a=}')
-        def my_function(a: int):
-            logfire.info('new log {a=}', a=a)
-        ```
-
-        !!! note
-            - This decorator MUST be applied first, i.e. UNDER any other decorators.
-            - The source code of the function MUST be accessible.
-
-        Args:
-            msg_template: The template for the span message. If not provided, the module and function name will be used.
-            span_name: The span name. If not provided, the `msg_template` will be used.
-            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
-        """
-        args = LogfireArgs(tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args)
-        return instrument(self, args)
-
-    def log(
-        self,
-        level: LevelName,
-        msg_template: LiteralString,
-        attributes: dict[str, Any],
-        tags: Sequence[str] | None = None,
-        exc_info: ExcInfo = False,
-        stack_offset: int = 0,
-    ) -> None:
-        """Log a message.
-
-        ```py
-        import logfire
-
-        logfire.log('info', 'This is a log {a}', {'a': 'Apple'})
-        ```
-
-        Args:
-            level: The level of the log.
-            msg_template: The message to log.
-            attributes: The attributes to bind to the log.
-            tags: An optional sequence of tags to include in the log.
-            exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
-                to record a traceback with the log message.
-                Set to True to use the currently handled exception.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where `logfire.log` was called.
-        """
-        if level not in LEVEL_NUMBERS:
-            warnings.warn('Invalid log level')
-            level = 'error'
-        level_no = LEVEL_NUMBERS[level]
-        stacklevel = stack_offset + 2
-        stack_info = get_caller_stack_info(stacklevel)
-
-        merged_attributes = {**stack_info, **attributes}
-        if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
-        otlp_attributes = user_attributes(merged_attributes)
-        otlp_attributes = {
-            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-            ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
-            ATTRIBUTES_LOG_LEVEL_NUM_KEY: level_no,
-            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
-            ATTRIBUTES_MESSAGE_KEY: msg,
-            **otlp_attributes,
-        }
-        if json_schema_properties := attributes_json_schema_properties(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
-
-        tags = (self._tags or []) + list(tags or [])
-        if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
-
-        sample_rate = (
-            self._sample_rate
-            if self._sample_rate is not None
-            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-        )
-        if sample_rate is not None and sample_rate != 1:
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
-
-        start_time = self._config.ns_timestamp_generator()
-
-        span = self._logs_tracer.start_span(
-            msg_template,
-            attributes=otlp_attributes,
-            start_time=start_time,
-        )
-
-        if exc_info:
-            if exc_info is True:
-                exc_info = sys.exc_info()
-            if isinstance(exc_info, tuple):
-                exc_info = exc_info[1]
-            if isinstance(exc_info, BaseException):
-                _record_exception(span, exc_info)
-            elif exc_info is not None:
-                raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
-
-        span.set_status(trace_api.Status(trace_api.StatusCode.OK))
-        span.end(start_time)
 
     def trace(
         self,
@@ -578,10 +411,184 @@ class Logfire:
         """The same as `error` but with `_exc_info=True` by default.
 
         This means that a traceback will be logged for any currently handled exception.
+
+        Args:
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
+            _tags: An optional sequence of tags to include in the log.
+            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+
+    def span(
+        self,
+        msg_template: LiteralString,
+        /,
+        *,
+        _tags: Sequence[str] | None = None,
+        _span_name: str | None = None,
+        **attributes: Any,
+    ) -> LogfireSpan:
+        """Context manager for creating a span.
+
+        ```py
+        import logfire
+
+        with logfire.span('This is a span {a=}', a='data'):
+            logfire.info('new log 1')
+        ```
+
+        Args:
+            msg_template: The template for the span message.
+            _span_name: The span name. If not provided, the `msg_template` will be used.
+            _tags: An optional sequence of tags to include in the span.
+
+            attributes: The arguments to include in the span and format the message template with.
+                Attributes starting with an underscore are not allowed.
+        """
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        return self._span(
+            msg_template,
+            attributes,
+            _tags=_tags,
+            _span_name=_span_name,
+        )
+
+    def instrument(
+        self,
+        msg_template: LiteralString | None = None,
+        *,
+        span_name: str | None = None,
+        extract_args: bool = True,
+    ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+        """Decorator for instrumenting a function as a span.
+
+        ```py
+        import logfire
+
+
+        @logfire.instrument('This is a span {a=}')
+        def my_function(a: int):
+            logfire.info('new log {a=}', a=a)
+        ```
+
+        !!! note
+            - This decorator MUST be applied first, i.e. UNDER any other decorators.
+            - The source code of the function MUST be accessible.
+
+        Args:
+            msg_template: The template for the span message. If not provided, the module and function name will be used.
+            span_name: The span name. If not provided, the `msg_template` will be used.
+            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+        """
+        args = LogfireArgs(tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args)
+        return instrument(self, args)
+
+    def log(
+        self,
+        level: LevelName,
+        msg_template: LiteralString,
+        attributes: dict[str, Any],
+        tags: Sequence[str] | None = None,
+        exc_info: ExcInfo = False,
+        stack_offset: int = 0,
+    ) -> None:
+        """Log a message.
+
+        ```py
+        import logfire
+
+        logfire.log('info', 'This is a log {a}', {'a': 'Apple'})
+        ```
+
+        Args:
+            level: The level of the log.
+            msg_template: The message to log.
+            attributes: The attributes to bind to the log.
+            tags: An optional sequence of tags to include in the log.
+            exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+                to record a traceback with the log message.
+                Set to True to use the currently handled exception.
+            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
+                message formatting might emit, defaults to `0` which means the stack info will be collected from the
+                position where `logfire.log` was called.
+        """
+        if level not in LEVEL_NUMBERS:
+            warnings.warn('Invalid log level')
+            level = 'error'
+        level_no = LEVEL_NUMBERS[level]
+        stacklevel = stack_offset + 2
+        stack_info = get_caller_stack_info(stacklevel)
+
+        merged_attributes = {**stack_info, **attributes}
+        if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+            msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
+        otlp_attributes = user_attributes(merged_attributes)
+        otlp_attributes = {
+            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+            ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
+            ATTRIBUTES_LOG_LEVEL_NUM_KEY: level_no,
+            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+            ATTRIBUTES_MESSAGE_KEY: msg,
+            **otlp_attributes,
+        }
+        if json_schema_properties := attributes_json_schema_properties(attributes):
+            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+
+        tags = (self._tags or []) + list(tags or [])
+        if tags:
+            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+
+        sample_rate = (
+            self._sample_rate
+            if self._sample_rate is not None
+            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
+        )
+        if sample_rate is not None and sample_rate != 1:
+            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+
+        start_time = self._config.ns_timestamp_generator()
+
+        span = self._logs_tracer.start_span(
+            msg_template,
+            attributes=otlp_attributes,
+            start_time=start_time,
+        )
+
+        if exc_info:
+            if exc_info is True:
+                exc_info = sys.exc_info()
+            if isinstance(exc_info, tuple):
+                exc_info = exc_info[1]
+            if isinstance(exc_info, BaseException):
+                _record_exception(span, exc_info)
+            elif exc_info is not None:
+                raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
+
+        span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+        span.end(start_time)
+
+    def with_tags(self, *tags: str) -> Logfire:
+        """A new Logfire instance with the given tags applied.
+
+        ```py
+        import logfire
+
+        with logfire.with_tags('tag1'):
+            logfire.info('new log 1')
+        ```
+
+        Args:
+            tags: The tags to bind.
+
+        Returns:
+            A new Logfire instance with the tags applied.
+        """
+        return Logfire(self._tags + list(tags), self._config, self._sample_rate)
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
