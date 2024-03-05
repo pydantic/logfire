@@ -1,10 +1,15 @@
 import io
 import os
+import re
 import shlex
 import sys
+from contextlib import ExitStack
 from pathlib import Path
+from unittest import mock
 
 import pytest
+import requests_mock
+from dirty_equals import IsStr
 
 from logfire import VERSION
 from logfire._config import LogfireCredentials
@@ -83,3 +88,41 @@ def test_inspect(
         capsys.readouterr().err.splitlines()[0]
         == 'The following packages are installed, but not their opentelemetry package:'
     )
+
+
+def test_auth(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire.cli.DEFAULT_FILE', auth_file))
+        console = stack.enter_context(mock.patch('logfire.cli.Console'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+        )
+        m.get(
+            'https://api.logfire.dev/v1/device-auth/wait/DC', text='{"token": "fake_token", "expiration": "fake_exp"}'
+        )
+
+        main(['auth'])
+
+    # insert_assert(auth_file.read_text())
+    assert (
+        auth_file.read_text() == '[tokens."https://api.logfire.dev"]\ntoken = "fake_token"\nexpiration = "fake_exp"\n'
+    )
+
+    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+    # insert_assert(console_calls)
+    assert console_calls == [
+        IsStr(regex=r'^\(file=.*'),
+        'print()',
+        "print('Welcome to Logfire! :fire:')",
+        "print('Before you can send data to Logfire, we need to authenticate you.')",
+        'print()',
+        "input('Press [bold]Enter[/] to open logfire.dev in your browser...')",
+        "print('Waiting for you to authenticate with Logfire...')",
+        "print('Successfully authenticated!')",
+        'print()',
+        f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
+    ]

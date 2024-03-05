@@ -12,12 +12,10 @@ import warnings
 import webbrowser
 from pathlib import Path
 from typing import Iterator, cast
-from urllib.parse import urljoin
 
 import requests
 from rich.console import Console
 from rich.progress import Progress
-from rich.prompt import Confirm
 from rich.table import Table
 
 import logfire._config
@@ -30,8 +28,6 @@ from logfire.version import VERSION
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://docs.logfire.dev/'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
-GITHUB_CLIENT_ID = '8cb77606ce18f76d36ce'
-"""GitHub client ID used to authenticate with Logfire."""
 
 
 def version_callback() -> None:
@@ -192,11 +188,10 @@ def parse_inspect(args: argparse.Namespace) -> None:
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.
 
-    This command will authenticate the user with Logfire, and store the credentials.
+    This command will authenticate you with Logfire, and store the credentials.
     """
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
-    github_client_id = cast(str, args.github_client_id)
 
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
@@ -206,49 +201,22 @@ def parse_auth(args: argparse.Namespace) -> None:
     else:
         data: DefaultFile = {'tokens': {}}
 
+    console.print()
+    console.print('Welcome to Logfire! :fire:')
+    console.print('Before you can send data to Logfire, we need to authenticate you.')
+    console.print()
+
     with requests.Session() as session:
-        session.headers.update({'Accept': 'application/json'})
-        res = request_device_code(session, github_client_id)
-
-        console.print()
-        console.print('Welcome to Logfire! :fire:')
-        console.print('Before you can send data to Logfire, we need to authenticate you.')
-        console.print()
-        user_agreed_with_terms = Confirm.ask(
-            'Please confirm that you agree to our Terms of Service '
-            '(https://docs.logfire.dev/legal/terms_of_service/) '
-            'and Privacy Policy (https://docs.logfire.dev/legal/privacy/)',
-            default=True,
-        )
-        if not user_agreed_with_terms:
-            console.print()
-            console.print('You must agree to the terms of service and privacy policy to use Logfire.')
-            exit(1)
-        console.print()
-        console.print('We use GitHub for authentication.')
-        console.print(f"You'll be prompted for this one-time code: [bold]{res['user_code']}[/]")
-        console.print()
-        console.input('Press [bold]Enter[/] to open github.com in your browser...')
+        device_code, frontend_auth_url = request_device_code(session, logfire_url)
+        console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
         try:
-            webbrowser.open(res['verification_uri'], new=2)
+            webbrowser.open(frontend_auth_url, new=2)
         except webbrowser.Error:
-            console.print(f'Please open [bold]{res["verification_uri"]}[/] in your browser to authenticate.')
-        console.print('Waiting for you to authenticate with GitHub...')
+            console.print(f'Please open [bold]{frontend_auth_url}[/] in your browser to authenticate.')
+        console.print('Waiting for you to authenticate with Logfire...')
 
-        access_token = poll_for_token(
-            session, client_id=github_client_id, interval=res['interval'], device_code=res['device_code']
-        )
+        data['tokens'][logfire_url] = poll_for_token(session, device_code, logfire_url)
         console.print('Successfully authenticated!')
-
-        login_endpoint = urljoin(logfire_url, '/v1/login/')
-        machine_name = platform.uname()[1]
-        res = session.post(
-            login_endpoint,
-            headers={'Authorization': f'{access_token}'},
-            params={'machine_name': machine_name},
-        )
-        res.raise_for_status()
-        data['tokens'][logfire_url] = res.json()
 
     HOME_LOGFIRE.mkdir(exist_ok=True)
     # There's no standard library package to write TOML files, so we'll write it manually.
@@ -290,7 +258,6 @@ def main(args: list[str] | None = None) -> None:
 
     cmd_login = subparsers.add_parser('auth', help='Authenticate with Logfire.')
     cmd_login.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
-    cmd_login.add_argument('--github-client-id', default=GITHUB_CLIENT_ID, help='GitHub client ID.')
     cmd_login.set_defaults(func=parse_auth)
 
     namespace = parser.parse_args(args)
