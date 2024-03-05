@@ -11,7 +11,8 @@ basicConfig(handlers=[LogfireLoggingHandler()])
 
 logger = getLogger(__name__)
 
-logger.error("{first_name=} failed!", extra={"first_name": "Fred"})
+logger.error("Hello %s!", "Fred")
+#> 2021-08-25 15:00:00,000 [ERROR] main.py:7: Hello Fred!
 ```
 
 [logging]: https://docs.python.org/3/library/logging.html

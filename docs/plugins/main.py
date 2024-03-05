@@ -64,7 +64,7 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
     Check http://127.0.0.1:8000/configuration/#using-environment-variables.
     """
-    if page.file.src_uri != 'configuration.md':
+    if page.file.src_uri != 'guide/configuration.md':
         return markdown
 
     module_lines = Path(config_params.__file__).read_text().splitlines()
