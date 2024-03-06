@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from contextlib import contextmanager
 from functools import lru_cache
 from typing import Any, Callable, ContextManager, Iterable, Literal
@@ -17,6 +18,7 @@ from starlette.requests import Request
 from starlette.websockets import WebSocket
 
 from logfire import Logfire
+from logfire._stack_info import StackInfo, get_code_object_info
 
 
 def instrument_fastapi(
@@ -192,10 +194,14 @@ class Instrumentation:
         values: dict[str, Any],
         **kwargs: Any,
     ) -> Any:
+        callback = inspect.unwrap(dependant.call)
+        code = getattr(callback, '__code__', None)
+        stack_info: StackInfo = get_code_object_info(code) if code else {}
         with self.logfire_instance.span(
-            '{method} {route} endpoint function',
+            '{method} {route} ({code.function})',
             method=request.method,
             route=request.scope['route'].path,
+            **stack_info,
         ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
 

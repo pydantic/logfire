@@ -13,38 +13,44 @@ import logfire
 from logfire.testing import TestExporter
 
 
+async def homepage() -> PlainTextResponse:
+    logfire.info('inside request handler')
+    return PlainTextResponse('middleware test')
+
+
+async def other_route(
+    foo: str,
+    bar: int,
+    request: Request,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    security_scopes: SecurityScopes,
+):
+    pass
+
+
+async def exception():
+    raise ValueError('test exception')
+
+
+async def validation_error():
+    raise RequestValidationError([])
+
+
+async def with_path_param(param: str):
+    return {'param': param}
+
+
 @pytest.fixture()
-def app() -> FastAPI:
+def app():
+    # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
+    # which won't be stripped out of the logfire msg, complicating things in different python versions.
     app = FastAPI()
-
-    @app.get('/')
-    async def homepage() -> PlainTextResponse:
-        logfire.info('inside request handler')
-        return PlainTextResponse('middleware test')
-
-    @app.get('/other', name='other_route_name', operation_id='other_route_operation_id')
-    async def other_route(
-        foo: str,
-        bar: int,
-        request: Request,
-        response: Response,
-        background_tasks: BackgroundTasks,
-        security_scopes: SecurityScopes,
-    ):
-        pass
-
-    @app.get('/exception')
-    async def exception():
-        raise ValueError('test exception')
-
-    @app.get('/validation_error')
-    async def validation_error():
-        raise RequestValidationError([])
-
-    @app.get('/with_path_param/{param}')
-    async def with_path_param(param: str):
-        return {'param': param}
-
+    app.get('/')(homepage)
+    app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
+    app.get('/exception')(exception)
+    app.get('/validation_error')(validation_error)
+    app.get('/with_path_param/{param}')(with_path_param)
     return app
 
 
@@ -105,19 +111,19 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '{method} {route} endpoint function (pending)',
+                'name': '{method} {route} ({code.function}) (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'with_path_param',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/with_path_param/{param}',
-                    'logfire.msg_template': '{method} {route} endpoint function',
-                    'logfire.msg': 'GET /with_path_param/{param} endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
@@ -125,19 +131,19 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '{method} {route} endpoint function',
+                'name': '{method} {route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'with_path_param',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/with_path_param/{param}',
-                    'logfire.msg_template': '{method} {route} endpoint function',
-                    'logfire.msg': 'GET /with_path_param/{param} endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
@@ -272,19 +278,19 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': '{method} {route} endpoint function (pending)',
+                'name': '{method} {route} ({code.function}) (pending)',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 3000000000,
                 'end_time': 3000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'homepage',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/',
-                    'logfire.msg_template': '{method} {route} endpoint function',
-                    'logfire.msg': 'GET / endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'logfire.msg': 'GET / (homepage)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
@@ -309,21 +315,21 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': '{method} {route} endpoint function',
+                'name': '{method} {route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'homepage',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/',
-                    'logfire.msg_template': '{method} {route} endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET / endpoint function',
+                    'logfire.msg': 'GET / (homepage)',
                     'logfire.tags': ('fastapi',),
                 },
             },
@@ -543,24 +549,24 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': '{method} {route} endpoint function',
+                'name': '{method} {route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'exception',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/exception',
-                    'logfire.msg_template': '{method} {route} endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.level_num': 17,
-                    'logfire.level_name': 'error',
-                    'logfire.msg': 'GET /exception endpoint function',
                     'logfire.tags': ('fastapi',),
+                    'logfire.level_name': 'error',
+                    'logfire.msg': 'GET /exception (exception)',
+                    'logfire.level_num': 17,
                 },
                 'events': [
                     {
@@ -621,21 +627,21 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': '{method} {route} endpoint function',
+                'name': '{method} {route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': '_fastapi.py',
-                    'code.function': 'run_endpoint_function',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'validation_error',
                     'code.lineno': 123,
                     'method': 'GET',
                     'route': '/validation_error',
-                    'logfire.msg_template': '{method} {route} endpoint function',
+                    'logfire.msg_template': '{method} {route} ({code.function})',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /validation_error endpoint function',
+                    'logfire.msg': 'GET /validation_error (validation_error)',
                     'logfire.level_num': 17,
                     'logfire.level_name': 'error',
                     'logfire.tags': ('fastapi',),
