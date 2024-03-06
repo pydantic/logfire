@@ -1,6 +1,8 @@
 from collections import ChainMap
 
-from logfire._formatter import chunks_formatter
+from inline_snapshot import snapshot
+
+from logfire._formatter import chunks_formatter, logfire_format
 
 
 def test_simple_render():
@@ -54,3 +56,25 @@ def test_dict():
     v = chunks_formatter.chunks('{foo[bar]}', {'foo': {'bar': 42}})
     # insert_assert(v)
     assert v == [{'t': 'arg', 'v': '42'}]
+
+
+def test_truncate():
+    message = logfire_format(
+        '1 {a} 2 {b} 3',
+        dict(
+            a='a' * 1000,
+            b='b' * 1000,
+        ),
+    )
+    assert message == snapshot(
+        '1 '
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        '...'
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        ' 2 '
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        '...'
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        ' 3'
+    )
+    assert len(message) == snapshot(261)

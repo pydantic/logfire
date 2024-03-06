@@ -8,6 +8,9 @@ from typing_extensions import NotRequired, TypedDict
 
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
+from logfire._constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
+from logfire._utils import truncate_string
+
 
 class LiteralChunk(TypedDict):
     t: Literal['lit']
@@ -113,7 +116,9 @@ class ChunksFormatter(Formatter):
     def format_field(self, value: Any, format_spec: str) -> Any:
         if value is None:
             value = self.NONE_REPR
-        return super().format_field(value, format_spec)
+        return truncate_string(
+            super().format_field(value, format_spec), max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
+        )
 
 
 chunks_formatter = ChunksFormatter()

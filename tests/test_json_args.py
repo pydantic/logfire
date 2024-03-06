@@ -19,6 +19,7 @@ import pandas
 import pytest
 from attrs import define
 from dirty_equals._other import IsJson
+from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -607,7 +608,9 @@ class AttrsType:
                 data={f'col{i}': [i * j for j in range(1, 23)] for i in range(1, 13)},
                 index=[f'i{x}' for x in range(1, 23)],
             ),
-            '     col1  col2  col3  col4  col5  ...  col8  col9  col10  col11  col12\n',
+            '     col1  col2  col3  col4  col5  ...  col8  col9  col10  col'
+            '...'
+            '  ...   176   198    220    242    264\n\n[22 rows x 12 columns]',
             '[[1,2,3,4,5,8,9,10,11,12],'
             '[2,4,6,8,10,16,18,20,22,24],'
             '[3,6,9,12,15,24,27,30,33,36],'
@@ -674,26 +677,9 @@ class AttrsType:
         pytest.param(
             numpy.array([[i * j for j in range(1, 13)] for i in range(1, 23)]),
             '[[  1   2   3   4   5   6   7   8   9  10  11  12]\n'
-            ' [  2   4   6   8  10  12  14  16  18  20  22  24]\n'
-            ' [  3   6   9  12  15  18  21  24  27  30  33  36]\n'
-            ' [  4   8  12  16  20  24  28  32  36  40  44  48]\n'
-            ' [  5  10  15  20  25  30  35  40  45  50  55  60]\n'
-            ' [  6  12  18  24  30  36  42  48  54  60  66  72]\n'
-            ' [  7  14  21  28  35  42  49  56  63  70  77  84]\n'
-            ' [  8  16  24  32  40  48  56  64  72  80  88  96]\n'
-            ' [  9  18  27  36  45  54  63  72  81  90  99 108]\n'
-            ' [ 10  20  30  40  50  60  70  80  90 100 110 120]\n'
-            ' [ 11  22  33  44  55  66  77  88  99 110 121 132]\n'
-            ' [ 12  24  36  48  60  72  84  96 108 120 132 144]\n'
-            ' [ 13  26  39  52  65  78  91 104 117 130 143 156]\n'
-            ' [ 14  28  42  56  70  84  98 112 126 140 154 168]\n'
-            ' [ 15  30  45  60  75  90 105 120 135 150 165 180]\n'
-            ' [ 16  32  48  64  80  96 112 128 144 160 176 192]\n'
-            ' [ 17  34  51  68  85 102 119 136 153 170 187 204]\n'
-            ' [ 18  36  54  72  90 108 126 144 162 180 198 216]\n'
-            ' [ 19  38  57  76  95 114 133 152 171 190 209 228]\n'
-            ' [ 20  40  60  80 100 120 140 160 180 200 220 240]\n'
-            ' [ 21  42  63  84 105 126 147 168 189 210 231 252]\n'
+            ' [  2   4  '
+            '...'
+            '0 231 252]\n'
             ' [ 22  44  66  88 110 132 154 176 198 220 242 264]]',
             '[[1,2,3,4,5,8,9,10,11,12],[2,4,6,8,10,16,18,20,22,24],[3,6,9,12,15,24,27,30,33,36],[4,8,12,16,20,32,36,40,44,48],[5,10,15,20,25,40,45,50,55,60],[18,36,54,72,90,144,162,180,198,216],[19,38,57,76,95,152,171,190,209,228],[20,40,60,80,100,160,180,200,220,240],[21,42,63,84,105,168,189,210,231,252],[22,44,66,88,110,176,198,220,242,264]]',
             {
@@ -707,53 +693,9 @@ class AttrsType:
         pytest.param(
             numpy.array([[[i * j * k for j in range(1, 13)] for i in range(1, 13)] for k in range(1, 13)]),
             '[[[   1    2    3 ...   10   11   12]\n'
-            '  [   2    4    6 ...   20   22   24]\n'
-            '  [   3    6    9 ...   30   33   36]\n'
-            '  ...\n'
-            '  [  10   20   30 ...  100  110  120]\n'
-            '  [  11   22   33 ...  110  121  132]\n'
-            '  [  12   24   36 ...  120  132  144]]\n'
-            '\n'
-            ' [[   2    4    6 ...   20   22   24]\n'
-            '  [   4    8   12 ...   40   44   48]\n'
-            '  [   6   12   18 ...   60   66   72]\n'
-            '  ...\n'
-            '  [  20   40   60 ...  200  220  240]\n'
-            '  [  22   44   66 ...  220  242  264]\n'
-            '  [  24   48   72 ...  240  264  288]]\n'
-            '\n'
-            ' [[   3    6    9 ...   30   33   36]\n'
-            '  [   6   12   18 ...   60   66   72]\n'
-            '  [   9   18   27 ...   90   99  108]\n'
-            '  ...\n'
-            '  [  30   60   90 ...  300  330  360]\n'
-            '  [  33   66   99 ...  330  363  396]\n'
-            '  [  36   72  108 ...  360  396  432]]\n'
-            '\n'
-            ' ...\n'
-            '\n'
-            ' [[  10   20   30 ...  100  110  120]\n'
-            '  [  20   40   60 ...  200  220  240]\n'
-            '  [  30   60   90 ...  300  330  360]\n'
-            '  ...\n'
-            '  [ 100  200  300 ... 1000 1100 1200]\n'
-            '  [ 110  220  330 ... 1100 1210 1320]\n'
-            '  [ 120  240  360 ... 1200 1320 1440]]\n'
-            '\n'
-            ' [[  11   22   33 ...  110  121  132]\n'
-            '  [  22   44   66 ...  220  242  264]\n'
-            '  [  33   66   99 ...  330  363  396]\n'
-            '  ...\n'
-            '  [ 110  220  330 ... 1100 1210 1320]\n'
-            '  [ 121  242  363 ... 1210 1331 1452]\n'
-            '  [ 132  264  396 ... 1320 1452 1584]]\n'
-            '\n'
-            ' [[  12   24   36 ...  120  132  144]\n'
-            '  [  24   48   72 ...  240  264  288]\n'
-            '  [  36   72  108 ...  360  396  432]\n'
-            '  ...\n'
-            '  [ 120  240  360 ... 1200 1320 1440]\n'
-            '  [ 132  264  396 ... 1320 1452 1584]\n'
+            '  [   2    4    6 ...   '
+            '...'
+            '96 ... 1320 1452 1584]\n'
             '  [ 144  288  432 ... 1440 1584 1728]]]',
             '[[[1,2,3,4,5,8,9,10,11,12],[2,4,6,8,10,16,18,20,22,24],[3,6,9,12,15,24,27,30,33,36],[4,8,12,16,20,32,36,40,44,48],[5,10,15,20,25,40,45,50,55,60],[8,16,24,32,40,64,72,80,88,96],[9,18,27,36,45,72,81,90,99,108],[10,20,30,40,50,80,90,100,110,120],[11,22,33,44,55,88,99,110,121,132],[12,24,36,48,60,96,108,120,132,144]],'
             '[[2,4,6,8,10,16,18,20,22,24],[4,8,12,16,20,32,36,40,44,48],[6,12,18,24,30,48,54,60,66,72],[8,16,24,32,40,64,72,80,88,96],[10,20,30,40,50,80,90,100,110,120],[16,32,48,64,80,128,144,160,176,192],[18,36,54,72,90,144,162,180,198,216],[20,40,60,80,100,160,180,200,220,240],[22,44,66,88,110,176,198,220,242,264],[24,48,72,96,120,192,216,240,264,288]],'
@@ -909,21 +851,31 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
         complex_dict={'k1': 'v1', 'model': model, 'dataclass': dc, 'pydantic_dataclass': pdc},
     )
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'])
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'] == {
-        'logfire.span_type': 'log',
-        'logfire.level_name': 'info',
-        'logfire.level_num': 9,
-        'logfire.msg_template': 'test message {a=} {complex_list=} {complex_dict=}',
-        'logfire.msg': "test message a=1 complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0)), 'dataclass': test_log_non_scalar_complex_args.<locals>.MyDataclass(t=10), 'pydantic_dataclass': test_log_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}",
-        'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
-        'code.filepath': 'test_json_args.py',
-        'code.lineno': 123,
-        'code.function': 'test_log_non_scalar_complex_args',
-        'a': 1,
-        'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
-        'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
-    }
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'] == snapshot(
+        {
+            'logfire.span_type': 'log',
+            'logfire.level_name': 'info',
+            'logfire.level_num': 9,
+            'logfire.msg_template': 'test message {a=} {complex_list=} {complex_dict=}',
+            'logfire.msg': (
+                'test message '
+                'a=1 '
+                "complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0))"
+                '...'
+                'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] '
+                "complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023,"
+                '...'
+                'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
+            ),
+            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+            'code.filepath': 'test_json_args.py',
+            'code.lineno': 123,
+            'code.function': 'test_log_non_scalar_complex_args',
+            'a': 1,
+            'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
+            'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
+        }
+    )
 
 
 def test_log_dicts_and_lists(exporter: TestExporter) -> None:
