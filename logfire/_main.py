@@ -5,6 +5,7 @@ import traceback
 import typing
 import warnings
 from functools import cached_property
+from time import time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
@@ -921,15 +922,36 @@ class Logfire:
         """
         self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
-    def shutdown(self, *, fast: bool = False) -> None:
-        """Shut down the OTel tracer provider and meter provider.
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
+        """Shut down all tracers and meters.
 
-        In particular, this should join any threads started by OTel for those providers.
-        If this method is not called before reconfiguring with new tracer/meter providers,
-        those OTel threads may be leaked.
+        This will clean up any resources used by the tracers and meters and flush any remaining spans and metrics.
+
+        Args:
+            timeout_millis: The timeout in milliseconds.
+            flush: Whether to flush remaining spans and metrics before shutting down.
+
+        Returns:
+            False if the timeout was reached before the shutdown was completed, True otherwise.
         """
+        start = time()
+        if flush:
+            self._tracer_provider.force_flush(timeout_millis)
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:
+            return False
         self._tracer_provider.shutdown()
-        self._meter_provider.shutdown(fast)
+
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:
+            return False
+        if flush:
+            self._meter_provider.force_flush(remaining)
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:
+            return False
+        self._meter_provider.shutdown(remaining)
+        return (start - time()) < timeout_millis
 
 
 class FastLogfireSpan:

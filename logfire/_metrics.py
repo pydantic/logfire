@@ -104,11 +104,15 @@ class ProxyMeterProvider(MeterProvider):
             for meter in self.meters:
                 meter.set_meter(meter_provider)
 
-    def shutdown(self, fast: bool) -> None:
+    def shutdown(self, timeout_millis: float = 30_000) -> None:
         with self.lock:
             if isinstance(self.provider, SDKMeterProvider):
-                kwargs = {'timeout_millis': 200} if fast else {}
-                self.provider.shutdown(**kwargs)
+                self.provider.shutdown(timeout_millis)
+
+    def force_flush(self, timeout_millis: float = 30_000) -> None:
+        with self.lock:
+            if isinstance(self.provider, SDKMeterProvider):
+                self.provider.force_flush(timeout_millis)
 
 
 class _ProxyMeter(Meter):

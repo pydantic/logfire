@@ -16,6 +16,7 @@ force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
+shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
