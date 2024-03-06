@@ -43,6 +43,7 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self
 
+from ._auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from ._collect_system_info import collect_package_info
 from ._config_params import ParamManager, PydanticPluginRecordValues
 from ._constants import (
@@ -51,7 +52,6 @@ from ._constants import (
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
-from ._login import DEFAULT_FILE, DefaultFile, is_logged_in
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import PendingSpanProcessor, ProxyTracerProvider
 from ._utils import UnexpectedResponse, read_toml_file

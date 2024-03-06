@@ -19,9 +19,9 @@ from rich.progress import Progress
 from rich.table import Table
 
 import logfire._config
+from logfire._auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from logfire._config import LogfireCredentials
 from logfire._constants import LOGFIRE_BASE_URL
-from logfire._login import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from logfire._utils import read_toml_file
 from logfire.version import VERSION
 
