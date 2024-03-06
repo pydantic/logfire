@@ -81,6 +81,7 @@ nav:
           - ASGI: guide/integrations/asgi.md
           - WSGI: guide/integrations/wsgi.md
       - Auto Tracing: guide/auto_tracing.md
+      - HTTP Servers: guide/http_servers.md
       - Dashboard: guide/dashboard.md
       - SQL Explorer: guide/sql_explorer.md
       # - Direct Connection: guide/direct_connection.md

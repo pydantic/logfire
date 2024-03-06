@@ -48,6 +48,12 @@ if __name__ == "__main__":
     `StarletteInstrumentor` actually wraps the ASGI middleware and adds some additional
     information related to the routes.
 
+## Capturing request and response headers
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
+
+- [Quick guide](../http_servers.md#capturing-http-server-request-and-response-headers)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html#capture-http-request-and-response-headers)
+
 [starlette]: https://www.starlette.io/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-starlette]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html

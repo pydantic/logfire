@@ -36,6 +36,12 @@ with make_server("", 8000, app) as httpd:
 
 You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-wsgi].
 
+## Capturing request and response headers
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
+
+- [Quick guide](../http_servers.md#capturing-http-server-request-and-response-headers)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html#capture-http-request-and-response-headers)
+
 [wsgi]: https://wsgi.readthedocs.io/en/latest/
 [opentelemetry-wsgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html
 [pypi-otel-wsgi]: https://pypi.org/project/opentelemetry-instrumentation-wsgi/

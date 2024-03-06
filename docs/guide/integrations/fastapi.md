@@ -119,6 +119,12 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
 - The environment variable `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`.
 - The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
 
+## Capturing request and response headers
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
+
+- [Quick guide](../http_servers.md#capturing-http-server-request-and-response-headers)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html#capture-http-request-and-response-headers)
+
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
