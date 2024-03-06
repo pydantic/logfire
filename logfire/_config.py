@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -53,7 +54,7 @@ from ._constants import (
 from ._login import DEFAULT_FILE, DefaultFile, is_logged_in
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._tracer import PendingSpanProcessor, ProxyTracerProvider
-from ._utils import read_toml_file
+from ._utils import UnexpectedResponse, read_toml_file
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
@@ -655,18 +656,27 @@ class LogfireConfig(_LogfireConfigData):
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def check_logfire_backend(self) -> None:
-        """Check that the token is valid, and the Logfire API is reachable.
+        """Check that the token is valid.
+
+        Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
+
+        We continue unless we get a 401 and allow OTel to take of storing data locally for back-fill.
 
         Raises:
-            LogfireConfigError: If the token is invalid or the Logfire API is not reachable.
+            LogfireConfigError: If the token is invalid.
         """
         try:
-            response = self.logfire_api_session.get(urljoin(self.base_url, '/v1/health'))
-            response.raise_for_status()
-        except requests.HTTPError as e:
-            if e.response is not None and (e.response.status_code == 401):
-                raise LogfireConfigError('Invalid Logfire token.') from e
-            raise LogfireConfigError('Logfire API is not healthy.') from e
+            response = self.logfire_api_session.get(urljoin(self.base_url, '/v1/health'), timeout=10)
+        except requests.RequestException as e:
+            warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
+        else:
+            if response.status_code == 401:
+                raise LogfireConfigError('Invalid Logfire token.')
+            elif response.status_code != 200:
+                # any other status code is considered unhealthy
+                warnings.warn(
+                    f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
+                )
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
@@ -753,13 +763,9 @@ class LogfireCredentials:
         organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
         try:
             response = session.get(organizations_url, headers=headers)
-            response.raise_for_status()
-        except requests.ConnectionError as e:
-            raise LogfireConfigError(
-                'Error retrieving list of organizations. '
-                'If the error persists, please contact us. '
-                '(See https://docs.logfire.dev/help/ for contact information.)'
-            ) from e
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error retrieving list of organizations.') from e
 
         organizations = [item['organization_name'] for item in response.json()]
         if len(organizations) > 1:
@@ -808,9 +814,9 @@ class LogfireCredentials:
                             f'Please enter a different project name'
                         )
                         continue
-                response.raise_for_status()
-            except requests.ConnectionError as e:
-                raise LogfireConfigError(f'Error creating new project at {url}') from e
+                UnexpectedResponse.raise_for_status(response)
+            except requests.RequestException as e:
+                raise LogfireConfigError('Error creating new project.') from e
             else:
                 json_data = response.json()
                 try:
@@ -849,9 +855,9 @@ class LogfireCredentials:
         try:
             params = {'requested_project_name': requested_project_name}
             response = session.post(url, params=params, headers=COMMON_REQUEST_HEADERS)
-            response.raise_for_status()
-        except requests.ConnectionError as e:
-            raise LogfireConfigError(f'Error creating new project at {url}') from e
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error creating new project.') from e
         else:
             json_data = response.json()
             try:

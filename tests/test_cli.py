@@ -8,12 +8,14 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import requests
 import requests_mock
 from dirty_equals import IsStr
 
 from logfire import VERSION
 from logfire._config import LogfireCredentials
 from logfire.cli import main
+from logfire.exceptions import LogfireConfigError
 
 
 @pytest.fixture
@@ -95,14 +97,20 @@ def test_auth(tmp_path: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire.cli.DEFAULT_FILE', auth_file))
         console = stack.enter_context(mock.patch('logfire.cli.Console'))
+        stack.enter_context(mock.patch('logfire.cli.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+            'https://api.logfire.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}',
         )
         m.get(
-            'https://api.logfire.dev/v1/device-auth/wait/DC', text='{"token": "fake_token", "expiration": "fake_exp"}'
+            'https://api.logfire.dev/v1/device-auth/wait/DC',
+            [
+                dict(text='null'),
+                dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
+            ],
         )
 
         main(['auth'])
@@ -126,3 +134,46 @@ def test_auth(tmp_path: Path) -> None:
         'print()',
         f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
     ]
+
+
+def test_auth_temp_failure(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire.cli.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire.cli.Console'))
+        stack.enter_context(mock.patch('logfire.cli.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+        )
+        m.get(
+            'https://api.logfire.dev/v1/device-auth/wait/DC',
+            [
+                dict(exc=requests.exceptions.ConnectTimeout),
+                dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
+            ],
+        )
+
+        with pytest.warns(UserWarning, match=r'^Failed to poll for token\. Retrying\.\.\.$'):
+            main(['auth'])
+
+
+def test_auth_permanent_failure(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire.cli.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire.cli.Console'))
+        stack.enter_context(mock.patch('logfire.cli.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+        )
+        m.get('https://api.logfire.dev/v1/device-auth/wait/DC', text='Error', status_code=500)
+
+        with pytest.warns(UserWarning, match=r'^Failed to poll for token\. Retrying\.\.\.$'):
+            with pytest.raises(LogfireConfigError, match='Failed to poll for token.'):
+                main(['auth'])

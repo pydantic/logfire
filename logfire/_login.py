@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import platform
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import urljoin
 
 import requests
+
+from ._utils import UnexpectedResponse
+from .exceptions import LogfireConfigError
 
 HOME_LOGFIRE = Path.home() / '.logfire'
 """Folder used to store global configuration, and user tokens."""
@@ -47,8 +51,11 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     """
     machine_name = platform.uname()[1]
     device_auth_endpoint = urljoin(base_api_url, '/v1/device-auth/new/')
-    res = session.post(device_auth_endpoint, params={'machine_name': machine_name})
-    res.raise_for_status()
+    try:
+        res = session.post(device_auth_endpoint, params={'machine_name': machine_name})
+        UnexpectedResponse.raise_for_status(res)
+    except requests.RequestException as e:
+        raise LogfireConfigError('Failed to request a device code.') from e
     data: NewDeviceFlow = res.json()
     return data['device_code'], data['frontend_auth_url']
 
@@ -69,12 +76,20 @@ def poll_for_token(session: requests.Session, device_code: str, base_api_url: st
         The user token.
     """
     auth_endpoint = urljoin(base_api_url, f'/v1/device-auth/wait/{device_code}')
+    errors = 0
     while True:
-        res = session.get(auth_endpoint)
-        res.raise_for_status()
-        opt_user_token: UserTokenData | None = res.json()
-        if opt_user_token:
-            return opt_user_token
+        try:
+            res = session.get(auth_endpoint, timeout=15)
+            UnexpectedResponse.raise_for_status(res)
+        except requests.RequestException as e:
+            errors += 1
+            if errors >= 4:
+                raise LogfireConfigError('Failed to poll for token.') from e
+            warnings.warn('Failed to poll for token. Retrying...')
+        else:
+            opt_user_token: UserTokenData | None = res.json()
+            if opt_user_token:
+                return opt_user_token
 
 
 def is_logged_in(data: DefaultFile, logfire_url: str) -> bool:

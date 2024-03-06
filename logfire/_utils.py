@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple, TypeVar, Union
 
+from requests import RequestException, Response
+
 T = TypeVar('T')
 
 JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
@@ -77,3 +79,36 @@ def read_toml_file(path: Path) -> dict[str, Any]:
         data = load_toml(f)
 
     return data
+
+
+class UnexpectedResponse(RequestException):
+    """An unexpected response was received from the server."""
+
+    def __init__(self, response: Response) -> None:
+        super().__init__(f'Unexpected response: {response.status_code}', response=response)
+
+    def __str__(self) -> str:
+        assert self.response is not None  # silence type checker
+        try:
+            body_json = self.response.json()
+        except ValueError:
+            try:
+                body = self.response.text
+            except ValueError:
+                body = '[binary data]'
+        else:
+            body = json.dumps(body_json, indent=2)
+        request = self.response.request
+        return (
+            f'Unexpected response {self.response.status_code}\n\n'
+            f'{request.method} {request.url} —> {self.response.status_code}\n'
+            f'body: {truncate_string(body, max_length=120)}\n'
+            'If the error persists, please contact us. '
+            '(See https://docs.logfire.dev/help/ for contact information.)'
+        )
+
+    @classmethod
+    def raise_for_status(cls, response: Response) -> None:
+        """Like the requests method, but raises a more informative exception."""
+        if response.status_code not in range(200, 300):
+            raise cls(response)
