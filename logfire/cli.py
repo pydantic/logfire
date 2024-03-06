@@ -212,7 +212,8 @@ def parse_auth(args: argparse.Namespace) -> None:
         try:
             webbrowser.open(frontend_auth_url, new=2)
         except webbrowser.Error:
-            console.print(f'Please open [bold]{frontend_auth_url}[/] in your browser to authenticate.')
+            pass
+        console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
         console.print('Waiting for you to authenticate with Logfire...')
 
         data['tokens'][logfire_url] = poll_for_token(session, device_code, logfire_url)

@@ -97,7 +97,7 @@ def test_auth(tmp_path: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire.cli.DEFAULT_FILE', auth_file))
         console = stack.enter_context(mock.patch('logfire.cli.Console'))
-        stack.enter_context(mock.patch('logfire.cli.webbrowser.open'))
+        webbrowser_open = stack.enter_context(mock.patch('webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -129,11 +129,14 @@ def test_auth(tmp_path: Path) -> None:
         "print('Before you can send data to Logfire, we need to authenticate you.')",
         'print()',
         "input('Press [bold]Enter[/] to open logfire.dev in your browser...')",
+        'print("Please open [bold]FE_URL[/] in your browser to authenticate if it hasn\'t already.")',
         "print('Waiting for you to authenticate with Logfire...')",
         "print('Successfully authenticated!')",
         'print()',
         f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
     ]
+
+    webbrowser_open.assert_called_once_with('FE_URL', new=2)
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
