@@ -569,7 +569,6 @@ class Logfire:
             elif exc_info is not None:
                 raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
-        span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         span.end(start_time)
 
     def with_tags(self, *tags: str) -> Logfire:
@@ -1080,9 +1079,6 @@ class LogfireSpan(ReadableSpan):
         )
 
 
-OK_STATUS = trace_api.Status(status_code=trace_api.StatusCode.OK)
-
-
 def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
     if not span.is_recording():
         return
@@ -1091,8 +1087,6 @@ def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
     # isinstance is to ignore BaseException
     if isinstance(exception, Exception):
         _record_exception(span, exception, escaped=True)
-    else:
-        span.set_status(OK_STATUS)
 
 
 def _record_exception(

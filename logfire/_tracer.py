@@ -216,9 +216,6 @@ class _ProxyTracer(Tracer):
     start_as_current_span = SDKTracer.start_as_current_span  # type: ignore
 
 
-OK_STATUS = trace_api.Status(trace_api.StatusCode.OK)
-
-
 @dataclass
 class PendingSpanProcessor(SpanProcessor):
     """Span processor that emits an extra pending span for each span as it starts.
@@ -275,7 +272,7 @@ class PendingSpanProcessor(SpanProcessor):
             attributes=attributes,
             events=span.events,
             links=span.links,
-            status=OK_STATUS,
+            status=span.status,
             kind=span.kind,
             start_time=start_and_end_time,
             end_time=start_and_end_time,
