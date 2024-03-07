@@ -9,6 +9,7 @@ import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
+from threading import RLock
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 
@@ -186,7 +187,7 @@ def configure(
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
     """
-    GLOBAL_CONFIG.load_configuration(
+    GLOBAL_CONFIG.configure(
         base_url=base_url,
         send_to_logfire=send_to_logfire,
         token=token,
@@ -208,7 +209,6 @@ def configure(
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
     )
-    GLOBAL_CONFIG.initialize()
 
 
 def _get_int_from_env(env_var: str) -> int | None:
@@ -281,7 +281,7 @@ class _LogfireConfigData:
     fast_shutdown: bool
     """Whether to shut down exporters and providers quickly, mostly used for tests"""
 
-    def load_configuration(
+    def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
         # defaults exist is `__init__` and we don't forgot a parameter when
@@ -402,7 +402,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         # The `load_configuration` is it's own method so that it can be called on an existing config object
         # in particular the global config object.
-        self.load_configuration(
+        self._load_configuration(
             base_url=base_url,
             send_to_logfire=send_to_logfire,
             token=token,
@@ -431,6 +431,7 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(metrics.NoOpMeterProvider())
         self._initialized = False
+        self._lock = RLock()
 
     @staticmethod
     def load_token(
@@ -444,8 +445,64 @@ class LogfireConfig(_LogfireConfigData):
                 token = file_creds.token
         return token, file_creds
 
+    def configure(
+        self,
+        base_url: str | None,
+        send_to_logfire: bool | Literal['if-token-present'] | None,
+        token: str | None,
+        project_name: str | None,
+        service_name: str | None,
+        service_version: str | None,
+        trace_sample_rate: float | None,
+        console: ConsoleOptions | Literal[False] | None,
+        show_summary: bool | None,
+        config_dir: Path | None,
+        data_dir: Path | None,
+        collect_system_metrics: bool | None,
+        id_generator: IdGenerator | None,
+        ns_timestamp_generator: Callable[[], int] | None,
+        processors: Sequence[SpanProcessor] | None,
+        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
+        metric_readers: Sequence[MetricReader] | None,
+        logfire_api_session: requests.Session | None,
+        pydantic_plugin: PydanticPlugin | None,
+        fast_shutdown: bool = False,
+    ) -> None:
+        with self._lock:
+            self._initialized = False
+            self._load_configuration(
+                base_url,
+                send_to_logfire,
+                token,
+                project_name,
+                service_name,
+                service_version,
+                trace_sample_rate,
+                console,
+                show_summary,
+                config_dir,
+                data_dir,
+                collect_system_metrics,
+                id_generator,
+                ns_timestamp_generator,
+                processors,
+                default_span_processor,
+                metric_readers,
+                logfire_api_session,
+                pydantic_plugin,
+                fast_shutdown,
+            )
+            self.initialize()
+
     def initialize(self) -> ProxyTracerProvider:
         """Configure internals to start exporting traces and metrics."""
+        with self._lock:
+            return self._initialize()
+
+    def _initialize(self) -> ProxyTracerProvider:
+        if self._initialized:
+            return self._tracer_provider
+
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
         try:
             otel_resource_attributes: dict[str, Any] = {
@@ -466,6 +523,7 @@ class LogfireConfig(_LogfireConfigData):
                 resource=resource,
                 id_generator=self.id_generator,
             )
+
             self._tracer_provider.shutdown()
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
@@ -608,7 +666,6 @@ class LogfireConfig(_LogfireConfigData):
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
-
             return self._tracer_provider
         finally:
             detach(backup_context)
