@@ -14,5 +14,5 @@
 ::: logfire
     options:
         show_root_toc_entry: false
-        show_docstring_description: false
+        show_docstring_description: true
         filters: ["!^Logfire$", "!^_[^_]"]
