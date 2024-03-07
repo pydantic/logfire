@@ -59,27 +59,27 @@ nav:
   - Intro: index.md
   - Guide:
       - First Steps: guide/first_steps.md
-      - Tracing: guide/tracing.md
+#      - Tracing: guide/tracing.md
       - Metrics: guide/metrics.md
       - Configuration: guide/configuration.md
       - Integrations:
           - Integrations: guide/integrations/index.md
           - Pydantic: guide/integrations/pydantic.md
+          - Logging: guide/integrations/logging.md
           - FastAPI: guide/integrations/fastapi.md
           - Django: guide/integrations/django.md
           - Flask: guide/integrations/flask.md
           - Starlette: guide/integrations/starlette.md
-          - HTTPX: guide/integrations/httpx.md
-          - AIOHTTP: guide/integrations/aiohttp.md
-          - Requests: guide/integrations/requests.md
-          - PyMongo: guide/integrations/pymongo.md
-          - Psycopg2: guide/integrations/psycopg2.md
-          - Celery: guide/integrations/celery.md
-          - Redis: guide/integrations/redis.md
-          - SQLAlchemy: guide/integrations/sqlalchemy.md
-          - Logging: guide/integrations/logging.md
           - ASGI: guide/integrations/asgi.md
           - WSGI: guide/integrations/wsgi.md
+          - HTTPX: guide/integrations/httpx.md
+          - Requests: guide/integrations/requests.md
+          - AIOHTTP: guide/integrations/aiohttp.md
+          - SQLAlchemy: guide/integrations/sqlalchemy.md
+          - Psycopg2: guide/integrations/psycopg2.md
+          - PyMongo: guide/integrations/pymongo.md
+          - Redis: guide/integrations/redis.md
+          - Celery: guide/integrations/celery.md
       - Auto Tracing: guide/auto_tracing.md
       - HTTP Servers: guide/http_servers.md
       - Dashboard: guide/dashboard.md

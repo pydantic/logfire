@@ -1,6 +1,3 @@
-!!! warning "🚧 Work in Progress 🚧"
-    Metrics are a work in progress, [contact us](../help.md) if you have any questions.
-
 **Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
 Let's see how to create, and use metrics in your application.
@@ -9,14 +6,11 @@ Let's see how to create, and use metrics in your application.
 import logfire
 
 # Create a counter metric
-counter = logfire.metric_counter('exceptions')
+messages_sent = logfire.metric_counter('messages_sent')
 
-try:
-    # Simulate an exception
-    raise Exception('oops')
-except Exception:
-    # Increment the counter
-    counter.add(1)
+# Increment the counter
+def send_message():
+    messages_sent.add(1)
 ```
 
 ## Metric Types

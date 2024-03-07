@@ -13,12 +13,40 @@ To install the latest version of **Logfire**, run the following command:
 
 ## Usage
 
-<!--
-logfire.info()
+To use **Logfire**, it's simple as importing, and calling the desired function:
 
-logfire.span()
+```py
+import logfire
 
-UI
- -->
+logfire.info('Hello, {name}!', name='world') # (1)!
+```
+
+1. This will log `Hello world!` with `info` level.
+
+!!! info
+    We have all the [log levels][logfire.Logfire] available for you to use.
+
+You can also use spans to contextualize your logs, and record how long parts of your code take to run.
+
+Lots of spans combine together to form a trace, which is a complete picture of a execution journey through your system.
+
+```py
+from pathlib import Path
+import logfire
+
+cwd = Path.cwd()
+total_size = 0
+with logfire.span('counting size of {cwd=}', cwd=cwd):
+    for path in cwd.iterdir():
+        if path.is_file():
+            with logfire.span('reading {file=}', file=path):
+                total_size += len(path.read_bytes())
+
+    logfire.info('total size of {cwd} {size}', cwd=cwd, size=total_size)
+```
+
+Will show in **Logfire** like this:
+
+![Screenshot](../span_screenshot.png)
 
 [conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html

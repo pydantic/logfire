@@ -39,21 +39,26 @@ import logfire
 logfire.info('Hello world!')
 ```
 
-### OpenTelemetry under the hood :telescope:
-
-**Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can
-use a wealth of existing tooling and infrastructure, including
-[instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html).
-
 ### Python and Pydantic insights :snake:
 
 From rich display of Python objects to event-loop telemetry and profiling Python code, Pydantic Logfire can give you a view into how your Python is running that you can’t get from any other observability tool.
 
 Logfire also has an out-of-the-box Pydantic integration that lets you understand the data passing through your Pydantic models and get analytics on validations.
 
-### Data access with familiar SQL :abacus:
+### Structured Data queried with SQL :abacus:
 
-Query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn. Using Postgres also means every existing tool that can connect to Postgres can query Logfire.
+Query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn.
+Using Postgres also means every existing tool that can connect to Postgres can query Logfire.
+
+Just include your Python objects in **Logfire** calls (lists, dict, dataclasses, Pydantic models, dataframes, and more),
+and it’ll end up as structured data in our platform ready to be queried.
+
+### OpenTelemetry under the hood :telescope:
+
+**Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), meaning you can
+use a wealth of existing tooling and infrastructure, including
+[instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html).
+
 
 ### The Dashboard is for everyone :busts_in_silhouette:
 
