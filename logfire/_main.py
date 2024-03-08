@@ -519,7 +519,7 @@ class Logfire:
                 position where `logfire.log` was called.
         """
         if level not in LEVEL_NUMBERS:
-            warnings.warn('Invalid log level')
+            warnings.warn('Invalid log level name')
             level = 'error'
         level_no = LEVEL_NUMBERS[level]
         stacklevel = stack_offset + 2

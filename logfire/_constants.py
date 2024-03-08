@@ -5,7 +5,7 @@ from opentelemetry.context import create_key
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
 
-LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal']
+LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal']
 """Level names for records."""
 
 LEVEL_NUMBERS = {
@@ -14,6 +14,8 @@ LEVEL_NUMBERS = {
     'info': 9,
     'notice': 10,
     'warn': 13,
+    # warning is used by standard lib logging, has same meaning as "warn"
+    'warning': 13,
     'error': 17,
     'fatal': 21,
 }
