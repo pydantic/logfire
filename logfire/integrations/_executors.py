@@ -42,11 +42,7 @@ try:
         This gets run from within a process / thread.
         """
         if parent_config is not None:
-            from logfire import _config  # type: ignore
-
-            if 'console' in parent_config:
-                parent_config['console'] = _config.ConsoleOptions(**parent_config['console'])
-            _config.configure(**parent_config)
+            deserialize_config(parent_config)
 
         with attach_context(carrier):
             return fn()
@@ -64,3 +60,11 @@ def serialize_config() -> dict[str, Any]:
     # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
     # which is what we want here!
     return asdict(_config.GLOBAL_CONFIG)
+
+
+def deserialize_config(config: dict[str, Any]) -> None:
+    from logfire import _config  # type: ignore
+
+    if 'console' in config:
+        config['console'] = _config.ConsoleOptions(**config['console'])
+    _config.configure(**config)

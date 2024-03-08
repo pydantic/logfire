@@ -1,13 +1,17 @@
+import os
+
 import pytest
 from dirty_equals import IsJson, IsUrl
 from fastapi import BackgroundTasks, FastAPI, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.params import Header
 from fastapi.security import SecurityScopes
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
+from typing_extensions import Annotated
 
 import logfire
 from logfire.testing import TestExporter
@@ -41,6 +45,10 @@ async def with_path_param(param: str):
     return {'param': param}
 
 
+async def secret(path_param: str, foo: str, password: str, testauthorization: Annotated[str, Header()]):
+    return {'foo': foo, 'password': password, 'testauthorization': testauthorization, 'path_param': path_param}
+
+
 @pytest.fixture()
 def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
@@ -51,13 +59,14 @@ def app():
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
     app.get('/with_path_param/{param}')(with_path_param)
+    app.get('/secret/{path_param}', name='secret')(secret)
     return app
 
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def auto_instrument_fastapi(app: FastAPI):
     def request_attributes_mapper(request, attributes):
-        if request.scope['route'].name == 'other_route_name':
+        if request.scope['route'].name in ('other_route_name', 'secret'):
             attributes['custom_attr'] = 'custom_value'
             return attributes
 
@@ -708,6 +717,119 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.user_agent': 'testclient',
                     'http.route': '/validation_error',
                     'http.status_code': 422,
+                },
+            },
+        ]
+    )
+
+
+def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
+    os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST'] = 'TestAuthorization'
+
+    response = client.get(
+        '/secret/my_token?foo=foo_val&password=hunter2',
+        headers={'TestAuthorization': 'Bearer abcd'},
+    )
+    assert response.status_code == 200
+
+    # TODO improve what does and doesn't get scrubbed here
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'code.filepath': '_fastapi.py',
+                    'code.function': 'solve_dependencies',
+                    'code.lineno': 123,
+                    'values': '{"path_param": "[Redacted due to \'token\']", "foo": "foo_val", "password": "[Redacted due to \'password\']", "testauthorization": "[Redacted due to \'auth\']"}',
+                    'errors': '[]',
+                    'custom_attr': 'custom_value',
+                    'http.method': 'GET',
+                    'http.route': '/secret/{path_param}',
+                    'fastapi.route.name': 'secret',
+                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'logfire.json_schema': '{"type":"object","properties":{"values":{"type":"object"},"errors":{"type":"array"},"custom_attr":{},"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'logfire.tags': ('fastapi',),
+                },
+            },
+            {
+                'name': '{method} {route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'secret',
+                    'code.lineno': 123,
+                    'method': 'GET',
+                    'route': "[Redacted due to 'secret']",
+                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'logfire.msg': "GET [Redacted due to 'secret'] (secret)",
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'GET /secret/{path_param} http send response.start',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /secret/{path_param} http send response.start',
+                    'http.status_code': 200,
+                    'type': 'http.response.start',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /secret/{path_param} http send response.body',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /secret/{path_param} http send response.body',
+                    'type': 'http.response.body',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /secret/{path_param}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /secret/my_token',
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/secret/my_token',
+                    'http.url': 'http://testserver/secret/my_token?foo=foo_val&password=hunter2',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'http.route': '/secret/{path_param}',
+                    'http.request.header.testauthorization': ("[Redacted due to 'auth']",),
+                    'http.status_code': 200,
                 },
             },
         ]

@@ -14,6 +14,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import IdGenerator
+from opentelemetry.semconv.trace import SpanAttributes
 from pydantic import BaseModel
 
 import logfire
@@ -91,13 +92,15 @@ class TestExporter(SpanExporter):
             }
             if event.attributes:
                 res['attributes'] = attributes = dict(event.attributes)
-                if 'exception.stacktrace' in attributes:
+                if SpanAttributes.EXCEPTION_STACKTRACE in attributes:
                     last_line = next(
                         line.strip()
-                        for line in reversed(cast(str, event.attributes['exception.stacktrace']).split('\n'))
+                        for line in reversed(
+                            cast(str, event.attributes[SpanAttributes.EXCEPTION_STACKTRACE]).split('\n')
+                        )
                         if line.strip()
                     )
-                    attributes['exception.stacktrace'] = last_line
+                    attributes[SpanAttributes.EXCEPTION_STACKTRACE] = last_line
             return res
 
         def build_span(span: ReadableSpan) -> dict[str, Any]:

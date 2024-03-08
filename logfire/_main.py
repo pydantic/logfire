@@ -13,6 +13,7 @@ import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
@@ -146,7 +147,7 @@ class Logfire:
         stack_info = get_caller_stack_info(stacklevel=stacklevel)
         merged_attributes = {**stack_info, **attributes}
 
-        log_message = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
+        log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber, stacklevel=stacklevel + 2)
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -191,7 +192,9 @@ class Logfire:
         and arbitrary types of attributes.
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, stacklevel=4)
+        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
+            msg_template, function_args, self._config.scrubber, stacklevel=4
+        )
         if json_schema_properties := attributes_json_schema_properties(function_args):
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
         attributes.update(user_attributes(function_args))
@@ -527,7 +530,7 @@ class Logfire:
 
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, stacklevel=stacklevel + 2)
+            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stacklevel=stacklevel + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
@@ -1150,7 +1153,7 @@ def _record_exception(
         # ignoring the passed exception.
         # So we override the stacktrace attribute with the correct one.
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        attributes['exception.stacktrace'] = stacktrace
+        attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
 
     span.record_exception(cast(Exception, exception), attributes=attributes, timestamp=timestamp, escaped=escaped)
 

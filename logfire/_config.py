@@ -54,6 +54,7 @@ from ._constants import (
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
 )
 from ._metrics import ProxyMeterProvider, configure_metrics
+from ._scrubbing import Scrubber, ScrubCallback
 from ._tracer import PendingSpanProcessor, ProxyTracerProvider
 from ._utils import UnexpectedResponse, read_toml_file
 from .exceptions import LogfireConfigError
@@ -139,6 +140,8 @@ def configure(
     logfire_api_session: requests.Session | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     fast_shutdown: bool = False,
+    scrubbing_patterns: Sequence[str] | None = None,
+    scrubbing_callback: ScrubCallback | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -186,6 +189,13 @@ def configure(
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
+        scrubbing_patterns: A sequence of regular expressions to detect sensitive data that should be redacted.
+            For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
+            The specified patterns are combined with the default patterns.
+        scrubbing_callback: A function that is called for each match found by the scrubber.
+            If it returns `None`, the value is redacted.
+            Otherwise, the returned value replaces the matched value.
+            The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     """
     GLOBAL_CONFIG.configure(
         base_url=base_url,
@@ -208,6 +218,8 @@ def configure(
         logfire_api_session=logfire_api_session,
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
+        scrubbing_patterns=scrubbing_patterns,
+        scrubbing_callback=scrubbing_callback,
     )
 
 
@@ -281,6 +293,12 @@ class _LogfireConfigData:
     fast_shutdown: bool
     """Whether to shut down exporters and providers quickly, mostly used for tests"""
 
+    scrubbing_patterns: Sequence[str] | None
+    """A sequence of regular expressions to detect sensitive data that should be redacted."""
+
+    scrubbing_callback: ScrubCallback | None
+    """A function that is called for each match found by the scrubber."""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -306,6 +324,8 @@ class _LogfireConfigData:
         logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool = False,
+        scrubbing_patterns: Sequence[str] | None = None,
+        scrubbing_callback: ScrubCallback | None = None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
@@ -325,6 +345,11 @@ class _LogfireConfigData:
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
+
+        # We save `scrubbing_patterns` and `scrubbing_callback` just so that they can be serialized and deserialized.
+        self.scrubbing_patterns = scrubbing_patterns
+        self.scrubbing_callback = scrubbing_callback
+        self.scrubber = Scrubber(scrubbing_patterns, scrubbing_callback)
 
         if console is not None:
             self.console = console
@@ -393,6 +418,8 @@ class LogfireConfig(_LogfireConfigData):
         logfire_api_session: requests.Session | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         fast_shutdown: bool = False,
+        scrubbing_patterns: Sequence[str] | None = None,
+        scrubbing_callback: ScrubCallback | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -423,6 +450,8 @@ class LogfireConfig(_LogfireConfigData):
             logfire_api_session=logfire_api_session,
             pydantic_plugin=pydantic_plugin,
             fast_shutdown=fast_shutdown,
+            scrubbing_patterns=scrubbing_patterns,
+            scrubbing_callback=scrubbing_callback,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -467,6 +496,8 @@ class LogfireConfig(_LogfireConfigData):
         logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool = False,
+        scrubbing_patterns: Sequence[str] | None = None,
+        scrubbing_callback: ScrubCallback | None = None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -491,6 +522,8 @@ class LogfireConfig(_LogfireConfigData):
                 logfire_api_session,
                 pydantic_plugin,
                 fast_shutdown,
+                scrubbing_patterns,
+                scrubbing_callback,
             )
             self.initialize()
 
@@ -513,9 +546,13 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if otel_resource_attributes_from_env:
+                extra_resource_attributes = {}
                 for _field in otel_resource_attributes_from_env.split(','):
                     key, value = _field.split('=')
-                    otel_resource_attributes[key.strip()] = value.strip()
+                    extra_resource_attributes[key.strip()] = value.strip()
+                otel_resource_attributes.update(
+                    self.scrubber.scrub(('otel_resource_attributes',), extra_resource_attributes)
+                )
 
             resource = Resource.create(otel_resource_attributes)
             tracer_provider = SDKTracerProvider(
@@ -533,7 +570,7 @@ class LogfireConfig(_LogfireConfigData):
                 # Most span processors added to the tracer provider should also be recorded in the `processors` list
                 # so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
-                span_processor = SpanProcessorWrapper(span_processor)
+                span_processor = SpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 

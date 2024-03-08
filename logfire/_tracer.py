@@ -124,7 +124,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
         attributes: otel_types.Attributes = None,
         timestamp: int | None = None,
     ) -> None:
-        self.span.add_event(name, attributes, timestamp)
+        self.span.add_event(name, attributes, timestamp or self.ns_timestamp_generator())
 
     def update_name(self, name: str) -> None:
         self.span.update_name(name)

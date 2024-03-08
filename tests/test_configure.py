@@ -22,7 +22,7 @@ from logfire._config import (
     sanitize_project_name,
 )
 from logfire.exporters._fallback import FallbackSpanExporter
-from logfire.integrations._executors import serialize_config
+from logfire.integrations._executors import deserialize_config, serialize_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -761,7 +761,8 @@ def test_config_serializable():
     This implies that the default processors cannot be stored in the config alongside user-defined processors.
     """
     logfire.configure(send_to_logfire=False)
-    assert isinstance(serialize_config(), dict)
+    serialized = serialize_config()
+    deserialize_config(serialized)
 
 
 def test_sanitize_project_name():

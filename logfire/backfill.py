@@ -24,6 +24,7 @@ from ._constants import (
 )
 from ._formatter import logfire_format
 from ._main import user_attributes
+from ._scrubbing import Scrubber
 from .exporters._file import FileSpanExporter
 
 try:
@@ -128,6 +129,7 @@ class PrepareBackfill:
             )
         else:
             self.processor = SimpleSpanProcessor(FileSpanExporter(self.store_path))
+        self.scrubber = Scrubber([])
 
     def __enter__(self) -> 'PrepareBackfill':
         return self
@@ -151,7 +153,7 @@ class PrepareBackfill:
             otlp_attributes = user_attributes(data.attributes)
 
             if data.formatted_msg is None:
-                formatted_message = logfire_format(data.msg_template, data.attributes, fallback='...', stacklevel=2)
+                formatted_message = logfire_format(data.msg_template, data.attributes, self.scrubber, stacklevel=2)
             else:
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
@@ -196,7 +198,7 @@ class PrepareBackfill:
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
             otlp_attributes = user_attributes(data.log_attributes)
             if data.formatted_msg is None:
-                formatted_message = logfire_format(data.msg_template, data.log_attributes, fallback='...', stacklevel=2)
+                formatted_message = logfire_format(data.msg_template, data.log_attributes, self.scrubber, stacklevel=2)
             else:
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {

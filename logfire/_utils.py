@@ -3,8 +3,14 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
+from opentelemetry import trace as trace_api
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import Event, ReadableSpan
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+from opentelemetry.trace.status import Status
+from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
 
 T = TypeVar('T')
@@ -79,6 +85,46 @@ def read_toml_file(path: Path) -> dict[str, Any]:
         data = load_toml(f)
 
     return data
+
+
+class ReadableSpanDict(TypedDict):
+    """A dictionary representation of a ReadableSpan.
+
+    ReadableSpan is immutable, so making modified versions of it is inconvenient and slow.
+    Converting a ReadableSpan to a ReadableSpanDict using span_to_dict makes it easier to modify.
+    See `SpanProcessorWrapper.on_end` for an example of how this is useful.
+    """
+
+    name: str
+    context: trace_api.SpanContext | None
+    parent: trace_api.SpanContext | None
+    resource: Resource | None
+    attributes: Mapping[str, otel_types.AttributeValue]
+    events: Sequence[Event]
+    links: Sequence[trace_api.Link]
+    kind: trace_api.SpanKind
+    status: Status
+    start_time: int | None
+    end_time: int | None
+    instrumentation_scope: InstrumentationScope | None
+
+
+def span_to_dict(span: ReadableSpan) -> ReadableSpanDict:
+    """See ReadableSpanDict."""
+    return ReadableSpanDict(
+        name=span.name,
+        context=span.context,
+        parent=span.parent,
+        resource=span.resource,
+        attributes=span.attributes or {},
+        events=span.events,
+        links=span.links,
+        kind=span.kind,
+        status=span.status,
+        start_time=span.start_time,
+        end_time=span.end_time,
+        instrumentation_scope=span.instrumentation_scope,
+    )
 
 
 class UnexpectedResponse(RequestException):

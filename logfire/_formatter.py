@@ -9,6 +9,7 @@ from typing_extensions import NotRequired, TypedDict
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
 from logfire._constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
+from logfire._scrubbing import Scrubber
 from logfire._utils import truncate_string
 
 
@@ -31,6 +32,7 @@ class ChunksFormatter(Formatter):
         format_string: str,
         kwargs: Mapping[str, Any],
         *,
+        scrubber: Scrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
         stacklevel: int = 3,
@@ -105,31 +107,33 @@ class ChunksFormatter(Formatter):
                     auto_arg_index=auto_arg_index,
                 )
 
-                # format the object and append to the result
-                d: ArgChunk = {'v': self.format_field(obj, format_spec), 't': 'arg'}
+                if obj is None:
+                    value = self.NONE_REPR
+                else:
+                    value = self.format_field(obj, format_spec)
+                    # Scrub before truncating so that the scrubber can see the full value.
+                    # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+                    # because of truncation, then that leaves '=123' in the message, which is not good.
+                    value = scrubber.scrub(('message', field_name), value)
+                    value = truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+                d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
                 result.append(d)
 
         return result
 
-    def format_field(self, value: Any, format_spec: str) -> Any:
-        if value is None:
-            value = self.NONE_REPR
-        return truncate_string(
-            super().format_field(value, format_spec), max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-        )
-
 
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], fallback: str | None = None, stacklevel: int = 3) -> str:
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stacklevel: int = 3) -> str:
     return ''.join(
         chunk['v']
         for chunk in chunks_formatter.chunks(
             format_string,
             kwargs,
+            scrubber=scrubber,
             stacklevel=stacklevel,
         )
     )
