@@ -19,7 +19,6 @@ from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
 from logfire._config import GLOBAL_CONFIG, LogfireConfig
-from logfire._constants import ATTRIBUTES_JSON_SCHEMA_KEY
 from logfire._formatter import logfire_format
 from logfire._instrument import LogfireArgs, instrument
 from logfire.version import VERSION
@@ -27,8 +26,7 @@ from logfire.version import VERSION
 from . import AutoTraceModule, _async
 from ._auto_trace import install_auto_tracing
 from ._constants import (
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
-    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
@@ -39,6 +37,7 @@ from ._constants import (
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
+    log_level_attributes,
 )
 from ._json_encoder import logfire_json_dumps
 from ._json_schema import (
@@ -523,8 +522,7 @@ class Logfire:
         """
         if level not in LEVEL_NUMBERS:
             warnings.warn('Invalid log level name')
-            level = 'error'
-        level_no = LEVEL_NUMBERS[level]
+            level = cast(LevelName, 'error')  # for PyCharm
         stacklevel = stack_offset + 2
         stack_info = get_caller_stack_info(stacklevel)
 
@@ -534,8 +532,7 @@ class Logfire:
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-            ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
-            ATTRIBUTES_LOG_LEVEL_NUM_KEY: level_no,
+            **log_level_attributes(level),
             ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
             ATTRIBUTES_MESSAGE_KEY: msg,
             **otlp_attributes,
@@ -1134,12 +1131,7 @@ def _record_exception(
                 description=f'{exception.__class__.__name__}: {exception}',
             )
         )
-        span.set_attributes(
-            {
-                ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'error',
-                ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['error'],
-            }
-        )
+        span.set_attributes(log_level_attributes('error'))
 
     attributes = {**(attributes or {})}
     if ValidationError is not None and isinstance(exception, ValidationError):

@@ -4,13 +4,11 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from logfire._constants import (
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
-    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
-    LEVEL_NUMBERS,
     PENDING_SPAN_NAME_SUFFIX,
+    log_level_attributes,
 )
 from logfire._scrubbing import Scrubber
 from logfire._utils import ReadableSpanDict, span_to_dict
@@ -90,8 +88,7 @@ def _tweak_asgi_span_name(span: ReadableSpanDict):
         span['attributes'] = {
             **attributes,
             ATTRIBUTES_MESSAGE_KEY: new_name,
-            ATTRIBUTES_LOG_LEVEL_NAME_KEY: 'debug',
-            ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS['debug'],
+            **log_level_attributes('debug'),
         }
 
 

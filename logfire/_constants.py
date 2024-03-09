@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from opentelemetry.context import create_key
+from opentelemetry.util import types as otel_types
 
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
@@ -25,6 +28,15 @@ ATTRIBUTES_LOG_LEVEL_NAME_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_name'
 
 ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 """The key within OTEL attributes where logfire puts the log level number."""
+
+
+# This is in this file to encourage using it instead of setting these attributes manually.
+def log_level_attributes(level: LevelName) -> dict[str, otel_types.AttributeValue]:
+    return {
+        ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
+        ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS[level],
+    }
+
 
 SpanTypeType = Literal['log', 'pending_span', 'span']
 
