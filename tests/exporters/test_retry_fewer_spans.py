@@ -15,6 +15,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from logfire.exporters._otlp import BodyTooLargeError, RetryFewerSpansSpanExporter
 from logfire.testing import TestExporter
 
+RESOURCE = Resource.create({'service.name': 'test', 'telemetry.sdk.version': '1.0.0'})
 TEST_SPANS = [
     ReadableSpan(
         name=f'test span name {span_id}',
@@ -36,7 +37,7 @@ TEST_SPANS = [
         links=[],
         parent=None,
         kind=SpanKind.INTERNAL,
-        resource=Resource.create({'service.name': 'test', 'telemetry.sdk.version': '1.0.0'}),
+        resource=RESOURCE,
         instrumentation_scope=InstrumentationScope('test'),
         status=Status(StatusCode.OK),
         start_time=0,
