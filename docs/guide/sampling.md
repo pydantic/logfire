@@ -2,21 +2,13 @@
 
 Sampling is the practice of discarding some traces or spans in order to reduce the amount of data that needs to be stored and analyzed. Sampling is a trade-off between cost and completeness of data.
 
-## Head vs Tail sampling
+To configure sampling for the SDK:
 
-Sampling can be done in two ways:
+- Set the [`trace_sample_rate`][logfire.configure(trace_sample_rate)] option of [`logfire.configure()`][logfire.configure] to a number between 0 and 1, or
+- Set the `LOGFIRE_TRACE_SAMPLE_RATE` environment variable, or
+- Set the `trace_sample_rate` config file option.
 
-- Head sampling: sampling is done at the beginning of the trace / span. This is the most common way of sampling and is done at the SDK level.
-- Tail sampling: sampling is done at the end of the trace / span. This is done at the collector level.
-
-The main advantage of head sampling is that it immediately reduces overhead on the client side.
-The main advantage of tail sampling is that it can be done with more information, such as the duration of the trace / span.
-
-## Global sampling
-
-To configure sampling globally for the SDK, use the [`trace_sample_rate`][logfire.configure(trace_sample_rate)]
-option to [`logfire.configure()`][logfire.configure], the equivalent `LOGFIRE_TRACE_SAMPLE_RATE` environment variable
-or config file option. See [Configuration](configuration.md) for more information.
+See [Configuration](configuration.md) for more information.
 
 ```python
 import logfire
