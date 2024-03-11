@@ -82,7 +82,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'GET /',
+                'name': 'GET',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,

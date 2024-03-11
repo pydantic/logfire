@@ -80,6 +80,66 @@ def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
+def test_404(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/missing')
+    assert response.status_code == 404
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET http send response.start',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET http send response.start',
+                    'http.status_code': 404,
+                    'type': 'http.response.start',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET http send response.body',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET http send response.body',
+                    'type': 'http.response.body',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /missing',
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/missing',
+                    'http.url': 'http://testserver/missing',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'http.status_code': 404,
+                },
+            },
+        ]
+    )
+
+
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     response = client.get('/with_path_param/param_val')
     assert response.status_code == 200

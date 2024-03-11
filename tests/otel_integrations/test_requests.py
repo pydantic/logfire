@@ -1,5 +1,6 @@
 import pytest
 import requests
+from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import logfire
@@ -33,35 +34,37 @@ async def test_requests_instrumentation(exporter: TestExporter):
         traceparent_header = response.headers['traceparent']
         assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'GET',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'http.method': 'GET',
-                'http.url': 'https://example.org/',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET',
-                'http.status_code': 200,
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.url': 'https://example.org/',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /',
+                    'http.status_code': 200,
+                    'http.target': '/',
+                },
             },
-        },
-        {
-            'name': 'test span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test_requests.py',
-                'code.lineno': 123,
-                'code.function': 'test_requests_instrumentation',
-                'logfire.msg_template': 'test span',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test span',
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_requests.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_requests_instrumentation',
+                    'logfire.msg_template': 'test span',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test span',
+                },
             },
-        },
-    ]
+        ]
+    )
