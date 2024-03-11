@@ -97,6 +97,7 @@ test = [
     "opentelemetry-instrumentation-asgi",
     "opentelemetry-instrumentation-wsgi",
     "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-starlette",
     "opentelemetry-instrumentation-flask",
     "opentelemetry-instrumentation-django",
     "opentelemetry-instrumentation-httpx",
