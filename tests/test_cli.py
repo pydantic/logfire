@@ -28,14 +28,6 @@ def logfire_credentials() -> LogfireCredentials:
     )
 
 
-@pytest.fixture
-def tmp_dir_cwd(tmp_path: Path):
-    """Change the working directory to a temporary directory."""
-    os.chdir(tmp_path)
-    yield tmp_path
-    os.chdir(os.path.dirname(__file__))  # Reset to the original directory after the test
-
-
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
     assert 'usage: Logfire [-h] [--version]  ...' in capsys.readouterr().out

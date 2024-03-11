@@ -1,4 +1,7 @@
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
+import os
+from pathlib import Path
+
 import anyio._backends._asyncio  # noqa
 import pytest
 from opentelemetry import trace
@@ -69,3 +72,14 @@ def clear_pydantic_plugins_cache():
 
     assert _loader._loading_plugins is False  # type: ignore
     _loader._plugins = None  # type: ignore
+
+
+@pytest.fixture
+def tmp_dir_cwd(tmp_path: Path):
+    """Change the working directory to a temporary directory."""
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        yield tmp_path
+    finally:
+        os.chdir(cwd)
