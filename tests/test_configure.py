@@ -791,39 +791,106 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask'))
-        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', return_value='myproject'))
+        prompt_mock = stack.enter_context(
+            mock.patch(
+                'rich.prompt.Prompt.ask',
+                side_effect=[
+                    'invalid project name',
+                    'existingprojectname',
+                    'reserved',
+                    'myproject',
+                    '',
+                ],
+            )
+        )
 
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
         request_mocker.get('https://api.logfire.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
 
+        create_existing_project_request_json = {
+            'project_name': 'existingprojectname',
+        }
+        create_existing_project_response = {
+            'status_code': 409,
+        }
+
+        create_reserved_project_request_json = {
+            'project_name': 'reserved',
+        }
+        create_reserved_project_response = {
+            'status_code': 422,
+            'json': {
+                'detail': [
+                    {
+                        'loc': ['body', 'project_name'],
+                        'msg': 'The project name is reserved and cannot be used',
+                    }
+                ],
+            },
+        }
+
         create_project_request_json = {
             'project_name': 'myproject',
         }
-        create_project_response_json = {
-            'project_name': 'myproject',
-            'token': 'fake_token',
-            'project_url': 'fake_project_url',
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
         }
-        request_mocker.post('https://api.logfire.dev/v1/projects/fake_org', json=create_project_response_json)
+        request_mocker.post(
+            'https://api.logfire.dev/v1/projects/fake_org',
+            [
+                create_existing_project_response,
+                create_reserved_project_response,
+                create_project_response,
+            ],
+        )
 
         logfire.configure(service_name='my_service')
 
     for request in request_mocker.request_history:
         assert request.headers['Authorization'] == 'fake_user_token'
 
-    assert request_mocker.request_history[1].json() == create_project_request_json
+    assert request_mocker.request_history[1].json() == create_existing_project_request_json
+    assert request_mocker.request_history[2].json() == create_reserved_project_request_json
+    assert request_mocker.request_history[3].json() == create_project_request_json
 
     assert confirm_mock.mock_calls == [
         call('The project will be created in the organization "fake_org". Continue?', default=True)
     ]
     assert prompt_mock.mock_calls == [
-        call('Enter the project name', default='myservice'),
-        call('Project created successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'),
+        call(
+            'Enter the project name',
+            default='myservice',
+        ),
+        call(
+            "\nThe project you've entered is invalid. Valid project names:\n"
+            '  * may contain lowercase alphanumeric characters\n'
+            '  * may contain single hyphens\n'
+            '  * may not start or end with a hyphen\n\n'
+            'Enter the project name you want to use:',
+            default='myservice',
+        ),
+        call(
+            '\nA project with that name already exists. Please enter a different project name',
+            default=...,
+        ),
+        call(
+            '\nThe project name you entered is invalid:\n'
+            'The project name is reserved and cannot be used\n'
+            'Please enter a different project name',
+            default=...,
+        ),
+        call(
+            'Project created successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+        ),
     ]
     assert capsys.readouterr().err == 'Logfire project: fake_project_url\n'
 
     assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response_json,
+        **create_project_response['json'],
         'logfire_api_url': 'https://api.logfire.dev',
     }
