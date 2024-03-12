@@ -7,12 +7,12 @@ Logfire makes it very easy to test the emitted logs and spans using the utilitie
 [`logfire.testing`][logfire.testing] module.
 This is what Logfire uses internally to test itself as well.
 
-## [`logfire_test_exporter`][logfire.testing.logfire_test_exporter] fixture
+## [`capfire`][logfire.testing.capfire] fixture
 
-This has two attributes [`exporter`][logfire.testing.LogfireTestExporter.exporter] and
-[`metrics_reader`][logfire.testing.LogfireTestExporter.metrics_reader].
+This has two attributes [`exporter`][logfire.testing.CaptureLogfire.exporter] and
+[`metrics_reader`][logfire.testing.CaptureLogfire.metrics_reader].
 
-### [`exporter`][logfire.testing.LogfireTestExporter.exporter]
+### [`exporter`][logfire.testing.CaptureLogfire.exporter]
 
 This is an instance of [`TestExporter`][logfire.testing.TestExporter] and is an OpenTelemetry SDK compatible
 span exporter that keeps exported spans in memory.
@@ -26,16 +26,16 @@ numbers with `123` and file paths with just the filename.
 import pytest
 
 import logfire
-from logfire.testing import  LogfireTestExporter
+from logfire.testing import  CaptureLogfire
 
 
-def test_observability(logfire_test_exporter: LogfireTestExporter) -> None:
+def test_observability(capfire: CaptureLogfire) -> None:
     with pytest.raises(Exception):
         with logfire.span('a span!'):
             logfire.info('a log!')
             raise Exception('an exception!')
 
-    exporter = logfire_test_exporter.exporter
+    exporter = capfire.exporter
 
     # insert_assert(exporter.exported_spans_as_dict()) (1)
     assert exporter.exported_spans_as_dict() == [
@@ -93,14 +93,14 @@ You can access exported spans by `exporter.exported_spans`.
 
 ```py
 import logfire
-from logfire.testing import LogfireTestExporter
+from logfire.testing import CaptureLogfire
 
 
-def test_exported_spans(logfire_test_exporter: LogfireTestExporter) -> None:
+def test_exported_spans(capfire: CaptureLogfire) -> None:
     with logfire.span('a span!'):
         logfire.info('a log!')
 
-    exporter = logfire_test_exporter.exporter
+    exporter = capfire.exporter
 
     expected_span_names = ['a span! (pending)', 'a log!', 'a span!']
     span_names = [span.name for span in exporter.exported_spans]
@@ -112,11 +112,11 @@ You can call [`exporter.clear()`][logfire.testing.TestExporter.clear] to reset t
 
 ```py
 import logfire
-from logfire.testing import LogfireTestExporter
+from logfire.testing import CaptureLogfire
 
 
-def test_reset_exported_spans(logfire_test_exporter: LogfireTestExporter) -> None:
-    exporter = logfire_test_exporter.exporter
+def test_reset_exported_spans(capfire: CaptureLogfire) -> None:
+    exporter = capfire.exporter
 
     assert len(exporter.exported_spans) == 0
 
@@ -136,7 +136,7 @@ def test_reset_exported_spans(logfire_test_exporter: LogfireTestExporter) -> Non
     assert exporter.exported_spans[0].name == 'Third log!'
 ```
 
-### [`metrics_reader`][logfire.testing.LogfireTestExporter.metrics_reader]
+### [`metrics_reader`][logfire.testing.CaptureLogfire.metrics_reader]
 
 This is an instance of [`InMemoryMetricReader`][in-memory-metric-reader] which reads metrics into memory.
 
@@ -146,11 +146,11 @@ from typing import cast
 
 from opentelemetry.sdk.metrics.export import MetricsData
 
-from logfire.testing import LogfireTestExporter
+from logfire.testing import CaptureLogfire
 
 
-def test_system_metrics_collection(logfire_test_exporter: LogfireTestExporter) -> None:
-    exported_metrics = json.loads(cast(MetricsData, logfire_test_exporter.metrics_reader.get_metrics_data()).to_json())  # type: ignore
+def test_system_metrics_collection(capfire: CaptureLogfire) -> None:
+    exported_metrics = json.loads(cast(MetricsData, capfire.metrics_reader.get_metrics_data()).to_json())  # type: ignore
 
     metrics_collected = {
         metric['name']
@@ -200,8 +200,8 @@ Note that we specifically configure:
 
 This is a utility function provided by [devtools](https://github.com/samuelcolvin/python-devtools) that will
 automatically insert the output of the code it is called with into the test file when run via pytest.
-That is, if you comment that line out you'll see that the `assert logfire_test_exporter.exported_spans_as_dict() == [...]`
-line is replaced with the current output of `logfire_test_exporter.exported_spans_as_dict()`, which should
+That is, if you comment that line out you'll see that the `assert capfire.exported_spans_as_dict() == [...]`
+line is replaced with the current output of `capfire.exported_spans_as_dict()`, which should
 be exactly the same given that our test is deterministic!
 
 [in-memory-metric-reader]: https://opentelemetry-python.readthedocs.io/en/latest/sdk/metrics.export.html#opentelemetry.sdk.metrics.export.InMemoryMetricReader

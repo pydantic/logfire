@@ -1,7 +1,7 @@
 import pytest
 
 import logfire
-from logfire.testing import LogfireTestExporter, TestExporter
+from logfire.testing import CaptureLogfire, TestExporter
 
 
 def test_reset_exported_spans(exporter: TestExporter) -> None:
@@ -23,13 +23,13 @@ def test_reset_exported_spans(exporter: TestExporter) -> None:
     assert exporter.exported_spans[0].name == 'Third log!'
 
 
-def test_logfire_test_exporter_fixture(logfire_test_exporter: LogfireTestExporter) -> None:
+def test_capfire_fixture(capfire: CaptureLogfire) -> None:
     with pytest.raises(Exception):
         with logfire.span('a span!'):
             logfire.info('a log!')
             raise Exception('an exception!')
 
-    exporter = logfire_test_exporter.exporter
+    exporter = capfire.exporter
     # insert_assert(exporter.exported_spans_as_dict())
     assert exporter.exported_spans_as_dict() == [
         {
@@ -45,7 +45,7 @@ def test_logfire_test_exporter_fixture(logfire_test_exporter: LogfireTestExporte
                 'logfire.msg_template': 'a log!',
                 'logfire.msg': 'a log!',
                 'code.filepath': 'test_testing.py',
-                'code.function': 'test_logfire_test_exporter_fixture',
+                'code.function': 'test_capfire_fixture',
                 'code.lineno': 123,
             },
         },
@@ -57,7 +57,7 @@ def test_logfire_test_exporter_fixture(logfire_test_exporter: LogfireTestExporte
             'end_time': 4000000000,
             'attributes': {
                 'code.filepath': 'test_testing.py',
-                'code.function': 'test_logfire_test_exporter_fixture',
+                'code.function': 'test_capfire_fixture',
                 'code.lineno': 123,
                 'logfire.msg_template': 'a span!',
                 'logfire.msg': 'a span!',

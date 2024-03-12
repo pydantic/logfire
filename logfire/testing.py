@@ -261,10 +261,10 @@ class TimeGenerator:
 
 
 @dataclass
-class LogfireTestExporter:
+class CaptureLogfire:
     """A dataclass that is holds both span exporter and metric renderer.
 
-    This is used as the return type of `logfire_test_exporter` fixture.
+    This is used as the return type of `capfire` fixture.
     """
 
     exporter: TestExporter
@@ -274,8 +274,8 @@ class LogfireTestExporter:
 
 
 @pytest.fixture
-def logfire_test_exporter() -> LogfireTestExporter:
-    """A fixture that returns a LogfireTestExporter instance."""
+def capfire() -> CaptureLogfire:
+    """A fixture that returns a CaptureLogfire instance."""
     exporter = TestExporter()
     metrics_reader = InMemoryMetricReader()
     logfire.configure(
@@ -287,4 +287,4 @@ def logfire_test_exporter() -> LogfireTestExporter:
         metric_readers=[metrics_reader],
     )
 
-    return LogfireTestExporter(exporter=exporter, metrics_reader=metrics_reader)
+    return CaptureLogfire(exporter=exporter, metrics_reader=metrics_reader)
