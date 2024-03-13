@@ -93,13 +93,6 @@ class Logfire:
     def with_trace_sample_rate(self, sample_rate: float) -> Logfire:
         """A new Logfire instance with the given sampling ratio applied.
 
-        ```py
-        import logfire
-
-        with logfire.with_trace_sample_rate(0.5):
-            logfire.info('new log 1')
-        ```
-
         Args:
             sample_rate: The sampling ratio to use.
 
@@ -573,20 +566,23 @@ class Logfire:
         span.end(start_time)
 
     def with_tags(self, *tags: str) -> Logfire:
-        """A new Logfire instance with the given tags applied.
+        """A new Logfire instance which always uses the given tags.
 
         ```py
         import logfire
 
-        with logfire.with_tags('tag1'):
-            logfire.info('new log 1')
+        local_logfire = logfire.with_tags('tag1')
+        local_logfire.info('a log message', _tags=['tag2'])
+
+        # This is equivalent to:
+        logfire.info('a log message', _tags=['tag1', 'tag2'])
         ```
 
         Args:
-            tags: The tags to bind.
+            tags: The tags to add.
 
         Returns:
-            A new Logfire instance with the tags applied.
+            A new Logfire instance with the `tags` added to any existing tags.
         """
         return Logfire(self._tags + list(tags), self._config, self._sample_rate)
 
