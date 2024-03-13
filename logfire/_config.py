@@ -62,6 +62,7 @@ from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
 from .exporters._otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters._processor_wrapper import SpanProcessorWrapper
+from .exporters._remove_pending import RemovePendingSpansExporter
 from .exporters.console import (
     ConsoleColorsValues,
     IndentedConsoleSpanExporter,
@@ -657,6 +658,7 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = FallbackSpanExporter(
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
                     )
+                    span_exporter = RemovePendingSpansExporter(span_exporter)
                     if self.processors is None:
                         # Only add the default span processor if the user didn't specify any of their own.
                         add_span_processor(self.default_span_processor(span_exporter))

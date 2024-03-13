@@ -4,13 +4,14 @@ import contextlib
 from typing import Any, Iterable, Sequence, cast
 
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
 from requests.models import PreparedRequest, Response
 
 import logfire
 from logfire._stack_info import STACK_INFO_KEYS
 from logfire._utils import truncate_string
+from logfire.exporters._wrapper import WrapperSpanExporter
 
 
 class OTLPExporterHttpSession(Session):
@@ -43,18 +44,15 @@ class OTLPExporterHttpSession(Session):
             raise BodyTooLargeError(size, self.max_body_size)
 
 
-class RetryFewerSpansSpanExporter(SpanExporter):
+class RetryFewerSpansSpanExporter(WrapperSpanExporter):
     """A SpanExporter that retries exporting spans in smaller batches if BodyTooLargeError is raised.
 
     This wraps another exporter, typically an OTLPSpanExporter using an OTLPExporterHttpSession.
     """
 
-    def __init__(self, exporter: SpanExporter) -> None:
-        self.exporter = exporter
-
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
-            return self.exporter.export(spans)
+            return super().export(spans)
         except BodyTooLargeError as e:
             if len(spans) == 1:
                 self._log_too_large_span(e, spans[0])
@@ -90,12 +88,6 @@ class RetryFewerSpansSpanExporter(SpanExporter):
             )
 
         logfire.error('Failed to export a span of size {size:,} bytes: {span_name}', **new_attributes)
-
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.exporter.force_flush(timeout_millis)
-
-    def shutdown(self) -> None:
-        self.exporter.shutdown()
 
 
 class BodyTooLargeError(Exception):
