@@ -18,7 +18,7 @@ from opentelemetry.semconv.trace import SpanAttributes
 from pydantic import BaseModel
 
 import logfire
-from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
+from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY, ONE_SECOND_IN_NANOSECONDS, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
 
 
 class TestExporter(SpanExporter):
@@ -237,9 +237,6 @@ class SeededRandomIdGenerator(IdGenerator):
     def generate_trace_id(self) -> int:
         """Generates a random trace id."""
         return self.random.getrandbits(128)
-
-
-ONE_SECOND_IN_NANOSECONDS = 1_000_000_000
 
 
 # Making this a dataclass causes errors in the process pool end-to-end tests

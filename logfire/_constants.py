@@ -99,3 +99,5 @@ OTLP_MAX_BODY_SIZE = 1024 * 1024 * 5  # 5MB
 
 MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT = 128
 """Maximum number of characters for formatted values in a logfire message."""
+
+ONE_SECOND_IN_NANOSECONDS = 1_000_000_000

@@ -7,13 +7,12 @@ from contextlib import contextmanager
 from types import CoroutineType
 from typing import TYPE_CHECKING, Any, ContextManager
 
+from logfire._constants import ONE_SECOND_IN_NANOSECONDS
 from logfire._stack_info import StackInfo, get_code_object_info, get_stack_info_from_frame
 from logfire._utils import safe_repr
 
 if TYPE_CHECKING:
     from logfire._main import Logfire
-
-ONE_SECOND_IN_NANOSECONDS = 1_000_000_000
 
 
 def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager[None]:

@@ -28,10 +28,10 @@ from .._constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
+    ONE_SECOND_IN_NANOSECONDS,
 )
 from .._json_formatter import json_args_value_formatter
 
-_NANOSECONDS_PER_SECOND = 1_000_000_000
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 _WARN_LEVEL = LEVEL_NUMBERS['warn']
 _ERROR_LEVEL = LEVEL_NUMBERS['error']
@@ -124,7 +124,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """
         parts: TextParts = []
         if self._include_timestamp:
-            ts = datetime.fromtimestamp((span.start_time or 0) / _NANOSECONDS_PER_SECOND, tz=timezone.utc)
+            ts = datetime.fromtimestamp((span.start_time or 0) / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
             parts += [(ts_str, 'green'), (' ', '')]
