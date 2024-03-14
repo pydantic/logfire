@@ -114,7 +114,8 @@ class ChunksFormatter(Formatter):
                     # Scrub before truncating so that the scrubber can see the full value.
                     # For example, if the value contains 'password=123' and 'password' is replaced by '...'
                     # because of truncation, then that leaves '=123' in the message, which is not good.
-                    value = scrubber.scrub(('message', field_name), value)
+                    if field_name not in scrubber.SAFE_KEYS:
+                        value = scrubber.scrub(('message', field_name), value)
                     value = truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:

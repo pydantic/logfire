@@ -198,9 +198,12 @@ class Instrumentation:
         code = getattr(callback, '__code__', None)
         stack_info: StackInfo = get_code_object_info(code) if code else {}
         with self.logfire_instance.span(
-            '{method} {route} ({code.function})',
+            '{method} {http.route} ({code.function})',
             method=request.method,
-            route=request.scope['route'].path,
+            # Using `http.route` prevents it from being scrubbed if it contains a word like 'secret'.
+            # We don't use `http.method` because some dashboards do things like count spans with
+            # both `http.method` and `http.route`.
+            **{'http.route': request.scope['route'].path},
             **stack_info,
         ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)

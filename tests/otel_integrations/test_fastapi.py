@@ -45,7 +45,7 @@ async def with_path_param(param: str):
     return {'param': param}
 
 
-async def secret(path_param: str, foo: str, password: str, testauthorization: Annotated[str, Header()]):
+async def get_secret(path_param: str, foo: str, password: str, testauthorization: Annotated[str, Header()]):
     return {'foo': foo, 'password': password, 'testauthorization': testauthorization, 'path_param': path_param}
 
 
@@ -59,7 +59,7 @@ def app():
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
     app.get('/with_path_param/{param}')(with_path_param)
-    app.get('/secret/{path_param}', name='secret')(secret)
+    app.get('/secret/{path_param}', name='secret')(get_secret)
     return app
 
 
@@ -180,7 +180,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '{method} {route} ({code.function}) (pending)',
+                'name': '{method} {http.route} ({code.function}) (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -190,17 +190,17 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'code.function': 'with_path_param',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/with_path_param/{param}',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'http.route': '/with_path_param/{param}',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
                     'logfire.tags': ('fastapi',),
                 },
             },
             {
-                'name': '{method} {route} ({code.function})',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -210,10 +210,10 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'code.function': 'with_path_param',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/with_path_param/{param}',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'http.route': '/with_path_param/{param}',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
                 },
@@ -347,7 +347,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': '{method} {route} ({code.function}) (pending)',
+                'name': '{method} {http.route} ({code.function}) (pending)',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 3000000000,
@@ -357,10 +357,10 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'code.function': 'homepage',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
+                    'http.route': '/',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET / (homepage)',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
                     'logfire.tags': ('fastapi',),
@@ -384,7 +384,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': '{method} {route} ({code.function})',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -394,9 +394,9 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'code.function': 'homepage',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'http.route': '/',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.tags': ('fastapi',),
@@ -618,7 +618,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': '{method} {route} ({code.function})',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -628,9 +628,9 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'code.function': 'exception',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/exception',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'http.route': '/exception',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
                     'logfire.level_name': 'error',
@@ -696,7 +696,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': '{method} {route} ({code.function})',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -706,9 +706,9 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'code.function': 'validation_error',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': '/validation_error',
-                    'logfire.msg_template': '{method} {route} ({code.function})',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'http.route': '/validation_error',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error (validation_error)',
                     'logfire.level_num': 17,
@@ -792,7 +792,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
     )
     assert response.status_code == 200
 
-    # TODO improve what does and doesn't get scrubbed here
+    # TODO scrub URL parameters
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -822,20 +822,20 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '{method} {route} ({code.function})',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': 'test_fastapi.py',
-                    'code.function': 'secret',
+                    'code.function': 'get_secret',
                     'code.lineno': 123,
                     'method': 'GET',
-                    'route': "[Redacted due to 'secret']",
-                    'logfire.msg_template': '{method} {route} ({code.function})',
-                    'logfire.msg': "GET [Redacted due to 'secret'] (secret)",
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"route":{}}}',
+                    'http.route': '/secret/{path_param}',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'GET /secret/{path_param} (get_secret)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                 },
