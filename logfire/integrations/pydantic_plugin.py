@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-from contextlib import ExitStack
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
@@ -11,6 +10,7 @@ from opentelemetry.metrics import Counter
 from pydantic_core import CoreConfig, CoreSchema
 
 import logfire
+from logfire import LogfireSpan
 from logfire._config import GLOBAL_CONFIG
 
 if TYPE_CHECKING:
@@ -76,10 +76,10 @@ class BaseValidateHandler:
     """Base class for validation event handler classes."""
 
     validation_method: ClassVar[str]
-    span_stack: ExitStack
+    span: LogfireSpan | None
     __slots__ = (
         'schema_name',
-        'span_stack',
+        'span',
         '_record',
         '_successful_validation_counter',
         '_failed_validation_counter',
@@ -123,6 +123,8 @@ class BaseValidateHandler:
                 tags = [tags]
             self._logfire = self._logfire.with_tags(*tags)
 
+        self.span = None
+
     def _on_enter(
         self,
         input_data: Any,
@@ -132,17 +134,14 @@ class BaseValidateHandler:
         context: dict[str, Any] | None = None,
         self_instance: Any | None = None,
     ) -> None:
-        self.span_stack = ExitStack()
         if self._record == 'all':
-            self.span_stack.enter_context(
-                self._logfire.span(
-                    'Pydantic {schema_name} {validation_method}',
-                    schema_name=self.schema_name,
-                    validation_method=self.validation_method,
-                    input_data=input_data,
-                    _span_name=f'pydantic.{self.validation_method}',
-                )
-            )
+            self.span = self._logfire.span(
+                'Pydantic {schema_name} {validation_method}',
+                schema_name=self.schema_name,
+                validation_method=self.validation_method,
+                input_data=input_data,
+                _span_name=f'pydantic.{self.validation_method}',
+            ).__enter__()
 
     def on_success(self, result: Any) -> None:
         """Callback to be notified of successful validation.
@@ -160,7 +159,8 @@ class BaseValidateHandler:
 
         self._successful_validation_counter.add(1)
 
-        self.span_stack.close()
+        if self.span:
+            self.span.__exit__(None, None, None)
 
     def on_error(self, error: ValidationError) -> None:
         """Callback to be notified of validation errors.
@@ -180,7 +180,8 @@ class BaseValidateHandler:
             stack_offset=_USER_STACK_OFFSET,
         )
         self._failed_validation_counter.add(1)
-        self.span_stack.close()
+        if self.span:
+            self.span.__exit__(None, None, None)
 
     def on_exception(self, exception: Exception) -> None:
         """Callback to be notified of validation exceptions.
@@ -194,7 +195,8 @@ class BaseValidateHandler:
             attributes={'exception': type(exception).__name__, 'exception_msg': exception},
             stack_offset=_USER_STACK_OFFSET,
         )
-        self.span_stack.__exit__(type(exception), exception, exception.__traceback__)
+        if self.span:
+            self.span.__exit__(type(exception), exception, exception.__traceback__)
 
 
 def get_schema_name(schema: CoreSchema) -> str:
