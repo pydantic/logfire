@@ -784,7 +784,7 @@ def test_sanitize_project_name():
     assert sanitize_project_name(long_name) == long_name[:41]
 
 
-def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, tmp_path: Path, capsys):
     os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
 
     auth_file = tmp_path / 'default.toml'
@@ -793,7 +793,90 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
     )
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
-        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask'))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['', 'myproject', '']))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://api.logfire.dev/v1/projects/', json=[])
+        request_mocker.get('https://api.logfire.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post('https://api.logfire.dev/v1/projects/fake_org', [create_project_response])
+
+        logfire.configure(service_name='my_service')
+
+    assert confirm_mock.mock_calls == [
+        call('The project will be created in the organization "fake_org". Continue?', default=True),
+    ]
+
+
+def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
+
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', '']))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://api.logfire.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(service_name='my_service')
+
+    assert confirm_mock.mock_calls == [
+        call('Do you want to use one of your existing projects? ', default=True),
+    ]
+    assert prompt_mock.mock_calls == [
+        call(
+            'Please select one of the existing project number:\n1. fake_org/fake_project\n', choices=['1'], default='1'
+        ),
+        call(
+            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+        ),
+    ]
+    assert capsys.readouterr().err == 'Logfire project: fake_project_url\n'
+
+    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+        **create_project_response['json'],
+        'logfire_api_url': 'https://api.logfire.dev',
+    }
+
+
+def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
+
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, True]))
         prompt_mock = stack.enter_context(
             mock.patch(
                 'rich.prompt.Prompt.ask',
@@ -809,6 +892,7 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
 
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
+        request_mocker.get('https://api.logfire.dev/v1/projects/', json=[])
         request_mocker.get('https://api.logfire.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
 
         create_existing_project_request_json = {
@@ -857,12 +941,12 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
     for request in request_mocker.request_history:
         assert request.headers['Authorization'] == 'fake_user_token'
 
-    assert request_mocker.request_history[1].json() == create_existing_project_request_json
-    assert request_mocker.request_history[2].json() == create_reserved_project_request_json
-    assert request_mocker.request_history[3].json() == create_project_request_json
+    assert request_mocker.request_history[2].json() == create_existing_project_request_json
+    assert request_mocker.request_history[3].json() == create_reserved_project_request_json
+    assert request_mocker.request_history[4].json() == create_project_request_json
 
     assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True)
+        call('The project will be created in the organization "fake_org". Continue?', default=True),
     ]
     assert prompt_mock.mock_calls == [
         call(
@@ -888,7 +972,7 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
             default=...,
         ),
         call(
-            'Project created successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
         ),
     ]
     assert capsys.readouterr().err == 'Logfire project: fake_project_url\n'
@@ -897,3 +981,54 @@ def test_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
         **create_project_response['json'],
         'logfire_api_url': 'https://api.logfire.dev',
     }
+
+
+def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
+
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=['fake_org', 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://api.logfire.dev/v1/projects/', json=[])
+        request_mocker.get(
+            'https://api.logfire.dev/v1/organizations/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://api.logfire.dev/v1/account/me', json={'default_organization': {'organization_name': 'fake_org1'}}
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://api.logfire.dev/v1/projects/fake_org',
+            [create_project_response],
+        )
+
+        logfire.configure(service_name='my_service')
+
+    assert prompt_mock.mock_calls == [
+        call(
+            '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+            choices=['fake_org', 'fake_org1'],
+            default='fake_org1',
+        ),
+        call('Enter the project name', default='myservice'),
+        call(
+            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+        ),
+    ]

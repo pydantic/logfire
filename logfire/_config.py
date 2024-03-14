@@ -623,7 +623,7 @@ class LogfireConfig(_LogfireConfigData):
                                 raise LogfireConfigError(
                                     'You are not authenticated. Please run `logfire auth` to authenticate.'
                                 )
-                            new_credentials = LogfireCredentials.create_project(
+                            new_credentials = LogfireCredentials.initialize_project(
                                 logfire_api_url=self.base_url,
                                 user_token=user_token,
                                 project_name=self.project_name,
@@ -824,7 +824,45 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def create_project(
+    def _use_existing_project(
+        cls,
+        *,
+        logfire_api_url: str,
+        user_token: str,
+        session: requests.Session,
+        projects: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
+
+        projects_map = {str(index + 1): p for index, p in enumerate(projects)}
+        if not projects_map:
+            Prompt.ask('There is no project to use. Continue?', default=True)
+            return None
+
+        project_choices_str = '\n'.join(
+            [f'{index}. {p["organization_name"]}/{p["project_name"]}' for index, p in projects_map.items()]
+        )
+        selected_project_key = Prompt.ask(
+            f'Please select one of the existing project number:\n' f'{project_choices_str}\n',
+            choices=list(projects_map.keys()),
+            default='1',
+        )
+        project = projects_map[selected_project_key]
+
+        project_write_token_url = urljoin(
+            logfire_api_url,
+            f'/v1/organizations/{project["organization_name"]}/projects/{project["project_name"]}/write-tokens/',
+        )
+        try:
+            response = session.post(project_write_token_url, headers=headers)
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error creating project write token.') from e
+
+        return response.json()
+
+    @classmethod
+    def _create_new_project(
         cls,
         *,
         logfire_api_url: str,
@@ -832,23 +870,9 @@ class LogfireCredentials:
         service_name: str,
         user_token: str,
         session: requests.Session,
-    ) -> Self:
-        """Create a new project on logfire.dev requesting the given project name.
-
-        Args:
-            logfire_api_url: The Logfire API base URL.
-            project_name: Name for the project.
-            service_name: Name of the service.
-            user_token: The user's token to use to create the new project.
-            session: HTTP client session used to communicate with the Logfire API.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error creating the new project.
-        """
+    ) -> dict[str, Any]:
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
+
         organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
         try:
             response = session.get(organizations_url, headers=headers)
@@ -858,13 +882,21 @@ class LogfireCredentials:
 
         organizations = [item['organization_name'] for item in response.json()]
         if len(organizations) > 1:
+            # Get user default organization
+            account_info_url = urljoin(logfire_api_url, '/v1/account/me')
+            try:
+                response = session.get(account_info_url, headers=headers)
+                UnexpectedResponse.raise_for_status(response)
+            except requests.RequestException as e:
+                raise LogfireConfigError('Error retrieving user information.') from e
+            json_response = response.json()
+            user_default_organization_name = json_response.get('default_organization', {}).get('organization_name')
+
             organization = Prompt.ask(
-                'No Logfire project credentials found.\n'  # TODO: Add a link to the docs about where we look
-                'All data sent to Logfire must be associated with a project. '
-                'To create and use a new project, please provide the following information:\n\n'
+                '\nTo create and use a new project, please provide the following information:\n'
                 'Select the organization to create the project in',
                 choices=organizations,
-                default=organizations[0],
+                default=user_default_organization_name if user_default_organization_name else organizations[0],
             )
         else:
             organization = organizations[0]
@@ -907,16 +939,76 @@ class LogfireCredentials:
             except requests.RequestException as e:
                 raise LogfireConfigError('Error creating new project.') from e
             else:
-                json_data = response.json()
-                try:
-                    result = cls(**json_data, logfire_api_url=logfire_api_url)
-                    Prompt.ask(
-                        f'Project created successfully. You will be able to view it at: {result.project_url}\n'
-                        'Press Enter to continue'
-                    )
-                    return result
-                except TypeError as e:
-                    raise LogfireConfigError(f'Invalid credentials, when creating project at {url}: {e}') from e
+                return response.json()
+
+    @classmethod
+    def initialize_project(
+        cls,
+        *,
+        logfire_api_url: str,
+        project_name: str | None,
+        service_name: str,
+        user_token: str,
+        session: requests.Session,
+    ) -> Self:
+        """Create a new project or use an existing project on logfire.dev requesting the given project name.
+
+        Args:
+            logfire_api_url: The Logfire API base URL.
+            project_name: Name for the project.
+            service_name: Name of the service.
+            user_token: The user's token to use to create the new project.
+            session: HTTP client session used to communicate with the Logfire API.
+
+        Returns:
+            The new credentials.
+
+        Raises:
+            LogfireConfigError: If there was an error creating the new project.
+        """
+        credentials: dict[str, Any] | None = None
+        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
+
+        print(
+            'No Logfire project credentials found.\n'  # TODO: Add a link to the docs about where we look
+            'All data sent to Logfire must be associated with a project.\n'
+        )
+        projects_url = urljoin(logfire_api_url, '/v1/projects/')
+        try:
+            response = session.get(projects_url, headers=headers)
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error retrieving list of projects.') from e
+        projects = response.json()
+
+        if projects:
+            use_existing_projects = Confirm.ask(
+                'Do you want to use one of your existing projects? ',
+                default=True,
+            )
+            if use_existing_projects:
+                credentials = cls._use_existing_project(
+                    logfire_api_url=logfire_api_url, user_token=user_token, session=session, projects=projects
+                )
+
+        if not credentials:
+            credentials = cls._create_new_project(
+                logfire_api_url=logfire_api_url,
+                project_name=project_name,
+                service_name=service_name,
+                user_token=user_token,
+                session=session,
+            )
+
+        try:
+            result = cls(**credentials, logfire_api_url=logfire_api_url)
+            Prompt.ask(
+                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
+                'Press Enter to continue'
+            )
+            return result
+        except TypeError as e:
+            raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
 
     @classmethod
     def create_anonymous_project(
