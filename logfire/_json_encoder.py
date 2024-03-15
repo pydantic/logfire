@@ -247,12 +247,12 @@ def to_json_value(o: Any) -> JsonValue:
     try:
         if isinstance(o, (int, float, str, bool, type(None))):
             return o
-        elif dataclasses.is_dataclass(o):
-            return to_json_value(dataclasses.asdict(o))
         elif isinstance(o, Mapping):
             return {key if isinstance(key, str) else safe_repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
-        elif attrs is not None and attrs.has(o):
-            return to_json_value(attrs.asdict(o))
+        elif dataclasses.is_dataclass(o):
+            return {f.name: to_json_value(getattr(o, f.name)) for f in dataclasses.fields(o)}
+        elif attrs is not None and attrs.has(o.__class__):
+            return {f.name: to_json_value(getattr(o, f.name)) for f in attrs.fields(o.__class__)}
         elif is_sqlalchemy(o):
             return _get_sqlalchemy_data(o)
 
