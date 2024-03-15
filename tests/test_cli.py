@@ -30,7 +30,7 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: Logfire [-h] [--version]  ...' in capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -40,15 +40,25 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'whoami --data-dir {str(tmp_dir_cwd)}'))
+    main(shlex.split(f'whoami --data-dir {tmp_dir_cwd}'))
     # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == 'Logfire project: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err == (
+        f'Credentials loaded from data dir: {tmp_dir_cwd}\n' '\n' 'Logfire project URL: https://dashboard.logfire.dev\n'
+    )
 
 
-def test_whoami_without_data(capsys: pytest.CaptureFixture[str]) -> None:
-    main(['whoami'])
-    # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == f'No Logfire credentials found in {os.getcwd()}/.logfire\n'
+def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Change to the temp dir so the test doesn't fail if executed from a folder containing logfire credentials.
+    current_dir = os.getcwd()
+    os.chdir(tmp_dir_cwd)
+    try:
+        main(['whoami'])
+        # insert_assert(capsys.readouterr().err)
+        assert capsys.readouterr().err == f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
+    except SystemExit as e:
+        assert e.code == 1
+    finally:
+        os.chdir(current_dir)
 
 
 def test_whoami_default_dir(
@@ -57,7 +67,11 @@ def test_whoami_default_dir(
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     main(['whoami'])
     # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == 'Logfire project: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err == (
+        f'Credentials loaded from data dir: {tmp_dir_cwd}/.logfire\n'
+        '\n'
+        'Logfire project URL: https://dashboard.logfire.dev\n'
+    )
 
 
 def test_clean(
@@ -69,7 +83,7 @@ def test_clean(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
-    assert capsys.readouterr().err == 'Cleaned logfire data.\n'
+    assert capsys.readouterr().err == 'Cleaned Logfire data.\n'
 
 
 def test_inspect(
@@ -77,11 +91,7 @@ def test_inspect(
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     main(['inspect'])
-    # insert_assert(capsys.readouterr().err.splitlines()[0])
-    assert (
-        capsys.readouterr().err.splitlines()[0]
-        == 'The following packages are installed, but not their opentelemetry package:'
-    )
+    assert capsys.readouterr().err.startswith('The following packages')
 
 
 def test_auth(tmp_path: Path) -> None:

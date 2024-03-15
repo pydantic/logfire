@@ -51,7 +51,8 @@ def check_documented_system_metrics(markdown: str, page: Page) -> str:
 
 
 def logfire_print_help(markdown: str, page: Page) -> str:
-    if page.file.src_uri != 'index.md':
+    # if you don't filter to the specific route that needs this substitution, things will be very slow
+    if page.file.src_uri != 'guide/cli.md':
         return markdown
 
     output = subprocess.run(['logfire', '--help'], capture_output=True, check=True)

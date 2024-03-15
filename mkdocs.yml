@@ -11,6 +11,11 @@ site_url: https://docs.logfire.dev
 # we have this so the source.html partial is displayed
 repo_url: http://for-login-button
 
+copyright: © Pydantic Services Inc. 2024
+extra:
+  # hide the "Made with Material for MkDocs" message
+  generator: false
+
 theme:
   name: "material"
   custom_dir: "docs/overrides"
@@ -39,6 +44,7 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.tabs
+    - navigation.instant
   logo: "logo-white.svg"
   favicon: "favicon.png"
 
@@ -89,6 +95,7 @@ nav:
       # - Data Scrubbing: guide/data_scrubbing.md
       - Backfill: guide/backfill.md
       - Testing: guide/testing.md
+      - CLI: guide/cli.md
       - Organization Structure: guide/organization_structure.md
   - SDK API:
       - Logfire: api/logfire.md

@@ -1,15 +1,27 @@
 In this page, you will find step-by-step instructions to get started with **Logfire**.
 
-## Installation
+## Installation {#install}
 
 To install the latest version of **Logfire**, run the following command:
 
 {{ install_logfire() }}
 
-!!! note
-    You'll soon be able to install **Logfire** via [Conda][conda]. Stay tuned! :wink:
+=== "Conda"
+    If you have used [`conda`](https://docs.conda.io/en/latest/) to create your virtual environment, you can install `logfire` using:
+    ```bash
+    conda install logfire -c conda-forge
+    ```
 
 ## Authenticate
+
+To authenticate your local environment with **Logfire**, run:
+
+```bash
+logfire auth
+```
+
+This will open a browser window where you can sign up or log in to [dash.logfire.dev](https://dash.logfire.dev).
+Once authentication is successful, credentials will be stored in `~/.logfire/default.toml`.
 
 ## Usage
 
@@ -47,6 +59,6 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
 
 Will show in **Logfire** like this:
 
-![Screenshot](../span_screenshot.png)
+![Logfire spans screenshot](../images/logfire-screenshot-spans.png)
 
 [conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html

@@ -859,7 +859,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
         ),
     ]
-    assert capsys.readouterr().err == 'Logfire project: fake_project_url\n'
+    assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
     assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
         **create_project_response['json'],
@@ -975,7 +975,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
         ),
     ]
-    assert capsys.readouterr().err == 'Logfire project: fake_project_url\n'
+    assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
     assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
         **create_project_response['json'],

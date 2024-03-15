@@ -1,4 +1,4 @@
-"""The CLI for Logfire."""
+"""The CLI for Pydantic Logfire."""
 from __future__ import annotations
 
 import argparse
@@ -26,8 +26,8 @@ from logfire._utils import read_toml_file
 from logfire.version import VERSION
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
-BASE_DOCS_URL = 'https://docs.logfire.dev/'
-INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
+BASE_DOCS_URL = 'https://docs.logfire.dev'
+INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/guide/integrations/'
 
 
 def version_callback() -> None:
@@ -45,37 +45,52 @@ def parse_whoami(args: argparse.Namespace) -> None:
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
         sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
+        sys.exit(1)
     else:
+        sys.stderr.write(f'Credentials loaded from data dir: {data_dir.resolve()}\n\n')
         credentials.print_token_summary()
 
 
 def parse_clean(args: argparse.Namespace) -> None:
-    """Clean logfire data."""
+    """Clean Logfire data."""
     data_dir = Path(args.data_dir)
-    confirm = input(f'The folder {data_dir} will be deleted. Are you sure? [N/y]')
+    if not data_dir.exists():
+        sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
+        sys.exit(1)
+
+    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y]')
     if confirm.lower() in ('yes', 'y'):
         if data_dir.exists() and data_dir.is_dir():
             shutil.rmtree(data_dir)
-        sys.stderr.write('Cleaned logfire data.\n')
+        sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')
 
 
 def parse_backfill(args: argparse.Namespace) -> None:
-    """Bulk load logfire data."""
+    """Bulk load Logfire data."""
     data_dir = Path(args.data_dir)
+    credentials = LogfireCredentials.load_creds_file(data_dir)
+    if credentials is None:
+        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
+        sys.exit(1)
+
     file = Path(args.file)
-    logfire._config.configure(data_dir=data_dir)
+    if not file.exists():
+        sys.stderr.write(f'No backfill file found at {file.resolve()}\n')
+        sys.exit(1)
+
+    logfire_url = cast(str, args.logfire_url)
+    logfire.configure(data_dir=data_dir, base_url=logfire_url, collect_system_metrics=False)
     config = logfire._config.GLOBAL_CONFIG
     config.initialize()
     token, _ = config.load_token()
     assert token is not None  # if no token was available a new project should have been created
     console = Console(file=sys.stderr)
     with Progress(console=console) as progress:
-        with open(file, 'rb') as f:
-            total = os.path.getsize(file)
-
-            task = progress.add_task('Backfilling...', total=total)
+        total = os.path.getsize(file)
+        task = progress.add_task('Backfilling...', total=total)
+        with file.open('rb') as f:
 
             def reader() -> Iterator[bytes]:
                 while True:
@@ -96,6 +111,7 @@ def parse_backfill(args: argparse.Namespace) -> None:
                 except requests.JSONDecodeError:
                     data = response.text
                 console.print(data)
+                sys.exit(1)
 
 
 # TODO(Marcelo): Automatically check if this list should be updated.
@@ -144,7 +160,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
     console = Console(file=sys.stderr)
     table = Table()
     table.add_column('Package')
-    table.add_column('Opentelemetry package')
+    table.add_column('OpenTelemetry instrumentation package')
 
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
@@ -171,7 +187,9 @@ def parse_inspect(args: argparse.Namespace) -> None:
         link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
         table.add_row(name, link)
 
-    console.print('The following packages are installed, but not their opentelemetry package:')
+    console.print(
+        'The following packages from your environment have an OpenTelemetry instrumentation that is not installed:'
+    )
     console.print(table)
 
     if packages:
@@ -179,10 +197,10 @@ def parse_inspect(args: argparse.Namespace) -> None:
             f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
         )
         install_command = f'pip install {otel_packages_to_install}'
-        console.print('\n[bold green]Command to install missing OpenTelemetry packages:[/bold green]\n')
+        console.print('\n[bold green]To install these packages, run:[/bold green]\n')
         console.print(f'[bold]$[/bold] [cyan]{install_command}[/cyan]', justify='center')
-        console.print('\n[bold blue]For further information, check our documentation:[/bold blue]', end=' ')
-        console.print(f'[link={INTEGRATIONS_DOCS_URL}]https://logfire.dev/docs[/link]')
+        console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
+        console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -196,7 +214,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):
-            console.print(f'You are already logged in. Credentials are stored in [bold]{DEFAULT_FILE}[/]')
+            console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
             return
     else:
         data: DefaultFile = {'tokens': {}}
@@ -234,32 +252,41 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""
-    parser = argparse.ArgumentParser(prog='Logfire', description='The CLI for Logfire.', add_help=True)
-    parser.add_argument('--version', action='store_true', help='Show version and exit.')
+    parser = argparse.ArgumentParser(
+        prog='logfire',
+        description='The CLI for Pydantic Logfire.',
+        add_help=True,
+        epilog='See https://docs.logfire.dev/guide/cli/ for more detailed documentation.',
+    )
+
+    parser.add_argument('--version', action='store_true', help='show the version and exit')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
-    cmd_whoami = subparsers.add_parser('whoami', help='Get your dashboard url and project name.')
-    cmd_whoami.add_argument('--data-dir', default='.logfire')
-    cmd_whoami.set_defaults(func=parse_whoami)
+    # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
+    cmd_auth = subparsers.add_parser('auth', help='Authenticate with Logfire')
+    cmd_auth.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
+    cmd_auth.set_defaults(func=parse_auth)
 
-    cmd_cleanup = subparsers.add_parser('clean', help='Clean logfire data.')
-    cmd_cleanup.add_argument('--data-dir', default='.logfire')
-    cmd_cleanup.set_defaults(func=parse_clean)
-
-    cmd_backfill = subparsers.add_parser('backfill', help='Bulk load logfire data.')
+    cmd_backfill = subparsers.add_parser('backfill', help='Bulk ingest backfill data')
     cmd_backfill.add_argument('--data-dir', default='.logfire')
     cmd_backfill.add_argument('--file', default='logfire_spans.bin')
+    cmd_backfill.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
     cmd_backfill.set_defaults(func=parse_backfill)
 
+    cmd_clean = subparsers.add_parser('clean', help='Remove the contents of the Logfire data directory')
+    cmd_clean.add_argument('--data-dir', default='.logfire')
+    cmd_clean.set_defaults(func=parse_clean)
+
     cmd_inspect = subparsers.add_parser(
-        'inspect', help='Inspect installed packages, and recommend OTel package that can be used with it.'
+        'inspect',
+        help="Suggest opentelemetry instrumentations based on your environment's installed packages",
     )
     cmd_inspect.set_defaults(func=parse_inspect)
 
-    cmd_login = subparsers.add_parser('auth', help='Authenticate with Logfire.')
-    cmd_login.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
-    cmd_login.set_defaults(func=parse_auth)
+    cmd_whoami = subparsers.add_parser('whoami', help='Display the URL to your Logfire project')
+    cmd_whoami.add_argument('--data-dir', default='.logfire')
+    cmd_whoami.set_defaults(func=parse_whoami)
 
     namespace = parser.parse_args(args)
     if namespace.version:

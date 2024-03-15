@@ -108,6 +108,7 @@ class PydanticPlugin:
     """The record mode for the Pydantic plugin.
 
     It can be one of the following values:
+
     * `off`: Disable instrumentation. This is default value.
     * `all`: Send traces and metrics for all events.
     * `failure`: Send metrics for all validations and traces only for validation failures.
@@ -1060,7 +1061,7 @@ class LogfireCredentials:
         """Print a summary of the existing project."""
         if self.project_url:
             _print_summary(
-                f'[bold]Logfire[/bold] project: [link={self.project_url} cyan]{self.project_url}[/link]',
+                f'[bold]Logfire[/bold] project URL: [link={self.project_url} cyan]{self.project_url}[/link]',
                 min_content_width=len(self.project_url),
             )
 
