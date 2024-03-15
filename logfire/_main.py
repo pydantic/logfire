@@ -33,7 +33,6 @@ from ._constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
-    LEVEL_NUMBERS,
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
@@ -132,8 +131,9 @@ class Logfire:
         msg_template: LiteralString,
         attributes: dict[str, Any],
         *,
-        _span_name: str | None = None,
         _tags: Sequence[str] | None = None,
+        _span_name: str | None = None,
+        _level: LevelName | None = None,
         stacklevel: int = 3,
     ) -> LogfireSpan:
         stack_info = get_caller_stack_info(stacklevel=stacklevel)
@@ -159,6 +159,9 @@ class Logfire:
         )
         if sample_rate is not None and sample_rate != 1:
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+
+        if _level is not None:
+            otlp_attributes.update(log_level_attributes(_level))
 
         return LogfireSpan(
             _span_name or msg_template,
@@ -426,6 +429,7 @@ class Logfire:
         *,
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
+        _level: LevelName | None = None,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -441,6 +445,7 @@ class Logfire:
             msg_template: The template for the span message.
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
+            _level: An optional log level name.
 
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
@@ -452,6 +457,7 @@ class Logfire:
             attributes,
             _tags=_tags,
             _span_name=_span_name,
+            _level=_level,
         )
 
     def instrument(
@@ -488,7 +494,7 @@ class Logfire:
         self,
         level: LevelName,
         msg_template: LiteralString,
-        attributes: dict[str, Any],
+        attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
         stack_offset: int = 0,
@@ -513,12 +519,10 @@ class Logfire:
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
         """
-        if level not in LEVEL_NUMBERS:
-            warnings.warn('Invalid log level name')
-            level = cast(LevelName, 'error')  # for PyCharm
         stacklevel = stack_offset + 2
         stack_info = get_caller_stack_info(stacklevel)
 
+        attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
             msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stacklevel=stacklevel + 2)
@@ -1095,6 +1099,14 @@ class LogfireSpan(ReadableSpan):
             timestamp=timestamp,
             escaped=escaped,
         )
+
+    def set_level(self, level_name: LevelName):
+        """Set the log level of this span."""
+        attributes = log_level_attributes(level_name)
+        if self._span is None:
+            self._otlp_attributes.update(attributes)
+        else:
+            self._span.set_attributes(attributes)
 
 
 def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:

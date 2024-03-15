@@ -9,6 +9,7 @@ from typing import Callable
 
 import pytest
 from dirty_equals import IsJson, IsStr
+from inline_snapshot import snapshot
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -1585,3 +1586,124 @@ def test_exc_info(exporter: TestExporter):
             'exception.stacktrace': 'ValueError: an error',
             'exception.escaped': 'False',
         }
+
+
+def test_span_level(exporter: TestExporter):
+    with logfire.span('foo', _level='debug') as span:
+        span.set_level('warn')
+
+    # debug when pending, warn when finished
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'foo (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_level',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.level_name': 'debug',
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_level',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.level_name': 'warn',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_span_set_level_before_start(exporter: TestExporter):
+    span = logfire.span('foo', _level='debug')
+    span.set_level('warn')
+    with span:
+        pass
+
+    # warn from the beginning
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'foo (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_set_level_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.level_name': 'warn',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_set_level_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.level_name': 'warn',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_invalid_log_level(exporter: TestExporter):
+    with pytest.warns(UserWarning, match="Invalid log level name: 'bad_log_level'"):
+        logfire.log('bad_log_level', 'log message')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'log message',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_name': 'error',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'log message',
+                    'logfire.msg': 'log message',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_invalid_log_level',
+                    'code.lineno': 123,
+                },
+            }
+        ]
+    )
