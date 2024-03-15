@@ -205,6 +205,7 @@ class Instrumentation:
             # both `http.method` and `http.route`.
             **{'http.route': request.scope['route'].path},
             **stack_info,
+            _level='debug',
         ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
 

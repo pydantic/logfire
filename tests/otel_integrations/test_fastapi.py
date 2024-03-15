@@ -197,6 +197,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
                     'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -216,6 +218,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -364,6 +368,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
                     'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -400,6 +406,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -838,6 +846,8 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
+                    'logfire.level_num': 5,
+                    'logfire.level_name': 'debug',
                 },
             },
             {
