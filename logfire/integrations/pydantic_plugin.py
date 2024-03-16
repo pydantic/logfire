@@ -103,12 +103,12 @@ class BaseValidateHandler:
         # There are characters not allowed, we need to replace them, see:
         # https://github.com/open-telemetry/opentelemetry-python/blob/18c0cb4c0de9af5ab9783d6c7770e57b448c3bf2/opentelemetry-api/src/opentelemetry/metrics/_internal/instrument.py#L41
         model_name = re.sub(r'[^-_./a-zA-Z0-9]', '_', model_name)
-        # Must start with a letter
-        model_name = re.sub(r'^[^a-zA-Z]+', '', model_name)
         # Remove repeated underscores
         model_name = re.sub(r'_+', '_', model_name)
         # As the counter name should be less than 63 chars, we only get the last 40 chars of model name
         model_name = model_name[-40:]
+        # Must start with a letter
+        model_name = re.sub(r'^[^a-zA-Z]+', '', model_name)
         self._successful_validation_counter = _create_counter(name=f'{model_name}-successful-validation')
         self._failed_validation_counter = _create_counter(name=f'{model_name}-failed-validation')
 
