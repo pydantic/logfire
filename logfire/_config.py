@@ -56,7 +56,7 @@ from ._constants import (
 from ._metrics import ProxyMeterProvider, configure_metrics
 from ._scrubbing import Scrubber, ScrubCallback
 from ._tracer import PendingSpanProcessor, ProxyTracerProvider
-from ._utils import UnexpectedResponse, read_toml_file
+from ._utils import UnexpectedResponse, ensure_data_dir_exists, read_toml_file
 from .exceptions import LogfireConfigError
 from .exporters._fallback import FallbackSpanExporter
 from .exporters._file import FileSpanExporter
@@ -647,7 +647,7 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = FallbackSpanExporter(
-                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME)
+                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                     )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     if self.processors is None:
@@ -1119,13 +1119,10 @@ class LogfireCredentials:
 
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""
+        ensure_data_dir_exists(creds_dir)
         data = dataclasses.asdict(self)
         path = _get_creds_file(creds_dir)
-        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2) + '\n')
-        gitignore = path.parent / '.gitignore'
-        gitignore.touch(exist_ok=True)
-        gitignore.write_text('*')
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""

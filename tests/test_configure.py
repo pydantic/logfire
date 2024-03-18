@@ -26,6 +26,7 @@ from logfire._config import (
     sanitize_project_name,
 )
 from logfire.exporters._fallback import FallbackSpanExporter
+from logfire.exporters._file import WritingFallbackWarning
 from logfire.exporters._wrapper import WrapperSpanExporter
 from logfire.integrations._executors import deserialize_config, serialize_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -545,19 +546,21 @@ def test_configure_fallback_path(tmp_path: str) -> None:
 
         return SimpleSpanProcessor(exporter)
 
+    data_dir = Path(tmp_path) / 'logfire_data'
     logfire.configure(
-        data_dir=Path(tmp_path),
+        data_dir=data_dir,
         token='abc',
         default_span_processor=default_span_processor,
         logfire_api_session=logfire_api_session,
         metric_readers=[InMemoryMetricReader()],
     )
 
-    path = Path(tmp_path) / 'logfire_spans.bin'
-    assert not path.exists()
+    assert not data_dir.exists()
+    path = data_dir / 'logfire_spans.bin'
 
-    with logfire.span('test'):
-        pass
+    with pytest.warns(WritingFallbackWarning, match=f'Failed to export spans, writing to fallback file: {path}'):
+        with logfire.span('test'):
+            pass
 
     assert path.exists()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+import warnings
 from pathlib import Path
 from typing import IO, Generator, Iterable, Iterator, Literal, Sequence
 
@@ -13,6 +14,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from typing_extensions import assert_never
 
 from .._constants import DEFAULT_FALLBACK_FILE_NAME
+from .._utils import ensure_data_dir_exists
 
 HEADER = b'LOGFIRE BACKUP FILE\n'
 VERSION = b'VERSION 1\n'
@@ -29,21 +31,34 @@ class Writer:
         yield spans.SerializeToString()
 
 
+class WritingFallbackWarning(Warning):
+    pass
+
+
 class FileSpanExporter(SpanExporter):
     def __init__(
         self,
         file_path: str | Path | IO[bytes],
+        *,
+        warn: bool = False,
     ) -> None:
         self.file_path = Path(file_path) if isinstance(file_path, str) else file_path
         self._lock = threading.Lock()
         self._file: IO[bytes] | None = None
         self._wrote_header = False
+        self._warn = warn
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         writer = Writer()
         with self._lock:
             if not self._file:
                 if isinstance(self.file_path, Path):
+                    ensure_data_dir_exists(self.file_path.parent)
+                    if self._warn:
+                        warnings.warn(
+                            f'Failed to export spans, writing to fallback file: {self.file_path}',
+                            WritingFallbackWarning,
+                        )
                     self._file = self.file_path.open('ab')
                 else:
                     self._file = self.file_path

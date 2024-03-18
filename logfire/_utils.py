@@ -158,3 +158,13 @@ class UnexpectedResponse(RequestException):
         """Like the requests method, but raises a more informative exception."""
         if response.status_code not in range(200, 300):
             raise cls(response)
+
+
+def ensure_data_dir_exists(data_dir: Path) -> None:
+    if data_dir.exists():
+        if not data_dir.is_dir():  # pragma: no cover
+            raise ValueError(f'Data directory {data_dir} exists but is not a directory')
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    gitignore = data_dir / '.gitignore'
+    gitignore.write_text('*')
