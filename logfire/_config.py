@@ -615,18 +615,8 @@ class LogfireConfig(_LogfireConfigData):
                                 session=self.logfire_api_session,
                             )
                         else:
-                            user_token = None
-                            if DEFAULT_FILE.is_file():
-                                data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-                                if is_logged_in(data, self.base_url):
-                                    user_token = data['tokens'][self.base_url]['token']
-                            if user_token is None:
-                                raise LogfireConfigError(
-                                    'You are not authenticated. Please run `logfire auth` to authenticate.'
-                                )
                             new_credentials = LogfireCredentials.initialize_project(
                                 logfire_api_url=self.base_url,
-                                user_token=user_token,
                                 project_name=self.project_name,
                                 service_name=self.service_name,
                                 session=self.logfire_api_session,
@@ -825,34 +815,89 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def _use_existing_project(
+    def _get_user_token(cls, logfire_api_url: str) -> str:
+        if DEFAULT_FILE.is_file():
+            data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
+            if is_logged_in(data, logfire_api_url):
+                return data['tokens'][logfire_api_url]['token']
+        raise LogfireConfigError('You are not authenticated. Please run `logfire auth` to authenticate.')
+
+    @classmethod
+    def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
+        """Get list of projects that user has access to them.
+
+        Args:
+            session: HTTP client session used to communicate with the Logfire API.
+            logfire_api_url: The Logfire API base URL.
+
+        Returns:
+            List of user projects.
+
+        Raises:
+            LogfireConfigError: If there was an error retrieving user projects.
+        """
+        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
+        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
+        projects_url = urljoin(logfire_api_url, '/v1/projects/')
+        try:
+            response = session.get(projects_url, headers=headers)
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error retrieving list of projects.') from e
+        return response.json()
+
+    @classmethod
+    def use_existing_project(
         cls,
         *,
-        logfire_api_url: str,
-        user_token: str,
         session: requests.Session,
+        logfire_api_url: str,
         projects: list[dict[str, Any]],
+        organization: str | None = None,
+        project_name: str | None = None,
     ) -> dict[str, Any] | None:
+        """Configure one of the user projects to be used by Logfire.
+
+        It configures the project if organization/project_name is a valid project that
+        the user has access to it. Otherwise, it asks the user to select a project interactively.
+
+        Args:
+            session: HTTP client session used to communicate with the Logfire API.
+            logfire_api_url: The Logfire API base URL.
+            projects: List of user projects.
+            organization: Project organization.
+            project_name: Name of project that has to be used.
+
+        Returns:
+            The configured project informations.
+
+        Raises:
+            LogfireConfigError: If there was an error configuring the project.
+        """
+        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
-        projects_map = {str(index + 1): p for index, p in enumerate(projects)}
-        if not projects_map:
-            Prompt.ask('There is no project to use. Continue?', default=True)
-            return None
+        # {1: (<organization_name1>, <project_name1>), 2: (<organization_name2>, <project_name2>)}
+        projects_map = {str(index + 1): (p['organization_name'], p['project_name']) for index, p in enumerate(projects)}
 
-        project_choices_str = '\n'.join(
-            [f'{index}. {p["organization_name"]}/{p["project_name"]}' for index, p in projects_map.items()]
-        )
-        selected_project_key = Prompt.ask(
-            f'Please select one of the existing project number:\n' f'{project_choices_str}\n',
-            choices=list(projects_map.keys()),
-            default='1',
-        )
-        project = projects_map[selected_project_key]
+        if (organization, project_name) not in projects_map.values():
+            if not projects_map:
+                Prompt.ask('There is no project to use. Continue?', default=True)
+                return None
+
+            project_choices_str = '\n'.join([f'{index}. {item[0]}/{item[1]}' for index, item in projects_map.items()])
+            selected_project_key = Prompt.ask(
+                f'Please select one of the existing project number:\n' f'{project_choices_str}\n',
+                choices=list(projects_map.keys()),
+                default='1',
+            )
+            project_info_tuple = projects_map[selected_project_key]
+            organization = project_info_tuple[0]
+            project_name = project_info_tuple[1]
 
         project_write_token_url = urljoin(
             logfire_api_url,
-            f'/v1/organizations/{project["organization_name"]}/projects/{project["project_name"]}/write-tokens/',
+            f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
         )
         try:
             response = session.post(project_write_token_url, headers=headers)
@@ -863,51 +908,83 @@ class LogfireCredentials:
         return response.json()
 
     @classmethod
-    def _create_new_project(
+    def create_new_project(
         cls,
         *,
-        logfire_api_url: str,
-        project_name: str | None,
-        service_name: str,
-        user_token: str,
         session: requests.Session,
+        logfire_api_url: str,
+        organization: str | None = None,
+        default_organization: bool = False,
+        project_name: str | None = None,
+        service_name: str | None = None,
     ) -> dict[str, Any]:
+        """Create a new project and configure it to be used by Logfire.
+
+        It creates the project under the organization if both project and organization are valid.
+        Otherwise, it asks the user to select organization and enter a valid project name interactively.
+
+        Args:
+            session: HTTP client session used to communicate with the Logfire API.
+            logfire_api_url: The Logfire API base URL.
+            organization: The organization name of the new project.
+            default_organization: Whether to create the project under the user default organization.
+            project_name: Name of the project.
+            service_name: Name of the service.
+
+        Returns:
+            The created project informations.
+
+        Raises:
+            LogfireConfigError: If there was an error creating projects.
+        """
+        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
+        # Get user organizations
         organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
         try:
             response = session.get(organizations_url, headers=headers)
             UnexpectedResponse.raise_for_status(response)
         except requests.RequestException as e:
             raise LogfireConfigError('Error retrieving list of organizations.') from e
-
         organizations = [item['organization_name'] for item in response.json()]
-        if len(organizations) > 1:
-            # Get user default organization
-            account_info_url = urljoin(logfire_api_url, '/v1/account/me')
-            try:
-                response = session.get(account_info_url, headers=headers)
-                UnexpectedResponse.raise_for_status(response)
-            except requests.RequestException as e:
-                raise LogfireConfigError('Error retrieving user information.') from e
-            json_response = response.json()
-            user_default_organization_name = json_response.get('default_organization', {}).get('organization_name')
 
-            organization = Prompt.ask(
-                '\nTo create and use a new project, please provide the following information:\n'
-                'Select the organization to create the project in',
-                choices=organizations,
-                default=user_default_organization_name if user_default_organization_name else organizations[0],
-            )
-        else:
-            organization = organizations[0]
-            Confirm.ask(f'The project will be created in the organization "{organization}". Continue?', default=True)
+        if organization not in organizations:
+            if len(organizations) > 1:
+                # Get user default organization
+                account_info_url = urljoin(logfire_api_url, '/v1/account/me')
+                try:
+                    response = session.get(account_info_url, headers=headers)
+                    UnexpectedResponse.raise_for_status(response)
+                except requests.RequestException as e:
+                    raise LogfireConfigError('Error retrieving user information.') from e
+                json_response = response.json()
+                user_default_organization_name = json_response.get('default_organization', {}).get('organization_name')
 
-        project_name_default: str = project_name or sanitize_project_name(service_name)
+                if default_organization and user_default_organization_name:
+                    organization = user_default_organization_name
+                else:
+                    organization = Prompt.ask(
+                        '\nTo create and use a new project, please provide the following information:\n'
+                        'Select the organization to create the project in',
+                        choices=organizations,
+                        default=user_default_organization_name if user_default_organization_name else organizations[0],
+                    )
+            else:
+                organization = organizations[0]
+                if not default_organization:
+                    Confirm.ask(
+                        f'The project will be created in the organization "{organization}". Continue?', default=True
+                    )
+
+        project_name_default: str | None = project_name or (
+            sanitize_project_name(service_name) if service_name else None
+        )
         project_name_prompt = 'Enter the project name'
         while True:
-            project_name = Prompt.ask(project_name_prompt, default=project_name_default)
-            while not re.match(PROJECT_NAME_PATTERN, project_name):
+            if not project_name:
+                project_name = Prompt.ask(project_name_prompt, default=project_name_default)
+            while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
                     "\nThe project you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
@@ -925,6 +1002,7 @@ class LogfireCredentials:
                     project_name_prompt = (
                         '\nA project with that name already exists. Please enter a different project name'
                     )
+                    project_name = None
                     continue
                 if response.status_code == 422:
                     error = response.json()['detail'][0]
@@ -935,6 +1013,7 @@ class LogfireCredentials:
                             f'{error["msg"]}\n'
                             f'Please enter a different project name'
                         )
+                        project_name = None
                         continue
                 UnexpectedResponse.raise_for_status(response)
             except requests.RequestException as e:
@@ -949,7 +1028,6 @@ class LogfireCredentials:
         logfire_api_url: str,
         project_name: str | None,
         service_name: str,
-        user_token: str,
         session: requests.Session,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
@@ -965,40 +1043,32 @@ class LogfireCredentials:
             The new credentials.
 
         Raises:
-            LogfireConfigError: If there was an error creating the new project.
+            LogfireConfigError: If there was an error on creating/configuring the project.
         """
         credentials: dict[str, Any] | None = None
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
         print(
             'No Logfire project credentials found.\n'  # TODO: Add a link to the docs about where we look
             'All data sent to Logfire must be associated with a project.\n'
         )
-        projects_url = urljoin(logfire_api_url, '/v1/projects/')
-        try:
-            response = session.get(projects_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error retrieving list of projects.') from e
-        projects = response.json()
 
+        projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
         if projects:
             use_existing_projects = Confirm.ask(
                 'Do you want to use one of your existing projects? ',
                 default=True,
             )
             if use_existing_projects:
-                credentials = cls._use_existing_project(
-                    logfire_api_url=logfire_api_url, user_token=user_token, session=session, projects=projects
+                credentials = cls.use_existing_project(
+                    session=session, logfire_api_url=logfire_api_url, projects=projects
                 )
 
         if not credentials:
-            credentials = cls._create_new_project(
+            credentials = cls.create_new_project(
+                session=session,
                 logfire_api_url=logfire_api_url,
                 project_name=project_name,
                 service_name=service_name,
-                user_token=user_token,
-                session=session,
             )
 
         try:

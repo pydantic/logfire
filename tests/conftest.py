@@ -83,3 +83,13 @@ def tmp_dir_cwd(tmp_path: Path):
         yield tmp_path
     finally:
         os.chdir(cwd)
+
+
+@pytest.fixture
+def default_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    with open(auth_file, 'w') as f:
+        f.write('[tokens."http://localhost:8000"]')
+        f.write('token = "0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"')
+        f.write('expiration = "2025-03-14T17:14:52.586536Z"')
+    return auth_file

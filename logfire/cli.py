@@ -23,6 +23,7 @@ from logfire._auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in,
 from logfire._config import LogfireCredentials
 from logfire._constants import LOGFIRE_BASE_URL
 from logfire._utils import read_toml_file
+from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
@@ -250,6 +251,77 @@ def parse_auth(args: argparse.Namespace) -> None:
     # TODO(Marcelo): Add a message to inform which commands can be used.
 
 
+def parse_list_projects(args: argparse.Namespace) -> None:
+    """List user projects."""
+    logfire_url = args.logfire_url
+    console = Console(file=sys.stderr)
+    with requests.Session() as session:
+        projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
+        if projects:
+            table = Table()
+            table.add_column('Organization')
+            table.add_column('Project')
+            for project in projects:
+                table.add_row(project['organization_name'], project['project_name'])
+            console.print(table)
+        else:
+            console.print(
+                "No projects found for the current user. You can create a new project by 'logfire projects create' command"
+            )
+
+
+def parse_create_new_project(args: argparse.Namespace) -> None:
+    """Create a new project."""
+    data_dir = Path(args.data_dir)
+    logfire_url = args.logfire_url
+    project_name = args.project_name
+    organization = args.org
+    default_organization = args.default_org
+    console = Console(file=sys.stderr)
+    with requests.Session() as session:
+        project_info = LogfireCredentials.create_new_project(
+            session=session,
+            logfire_api_url=logfire_url,
+            organization=organization,
+            default_organization=default_organization,
+            project_name=project_name,
+            service_name=Path.cwd().name,
+        )
+    try:
+        credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
+        credentials.write_creds_file(data_dir)
+        console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
+    except TypeError as e:
+        raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
+
+
+def parse_use_project(args: argparse.Namespace) -> None:
+    """Use an existing project."""
+    data_dir = Path(args.data_dir)
+    logfire_url = args.logfire_url
+    project_name = args.project_name
+    organization = args.org
+    console = Console(file=sys.stderr)
+    with requests.Session() as session:
+        projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
+        project_info = LogfireCredentials.use_existing_project(
+            session=session,
+            logfire_api_url=logfire_url,
+            projects=projects,
+            organization=organization,
+            project_name=project_name,
+        )
+        if project_info:
+            try:
+                credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
+                credentials.write_creds_file(data_dir)
+                console.print(
+                    f'Project configured successfully. You will be able to view it at: {credentials.project_url}'
+                )
+            except TypeError as e:
+                raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
+
+
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""
     parser = argparse.ArgumentParser(
@@ -287,6 +359,29 @@ def main(args: list[str] | None = None) -> None:
     cmd_whoami = subparsers.add_parser('whoami', help='Display the URL to your Logfire project')
     cmd_whoami.add_argument('--data-dir', default='.logfire')
     cmd_whoami.set_defaults(func=parse_whoami)
+
+    cmd_projects = subparsers.add_parser('projects', help='Project management with Logfire.')
+    projects_subparsers = cmd_projects.add_subparsers()
+    cmd_projects_list = projects_subparsers.add_parser('list', help='List projects.')
+    cmd_projects_list.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
+    cmd_projects_list.set_defaults(func=parse_list_projects)
+
+    cmd_projects_new = projects_subparsers.add_parser('new', help='Create a new project.')
+    cmd_projects_new.add_argument('project_name', nargs='?', help='Project name.')
+    cmd_projects_new.add_argument('--data-dir', default='.logfire')
+    cmd_projects_new.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
+    cmd_projects_new.add_argument('--org', help='Project organization.')
+    cmd_projects_new.add_argument(
+        '--default-org', action='store_true', help='Whether to create project under user default organization.'
+    )
+    cmd_projects_new.set_defaults(func=parse_create_new_project)
+
+    cmd_projects_use = projects_subparsers.add_parser('use', help='Use a project.')
+    cmd_projects_use.add_argument('project_name', help='Project name.')
+    cmd_projects_use.add_argument('--org', help='Project organization.')
+    cmd_projects_use.add_argument('--data-dir', default='.logfire')
+    cmd_projects_use.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
+    cmd_projects_use.set_defaults(func=parse_use_project)
 
     namespace = parser.parse_args(args)
     if namespace.version:
