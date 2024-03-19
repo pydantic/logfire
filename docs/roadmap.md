@@ -52,10 +52,6 @@ This will allow you to deploy Logfire on your own infrastructure.
 You'll be able to connect to our Postgres database directly from an external service, and
 query Logfire data directly from your local machine.
 
-### Enable Anonymous Projects
-
-You'll be able to create a project without an account, and start sending logs to Logfire.
-
 ### Schema Catalog
 
 We want to build a catalog of Pydantic Models/Schemas as outlined
