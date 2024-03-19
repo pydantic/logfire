@@ -92,7 +92,7 @@ nav:
       - SQL Explorer: guide/sql_explorer.md
       # - Direct Connection: guide/direct_connection.md
       - Sampling: guide/sampling.md
-      # - Data Scrubbing: guide/data_scrubbing.md
+      - Scrubbing sensitive data: guide/scrubbing.md
       - Backfill: guide/backfill.md
       - Testing: guide/testing.md
       - CLI: guide/cli.md

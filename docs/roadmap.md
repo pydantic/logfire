@@ -13,9 +13,12 @@ If you have any questions, or a feature request, **please join our [Slack][slack
 
 There are a lot of features that we are planning to implement in Logfire. Here are some of them.
 
-### Client and Server side Scrubbing of Sensitive Data
+### Server side Scrubbing of Sensitive Data
 
-We are planning to implement a system that will scrub sensitive data from the logs, both on the client and server side.
+The **Logfire** SDK scrubs sensitive data from logs on the client side before sending them to the server.
+
+
+We are planning to implement similar scrubbing on the server side for other OpenTelemetry clients.
 
 We'll also support adhoc scrubbing of rows.
 
