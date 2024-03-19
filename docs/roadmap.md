@@ -19,11 +19,9 @@ We are planning to implement a system that will scrub sensitive data from the lo
 
 We'll also support adhoc scrubbing of rows.
 
-### Create Organizations & Teams
+### Create Teams
 
-You'll be able to create a **new separate organization**, and invite others.
-
-Also, along the same lines, you'll be able to create **teams** with organization.
+You'll be able to create **teams** with organization.
 
 ### Alerts & Notifications
 
