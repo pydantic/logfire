@@ -140,6 +140,7 @@ class BaseValidateHandler:
                 schema_name=self.schema_name,
                 validation_method=self.validation_method,
                 input_data=input_data,
+                _level='info',
                 _span_name=f'pydantic.{self.validation_method}',
             ).__enter__()
 
@@ -149,17 +150,14 @@ class BaseValidateHandler:
         Args:
             result: The result of the validation.
         """
-        if self._record == 'all':
-            self._logfire.log(
-                'debug',
-                msg_template='Validation successful {result=!r}',
-                attributes={'result': result},
-                stack_offset=_USER_STACK_OFFSET,
-            )
-
         self._successful_validation_counter.add(1)
 
         if self.span:
+            self._set_span_attributes(
+                success=True,
+                message='succeeded',
+                result=result,
+            )
             self.span.__exit__(None, None, None)
 
     def on_error(self, error: ValidationError) -> None:
@@ -168,20 +166,28 @@ class BaseValidateHandler:
         Args:
             error: The validation error.
         """
-        error_count = error.error_count()
-        self._logfire.log(
-            level='warn',
-            msg_template='Validation on {schema_name} failed',
-            attributes={
-                'schema_name': self.schema_name,
-                'error_count': error_count,
-                'errors': error.errors(include_url=False),
-            },
-            stack_offset=_USER_STACK_OFFSET,
-        )
         self._failed_validation_counter.add(1)
+
         if self.span:
+            self._set_span_attributes(
+                success=False,
+                message='failed',
+                error_count=error.error_count(),
+                errors=error.errors(include_url=False),
+            )
+            self.span.set_level('warn')
             self.span.__exit__(None, None, None)
+        elif self._record == 'failure':
+            self._logfire.log(
+                level='warn',
+                msg_template='Validation on {schema_name} failed',
+                attributes={
+                    'schema_name': self.schema_name,
+                    'error_count': error.error_count(),
+                    'errors': error.errors(include_url=False),
+                },
+                stack_offset=_USER_STACK_OFFSET,
+            )
 
     def on_exception(self, exception: Exception) -> None:
         """Callback to be notified of validation exceptions.
@@ -189,14 +195,33 @@ class BaseValidateHandler:
         Args:
             exception: The exception raised during validation.
         """
-        self._logfire.log(
-            'error',
-            msg_template='{exception_type=}: {exception_msg=}',
-            attributes={'exception': type(exception).__name__, 'exception_msg': exception},
-            stack_offset=_USER_STACK_OFFSET,
-        )
+        self._failed_validation_counter.add(1)
+
+        exception_type = type(exception).__name__
         if self.span:
+            self._set_span_attributes(
+                success=False,
+                message=f'raised {exception_type}',
+            )
             self.span.__exit__(type(exception), exception, exception.__traceback__)
+        elif self._record == 'failure':
+            self._logfire.log(
+                level='error',
+                msg_template='Validation on {schema_name} raised {exception_type}',
+                attributes={
+                    'schema_name': self.schema_name,
+                    'exception_type': exception_type,
+                },
+                stack_offset=_USER_STACK_OFFSET,
+                exc_info=exception,
+            )
+
+    def _set_span_attributes(self, *, message: str, success: bool, **attributes: Any) -> None:
+        span = self.span
+        assert span is not None
+        if span.is_recording():
+            span.set_attributes({'success': success, **attributes})
+            span.message += ' ' + message
 
 
 def get_schema_name(schema: CoreSchema) -> str:

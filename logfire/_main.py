@@ -1026,21 +1026,22 @@ class LogfireSpan(ReadableSpan):
 
     @property
     def message_template(self) -> str | None:
-        attributes = getattr(self._span, 'attributes')
-        if not attributes:
-            return None
-        if ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes:
-            return None
-        return str(attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY])
+        return self._get_attribute(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, None)
 
     @property
     def tags(self) -> Sequence[str]:
-        attributes = getattr(self._span, 'attributes')
-        if not attributes:
-            return []
-        if ATTRIBUTES_TAGS_KEY not in attributes:
-            return []
-        return cast(Sequence[str], attributes[ATTRIBUTES_TAGS_KEY])
+        return self._get_attribute(ATTRIBUTES_TAGS_KEY, [])
+
+    @property
+    def message(self) -> str:
+        return self._get_attribute(ATTRIBUTES_MESSAGE_KEY, self._span_name)
+
+    @message.setter
+    def message(self, message: str):
+        if self._span is None:
+            self._otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = message
+        else:
+            self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
     def end(self) -> None:
         """Sets the current time as the span's end time.
@@ -1074,6 +1075,11 @@ class LogfireSpan(ReadableSpan):
         if self._span is not None:
             self._span.set_attribute(key, otel_value)
 
+    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+        """Sets the given attributes on the span."""
+        for key, value in attributes.items():
+            self.set_attribute(key, value)
+
     def record_exception(
         self,
         exception: BaseException,
@@ -1100,6 +1106,9 @@ class LogfireSpan(ReadableSpan):
             escaped=escaped,
         )
 
+    def is_recording(self) -> bool:
+        return self._span is not None and self._span.is_recording()
+
     def set_level(self, level_name: LevelName):
         """Set the log level of this span."""
         attributes = log_level_attributes(level_name)
@@ -1107,6 +1116,10 @@ class LogfireSpan(ReadableSpan):
             self._otlp_attributes.update(attributes)
         else:
             self._span.set_attributes(attributes)
+
+    def _get_attribute(self, key: str, default: Any) -> Any:
+        attributes = getattr(self._span, 'attributes', self._otlp_attributes)
+        return attributes.get(key, default)
 
 
 def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
