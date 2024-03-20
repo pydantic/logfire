@@ -1,4 +1,5 @@
 """The CLI for Pydantic Logfire."""
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +13,7 @@ import warnings
 import webbrowser
 from pathlib import Path
 from typing import Iterator, cast
+from urllib.parse import urljoin
 
 import requests
 from rich.console import Console
@@ -101,11 +103,8 @@ def parse_backfill(args: argparse.Namespace) -> None:
                     yield data
                     progress.update(task, completed=f.tell())
 
-            response = requests.post(
-                f'{config.base_url}/backfill/traces',
-                data=reader(),
-                headers={'Content-Length': str(total)},
-            )
+            url = urljoin(config.base_url, '/v1/backfill/traces')
+            response = requests.post(url, data=reader(), headers={'Content-Length': str(total)})
             if response.status_code != 200:
                 try:
                     data = response.json()
