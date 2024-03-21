@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 from contextlib import ExitStack
@@ -769,10 +770,46 @@ def test_config_serializable():
         serialize_config()  # fails because SimpleConsoleSpanExporter contains sys.stdout
 
     This implies that the default processors cannot be stored in the config alongside user-defined processors.
+
+    In particular we also need to check that config values that are dataclasses are handled properly:
+    they get serialized to dicts (which dataclasses.asdict does automatically),
+    and deserialized back to dataclasses (which we have to do manually).
     """
-    logfire.configure(send_to_logfire=False)
+    logfire.configure(
+        send_to_logfire=False,
+        pydantic_plugin=logfire.PydanticPlugin(record='all'),
+        console=logfire.ConsoleOptions(verbose=True),
+    )
+
+    for field in dataclasses.fields(GLOBAL_CONFIG):
+        # Check that the full set of dataclass fields is known.
+        # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
+        assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
+            field.name in ['pydantic_plugin', 'console']
+        )
+
     serialized = serialize_config()
     deserialize_config(serialized)
+    serialized2 = serialize_config()
+
+    def normalize(s):
+        for value in s.values():
+            assert not dataclasses.is_dataclass(value)
+        # These values get deepcopied by dataclasses.asdict, so we can't compare them directly
+        return {k: v for k, v in s.items() if k not in ['logfire_api_session', 'id_generator']}
+
+    assert normalize(serialized) == normalize(serialized2)
+
+    assert isinstance(GLOBAL_CONFIG.pydantic_plugin, logfire.PydanticPlugin)
+    assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
+
+
+def test_config_serializable_console_false():
+    logfire.configure(send_to_logfire=False, console=False)
+    assert GLOBAL_CONFIG.console is False
+
+    deserialize_config(serialize_config())
+    assert GLOBAL_CONFIG.console is False
 
 
 def test_sanitize_project_name():

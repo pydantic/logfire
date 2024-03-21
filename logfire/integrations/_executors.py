@@ -65,6 +65,4 @@ def serialize_config() -> dict[str, Any]:
 def deserialize_config(config: dict[str, Any]) -> None:
     from logfire import _config  # type: ignore
 
-    if 'console' in config:
-        config['console'] = _config.ConsoleOptions(**config['console'])
     _config.configure(**config)

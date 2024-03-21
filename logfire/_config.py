@@ -353,6 +353,9 @@ class _LogfireConfigData:
         self.scrubbing_callback = scrubbing_callback
         self.scrubber = Scrubber(scrubbing_patterns, scrubbing_callback)
 
+        if isinstance(console, dict):
+            # This is particularly for deserializing from a dict as in _executors.py
+            console = ConsoleOptions(**console)  # type: ignore
         if console is not None:
             self.console = console
         elif param_manager.load_param('console') is False:
@@ -365,6 +368,9 @@ class _LogfireConfigData:
                 verbose=param_manager.load_param('console_verbose'),
             )
 
+        if isinstance(pydantic_plugin, dict):
+            # This is particularly for deserializing from a dict as in _executors.py
+            pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
         self.pydantic_plugin = pydantic_plugin or PydanticPlugin(
             record=param_manager.load_param('pydantic_plugin_record'),
             include=param_manager.load_param('pydantic_plugin_include'),
