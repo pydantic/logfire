@@ -15,7 +15,7 @@ from pydantic_core import core_schema
 
 import logfire
 from logfire._config import GLOBAL_CONFIG, PydanticPlugin
-from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin
+from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin, get_schema_name
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
 
@@ -125,6 +125,19 @@ def test_logfire_plugin_include_exclude_models(
         assert result != (None, None, None)
     else:
         assert result == (None, None, None)
+
+
+def test_get_schema_name():
+    # In particular this tests schemas with type 'definitions'
+
+    class Model1(BaseModel):
+        x: int | list[Model1]
+
+    class Model2(BaseModel):
+        x: Model1
+
+    assert get_schema_name(Model1.__pydantic_core_schema__) == 'Model1'
+    assert get_schema_name(Model2.__pydantic_core_schema__) == 'Model2'
 
 
 def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_reader: InMemoryMetricReader) -> None:

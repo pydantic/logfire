@@ -238,13 +238,24 @@ def get_schema_name(schema: CoreSchema) -> str:
     Returns:
         The name of the schema.
     """
-    schema_type = schema['type']
-    if schema_type in {'model', 'dataclass'}:
+    if schema['type'] in {'model', 'dataclass'}:
         return schema['cls'].__name__  # type: ignore
-    elif schema_type in {'function-after', 'function-before', 'function-wrap'}:
+    elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
         return get_schema_name(schema['schema'])  # type: ignore
+    elif schema['type'] == 'definitions':
+        inner_schema = schema['schema']
+        if inner_schema['type'] == 'definition-ref':
+            schema_ref: str = inner_schema['schema_ref']  # type: ignore
+            [schema_definition] = [
+                definition
+                for definition in schema['definitions']
+                if definition['ref'] == schema_ref  # type: ignore
+            ]
+            return get_schema_name(schema_definition)
+        else:
+            return get_schema_name(inner_schema)
     else:
-        return schema_type
+        return schema['type']
 
 
 @lru_cache
