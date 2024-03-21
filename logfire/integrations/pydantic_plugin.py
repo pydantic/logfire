@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
 
-from opentelemetry.metrics import Counter
 from pydantic_core import CoreConfig, CoreSchema
 
 import logfire
@@ -28,6 +26,7 @@ if TYPE_CHECKING:
     StringInput: TypeAlias = 'dict[str, StringInput]'
 
 METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
+validation_counter = METER.create_counter('pydantic.validations')
 
 
 class PluginSettings(TypedDict, total=False):
@@ -81,8 +80,6 @@ class BaseValidateHandler:
         'schema_name',
         'span',
         '_record',
-        '_successful_validation_counter',
-        '_failed_validation_counter',
         '_logfire',
     )
 
@@ -98,19 +95,6 @@ class BaseValidateHandler:
         # that are currently exposed by the plugin to potentially configure the validation handlers.
         self.schema_name = get_schema_name(schema)
         self._record = record
-
-        model_name = schema_type_path.name.split('.')[-1]
-        # There are characters not allowed, we need to replace them, see:
-        # https://github.com/open-telemetry/opentelemetry-python/blob/18c0cb4c0de9af5ab9783d6c7770e57b448c3bf2/opentelemetry-api/src/opentelemetry/metrics/_internal/instrument.py#L41
-        model_name = re.sub(r'[^-_./a-zA-Z0-9]', '_', model_name)
-        # Remove repeated underscores
-        model_name = re.sub(r'_+', '_', model_name)
-        # As the counter name should be less than 63 chars, we only get the last 40 chars of model name
-        model_name = model_name[-40:]
-        # Must start with a letter
-        model_name = re.sub(r'^[^a-zA-Z]+', '', model_name)
-        self._successful_validation_counter = _create_counter(name=f'{model_name}-successful-validation')
-        self._failed_validation_counter = _create_counter(name=f'{model_name}-failed-validation')
 
         self._logfire = logfire.DEFAULT_LOGFIRE_INSTANCE
         # trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
@@ -150,7 +134,7 @@ class BaseValidateHandler:
         Args:
             result: The result of the validation.
         """
-        self._successful_validation_counter.add(1)
+        self._count_validation(success=True)
 
         if self.span:
             self._set_span_attributes(
@@ -166,7 +150,7 @@ class BaseValidateHandler:
         Args:
             error: The validation error.
         """
-        self._failed_validation_counter.add(1)
+        self._count_validation(success=False)
 
         if self.span:
             self._set_span_attributes(
@@ -195,7 +179,7 @@ class BaseValidateHandler:
         Args:
             exception: The exception raised during validation.
         """
-        self._failed_validation_counter.add(1)
+        self._count_validation(success=False)
 
         exception_type = type(exception).__name__
         if self.span:
@@ -222,6 +206,11 @@ class BaseValidateHandler:
         if span.is_recording():
             span.set_attributes({'success': success, **attributes})
             span.message += ' ' + message
+
+    def _count_validation(self, *, success: bool) -> None:
+        validation_counter.add(
+            1, {'success': success, 'schema_name': self.schema_name, 'validation_method': self.validation_method}
+        )
 
 
 def get_schema_name(schema: CoreSchema) -> str:
@@ -256,11 +245,6 @@ def get_schema_name(schema: CoreSchema) -> str:
             return get_schema_name(inner_schema)
     else:
         return schema['type']
-
-
-@lru_cache
-def _create_counter(name: str) -> Counter:
-    return METER.create_counter(name=name)
 
 
 class ValidatePythonHandler(BaseValidateHandler):

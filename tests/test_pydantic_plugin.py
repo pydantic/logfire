@@ -179,39 +179,36 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
     assert metrics_collected == snapshot(
         [
             {
-                'name': 'mymodel-successful-validation',
+                'name': 'pydantic.validations',
                 'description': '',
                 'unit': '',
                 'data': {
                     'data_points': [
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'validation_method': 'validate_python',
+                                'schema_name': 'MyModel',
+                                'success': True,
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
-                        }
-                    ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
-                    'is_monotonic': True,
-                },
-            },
-            {
-                'name': 'mymodel-failed-validation',
-                'description': '',
-                'unit': '',
-                'data': {
-                    'data_points': [
+                        },
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'success': False,
+                                'schema_name': 'MyModel',
+                                'validation_method': 'validate_python',
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
-                        }
+                        },
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
-            },
+            }
         ]
     )
 
@@ -234,39 +231,36 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
     assert metrics_collected == snapshot(
         [
             {
-                'name': 'mymodel-successful-validation',
+                'name': 'pydantic.validations',
                 'description': '',
                 'unit': '',
                 'data': {
                     'data_points': [
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'validation_method': 'validate_python',
+                                'schema_name': 'MyModel',
+                                'success': True,
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 3,
-                        }
-                    ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
-                    'is_monotonic': True,
-                },
-            },
-            {
-                'name': 'mymodel-failed-validation',
-                'description': '',
-                'unit': '',
-                'data': {
-                    'data_points': [
+                        },
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'success': False,
+                                'schema_name': 'MyModel',
+                                'validation_method': 'validate_python',
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 2,
-                        }
+                        },
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
-            },
+            }
         ]
     )
 
@@ -309,13 +303,17 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
     assert metrics_collected == snapshot(
         [
             {
-                'name': 'mymodel-successful-validation',
+                'name': 'pydantic.validations',
                 'description': '',
                 'unit': '',
                 'data': {
                     'data_points': [
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'validation_method': 'validate_python',
+                                'schema_name': 'MyModel',
+                                'success': True,
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
@@ -392,13 +390,17 @@ def test_pydantic_plugin_python_error_record_failure(
     assert metrics_collected == snapshot(
         [
             {
-                'name': 'mymodel-failed-validation',
+                'name': 'pydantic.validations',
                 'description': '',
                 'unit': '',
                 'data': {
                     'data_points': [
                         {
-                            'attributes': {},
+                            'attributes': {
+                                'validation_method': 'validate_python',
+                                'schema_name': 'MyModel',
+                                'success': False,
+                            },
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 2,
