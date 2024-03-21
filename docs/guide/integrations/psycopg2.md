@@ -33,5 +33,18 @@ cnx.close()
 
 You can read more about the Psycopg2 OpenTelemetry package [here][opentelemetry-psycopg2].
 
+!!! bug
+    A bug occurs when `opentelemetry-instrumentation-psycopg2` is used with `psycopg2-binary` instead of `psycopg2`.
+    More details on the issue can be found [here][psycopg2-binary-issue].
+
+    A workaround is to include `skip_dep_check` in `instrument` method:
+
+    ```py
+    from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+
+    Psycopg2Instrumentor().instrument(skip_dep_check=True)
+    ```
+
 [opentelemetry-psycopg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html
 [psycopg2]: https://www.psycopg.org/
+[psycopg2-binary-issue]: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/610
