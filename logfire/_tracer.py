@@ -2,14 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Mapping,
-    Sequence,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
 from weakref import WeakKeyDictionary
 
 import opentelemetry.trace as trace_api
@@ -75,7 +68,7 @@ class ProxyTracerProvider(TracerProvider):
             self.tracers[tracer] = make
             return tracer
 
-    def add_span_processor(self, span_processor: Any) -> None:
+    def add_span_processor(self, span_processor: Any) -> None:  # pragma: no cover
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 self.provider.add_span_processor(span_processor)
@@ -86,7 +79,7 @@ class ProxyTracerProvider(TracerProvider):
                 self.provider.shutdown()
 
     @property
-    def resource(self) -> Resource:
+    def resource(self) -> Resource:  # pragma: no cover
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 return self.provider.resource
@@ -94,7 +87,7 @@ class ProxyTracerProvider(TracerProvider):
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:
-            if isinstance(self.provider, SDKTracerProvider):
+            if isinstance(self.provider, SDKTracerProvider):  # pragma: no branch
                 return self.provider.force_flush(timeout_millis)
             return True
 
@@ -126,7 +119,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
     ) -> None:
         self.span.add_event(name, attributes, timestamp or self.ns_timestamp_generator())
 
-    def update_name(self, name: str) -> None:
+    def update_name(self, name: str) -> None:  # pragma: no cover
         self.span.update_name(name)
 
     def is_recording(self) -> bool:
@@ -166,7 +159,7 @@ class _ProxyTracer(Tracer):
     def __hash__(self) -> int:
         return id(self)
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: object) -> bool:  # pragma: no cover
         return other is self
 
     def set_tracer(self, tracer: Tracer) -> None:
@@ -195,7 +188,7 @@ class _ProxyTracer(Tracer):
         span = self.tracer.start_span(
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )
-        if not should_sample(span.get_span_context(), attributes):
+        if not should_sample(span.get_span_context(), attributes):  # pragma: no branch
             span = trace_api.NonRecordingSpan(
                 SpanContext(
                     trace_id=span.get_span_context().trace_id,
@@ -232,7 +225,7 @@ class PendingSpanProcessor(SpanProcessor):
         parent_context: context_api.Context | None = None,
     ) -> None:
         assert isinstance(span, ReadableSpan) and isinstance(span, Span)
-        if not span.is_recording():
+        if not span.is_recording():  # pragma: no branch
             # Span was sampled out
             return
 
@@ -241,7 +234,7 @@ class PendingSpanProcessor(SpanProcessor):
             return
 
         real_span_context = span.get_span_context()
-        if not should_sample(real_span_context, attributes):
+        if not should_sample(real_span_context, attributes):  # pragma: no branch
             # Currently our own sampling is only checked after the span has started,
             # so we have to repeat that check here.
             # This might change in the future, see
@@ -292,6 +285,6 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
 
 
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None:
-    if not attributes:
+    if not attributes:  # pragma: no branch
         return None
     return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))

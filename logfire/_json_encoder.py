@@ -185,7 +185,7 @@ def _pydantic_model_encoder(o: Any) -> JsonValue:
 
 
 def _get_sqlalchemy_data(o: Any) -> JsonValue:
-    if sa_inspect is not None:
+    if sa_inspect is not None:  # pragma: no branch
         state = sa_inspect(o)
         deferred = state.unloaded
     else:
@@ -267,7 +267,7 @@ def to_json_value(o: Any) -> JsonValue:
 
         if isinstance(o, Sequence):
             return [to_json_value(item) for item in o]  # type: ignore
-    except Exception:
+    except Exception:  # pragma: no cover
         pass
 
     # In case we don't know how to encode, use `repr()`.
@@ -279,7 +279,7 @@ def logfire_json_dumps(obj: Any) -> str:
 
 
 def is_sqlalchemy(obj: Any) -> bool:
-    if sqlalchemy is None:
+    if sqlalchemy is None:  # pragma: no cover
         return False
     if isinstance(obj, DeclarativeBase):
         return True

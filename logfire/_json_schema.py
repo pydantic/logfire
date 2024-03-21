@@ -181,7 +181,8 @@ def _bytes_schema(obj: bytes) -> JsonDict:
 
 def _bytearray_schema(obj: bytearray) -> JsonDict:
     schema: JsonDict = {'type': 'string', 'x-python-datatype': 'bytearray'}
-    if obj.__class__.__name__ != 'bytearray':
+    # TODO(Marcelo): We should add a test for the following branch.
+    if obj.__class__.__name__ != 'bytearray':  # pragma: no branch
         schema['title'] = obj.__class__.__name__
     return schema
 

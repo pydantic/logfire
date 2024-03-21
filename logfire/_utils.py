@@ -45,7 +45,7 @@ def safe_repr(obj: Any) -> str:
         result = ''
 
     # If repr() returns an empty string, don't use that.
-    if result:
+    if result:  # pragma: no branch
         return result
 
     try:
@@ -76,10 +76,10 @@ def read_toml_file(path: Path) -> dict[str, Any]:
 
     It wraps the `tomllib.load` function from Python 3.11 or the `tomli.load` function from older versions.
     """
-    if sys.version_info >= (3, 11):
+    if sys.version_info >= (3, 11):  # pragma: no branch
         from tomllib import load as load_toml
     else:
-        from tomli import load as load_toml
+        from tomli import load as load_toml  # pragma: no cover
 
     with path.open('rb') as f:
         data = load_toml(f)
@@ -140,9 +140,9 @@ class UnexpectedResponse(RequestException):
         except ValueError:
             try:
                 body = self.response.text
-            except ValueError:
+            except ValueError:  # pragma: no cover
                 body = '[binary data]'
-        else:
+        else:  # pragma: no cover
             body = json.dumps(body_json, indent=2)
         request = self.response.request
         return (

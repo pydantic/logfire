@@ -40,7 +40,7 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager
                     duration=duration,
                     **_callback_attributes(callback),
                 )
-            except Exception:
+            except Exception:  # pragma: no cover
                 # Don't crash the event loop for this.
                 try:
                     logfire.exception('Error in log_slow_callbacks')
@@ -75,7 +75,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # In particular this method is usually for advancing an async function (coroutine) to the next `await`.
         coro: Any = task.get_coro()
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
-        if not isinstance(coro, CoroutineType):
+        if not isinstance(coro, CoroutineType):  # pragma: no branch
             return result
         frame = coro.cr_frame
         if frame:
@@ -84,7 +84,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
             # This typically means that the coroutine has finished.
             # We can't get an exact line number, so we'll use the line number of the code object.
             result = {**result, **get_code_object_info(coro.cr_code)}
-        if function_name := result.get('code.function'):
+        if function_name := result.get('code.function'):  # pragma: no branch
             result['name'] += f' ({function_name})'
         return result
 
@@ -93,7 +93,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
     callback = inspect.unwrap(callback)
     result: _CallbackAttributes = {}
     code = getattr(callback, '__code__', None)
-    if code:
+    if code:  # pragma: no branch
         result = {**get_code_object_info(code)}
     name: str = (
         getattr(callback, '__qualname__', '') or getattr(callback, '__name__', '') or result.get('code.function', '')

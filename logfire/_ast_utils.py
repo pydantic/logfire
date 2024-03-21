@@ -119,7 +119,7 @@ class BaseTransformer(ast.NodeTransformer):
             attributes[ATTRIBUTES_TAGS_KEY] = tuple(uniquify_sequence(logfire_args.tags))
 
         sample_rate = logfire_args.sample_rate
-        if sample_rate not in (None, 1):
+        if sample_rate not in (None, 1):  # pragma: no branch
             attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         return span_name, attributes

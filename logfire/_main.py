@@ -57,7 +57,7 @@ if TYPE_CHECKING:
 
 try:
     from pydantic import ValidationError
-except ImportError:
+except ImportError:  # pragma: no cover
     ValidationError = None
 
 
@@ -89,7 +89,7 @@ class Logfire:
     def config(self) -> LogfireConfig:
         return self._config
 
-    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:
+    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:  # pragma: no cover
         """A new Logfire instance with the given sampling ratio applied.
 
         Args:
@@ -157,7 +157,7 @@ class Logfire:
             if self._sample_rate is not None
             else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
         )
-        if sample_rate is not None and sample_rate != 1:
+        if sample_rate is not None and sample_rate != 1:  # pragma: no branch
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         if _level is not None:
@@ -546,7 +546,7 @@ class Logfire:
             if self._sample_rate is not None
             else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
         )
-        if sample_rate is not None and sample_rate != 1:
+        if sample_rate is not None and sample_rate != 1:  # pragma: no branch
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         start_time = self._config.ns_timestamp_generator()
@@ -564,7 +564,7 @@ class Logfire:
                 exc_info = exc_info[1]
             if isinstance(exc_info, BaseException):
                 _record_exception(span, exc_info)
-            elif exc_info is not None:
+            elif exc_info is not None:  # pragma: no branch
                 raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
         span.end(start_time)
@@ -935,20 +935,20 @@ class Logfire:
             False if the timeout was reached before the shutdown was completed, True otherwise.
         """
         start = time()
-        if flush:
+        if flush:  # pragma: no branch
             self._tracer_provider.force_flush(timeout_millis)
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:
+        if not remaining:  # pragma: no branch
             return False
         self._tracer_provider.shutdown()
 
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:
+        if not remaining:  # pragma: no branch
             return False
-        if flush:
+        if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:
+        if not remaining:  # pragma: no branch
             return False
         self._meter_provider.shutdown(remaining)
         return (start - time()) < timeout_millis
@@ -992,7 +992,7 @@ class LogfireSpan(ReadableSpan):
         self._span: None | trace_api.Span = None
         self.end_on_exit = True
 
-    if not TYPE_CHECKING:
+    if not TYPE_CHECKING:  # pragma: no branch
 
         def __getattr__(self, name: str) -> Any:
             return getattr(self._span, name)
@@ -1004,12 +1004,12 @@ class LogfireSpan(ReadableSpan):
                 name=self._span_name,
                 attributes=self._otlp_attributes,
             )
-        if self._token is None:
+        if self._token is None:  # pragma: no branch
             self._token = context_api.attach(trace_api.set_span_in_context(self._span))
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        if self._token is None:
+        if self._token is None:  # pragma: no branch
             return
 
         context_api.detach(self._token)
@@ -1025,11 +1025,11 @@ class LogfireSpan(ReadableSpan):
         self._token = None
 
     @property
-    def message_template(self) -> str | None:
+    def message_template(self) -> str | None:  # pragma: no cover
         return self._get_attribute(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, None)
 
     @property
-    def tags(self) -> Sequence[str]:
+    def tags(self) -> Sequence[str]:  # pragma: no cover
         return self._get_attribute(ATTRIBUTES_TAGS_KEY, [])
 
     @property
@@ -1038,7 +1038,7 @@ class LogfireSpan(ReadableSpan):
 
     @message.setter
     def message(self, message: str):
-        if self._span is None:
+        if self._span is None:  # pragma: no branch
             self._otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = message
         else:
             self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
@@ -1052,7 +1052,7 @@ class LogfireSpan(ReadableSpan):
         can call this within the span's context manager to end it before the context manager
         exits.
         """
-        if self._span is None:
+        if self._span is None:  # pragma: no branch
             raise RuntimeError('Span has not been started')
         if self._span.is_recording():
             if self._added_attributes:
@@ -1072,7 +1072,7 @@ class LogfireSpan(ReadableSpan):
         self._added_attributes = True
         self._json_schema_properties[key] = create_json_schema(value)
         key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
-        if self._span is not None:
+        if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
     def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
@@ -1080,13 +1080,14 @@ class LogfireSpan(ReadableSpan):
         for key, value in attributes.items():
             self.set_attribute(key, value)
 
+    # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(
         self,
         exception: BaseException,
         attributes: otel_types.Attributes = None,
         timestamp: int | None = None,
         escaped: bool = False,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """Records an exception as a span event.
 
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.

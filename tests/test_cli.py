@@ -75,7 +75,29 @@ def test_whoami_default_dir(
     )
 
 
+@pytest.mark.parametrize(
+    'confirm,output',
+    [
+        ('y', 'Cleaned Logfire data.\n'),
+        ('yes', 'Cleaned Logfire data.\n'),
+        ('n', 'Clean aborted.\n'),
+    ],
+)
 def test_clean(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    confirm: str,
+    output: str,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO(confirm))
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    assert capsys.readouterr().err == output
+
+
+def test_clean_default_dir_does_not_exist(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,
     capsys: pytest.CaptureFixture[str],
@@ -83,8 +105,10 @@ def test_clean(
 ) -> None:
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
-    assert capsys.readouterr().err == 'Cleaned Logfire data.\n'
+    with pytest.raises(SystemExit) as exc:
+        main(shlex.split('clean --data-dir potato'))
+    assert 'No Logfire data found in' in capsys.readouterr().err
+    assert exc.value.code == 1
 
 
 def test_inspect(

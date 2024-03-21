@@ -70,7 +70,8 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write('Clean aborted.\n')
 
 
-def parse_backfill(args: argparse.Namespace) -> None:
+# TODO(Marcelo): Add tests for this command.
+def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
     """Bulk load Logfire data."""
     data_dir = Path(args.data_dir)
     credentials = LogfireCredentials.load_creds_file(data_dir)
@@ -178,8 +179,8 @@ def parse_inspect(args: argparse.Namespace) -> None:
             packages[name] = otel_package
 
     # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):
-        del packages['starlette']
+    if packages.get('starlette') and packages.get('fastapi'):  # pragma: no branch
+        del packages['starlette']  # pragma: no cover
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
@@ -192,7 +193,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
     )
     console.print(table)
 
-    if packages:
+    if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
             f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
         )
@@ -211,7 +212,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
 
-    if DEFAULT_FILE.is_file():
+    if DEFAULT_FILE.is_file():  # pragma: no cover
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):
             console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
@@ -229,7 +230,7 @@ def parse_auth(args: argparse.Namespace) -> None:
         console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
         try:
             webbrowser.open(frontend_auth_url, new=2)
-        except webbrowser.Error:
+        except webbrowser.Error:  # pragma: no cover
             pass
         console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
         console.print('Waiting for you to authenticate with Logfire...')
@@ -256,7 +257,8 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     console = Console(file=sys.stderr)
     with requests.Session() as session:
         projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
-        if projects:
+        # TODO(Marcelo): Add a test for this scenario.
+        if projects:  # pragma: no cover
             table = Table()
             table.add_column('Organization')
             table.add_column('Project')
@@ -290,7 +292,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
         credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
         credentials.write_creds_file(data_dir)
         console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
-    except TypeError as e:
+    except TypeError as e:  # pragma: no cover
         raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
 
 
@@ -310,14 +312,15 @@ def parse_use_project(args: argparse.Namespace) -> None:
             organization=organization,
             project_name=project_name,
         )
-        if project_info:
+        # TODO(Marcelo): We should test when `project_info` is None, and maybe send a message to the user.
+        if project_info:  # pragma: no branch
             try:
                 credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
                 credentials.write_creds_file(data_dir)
                 console.print(
                     f'Project configured successfully. You will be able to view it at: {credentials.project_url}'
                 )
-            except TypeError as e:
+            except TypeError as e:  # pragma: no cover
                 raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
 
 

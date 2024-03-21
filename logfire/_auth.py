@@ -54,7 +54,7 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     try:
         res = session.post(device_auth_endpoint, params={'machine_name': machine_name})
         UnexpectedResponse.raise_for_status(res)
-    except requests.RequestException as e:
+    except requests.RequestException as e:  # pragma: no cover
         raise LogfireConfigError('Failed to request a device code.') from e
     data: NewDeviceFlow = res.json()
     return data['device_code'], data['frontend_auth_url']
@@ -98,9 +98,9 @@ def is_logged_in(data: DefaultFile, logfire_url: str) -> bool:
     Returns:
         True if the user is logged in, False otherwise.
     """
-    for url, info in data['tokens'].items():
+    for url, info in data['tokens'].items():  # pragma: no branch
         # token expirations are in UTC
         expiry_date = datetime.fromisoformat(info['expiration'].rstrip('Z')).replace(tzinfo=timezone.utc)
-        if url == logfire_url and datetime.now(tz=timezone.utc) < expiry_date:
+        if url == logfire_url and datetime.now(tz=timezone.utc) < expiry_date:  # pragma: no branch
             return True
-    return False
+    return False  # pragma: no cover

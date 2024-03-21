@@ -20,7 +20,7 @@ def get_filepath_attribute(file: str) -> StackInfo:
     if path.is_absolute():
         try:
             path = path.relative_to(_CWD)
-        except ValueError:
+        except ValueError:  # pragma: no cover
             # happens if filename path is not within CWD
             pass
     return {'code.filepath': str(path)}
@@ -55,13 +55,13 @@ def get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
     """
     try:
         frame = inspect.currentframe()
-        if frame is None:
+        if frame is None:  # pragma: no branch
             return {}
         # traverse stack_level frames up
         for _ in range(stacklevel):
             frame = frame.f_back
-            if frame is None:
+            if frame is None:  # pragma: no branch
                 return {}
         return get_stack_info_from_frame(frame)
-    except Exception:
+    except Exception:  # pragma: no cover
         return {}

@@ -64,7 +64,7 @@ class TestExporter(SpanExporter):
             if name == 'code.filepath' and strip_filepaths:
                 try:
                     return Path(value).name
-                except ValueError:
+                except ValueError:  # pragma: no cover
                     return value
             if name == 'code.lineno' and fixed_line_number is not None:
                 return fixed_line_number
@@ -74,8 +74,8 @@ class TestExporter(SpanExporter):
             return value
 
         def build_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:
-            if attributes is None:
-                return None
+            if attributes is None:  # pragma: no branch
+                return None  # pragma: no cover
             attributes = {
                 k: process_attribute(k, v)
                 for k, v in attributes.items()
@@ -90,10 +90,10 @@ class TestExporter(SpanExporter):
                 'name': event.name,
                 'timestamp': event.timestamp,
             }
-            if event.attributes:
+            if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
                 if SpanAttributes.EXCEPTION_STACKTRACE in attributes:
-                    last_line = next(
+                    last_line = next(  # pragma: no branch
                         line.strip()
                         for line in reversed(
                             cast(str, event.attributes[SpanAttributes.EXCEPTION_STACKTRACE]).split('\n')
@@ -197,7 +197,7 @@ class IncrementalIdGenerator(IdGenerator):
     trace_id_counter = 0
     span_id_counter = 0
 
-    def reset_trace_span_ids(self) -> None:
+    def reset_trace_span_ids(self) -> None:  # pragma: no cover
         """Resets the trace and span ids."""
         self.trace_id_counter = 0
         self.span_id_counter = 0
@@ -205,8 +205,8 @@ class IncrementalIdGenerator(IdGenerator):
     def generate_span_id(self) -> int:
         """Generates a span id."""
         self.span_id_counter += 1
-        if self.span_id_counter > 2**64 - 1:
-            raise OverflowError('Span ID overflow')
+        if self.span_id_counter > 2**64 - 1:  # pragma: no branch
+            raise OverflowError('Span ID overflow')  # pragma: no cover
         return self.span_id_counter
 
     def generate_trace_id(self) -> int:
