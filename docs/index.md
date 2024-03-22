@@ -112,8 +112,6 @@ This might look similar to simple logging, but it's much more powerful — you g
 !!! note
     If you have an existing app to instrument, you'll get the most value out of [configuring OTel integrations](#otel), before you start adding `logfire.*` calls to your code.
 
-TODO: applicable screenshot.
-
 ![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
 
 ### Python and Pydantic insights :snake: {#python}
