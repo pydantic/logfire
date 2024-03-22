@@ -212,8 +212,8 @@ class IncrementalIdGenerator(IdGenerator):
     def generate_trace_id(self) -> int:
         """Generates a trace id."""
         self.trace_id_counter += 1
-        if self.trace_id_counter > 2**128 - 1:
-            raise OverflowError('Trace ID overflow')
+        if self.trace_id_counter > 2**128 - 1:  # pragma: no branch
+            raise OverflowError('Trace ID overflow')  # pragma: no cover
         return self.trace_id_counter
 
 

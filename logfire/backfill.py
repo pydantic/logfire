@@ -8,9 +8,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
-from opentelemetry.sdk.util.instrumentation import (
-    InstrumentationScope,
-)
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 from opentelemetry.trace.status import Status, StatusCode
@@ -29,7 +27,7 @@ from .exporters._file import FileSpanExporter
 
 try:
     from pydantic import BaseModel, ConfigDict, Field
-except ImportError as e:
+except ImportError as e:  # pragma: no cover
     raise ImportError('Pydantic is required to use `logfire.import`, run `pip install pydantic`.') from e
 
 
@@ -37,7 +35,7 @@ __all__ = 'generate_trace_id', 'generate_span_id', 'Log', 'StartSpan', 'PrepareB
 _ID_GENERATOR = RandomIdGenerator()
 
 
-def generate_trace_id() -> int:
+def generate_trace_id() -> int:  # pragma: no cover
     """Generate a new trace ID.
 
     Returns:
@@ -46,7 +44,7 @@ def generate_trace_id() -> int:
     return _ID_GENERATOR.generate_trace_id()
 
 
-def generate_span_id() -> int:
+def generate_span_id() -> int:  # pragma: no cover
     """Generate a new span ID.
 
     Returns:
@@ -152,7 +150,7 @@ class PrepareBackfill:
                 parent_context = None
             otlp_attributes = user_attributes(data.attributes)
 
-            if data.formatted_msg is None:
+            if data.formatted_msg is None:  # pragma: no cover
                 formatted_message = logfire_format(data.msg_template, data.attributes, self.scrubber, stacklevel=2)
             else:
                 formatted_message = data.formatted_msg
@@ -197,7 +195,7 @@ class PrepareBackfill:
             if start_timestamp.tzinfo is None:
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
             otlp_attributes = user_attributes(data.log_attributes)
-            if data.formatted_msg is None:
+            if data.formatted_msg is None:  # pragma: no branch
                 formatted_message = logfire_format(data.msg_template, data.log_attributes, self.scrubber, stacklevel=2)
             else:
                 formatted_message = data.formatted_msg

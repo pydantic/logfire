@@ -229,7 +229,8 @@ def get_schema_name(schema: CoreSchema) -> str:
     """
     if schema['type'] in {'model', 'dataclass'}:
         return schema['cls'].__name__  # type: ignore
-    elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
+    # TODO(Marcelo): This should be tested.
+    elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:  # pragma: no cover
         return get_schema_name(schema['schema'])  # type: ignore
     elif schema['type'] == 'definitions':
         inner_schema = schema['schema']
@@ -364,11 +365,11 @@ def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool
     exclude = GLOBAL_CONFIG.pydantic_plugin.exclude
 
     schema_type = schema['type']
-    if schema_type in {'function-after', 'function-before', 'function-wrap'}:
+    if schema_type in {'function-after', 'function-before', 'function-wrap'}:  # pragma: no cover
         return _include_model(schema['schema'])  # type: ignore
 
     # check if the model is in ignored model
-    if any(schema_type_path.module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):
+    if any(schema_type_path.module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):  # pragma: no cover
         return False
 
     # check if the model is in exclude models

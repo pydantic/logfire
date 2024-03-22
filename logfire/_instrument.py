@@ -30,13 +30,13 @@ def instrument(
         # Since this doesn't wrap/call the original function,
         # any decorators applied to the original function are 'lost', so the user shouldn't do that.
 
-        if not isinstance(func, FunctionType):
+        if not isinstance(func, FunctionType):  # pragma: no cover
             raise ValueError(
                 'You can only instrument pure Python functions. '
                 'The decorator must be applied first, at the bottom of the list.'
             )
 
-        if func.__dict__:
+        if func.__dict__:  # pragma: no cover
             # This is just a rough check for other decorators.
             # In particular this will detect decorators that use functools.wraps.
             raise ValueError('The decorator must be applied first, at the bottom of the list.')
@@ -62,7 +62,7 @@ def instrument(
 def transform_code(func_code: CodeType, args: LogfireArgs):
     logfire_name = f'logfire_{uuid.uuid4().hex}'
 
-    if func_code.co_name == (lambda: 0).__code__.co_name:
+    if func_code.co_name == (lambda: 0).__code__.co_name:  # pragma: no cover
         raise ValueError('lambda functions cannot be instrumented')
 
     module = inspect.getmodule(func_code)

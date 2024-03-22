@@ -12,7 +12,7 @@ class SinkHTTPAdapter(HTTPAdapter):
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
         total = 0
-        if request.body is not None:
+        if request.body is not None:  # pragma: no branch
             if isinstance(request.body, (str, bytes)):  # type: ignore
                 total = len(request.body)
             else:

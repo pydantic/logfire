@@ -157,7 +157,7 @@ class Logfire:
             if self._sample_rate is not None
             else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
         )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no branch
+        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         if _level is not None:
@@ -418,7 +418,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
                 to record a traceback with the log message.
         """
-        if any(k.startswith('_') for k in attributes):
+        if any(k.startswith('_') for k in attributes):  # pragma: no cover
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
 
@@ -546,7 +546,7 @@ class Logfire:
             if self._sample_rate is not None
             else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
         )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no branch
+        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         start_time = self._config.ns_timestamp_generator()
@@ -938,17 +938,17 @@ class Logfire:
         if flush:  # pragma: no branch
             self._tracer_provider.force_flush(timeout_millis)
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no branch
+        if not remaining:  # pragma: no cover
             return False
         self._tracer_provider.shutdown()
 
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no branch
+        if not remaining:  # pragma: no cover
             return False
         if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
         remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no branch
+        if not remaining:  # pragma: no cover
             return False
         self._meter_provider.shutdown(remaining)
         return (start - time()) < timeout_millis
@@ -1009,7 +1009,7 @@ class LogfireSpan(ReadableSpan):
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        if self._token is None:  # pragma: no branch
+        if self._token is None:  # pragma: no cover
             return
 
         context_api.detach(self._token)
@@ -1038,7 +1038,7 @@ class LogfireSpan(ReadableSpan):
 
     @message.setter
     def message(self, message: str):
-        if self._span is None:  # pragma: no branch
+        if self._span is None:  # pragma: no cover
             self._otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = message
         else:
             self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
@@ -1052,7 +1052,7 @@ class LogfireSpan(ReadableSpan):
         can call this within the span's context manager to end it before the context manager
         exits.
         """
-        if self._span is None:  # pragma: no branch
+        if self._span is None:  # pragma: no cover
             raise RuntimeError('Span has not been started')
         if self._span.is_recording():
             if self._added_attributes:

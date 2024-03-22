@@ -47,7 +47,7 @@ try:
         with attach_context(carrier):
             return fn()
 
-except ImportError:
+except ImportError:  # pragma: no cover
 
     def instrument_executors() -> None:
         pass

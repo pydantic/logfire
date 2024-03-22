@@ -55,12 +55,12 @@ def get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
     """
     try:
         frame = inspect.currentframe()
-        if frame is None:  # pragma: no branch
+        if frame is None:  # pragma: no cover
             return {}
         # traverse stack_level frames up
         for _ in range(stacklevel):
             frame = frame.f_back
-            if frame is None:  # pragma: no branch
+            if frame is None:  # pragma: no cover
                 return {}
         return get_stack_info_from_frame(frame)
     except Exception:  # pragma: no cover

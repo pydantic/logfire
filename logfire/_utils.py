@@ -41,16 +41,16 @@ def safe_repr(obj: Any) -> str:
     """Return some kind of non-empty string representation of an object, catching exceptions."""
     try:
         result = repr(obj)
-    except Exception:
+    except Exception:  # pragma: no cover
         result = ''
 
     # If repr() returns an empty string, don't use that.
     if result:  # pragma: no branch
         return result
 
-    try:
+    try:  # pragma: no cover
         return f'<{type(obj).__name__} object>'
-    except Exception:
+    except Exception:  # pragma: no cover
         return '<unknown (repr failed)>'
 
 

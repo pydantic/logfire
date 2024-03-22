@@ -25,7 +25,7 @@ from opentelemetry.util.types import Attributes
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
     from opentelemetry.metrics import _Gauge as Gauge
-except ImportError:
+except ImportError:  # pragma: no cover
     Gauge = None
 
 # copied from opentelemetry/instrumentation/system_metrics/__init__.py
@@ -55,17 +55,17 @@ try:
     from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 
     INSTRUMENTOR = SystemMetricsInstrumentor(config=DEFAULT_CONFIG)  # type: ignore
-except ImportError:
+except ImportError:  # pragma: no cover
     INSTRUMENTOR = None  # type: ignore
 
-if sys.platform == 'darwin':
+if sys.platform == 'darwin':  # pragma: no cover
     # see https://github.com/giampaolo/psutil/issues/1219
     # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
     DEFAULT_CONFIG.pop('system.network.connections')
 
 
 def configure_metrics(meter_provider: MeterProvider) -> None:
-    if INSTRUMENTOR is None:
+    if INSTRUMENTOR is None:  # pragma: no cover
         raise RuntimeError('Install logfire[system-metrics] to use `collect_system_metrics=True`.')
 
     # we need to call uninstrument() otherwise instrument() will do nothing
@@ -111,7 +111,7 @@ class ProxyMeterProvider(MeterProvider):
 
     def force_flush(self, timeout_millis: float = 30_000) -> None:
         with self.lock:
-            if isinstance(self.provider, SDKMeterProvider):
+            if isinstance(self.provider, SDKMeterProvider):  # pragma: no branch
                 self.provider.force_flush(timeout_millis)
 
 
@@ -196,12 +196,13 @@ class _ProxyMeter(Meter):
             self._instruments.add(proxy)
             return proxy
 
+    # TODO(Marcelo): We should test this method.
     def create_gauge(
         self,
         name: str,
         unit: str = '',
         description: str = '',
-    ):
+    ):  # pragma: no cover
         with self._lock:
             proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
             self._instruments.add(proxy)
@@ -310,7 +311,7 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
 
 
 class _ProxyObservableCounter(_ProxyAsynchronousInstrument[ObservableCounter], ObservableCounter):
-    def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
+    def _create_real_instrument(self, meter: Meter) -> ObservableCounter:  # pragma: no cover
         return meter.create_observable_counter(self._name, self._callbacks, self._unit, self._description)
 
 
@@ -318,7 +319,7 @@ class _ProxyObservableGauge(
     _ProxyAsynchronousInstrument[ObservableGauge],
     ObservableGauge,
 ):
-    def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
+    def _create_real_instrument(self, meter: Meter) -> ObservableGauge:  # pragma: no cover
         return meter.create_observable_gauge(self._name, self._callbacks, self._unit, self._description)
 
 
@@ -326,7 +327,7 @@ class _ProxyObservableUpDownCounter(
     _ProxyAsynchronousInstrument[ObservableUpDownCounter],
     ObservableUpDownCounter,
 ):
-    def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
+    def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:  # pragma: no cover
         return meter.create_observable_up_down_counter(self._name, self._callbacks, self._unit, self._description)
 
 
@@ -342,7 +343,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if Gauge is not None:
+if Gauge is not None:  # pragma: no cover
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         def set(

@@ -18,5 +18,5 @@ async def async_gen():
 
     inner()  # This is not traced
 
-    for x in gen():
+    for x in gen():  # pragma: no branch
         yield x

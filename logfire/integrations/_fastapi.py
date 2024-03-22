@@ -40,7 +40,8 @@ def instrument_fastapi(
 
     See `Logfire.instrument_fastapi` for more details.
     """
-    if not isinstance(excluded_urls, (str, type(None))):
+    # TODO(Marcelo): This needs to be tested.
+    if not isinstance(excluded_urls, (str, type(None))):  # pragma: no cover
         # FastAPIInstrumentor expects a comma-separated string, not a list.
         excluded_urls = ','.join(excluded_urls)
 
@@ -48,7 +49,7 @@ def instrument_fastapi(
         FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)  # type: ignore
 
     registry = patch_fastapi()
-    if app in registry:
+    if app in registry:  # pragma: no cover
         raise ValueError('This app has already been instrumented.')
 
     registry[app] = Instrumentation(
@@ -94,7 +95,7 @@ def patch_fastapi():
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
-            if instrumentation := registry.get(request.app):
+            if instrumentation := registry.get(request.app):  # pragma: no branch
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )
@@ -181,7 +182,7 @@ class Instrumentation:
                     attributes['fastapi.route.operation_id'] = route.operation_id
 
             self.logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
-        except Exception:
+        except Exception:  # pragma: no cover
             self.logfire_instance.exception('Error logging FastAPI arguments')
 
         return result

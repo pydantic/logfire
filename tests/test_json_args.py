@@ -28,9 +28,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 import logfire
 from logfire.testing import TestExporter
 
-if sys.version_info >= (3, 11):
+if sys.version_info >= (3, 11):  # pragma: no branch
     from enum import StrEnum
-else:
+else:  # pragma: no cover
 
     class StrEnum(str, Enum):
         ...
@@ -107,7 +107,7 @@ class MyMapping(Mapping):
     def __iter__(self):
         return iter(self._d)
 
-    def __len__(self):
+    def __len__(self):  # pragma: no cover
         return len(self._d)
 
 

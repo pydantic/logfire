@@ -54,10 +54,10 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
     os.chdir(tmp_dir_cwd)
     try:
         main(['whoami'])
-        # insert_assert(capsys.readouterr().err)
-        assert capsys.readouterr().err == f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
     except SystemExit as e:
         assert e.code == 1
+        # insert_assert(capsys.readouterr().err)
+        assert capsys.readouterr().err == f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
     finally:
         os.chdir(current_dir)
 

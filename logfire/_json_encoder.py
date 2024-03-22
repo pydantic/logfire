@@ -188,7 +188,7 @@ def _get_sqlalchemy_data(o: Any) -> JsonValue:
     if sa_inspect is not None:  # pragma: no branch
         state = sa_inspect(o)
         deferred = state.unloaded
-    else:
+    else:  # pragma: no cover
         deferred = set()  # type: ignore
 
     return to_json_value(

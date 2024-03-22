@@ -149,7 +149,7 @@ with logfire.span('from module'):
 def test_source_code_extraction_nested(exporter: TestExporter) -> None:
     nested()
 
-    if sys.version_info >= (3, 11):
+    if sys.version_info >= (3, 11):  # pragma: no branch
         # insert_assert(normalize_filepaths(exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)))
         assert normalize_filepaths(
             exporter.exported_spans_as_dict(
@@ -172,7 +172,7 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                 },
             }
         ]
-    else:
+    else:  # pragma: no cover
         # insert_assert(normalize_filepaths(exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)))
         assert normalize_filepaths(
             exporter.exported_spans_as_dict(

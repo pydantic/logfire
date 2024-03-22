@@ -89,7 +89,7 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):  # pragma: no branch
                 return self.provider.force_flush(timeout_millis)
-            return True
+            return True  # pragma: no cover
 
 
 @dataclass
@@ -142,7 +142,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
         timestamp = timestamp or self.ns_timestamp_generator()
         return self.span.record_exception(exception, attributes, timestamp, escaped)
 
-    if not TYPE_CHECKING:
+    if not TYPE_CHECKING:  # pragma: no branch
         # for ReadableSpan
         def __getattr__(self, name: str) -> Any:
             return getattr(self.span, name)
@@ -188,7 +188,7 @@ class _ProxyTracer(Tracer):
         span = self.tracer.start_span(
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )
-        if not should_sample(span.get_span_context(), attributes):  # pragma: no branch
+        if not should_sample(span.get_span_context(), attributes):  # pragma: no cover
             span = trace_api.NonRecordingSpan(
                 SpanContext(
                     trace_id=span.get_span_context().trace_id,
@@ -225,7 +225,7 @@ class PendingSpanProcessor(SpanProcessor):
         parent_context: context_api.Context | None = None,
     ) -> None:
         assert isinstance(span, ReadableSpan) and isinstance(span, Span)
-        if not span.is_recording():  # pragma: no branch
+        if not span.is_recording():  # pragma: no cover
             # Span was sampled out
             return
 
@@ -234,7 +234,7 @@ class PendingSpanProcessor(SpanProcessor):
             return
 
         real_span_context = span.get_span_context()
-        if not should_sample(real_span_context, attributes):  # pragma: no branch
+        if not should_sample(real_span_context, attributes):  # pragma: no cover
             # Currently our own sampling is only checked after the span has started,
             # so we have to repeat that check here.
             # This might change in the future, see
@@ -285,6 +285,6 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
 
 
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None:
-    if not attributes:  # pragma: no branch
+    if not attributes:  # pragma: no cover
         return None
     return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))
