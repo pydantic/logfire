@@ -4,6 +4,7 @@ from typing import Iterator
 
 from sqlalchemy.engine import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.sql import text
 from sqlalchemy.types import Integer, String
 
 from logfire.testing import TestExporter
@@ -29,8 +30,10 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         class Base(DeclarativeBase):
             pass
 
-        class Record(Base):
-            __tablename__ = 'records'
+        # `auth` is in default scrubbing patterns, but `db.statement` attribute is in scrubbing SAFE_KEYS.
+        # So, logfire shouldn't redact `auth` in the `db.statement` attribute.
+        class AuthRecord(Base):
+            __tablename__ = 'auth_records'
             id: Mapped[int] = mapped_column(primary_key=True)
             number: Mapped[int] = mapped_column(Integer, nullable=False)
             content: Mapped[str] = mapped_column(String, nullable=False)
@@ -38,7 +41,8 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         Base.metadata.create_all(engine)
 
         with Session(engine) as session:
-            record = Record(id=1, number=2, content='abc')
+            record = AuthRecord(id=1, number=2, content='abc')
+            session.execute(text('select * from auth_records'))
             session.add(record)
             session.commit()
             session.delete(record)
@@ -68,7 +72,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'attributes': {
                 'logfire.span_type': 'span',
                 'logfire.msg': 'PRAGMA example.db',
-                'db.statement': 'PRAGMA main.table_info("records")',
+                'db.statement': 'PRAGMA main.table_info("auth_records")',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
             },
@@ -82,7 +86,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'attributes': {
                 'logfire.span_type': 'span',
                 'logfire.msg': 'PRAGMA example.db',
-                'db.statement': 'PRAGMA temp.table_info("records")',
+                'db.statement': 'PRAGMA temp.table_info("auth_records")',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
             },
@@ -96,7 +100,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             'attributes': {
                 'logfire.span_type': 'span',
                 'logfire.msg': 'CREATE example.db',
-                'db.statement': '\nCREATE TABLE records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
+                'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
             },
@@ -115,25 +119,39 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             },
         },
         {
-            'name': 'INSERT example.db',
+            'name': 'select example.db',
             'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
             'parent': None,
             'start_time': 11000000000,
             'end_time': 12000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'select example.db',
+                'db.statement': 'select * from auth_records',
+                'db.system': 'sqlite',
+                'db.name': 'example.db',
+            },
+        },
+        {
+            'name': 'INSERT example.db',
+            'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
+            'parent': None,
+            'start_time': 13000000000,
+            'end_time': 14000000000,
+            'attributes': {
+                'logfire.span_type': 'span',
                 'logfire.msg': 'INSERT example.db',
-                'db.statement': 'INSERT INTO records (id, number, content) VALUES (?, ?, ?)',
+                'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
             },
         },
         {
             'name': 'connect',
-            'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
+            'context': {'trace_id': 8, 'span_id': 15, 'is_remote': False},
             'parent': None,
-            'start_time': 13000000000,
-            'end_time': 14000000000,
+            'start_time': 15000000000,
+            'end_time': 16000000000,
             'attributes': {
                 'logfire.span_type': 'span',
                 'logfire.msg': 'connect',
@@ -143,28 +161,28 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         },
         {
             'name': 'SELECT example.db',
-            'context': {'trace_id': 8, 'span_id': 15, 'is_remote': False},
-            'parent': None,
-            'start_time': 15000000000,
-            'end_time': 16000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'logfire.msg': 'SELECT example.db',
-                'db.statement': 'SELECT records.id AS records_id, records.number AS records_number, records.content AS records_content \nFROM records \nWHERE records.id = ?',
-                'db.system': 'sqlite',
-                'db.name': 'example.db',
-            },
-        },
-        {
-            'name': 'DELETE example.db',
             'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
             'parent': None,
             'start_time': 17000000000,
             'end_time': 18000000000,
             'attributes': {
                 'logfire.span_type': 'span',
+                'logfire.msg': 'SELECT example.db',
+                'db.statement': 'SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?',
+                'db.system': 'sqlite',
+                'db.name': 'example.db',
+            },
+        },
+        {
+            'name': 'DELETE example.db',
+            'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
+            'parent': None,
+            'start_time': 19000000000,
+            'end_time': 20000000000,
+            'attributes': {
+                'logfire.span_type': 'span',
                 'logfire.msg': 'DELETE example.db',
-                'db.statement': 'DELETE FROM records WHERE records.id = ?',
+                'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                 'db.system': 'sqlite',
                 'db.name': 'example.db',
             },

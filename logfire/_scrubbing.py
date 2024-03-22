@@ -26,7 +26,6 @@ from logfire._constants import (
 from logfire._stack_info import STACK_INFO_KEYS
 from logfire._utils import ReadableSpanDict
 
-# Based on https://github.com/getsentry/sentry-python/blob/1b0e932c3f827c681cdd20abfee9afc55e5d141c/sentry_sdk/scrubber.py#L19
 DEFAULT_PATTERNS = [
     'password',
     'passwd',
@@ -34,7 +33,6 @@ DEFAULT_PATTERNS = [
     'secret',
     'auth',
     'credential',
-    'token',
     'private[._ -]?key',
     'api[._ -]?key',
     'session',
@@ -96,6 +94,7 @@ class Scrubber:
         SpanAttributes.HTTP_URL,
         SpanAttributes.HTTP_TARGET,
         SpanAttributes.HTTP_ROUTE,
+        SpanAttributes.DB_STATEMENT,
     }
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):

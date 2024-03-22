@@ -4,7 +4,7 @@ The **Logfire** SDK scans for and redacts potentially sensitive data from logs a
 
 ## Scrubbing more with custom patterns
 
-By default, the SDK looks for regular expressions such as `'password'`, `'secret'`, and `'api[._ -]?key'`. To add your own patterns, set [`scrubbing_patterns`][logfire.configure(scrubbing_patterns)] to a list of regex strings:
+By default, the SDK looks for some sensitive regular expressions. To add your own patterns, set [`scrubbing_patterns`][logfire.configure(scrubbing_patterns)] to a list of regex strings:
 
 ```python
 import logfire
@@ -17,6 +17,11 @@ logfire.info('Hello', data={
     'password': 'This will be redacted because custom patterns are combined with the default patterns',
 })
 ```
+
+Here are the default scrubbing patterns:
+
+`'password'`, `'passwd'`, `'mysql_pwd'`, `'secret'`, `'auth'`, `'credential'`, `'private[._ -]?key'`, `'api[._ -]?key'`,
+`'session'`, `'cookie'`, `'csrf'`, `'xsrf'`, `'jwt'`, `'ssn'`, `'social[._ -]?security'`, `'credit[._ -]?card'`
 
 ## Scrubbing less with a callback
 
