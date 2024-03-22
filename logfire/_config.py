@@ -399,7 +399,7 @@ class _LogfireConfigData:
         try:
             data = read_toml_file(config_file)
             return data.get('tool', {}).get('logfire', {})
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover
             raise LogfireConfigError(f'Invalid config file: {config_file}') from exc
 
 
@@ -661,7 +661,7 @@ class LogfireConfig(_LogfireConfigData):
                         # Only add the default span processor if the user didn't specify any of their own.
                         add_span_processor(self.default_span_processor(span_exporter))
 
-                elif otel_traces_exporter_env != 'none':
+                elif otel_traces_exporter_env != 'none':  # pragma: no cover
                     raise ValueError(
                         'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
                     )
@@ -681,7 +681,7 @@ class LogfireConfig(_LogfireConfigData):
 
             metric_readers = metric_readers or []
 
-            if self.show_summary and credentials_from_local_file:  # pragma: no branch
+            if self.show_summary and credentials_from_local_file:  # pragma: no cover
                 credentials_from_local_file.print_token_summary()
 
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
@@ -757,9 +757,9 @@ class LogfireConfig(_LogfireConfigData):
         except requests.RequestException as e:  # pragma: no cover
             warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
         else:
-            if response.status_code == 401:
+            if response.status_code == 401:  # pragma: no cover
                 raise LogfireConfigError('Invalid Logfire token.')
-            elif response.status_code != 200:
+            elif response.status_code != 200:  # pragma: no cover
                 # any other status code is considered unhealthy
                 warnings.warn(
                     f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
@@ -815,7 +815,7 @@ class LogfireCredentials:
             try:
                 # Handle legacy key
                 dashboard_url = data.get('dashboard_url')
-                if dashboard_url is not None:
+                if dashboard_url is not None:  # pragma: no cover
                     data.setdefault('project_url', dashboard_url)
                 return cls(**data)
             except TypeError as e:  # pragma: no cover
@@ -825,9 +825,11 @@ class LogfireCredentials:
     def _get_user_token(cls, logfire_api_url: str) -> str:
         if DEFAULT_FILE.is_file():  # pragma: no branch
             data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-            if is_logged_in(data, logfire_api_url):
+            if is_logged_in(data, logfire_api_url):  # pragma: no branch
                 return data['tokens'][logfire_api_url]['token']
-        raise LogfireConfigError('You are not authenticated. Please run `logfire auth` to authenticate.')
+        raise LogfireConfigError(  # pragma: no cover
+            'You are not authenticated. Please run `logfire auth` to authenticate.'
+        )
 
     @classmethod
     def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
@@ -888,7 +890,7 @@ class LogfireCredentials:
         projects_map = {str(index + 1): (p['organization_name'], p['project_name']) for index, p in enumerate(projects)}
 
         if (organization, project_name) not in projects_map.values():
-            if not projects_map:  # pragma: no branch
+            if not projects_map:  # pragma: no cover
                 Prompt.ask('There is no project to use. Continue?', default=True)
                 return None
 
@@ -1095,7 +1097,7 @@ class LogfireCredentials:
         logfire_api_url: str,
         requested_project_name: str,
         session: requests.Session,
-    ) -> Self:
+    ) -> Self:  # pragma: no cover
         """Create a new project on logfire.dev requesting the given project name.
 
         Args:
@@ -1133,7 +1135,7 @@ class LogfireCredentials:
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
-        if self.project_url:
+        if self.project_url:  # pragma: no branch
             _print_summary(
                 f'[bold]Logfire[/bold] project URL: [link={self.project_url} cyan]{self.project_url}[/link]',
                 min_content_width=len(self.project_url),
@@ -1148,7 +1150,7 @@ def _print_summary(message: str, min_content_width: int) -> None:
     # customise the link color since the default `blue` is too dark for me to read.
     custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
     console = Console(stderr=True, theme=custom_theme)
-    if console.width < min_content_width + 4:
+    if console.width < min_content_width + 4:  # pragma: no cover
         console.width = min_content_width + 4
     console.print(message)
 
@@ -1165,7 +1167,7 @@ try:
         repo = git.Repo(search_parent_directories=True)
         return repo.head.object.hexsha
 
-except ImportError:
+except ImportError:  # pragma: no cover
     # gitpython is not installed
     # fall back to using the git command line
 

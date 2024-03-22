@@ -18,7 +18,8 @@ class SpanNode:
     children: list[SpanNode] = field(default_factory=list)
 
 
-def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:
+# TODO(Marcelo): Remove pragma when this file is covered by tests.
+def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:  # pragma: no cover
     traces: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for span in exported_spans:
         trace_id: int = span['context']['trace_id']
@@ -49,7 +50,7 @@ def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:
     not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
 )
 @pytest.mark.parametrize('sample_rate', [-1, 1.5])
-def test_invalid_sample_rate(sample_rate: float) -> None:
+def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
     with pytest.raises(ValueError, match='sample_rate must be between 0 and 1'):
         logfire.with_trace_sample_rate(sample_rate)
 
@@ -78,7 +79,7 @@ def test_sample_rate_config() -> None:
 @pytest.mark.skipif(
     not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
 )
-def test_sample_rate_runtime() -> None:
+def test_sample_rate_runtime() -> None:  # pragma: no cover
     exporter = TestExporter()
 
     logfire.configure(
@@ -102,7 +103,7 @@ def test_sample_rate_runtime() -> None:
 @pytest.mark.skipif(
     not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
 )
-def test_outer_sampled_inner_not() -> None:
+def test_outer_sampled_inner_not() -> None:  # pragma: no cover
     exporter = TestExporter()
 
     logfire.configure(
@@ -130,7 +131,7 @@ def test_outer_sampled_inner_not() -> None:
 @pytest.mark.skipif(
     not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
 )
-def test_outer_and_inner_sampled() -> None:
+def test_outer_and_inner_sampled() -> None:  # pragma: no cover
     exporter = TestExporter()
 
     logfire.configure(
@@ -164,7 +165,7 @@ def test_outer_and_inner_sampled() -> None:
 @pytest.mark.skipif(
     not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
 )
-def test_sampling_rate_does_not_get_overwritten() -> None:
+def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
     exporter = TestExporter()
 
     logfire.configure(

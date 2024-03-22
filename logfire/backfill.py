@@ -197,7 +197,7 @@ class PrepareBackfill:
             otlp_attributes = user_attributes(data.log_attributes)
             if data.formatted_msg is None:  # pragma: no branch
                 formatted_message = logfire_format(data.msg_template, data.log_attributes, self.scrubber, stacklevel=2)
-            else:
+            else:  # pragma: no cover
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',

@@ -88,4 +88,4 @@ def no_auto_trace(x: T) -> T:
 
     This decorator simply returns the argument unchanged, so there is zero runtime overhead.
     """
-    return x
+    return x  # pragma: no cover

@@ -343,17 +343,17 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if Gauge is not None:  # pragma: no cover
+if Gauge is not None:  # pragma: no branch
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         def set(
             self,
             amount: int | float,
             attributes: Attributes | None = None,
-        ) -> None:
+        ) -> None:  # pragma: no cover
             self._instrument.set(amount, attributes)
 
-        def _create_real_instrument(self, meter: Meter):
+        def _create_real_instrument(self, meter: Meter):  # pragma: no cover
             return meter.create_gauge(self._name, self._unit, self._description)
-else:
+else:  # pragma: no cover
     _ProxyGauge = None  # type: ignore

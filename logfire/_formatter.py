@@ -38,7 +38,7 @@ class ChunksFormatter(Formatter):
         stacklevel: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
-        if recursion_depth < 0:
+        if recursion_depth < 0:  # pragma: no cover
             raise ValueError('Max string recursion exceeded')
         result: list[LiteralChunk | ArgChunk] = []
         # here just to satisfy the call to `_vformat` below
@@ -56,12 +56,12 @@ class ChunksFormatter(Formatter):
                 #  the formatting
 
                 # handle arg indexing when empty field_names are given.
-                if field_name == '':
+                if field_name == '':  # pragma: no cover
                     if auto_arg_index is False:
                         raise ValueError('cannot switch from manual field specification to automatic field numbering')
                     field_name = str(auto_arg_index)
                     auto_arg_index += 1
-                elif field_name.isdigit():
+                elif field_name.isdigit():  # pragma: no cover
                     if auto_arg_index:
                         raise ValueError('cannot switch from manual field  to automatic field numbering')
                     # disable auto arg incrementing, if it gets

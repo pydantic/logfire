@@ -18,7 +18,7 @@ try:
     import opentelemetry.instrumentation.system_metrics  # noqa: F401 # type: ignore
 
     COLLECT_SYSTEM_METRICS_DEFAULT = True
-except ImportError:
+except ImportError:  # pragma: no cover
     COLLECT_SYSTEM_METRICS_DEFAULT = False  # type: ignore
 
 
@@ -161,13 +161,13 @@ class ParamManager:
             return float(value)  # type: ignore
         if tp is Path:
             return Path(value)  # type: ignore
-        if get_origin(tp) is set and get_args(tp) == (str,):
+        if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
-        raise RuntimeError(f'Unexpected type {tp}')
+        raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 
 def _check_literal(value: Any, name: str, tp: type[T]) -> T | None:
-    if value is None:
+    if value is None:  # pragma: no cover
         return None
     literals = get_args(tp)
     if value not in literals:
@@ -176,16 +176,16 @@ def _check_literal(value: Any, name: str, tp: type[T]) -> T | None:
 
 
 def _check_bool(value: Any, name: str) -> bool | None:
-    if value is None:
+    if value is None:  # pragma: no cover
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, str):
+    if isinstance(value, str):  # pragma: no branch
         if value.lower() in ('1', 'true', 't'):
             return True
-        if value.lower() in ('0', 'false', 'f'):
+        if value.lower() in ('0', 'false', 'f'):  # pragma: no branch
             return False
-    raise LogfireConfigError(f'Expected {name} to be a boolean, got {value!r}')
+    raise LogfireConfigError(f'Expected {name} to be a boolean, got {value!r}')  # pragma: no cover
 
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:

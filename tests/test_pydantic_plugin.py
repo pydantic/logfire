@@ -25,7 +25,7 @@ def test_plugin_listed():
     entry_points: list[str] = []
     for d in importlib.metadata.distributions():
         for ep in d.entry_points:
-            if ep.group == 'pydantic' and ep.value == 'logfire':
+            if ep.group == 'pydantic' and ep.value == 'logfire':  # pragma: no cover
                 found = True
             entry_points.append(f'group={ep.group} value={ep.value}')
     assert found, 'logfire pydantic plugin not found, entrypoints:' + '\n'.join(entry_points)

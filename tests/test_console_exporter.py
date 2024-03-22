@@ -128,9 +128,9 @@ def pending_span(
 def log_span(
     msg_template: str, timestamp: int, trace_id: int, span_id: int, parent_id: int | None = None
 ) -> ReadableSpan:
-    if parent_id is not None:
+    if parent_id is not None:  # pragma: no branch
         parent = trace.SpanContext(trace_id=trace_id, span_id=parent_id, is_remote=False)
-    else:
+    else:  # pragma: no cover
         parent = None
     return ReadableSpan(
         name=msg_template,

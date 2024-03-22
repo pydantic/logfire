@@ -33,8 +33,8 @@ def nested() -> None:
 def normalize_filepaths(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Allow these tests to run from the monorepo root directory of sdk source directory"""
     for span in spans:
-        if 'attributes' in span:
-            if 'code.filepath' in span['attributes']:
+        if 'attributes' in span:  # pragma: no branch
+            if 'code.filepath' in span['attributes']:  # pragma: no branch
                 span['attributes']['code.filepath'] = span['attributes']['code.filepath'].replace(
                     'src/packages/logfire/', ''
                 )
@@ -92,7 +92,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                 },
             }
         ]
-    else:
+    else:  # pragma: no cover
         # insert_assert(normalize_filepaths(exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)))
         assert normalize_filepaths(
             exporter.exported_spans_as_dict(

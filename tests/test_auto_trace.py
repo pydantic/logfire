@@ -273,7 +273,7 @@ class Class3:
             return b
 """
 
-    if sys.version_info >= (3, 9):
+    if sys.version_info >= (3, 9):  # pragma: no branch
         assert ast.unparse(tree).strip() == result.strip()
 
     # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.

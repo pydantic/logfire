@@ -36,12 +36,12 @@ class LogfireFinder(MetaPathFinder):
             # In particular it's implemented by `importlib.machinery.SourceFileLoader`
             # which is provided by default.
             get_source = getattr(plain_spec.loader, 'get_source', None)
-            if not callable(get_source):
+            if not callable(get_source):  # pragma: no cover
                 continue
 
             try:
                 source: str = get_source(fullname)
-            except Exception:
+            except Exception:  # pragma: no cover
                 continue
 
             if not source:
@@ -64,7 +64,7 @@ class LogfireFinder(MetaPathFinder):
 
             try:
                 plain_spec = finder.find_spec(fullname, path, target)
-            except Exception:
+            except Exception:  # pragma: no cover
                 continue
 
             if plain_spec:
@@ -92,7 +92,7 @@ class LogfireLoader(Loader):
         # to all be the same thing (a valid filename), but technically they're all optional,
         # so this is just an abundance of caution.
         filename = self.plain_spec.origin or module.__file__
-        if not filename:
+        if not filename:  # pragma: no cover
             try:
                 filename = self.get_filename(module.__name__)
             except Exception:

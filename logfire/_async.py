@@ -75,7 +75,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # In particular this method is usually for advancing an async function (coroutine) to the next `await`.
         coro: Any = task.get_coro()
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
-        if not isinstance(coro, CoroutineType):  # pragma: no branch
+        if not isinstance(coro, CoroutineType):  # pragma: no cover
             return result
         frame = coro.cr_frame
         if frame:

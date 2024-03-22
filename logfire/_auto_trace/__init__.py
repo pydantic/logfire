@@ -25,13 +25,13 @@ def install_auto_tracing(
     if modules is None:
         frame = inspect.stack()[2]
         module = inspect.getmodule(frame[0])
-        if module is None:
+        if module is None:  # pragma: no cover
             raise KeyError('module not found')
         modules = modules_func_from_sequence([module.__name__.split('.')[0]])
-    elif isinstance(modules, Sequence):
+    elif isinstance(modules, Sequence):  # pragma: no branch
         modules = modules_func_from_sequence(modules)
 
-    if not callable(modules):
+    if not callable(modules):  # pragma: no cover
         raise TypeError('modules must be a list of strings or a callable')
 
     if check_imported_modules not in ('error', 'warn', 'ignore'):

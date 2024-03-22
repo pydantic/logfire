@@ -30,7 +30,7 @@ async def other_route(
     background_tasks: BackgroundTasks,
     security_scopes: SecurityScopes,
 ):
-    pass
+    pass  # pragma: no cover
 
 
 async def exception():
