@@ -12,6 +12,7 @@ If a package you are using is not listed here, please let us know on our [Slack]
 |----------------------------------------|-------------------------|
 | [Pydantic](pydantic.md)                | Data Validation         |
 | [Standard Library Logging](logging.md) | Logging                 |
+| [Structlog](structlog.md)              | Logging                 |
 | [FastAPI](fastapi.md)                  | Web Framework           |
 | [Django](django.md)                    | Web Framework           |
 | [Flask](flask.md)                      | Web Framework           |

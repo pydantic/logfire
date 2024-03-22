@@ -76,4 +76,5 @@ class LogfireLoggingHandler(LoggingHandler):
             msg_template=record.msg,  # type: ignore
             level=record.levelname.lower(),  # type: ignore
             attributes=attributes,
+            custom_scope_suffix='stdlib.logging',
         )

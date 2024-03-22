@@ -60,6 +60,9 @@ ATTRIBUTES_MESSAGE_TEMPLATE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg_template'
 ATTRIBUTES_MESSAGE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg'
 """The formatted message for a log."""
 
+DISABLE_CONSOLE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.disable_console_log'
+"""special attribute to disable console logging, on a per span basis."""
+
 ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
 """Key in OTEL attributes that collects the JSON schema."""
 

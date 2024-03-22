@@ -27,6 +27,7 @@ from .._constants import (
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
+    DISABLE_CONSOLE_KEY,
     LEVEL_NUMBERS,
     ONE_SECOND_IN_NANOSECONDS,
 )
@@ -89,10 +90,13 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
         """
-        span_type = span.attributes and span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-        # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-        if span_type != 'span':
-            self._print_span(span)
+        if span.attributes:
+            span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
+            # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
+            if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
+                return
+
+        self._print_span(span)
 
     def _print_span(self, span: ReadableSpan, indent: int = 0):
         """Build up a summary of the span, including formatting for rich, then print it."""
@@ -274,6 +278,9 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
                 self._indent_level.pop(span.context.span_id, None)
             return
 
+        if attributes.get(DISABLE_CONSOLE_KEY):
+            return
+
         if span_type == 'pending_span':
             parent_id = _pending_span_parent(attributes)
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
@@ -321,6 +328,9 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
                 self._span_history.pop(span.context.span_id, None)
                 if self._span_stack and self._span_stack[-1] == span.context.span_id:
                     self._span_stack.pop()
+            return
+
+        if attributes.get(DISABLE_CONSOLE_KEY):
             return
 
         self._print_span(span)

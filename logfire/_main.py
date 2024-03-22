@@ -33,6 +33,7 @@ from ._constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
+    DISABLE_CONSOLE_KEY,
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
@@ -118,9 +119,9 @@ class Logfire:
     def _spans_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, is_span_tracer: bool) -> Tracer:
+    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str = 'logfire') -> Tracer:
         return self._tracer_provider.get_tracer(
-            'logfire',  # the name here is really not important, logfire itself doesn't use it
+            otel_scope,
             VERSION,
             is_span_tracer=is_span_tracer,
         )
@@ -498,6 +499,8 @@ class Logfire:
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
         stack_offset: int = 0,
+        console_log: bool = True,
+        custom_scope_suffix: str | None = None,
     ) -> None:
         """Log a message.
 
@@ -518,6 +521,10 @@ class Logfire:
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
                 position where `logfire.log` was called.
+            console_log: Whether to log to the console, defaults to `True`.
+            custom_scope_suffix: A custom suffix to append to `logfire.`, should only be used when you're using
+                logfire to instrument another library like structlog or loguru.
+                See `TraceProvider.get_tracer(instrumenting_module_name)` docstring for more info.
         """
         stacklevel = stack_offset + 2
         stack_info = get_caller_stack_info(stacklevel)
@@ -549,9 +556,16 @@ class Logfire:
         if sample_rate is not None and sample_rate != 1:  # pragma: no cover
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
+        if not console_log:
+            otlp_attributes[DISABLE_CONSOLE_KEY] = True
         start_time = self._config.ns_timestamp_generator()
 
-        span = self._logs_tracer.start_span(
+        if custom_scope_suffix:
+            tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
+        else:
+            tracer = self._logs_tracer
+
+        span = tracer.start_span(
             msg_template,
             attributes=otlp_attributes,
             start_time=start_time,
