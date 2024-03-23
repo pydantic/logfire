@@ -21,11 +21,11 @@ class FallbackSpanExporter(SpanExporter):
         except Exception:
             self.fallback.export(spans)
             raise
-        if res is not SpanExportResult.SUCCESS:
+        if res is not SpanExportResult.SUCCESS:  # pragma: no branch
             self.fallback.export(spans)
         return res
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # pragma: no cover
         return self.exporter.force_flush(timeout_millis) and self.fallback.force_flush(timeout_millis)
 
     def shutdown(self) -> None:

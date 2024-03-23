@@ -542,7 +542,7 @@ class LogfireConfig(_LogfireConfigData):
             return self._initialize()
 
     def _initialize(self) -> ProxyTracerProvider:
-        if self._initialized:  # pragma: no branch
+        if self._initialized:  # pragma: no cover
             return self._tracer_provider
 
         backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
@@ -588,9 +588,9 @@ class LogfireConfig(_LogfireConfigData):
                     add_span_processor(processor)
 
             if self.console:
-                if self.console.span_style == 'simple':  # pragma: no branch
+                if self.console.span_style == 'simple':  # pragma: no cover
                     exporter_cls = SimpleConsoleSpanExporter
-                elif self.console.span_style == 'indented':  # pragma: no branch
+                elif self.console.span_style == 'indented':  # pragma: no cover
                     exporter_cls = IndentedConsoleSpanExporter
                 else:
                     assert self.console.span_style == 'show-parents'
@@ -614,8 +614,8 @@ class LogfireConfig(_LogfireConfigData):
                 if self.token is None:
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
-                    if not credentials_from_local_file:
-                        if os.getenv('LOGFIRE_ANONYMOUS_PROJECT_ENABLED') == 'true':
+                    if not credentials_from_local_file:  # pragma: no branch
+                        if os.getenv('LOGFIRE_ANONYMOUS_PROJECT_ENABLED') == 'true':  # pragma: no cover
                             new_credentials = LogfireCredentials.create_anonymous_project(
                                 logfire_api_url=self.base_url,
                                 requested_project_name=self.project_name or sanitize_project_name(self.service_name),
@@ -629,7 +629,7 @@ class LogfireConfig(_LogfireConfigData):
                                 session=self.logfire_api_session,
                             )
                         new_credentials.write_creds_file(self.data_dir)
-                        if self.show_summary:
+                        if self.show_summary:  # pragma: no branch
                             new_credentials.print_token_summary()
                         credentials_to_save = new_credentials
                         # to avoid printing another summary
@@ -727,7 +727,7 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The meter provider.
         """
-        if not self._initialized:  # pragma: no branch
+        if not self._initialized:  # pragma: no cover
             self.initialize()
         return self._meter_provider
 

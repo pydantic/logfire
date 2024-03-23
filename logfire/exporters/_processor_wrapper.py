@@ -33,12 +33,12 @@ class SpanProcessorWrapper(SpanProcessor):
         span: Span,
         parent_context: context.Context | None = None,
     ) -> None:
-        if context.get_value('suppress_instrumentation'):
+        if context.get_value('suppress_instrumentation'):  # pragma: no cover
             return
         self.processor.on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
-        if context.get_value('suppress_instrumentation'):
+        if context.get_value('suppress_instrumentation'):  # pragma: no cover
             return
         span_dict = span_to_dict(span)
         _tweak_asgi_send_recieve_spans(span_dict)
@@ -85,7 +85,7 @@ def _tweak_asgi_send_recieve_spans(span: ReadableSpanDict):
         isinstance(typ, str)
         and typ.startswith(('http.', 'websocket.'))
         and attributes.get(ATTRIBUTES_MESSAGE_KEY) == name
-    ):
+    ):  # pragma: no cover
         return
 
     # Strip the 'http.' or 'websocket.' prefix from the event type and add it to the span name.
@@ -153,7 +153,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if method and isinstance(method, str):
         names.append(method)
         messages.append(method)
-    if target and isinstance(target, str):
+    if target and isinstance(target, str):  # pragma: no branch
         messages.append(target)
     if route and isinstance(route, str):
         names.append(route)

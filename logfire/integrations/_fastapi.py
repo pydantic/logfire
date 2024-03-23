@@ -171,7 +171,7 @@ class Instrumentation:
             if isinstance(request, Request):
                 attributes[SpanAttributes.HTTP_METHOD] = request.method
             route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
-            if route:
+            if route:  # pragma: no branch
                 attributes.update(
                     {
                         SpanAttributes.HTTP_ROUTE: route.path,

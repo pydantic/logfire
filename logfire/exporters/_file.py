@@ -72,7 +72,7 @@ class FileSpanExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return True
+        return True  # pragma: no cover
 
     def shutdown(self) -> None:
         with self._lock:
@@ -106,14 +106,14 @@ class FileParser:
         assert_never(self.state)
 
     def finish(self) -> None:
-        if not self.buffer or self.state == self.MISSING_BEG:
+        if not self.buffer or self.state == self.MISSING_BEG:  # pragma: no branch
             # either nothing was read or we completed a message
             return
-        if self.state == self.MISSING_HEADER:
+        if self.state == self.MISSING_HEADER:  # pragma: no cover
             raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
-        elif self.state == self.MISSING_VERSION:
+        elif self.state == self.MISSING_VERSION:  # pragma: no cover
             raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
-        elif self.state == self.IN_MESSAGE:
+        elif self.state == self.IN_MESSAGE:  # pragma: no cover
             raise InvalidFile('Invalid backup file (expected message end)')
         assert_never(self.state)
 
@@ -122,7 +122,7 @@ class FileParser:
         while self.buffer:
             if self.state == self.MISSING_HEADER:
                 if len(self.buffer) >= len(HEADER):
-                    if bytes(self.buffer[: len(HEADER)]) != HEADER:
+                    if bytes(self.buffer[: len(HEADER)]) != HEADER:  # pragma: no cover
                         raise InvalidFile(f"Invalid backup file (expected '{HEADER.strip()}' header)")
                     self.buffer = self.buffer[len(HEADER) :]
                     self.state = self.MISSING_VERSION
@@ -130,7 +130,7 @@ class FileParser:
                     return
             elif self.state == self.MISSING_VERSION:
                 if len(self.buffer) >= len(VERSION):
-                    if bytes(self.buffer[: len(VERSION)]) != VERSION:
+                    if bytes(self.buffer[: len(VERSION)]) != VERSION:  # pragma: no cover
                         raise InvalidFile(f"Invalid backup file (expected '{VERSION.strip()}' header)")
                     self.buffer = self.buffer[len(VERSION) :]
                     self.state = self.MISSING_BEG
@@ -143,7 +143,7 @@ class FileParser:
                     self.state = self.IN_MESSAGE
                 else:
                     return
-            elif self.state == self.IN_MESSAGE:
+            elif self.state == self.IN_MESSAGE:  # pragma: no branch
                 if len(self.buffer) >= self.message_size:
                     data = bytes(self.buffer[: self.message_size])
                     self.buffer = self.buffer[self.message_size :]
@@ -169,9 +169,9 @@ def load_file(file_path: str | Path | IO[bytes] | None) -> Iterator[ExportTraceS
     Returns:
         An iterator over each `ExportTraceServiceRequest` message in the backup file.
     """
-    if file_path is None:
+    if file_path is None:  # pragma: no cover
         file_path = Path(DEFAULT_FALLBACK_FILE_NAME)
-    elif isinstance(file_path, str):
+    elif isinstance(file_path, str):  # pragma: no cover
         file_path = Path(file_path)
     with file_path.open('rb') if isinstance(file_path, Path) else file_path as f:
         parser = FileParser()

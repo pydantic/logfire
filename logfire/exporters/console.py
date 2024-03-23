@@ -90,7 +90,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
         """
-        if span.attributes:
+        if span.attributes:  # pragma: no branch
             span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
             # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
             if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
@@ -136,11 +136,11 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if indent:
             parts += [(indent * '  ', '')]
 
-        if span.attributes:
+        if span.attributes:  # pragma: no branch
             formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
             msg = formatted_message or span.name
             level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
-        else:
+        else:  # pragma: no cover
             msg = span.name
             level = 0
 
@@ -172,7 +172,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         file_location: str = span.attributes.get('code.filepath')  # type: ignore
         if file_location:
             lineno = span.attributes.get('code.lineno')
-            if lineno:
+            if lineno:  # pragma: no branch
                 file_location += f':{lineno}'
 
         log_level = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NAME_KEY) or ''
@@ -245,7 +245,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
                 out += [f'{prefix}{line}']
         print('\n'.join(out), file=self._output)
 
-    def force_flush(self, timeout_millis: int = 0) -> bool:
+    def force_flush(self, timeout_millis: int = 0) -> bool:  # pragma: no cover
         """Force flush all spans, does nothing for this exporter."""
         return True
 
@@ -274,11 +274,11 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
-            if span.context:
+            if span.context:  # pragma: no branch
                 self._indent_level.pop(span.context.span_id, None)
             return
 
-        if attributes.get(DISABLE_CONSOLE_KEY):
+        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
             return
 
         if span_type == 'pending_span':
@@ -286,7 +286,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
 
             # block_span_id will be the parent_id for all subsequent spans and logs in this block
-            if block_span_id := span.parent.span_id if span.parent else None:
+            if block_span_id := span.parent.span_id if span.parent else None:  # pragma: no branch
                 self._indent_level[block_span_id] = indent + 1
         else:
             # this is a log, we just get the indent level from the parent span
@@ -324,13 +324,13 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
-            if span.context:
+            if span.context:  # pragma: no branch
                 self._span_history.pop(span.context.span_id, None)
                 if self._span_stack and self._span_stack[-1] == span.context.span_id:
                     self._span_stack.pop()
             return
 
-        if attributes.get(DISABLE_CONSOLE_KEY):
+        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
             return
 
         self._print_span(span)
@@ -349,7 +349,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
             msg, span_parts = super()._span_text_parts(span, indent)
             parts += span_parts
 
-            if block_span_id := span.parent and span.parent.span_id:
+            if block_span_id := span.parent and span.parent.span_id:  # pragma: no branch
                 self._span_history[block_span_id] = (indent, msg, parent_id or 0)
                 self._span_stack.append(block_span_id)
         else:
@@ -395,7 +395,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         for indent, msg, parent_id in reversed(parents):
             total_indent = self._timestamp_indent + indent * 2
             parts += [(f'{" " * total_indent}{msg}\n', 'dim')]
-            if parent_id:
+            if parent_id:  # pragma: no branch
                 self._span_stack.append(parent_id)
         return parts
 

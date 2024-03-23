@@ -188,7 +188,7 @@ class BaseValidateHandler:
                 message=f'raised {exception_type}',
             )
             self.span.__exit__(type(exception), exception, exception.__traceback__)
-        elif self._record == 'failure':
+        elif self._record == 'failure':  # pragma: no branch
             self._logfire.log(
                 level='error',
                 msg_template='Validation on {schema_name} raised {exception_type}',

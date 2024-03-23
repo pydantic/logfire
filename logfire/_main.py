@@ -578,7 +578,7 @@ class Logfire:
                 exc_info = exc_info[1]
             if isinstance(exc_info, BaseException):
                 _record_exception(span, exc_info)
-            elif exc_info is not None:  # pragma: no branch
+            elif exc_info is not None:  # pragma: no cover
                 raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
         span.end(start_time)

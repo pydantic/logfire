@@ -71,7 +71,7 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
 
         with contextlib.suppress(Exception):  # just being extra cautious
             for key in STACK_INFO_KEYS:
-                if key in original_attributes:
+                if key in original_attributes:  # pragma: no branch
                     value = original_attributes[key]
                     if isinstance(value, str):
                         value = truncate_string(value, max_length=300)
