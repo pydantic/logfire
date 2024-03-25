@@ -153,11 +153,11 @@ def configure(
             a token is present.
         token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
         project_name: Name to request when creating a new project. Defaults to the `LOGFIRE_PROJECT_NAME` environment
-            variable, or the service name. Project name accepts a string value containing alphanumeric characters and
+            variable, or the current directory name.
+            Project name accepts a string value containing alphanumeric characters and
             hyphens (-). The hyphen character must not be located at the beginning or end of the string and should
             appear in between alphanumeric characters.
-        service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable, or the current
-            directory name.
+        service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
         trace_sample_rate: Sampling ratio for spans. Defaults to the `LOGFIRE_SAMPLING_RATIO` environment variable, or
@@ -618,14 +618,13 @@ class LogfireConfig(_LogfireConfigData):
                         if os.getenv('LOGFIRE_ANONYMOUS_PROJECT_ENABLED') == 'true':  # pragma: no cover
                             new_credentials = LogfireCredentials.create_anonymous_project(
                                 logfire_api_url=self.base_url,
-                                requested_project_name=self.project_name or sanitize_project_name(self.service_name),
+                                requested_project_name=self.project_name or default_project_name(),
                                 session=self.logfire_api_session,
                             )
                         else:
                             new_credentials = LogfireCredentials.initialize_project(
                                 logfire_api_url=self.base_url,
                                 project_name=self.project_name,
-                                service_name=self.service_name,
                                 session=self.logfire_api_session,
                             )
                         new_credentials.write_creds_file(self.data_dir)
@@ -925,7 +924,6 @@ class LogfireCredentials:
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
-        service_name: str | None = None,
     ) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
@@ -986,9 +984,7 @@ class LogfireCredentials:
                         f'The project will be created in the organization "{organization}". Continue?', default=True
                     )
 
-        project_name_default: str | None = project_name or (
-            sanitize_project_name(service_name) if service_name else None
-        )
+        project_name_default: str | None = project_name or default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
             if not project_name:
@@ -1036,7 +1032,6 @@ class LogfireCredentials:
         *,
         logfire_api_url: str,
         project_name: str | None,
-        service_name: str,
         session: requests.Session,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
@@ -1044,7 +1039,6 @@ class LogfireCredentials:
         Args:
             logfire_api_url: The Logfire API base URL.
             project_name: Name for the project.
-            service_name: Name of the service.
             user_token: The user's token to use to create the new project.
             session: HTTP client session used to communicate with the Logfire API.
 
@@ -1077,7 +1071,6 @@ class LogfireCredentials:
                 session=session,
                 logfire_api_url=logfire_api_url,
                 project_name=project_name,
-                service_name=service_name,
             )
 
         try:
@@ -1183,3 +1176,7 @@ def sanitize_project_name(name: str) -> str:
     # Project names are limited to 50 characters, but the backend may also add 9 characters
     # if the project name already exists, so we limit it to 41 characters.
     return re.sub(r'[^a-zA-Z0-9]', '', name).lower()[:41] or 'untitled'
+
+
+def default_project_name():
+    return sanitize_project_name(os.path.basename(os.getcwd()))

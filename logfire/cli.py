@@ -286,7 +286,6 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
             organization=organization,
             default_organization=default_organization,
             project_name=project_name,
-            service_name=Path.cwd().name,
         )
     try:
         credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)

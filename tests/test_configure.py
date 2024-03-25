@@ -849,7 +849,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         }
         request_mocker.post('https://api.logfire.dev/v1/projects/fake_org', [create_project_response])
 
-        logfire.configure(service_name='my_service')
+        logfire.configure()
 
     assert confirm_mock.mock_calls == [
         call('The project will be created in the organization "fake_org". Continue?', default=True),
@@ -886,7 +886,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             [create_project_response],
         )
 
-        logfire.configure(service_name='my_service')
+        logfire.configure()
 
     assert confirm_mock.mock_calls == [
         call('Do you want to use one of your existing projects? ', default=True),
@@ -976,7 +976,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             ],
         )
 
-        logfire.configure(service_name='my_service')
+        logfire.configure()
 
     for request in request_mocker.request_history:
         assert request.headers['Authorization'] == 'fake_user_token'
@@ -991,7 +991,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
     assert prompt_mock.mock_calls == [
         call(
             'Enter the project name',
-            default='myservice',
+            default='testinitializeprojectcreate0',
         ),
         call(
             "\nThe project you've entered is invalid. Valid project names:\n"
@@ -999,7 +999,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             '  * may contain single hyphens\n'
             '  * may not start or end with a hyphen\n\n'
             'Enter the project name you want to use:',
-            default='myservice',
+            default='testinitializeprojectcreate0',
         ),
         call(
             '\nA project with that name already exists. Please enter a different project name',
@@ -1059,7 +1059,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             [create_project_response],
         )
 
-        logfire.configure(service_name='my_service')
+        logfire.configure()
 
     assert prompt_mock.mock_calls == [
         call(
@@ -1067,7 +1067,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             choices=['fake_org', 'fake_org1'],
             default='fake_org1',
         ),
-        call('Enter the project name', default='myservice'),
+        call('Enter the project name', default='testinitializeprojectcreate1'),
         call(
             'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
         ),
