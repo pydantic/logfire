@@ -1,29 +1,26 @@
 """Integration for instrumenting Pydantic models."""
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
+from functools import lru_cache
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, TypeVar
 
-from pydantic_core import CoreConfig, CoreSchema
+from typing_extensions import ParamSpec
 
 import logfire
 from logfire import LogfireSpan
 from logfire._config import GLOBAL_CONFIG
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
     from pydantic.plugin import (
         SchemaKind,
         SchemaTypePath,
-        ValidateJsonHandlerProtocol,
-        ValidatePythonHandlerProtocol,
-        ValidateStringsHandlerProtocol,
     )
-    from typing_extensions import TypeAlias
+    from pydantic_core import CoreConfig, CoreSchema
 
-    # It might make sense to export the following type alias from `pydantic.plugin`, rather than redefining it here.
-    StringInput: TypeAlias = 'dict[str, StringInput]'
 
 METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
 validation_counter = METER.create_counter('pydantic.validations')
@@ -71,26 +68,27 @@ _USER_STACK_OFFSET = 3
 """The number of frames to skip when logging from user code."""
 
 
-class BaseValidateHandler:
-    """Base class for validation event handler classes."""
+class _ValidateWrapper:
+    """Decorator factory for one schema validator method."""
 
-    validation_method: ClassVar[str]
-    span: LogfireSpan | None
     __slots__ = (
+        'validation_method',
         'schema_name',
-        'span',
         '_record',
         '_logfire',
     )
 
     def __init__(
         self,
+        validation_method: Literal['validate_python', 'validate_json', 'validate_strings'],
         schema: CoreSchema,
         _config: CoreConfig | None,
         _plugin_settings: PluginSettings | dict[str, Any],
         schema_type_path: SchemaTypePath,
         record: Literal['all', 'failure', 'metrics'],
     ) -> None:
+        self.validation_method = validation_method
+
         # We accept the schema, config, and plugin_settings in the init since these are the things
         # that are currently exposed by the plugin to potentially configure the validation handlers.
         self.schema_name = get_schema_name(schema)
@@ -107,105 +105,134 @@ class BaseValidateHandler:
                 tags = [tags]
             self._logfire = self._logfire.with_tags(*tags)
 
-        self.span = None
+    def __call__(self, validator: Any) -> Any:
+        """Decorator which wraps a schema validator method with instrumentation."""
+        from pydantic import ValidationError
 
-    def _on_enter(
-        self,
-        input_data: Any,
-        *,
-        strict: bool | None = None,
-        from_attributes: bool | None = None,
-        context: dict[str, Any] | None = None,
-        self_instance: Any | None = None,
-    ) -> None:
+        # This branching is a bit over-optimised, it can be relaxed as more conditions are added.
         if self._record == 'all':
-            self.span = self._logfire.span(
-                'Pydantic {schema_name} {validation_method}',
-                schema_name=self.schema_name,
-                validation_method=self.validation_method,
-                input_data=input_data,
-                _level='info',
-                _span_name=f'pydantic.{self.validation_method}',
-            ).__enter__()
 
-    def on_success(self, result: Any) -> None:
-        """Callback to be notified of successful validation.
+            @functools.wraps(validator)
+            def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                # If we get a validation error, we want to let it bubble through.
+                # If we used `with span:` this would set the log level to 'error' and export it,
+                # but we want the log level to be 'warn', so we end the span manually.
+                span = self._on_enter(input_data)
+                try:
+                    result = validator(input_data, *args, **kwargs)
+                except ValidationError as error:
+                    self._count_validation(success=False)
+                    self._on_error_span(span, error)
+                    raise
+                except Exception as exception:
+                    self._count_validation(success=False)
+                    self._on_exception_span(span, exception)
+                    raise
+                else:
+                    self._count_validation(success=True)
+                    self._on_success(span, result)
+                    return result
 
-        Args:
-            result: The result of the validation.
-        """
-        self._count_validation(success=True)
-
-        if self.span:
-            self._set_span_attributes(
-                success=True,
-                message='succeeded',
-                result=result,
-            )
-            self.span.__exit__(None, None, None)
-
-    def on_error(self, error: ValidationError) -> None:
-        """Callback to be notified of validation errors.
-
-        Args:
-            error: The validation error.
-        """
-        self._count_validation(success=False)
-
-        if self.span:
-            self._set_span_attributes(
-                success=False,
-                message='failed',
-                error_count=error.error_count(),
-                errors=error.errors(include_url=False),
-            )
-            self.span.set_level('warn')
-            self.span.__exit__(None, None, None)
         elif self._record == 'failure':
-            self._logfire.log(
-                level='warn',
-                msg_template='Validation on {schema_name} failed',
-                attributes={
-                    'schema_name': self.schema_name,
-                    'error_count': error.error_count(),
-                    'errors': error.errors(include_url=False),
-                },
-                stack_offset=_USER_STACK_OFFSET,
-            )
+            # Don't open a span at the beginning, only log errors/exceptions.
 
-    def on_exception(self, exception: Exception) -> None:
-        """Callback to be notified of validation exceptions.
+            @functools.wraps(validator)
+            def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                try:
+                    result = validator(input_data, *args, **kwargs)
+                except ValidationError as error:
+                    self._count_validation(success=False)
+                    self._on_error_log(error)
+                    raise
+                except Exception as exception:
+                    self._count_validation(success=False)
+                    self._on_exception_log(exception)
+                    raise
+                else:
+                    self._count_validation(success=True)
+                    return result
+        else:
+            assert self._record == 'metrics'
 
-        Args:
-            exception: The exception raised during validation.
-        """
-        self._count_validation(success=False)
+            @functools.wraps(validator)
+            def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                try:
+                    result = validator(input_data, *args, **kwargs)
+                except Exception:
+                    self._count_validation(success=False)
+                    raise
+                else:
+                    self._count_validation(success=True)
+                    return result
 
-        exception_type = type(exception).__name__
-        if self.span:
-            self._set_span_attributes(
-                success=False,
-                message=f'raised {exception_type}',
-            )
-            self.span.__exit__(type(exception), exception, exception.__traceback__)
-        elif self._record == 'failure':  # pragma: no branch
-            self._logfire.log(
-                level='error',
-                msg_template='Validation on {schema_name} raised {exception_type}',
-                attributes={
-                    'schema_name': self.schema_name,
-                    'exception_type': exception_type,
-                },
-                stack_offset=_USER_STACK_OFFSET,
-                exc_info=exception,
-            )
+        return wrapped_validator
 
-    def _set_span_attributes(self, *, message: str, success: bool, **attributes: Any) -> None:
-        span = self.span
-        assert span is not None
+    def _on_enter(self, input_data: Any):
+        return self._logfire.span(
+            'Pydantic {schema_name} {validation_method}',
+            schema_name=self.schema_name,
+            validation_method=self.validation_method,
+            input_data=input_data,
+            _level='info',
+            _span_name=f'pydantic.{self.validation_method}',
+        ).__enter__()
+
+    def _on_success(self, span: LogfireSpan, result: Any):
+        self._set_span_attributes(
+            span,
+            success=True,
+            status='succeeded',
+            result=result,
+        )
+        span.__exit__(None, None, None)
+
+    def _on_error_log(self, error: ValidationError):
+        self._logfire.log(
+            level='warn',
+            msg_template='Validation on {schema_name} failed',
+            attributes={
+                'schema_name': self.schema_name,
+                'error_count': error.error_count(),
+                'errors': error.errors(include_url=False),
+            },
+            stack_offset=_USER_STACK_OFFSET,
+        )
+
+    def _on_error_span(self, span: LogfireSpan, error: ValidationError):
+        self._set_span_attributes(
+            span,
+            success=False,
+            status='failed',
+            error_count=error.error_count(),
+            errors=error.errors(include_url=False),
+        )
+        span.set_level('warn')
+        span.__exit__(None, None, None)
+
+    def _on_exception_log(self, exception: Exception):
+        self._logfire.log(
+            level='error',
+            msg_template='Validation on {schema_name} raised {exception_type}',
+            attributes={
+                'schema_name': self.schema_name,
+                'exception_type': type(exception).__name__,
+            },
+            stack_offset=_USER_STACK_OFFSET,
+            exc_info=exception,
+        )
+
+    def _on_exception_span(self, span: LogfireSpan, exception: Exception):
+        self._set_span_attributes(
+            span,
+            success=False,
+            status=f'raised {type(exception).__name__}',
+        )
+        span.__exit__(type(exception), exception, exception.__traceback__)
+
+    def _set_span_attributes(self, span: LogfireSpan, *, status: str, success: bool, **attributes: Any) -> None:
         if span.is_recording():
             span.set_attributes({'success': success, **attributes})
-            span.message += ' ' + message
+            span.message += ' ' + status
 
     def _count_validation(self, *, success: bool) -> None:
         validation_counter.add(
@@ -248,55 +275,11 @@ def get_schema_name(schema: CoreSchema) -> str:
         return schema['type']
 
 
-class ValidatePythonHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidatePythonHandlerProtocol`."""
-
-    validation_method = 'validate_python'
-
-    def on_enter(  # noqa: D102
-        self,
-        input: Any,
-        *,
-        strict: bool | None = None,
-        from_attributes: bool | None = None,
-        context: dict[str, Any] | None = None,
-        self_instance: Any | None = None,
-    ) -> None:
-        self._on_enter(
-            input, strict=strict, from_attributes=from_attributes, context=context, self_instance=self_instance
-        )
-
-
-class ValidateJsonHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidateJsonHandlerProtocol`."""
-
-    validation_method = 'validate_json'
-
-    def on_enter(  # noqa: D102
-        self,
-        input: str | bytes | bytearray,
-        *,
-        strict: bool | None = None,
-        context: dict[str, Any] | None = None,
-        self_instance: Any | None = None,
-    ) -> None:
-        self._on_enter(input, strict=strict, context=context, self_instance=self_instance)
-
-
-class ValidateStringsHandler(BaseValidateHandler):
-    """Implements `pydantic.plugin.ValidateStringsHandlerProtocol`."""
-
-    validation_method = 'validate_strings'
-
-    def on_enter(  # noqa: D102
-        self, input: StringInput, *, strict: bool | None = None, context: dict[str, Any] | None = None
-    ) -> None:
-        self._on_enter(input, strict=strict, context=context)
-
-
 @dataclass
 class LogfirePydanticPlugin:
-    """Implements `pydantic.plugin.PydanticPluginProtocol`.
+    """Implements a new API for pydantic plugins.
+
+    Patches pydantic to accept this new API shape.
 
     Set the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable to `true` to disable the plugin.
 
@@ -314,9 +297,7 @@ class LogfirePydanticPlugin:
         schema_kind: SchemaKind,
         config: CoreConfig | None,
         plugin_settings: dict[str, Any],
-    ) -> tuple[
-        ValidatePythonHandlerProtocol | None, ValidateJsonHandlerProtocol | None, ValidateStringsHandlerProtocol | None
-    ]:
+    ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
         """This method is called every time a new `SchemaValidator` is created.
 
         Args:
@@ -328,12 +309,10 @@ class LogfirePydanticPlugin:
             plugin_settings: The plugin settings.
 
         Returns:
-            A tuple of event handlers for each of the three validation methods -
+            A tuple of decorator factories for each of the three validation methods -
                 `validate_python`, `validate_json`, `validate_strings` or a tuple of
                 three `None` if recording is `off`.
         """
-        record = 'off'
-
         logfire_settings = plugin_settings.get('logfire')
         if logfire_settings and 'record' in logfire_settings:
             record = logfire_settings['record']
@@ -344,10 +323,11 @@ class LogfirePydanticPlugin:
             return None, None, None
 
         if _include_model(schema, schema_type_path):
+            _patch_build_wrapper()
             return (
-                ValidatePythonHandler(schema, config, plugin_settings, schema_type_path, record),
-                ValidateJsonHandler(schema, config, plugin_settings, schema_type_path, record),
-                ValidateStringsHandler(schema, config, plugin_settings, schema_type_path, record),
+                _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record),
+                _ValidateWrapper('validate_json', schema, config, plugin_settings, schema_type_path, record),
+                _ValidateWrapper('validate_strings', schema, config, plugin_settings, schema_type_path, record),
             )
 
         return None, None, None
@@ -386,11 +366,80 @@ def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool
     return True
 
 
-if TYPE_CHECKING:
-    # This is just to ensure we get type checking that the plugin actually implements the expected protocol.
-    from pydantic.plugin import PydanticPluginProtocol
+@lru_cache  # only patch once
+def _patch_build_wrapper():
+    """The old pydantic plugin API required managing state between event handler methods.
 
-    def check_plugin_protocol(_plugin: PydanticPluginProtocol) -> None:  # noqa: D103
-        pass
+    This was messy, especially in a way that handles concurrency and nested validation:
+    see https://pydantic.slack.com/archives/C05AF4A4WRM/p1710503400257589.
+    The 'new API' simply requires decorating the validation methods, returning a new wrapper function.
+    At the time of writing, this API doesn't actually exist yet in pydantic.
+    We patch it here so that this will also work for older versions of pydantic without needing to support both APIs.
+    """
+    from pydantic.plugin import _schema_validator
 
-    check_plugin_protocol(plugin)
+    _schema_validator.build_wrapper = _build_wrapper
+
+
+P = ParamSpec('P')
+R = TypeVar('R')
+
+
+def _build_wrapper(func: Callable[P, R], event_handlers: list[Any]) -> Callable[P, R]:
+    for handler in event_handlers:
+        # Check for the old event handler methods (on_enter etc.) to continue supporting other plugins.
+        # Note that this patching also changes the order in which the event handlers are called
+        # in the case of multiple plugins, but probably in a good way.
+        old_wrapped = _wrap_with_old_handler(func, handler)
+        if old_wrapped:
+            func = old_wrapped
+        elif callable(handler):  # no event handler methods found
+            # Use the new API, especially _ValidateWrapper.__call__
+            func = handler(func)
+
+    return func
+
+
+def _noop(*_: Any, **__: Any):
+    return None
+
+
+def _wrap_with_old_handler(func: Callable[P, R], handler: Any) -> Callable[P, R] | None:
+    from pydantic import ValidationError
+
+    on_enter = _get_handler_method(handler, 'on_enter')
+    on_success = _get_handler_method(handler, 'on_success')
+    on_error = _get_handler_method(handler, 'on_error')
+    on_exception = _get_handler_method(handler, 'on_exception')
+
+    if on_enter is on_success is on_error is on_exception is _noop:
+        # No old event handlers were found, return None to indicate that the new API should be used instead.
+        return None
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        on_enter(*args, **kwargs)
+        try:
+            result = func(*args, **kwargs)
+        except ValidationError as error:
+            on_error(error)
+            raise
+        except Exception as exception:
+            on_exception(exception)
+            raise
+        else:
+            on_success(result)
+            return result
+
+    return wrapper
+
+
+def _get_handler_method(handler: Any, method_name: str) -> Callable[..., None]:
+    handler = getattr(handler, method_name, None)
+    if handler is None:
+        return _noop
+    elif handler.__module__ == 'pydantic.plugin':
+        # this is the original handler, from the protocol due to runtime inheritance.
+        return _noop
+    else:
+        return handler

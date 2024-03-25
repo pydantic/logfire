@@ -10,7 +10,7 @@ from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMet
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
-from pydantic.plugin import SchemaTypePath
+from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
 from pydantic_core import core_schema
 
 import logfire
@@ -214,7 +214,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
 
 
 def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
-    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'metric'}}):
+    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'metrics'}}):
         x: int
 
     MyModel(x=1)
@@ -918,3 +918,143 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
             }
         ]
     )
+
+
+def test_old_plugin_style(exporter: TestExporter) -> None:
+    # Test that plguins for the old API still work together with the logfire plugin.
+
+    events: list[str] = []
+
+    class Handler(ValidatePythonHandlerProtocol):
+        def on_success(self, result: Any) -> None:
+            events.append('success')
+
+        def on_error(self, error: ValidationError) -> None:
+            events.append('error')
+
+        def on_exception(self, exc: Exception) -> None:
+            events.append('exception')
+
+    class OldPlugin(PydanticPluginProtocol):
+        def new_schema_validator(self, *_: Any, **__: Any) -> Any:
+            return Handler(), None, None
+
+    class DummyPlugin:
+        def new_schema_validator(self, *_: Any, **__: Any) -> Any:
+            # Test returning a class that has none of the expected methods
+            # and is also not callable (i.e. also doesn't satisfy the new API).
+            return DummyPlugin(), None, None
+
+    from pydantic.plugin import _loader
+
+    _loader.get_plugins()
+    _loader._plugins['old'] = OldPlugin()
+    _loader._plugins['dummy'] = DummyPlugin()  # type: ignore
+
+    try:
+
+        class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
+            x: int
+
+            @field_validator('x')
+            def validate_x(cls, v: Any) -> Any:
+                if v == 1:
+                    return v
+                raise TypeError('My error')
+
+        MyModel(x=1)
+        with pytest.raises(TypeError):
+            MyModel(x=2)
+        with pytest.raises(ValidationError):
+            MyModel(x='a')
+
+        assert events == ['success', 'exception', 'error']
+
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'pydantic.validate_python',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 2000000000,
+                    'attributes': {
+                        'code.filepath': 'pydantic_plugin.py',
+                        'code.function': '_on_enter',
+                        'code.lineno': 123,
+                        'schema_name': 'MyModel',
+                        'validation_method': 'validate_python',
+                        'input_data': '{"x":1}',
+                        'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                        'logfire.level_name': 'info',
+                        'logfire.level_num': 9,
+                        'logfire.span_type': 'span',
+                        'success': True,
+                        'result': '{"x":1}',
+                        'logfire.msg': 'Pydantic MyModel validate_python succeeded',
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                    },
+                },
+                {
+                    'name': 'pydantic.validate_python',
+                    'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 3000000000,
+                    'end_time': 5000000000,
+                    'attributes': {
+                        'code.filepath': 'pydantic_plugin.py',
+                        'code.function': '_on_enter',
+                        'code.lineno': 123,
+                        'schema_name': 'MyModel',
+                        'validation_method': 'validate_python',
+                        'input_data': '{"x":2}',
+                        'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                        'logfire.span_type': 'span',
+                        'success': False,
+                        'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
+                        'logfire.level_name': 'error',
+                        'logfire.level_num': 17,
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
+                    },
+                    'events': [
+                        {
+                            'name': 'exception',
+                            'timestamp': 4000000000,
+                            'attributes': {
+                                'exception.type': 'TypeError',
+                                'exception.message': 'My error',
+                                'exception.stacktrace': 'TypeError: My error',
+                                'exception.escaped': 'True',
+                            },
+                        }
+                    ],
+                },
+                {
+                    'name': 'pydantic.validate_python',
+                    'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 6000000000,
+                    'end_time': 7000000000,
+                    'attributes': {
+                        'code.filepath': 'pydantic_plugin.py',
+                        'code.function': '_on_enter',
+                        'code.lineno': 123,
+                        'schema_name': 'MyModel',
+                        'validation_method': 'validate_python',
+                        'input_data': '{"x":"a"}',
+                        'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                        'logfire.span_type': 'span',
+                        'success': False,
+                        'error_count': 1,
+                        'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
+                        'logfire.msg': 'Pydantic MyModel validate_python failed',
+                        'logfire.level_name': 'warn',
+                        'logfire.level_num': 13,
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    },
+                },
+            ]
+        )
+    finally:
+        del _loader._plugins['old']
+        del _loader._plugins['dummy']
