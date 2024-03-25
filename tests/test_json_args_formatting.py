@@ -11,7 +11,7 @@ from logfire._json_types import DataType, JSONSchema
     [
         pytest.param(
             ['a', 1, True],
-            {'type': 'array', 'x-python-datatype': 'list'},
+            {'type': 'array'},
             """[
     'a',
     1,
@@ -23,7 +23,6 @@ from logfire._json_types import DataType, JSONSchema
             ['a', 1, 'MyArbitraryType(12)', {'k1': 'v1', 'k2': 2}],
             {
                 'type': 'array',
-                'x-python-datatype': 'list',
                 'prefixItems': [
                     {},
                     {},
@@ -44,7 +43,7 @@ from logfire._json_types import DataType, JSONSchema
         ),
         pytest.param(
             [[1, 2, 3], [4, 5, 6]],
-            {'type': 'array', 'x-python-datatype': 'list', 'items': {'type': 'array', 'x-python-datatype': 'list'}},
+            {'type': 'array', 'items': {'type': 'array'}},
             """[
     [
         1,
@@ -463,7 +462,6 @@ def test_nested_json_args_value_formatting():
     ]
     schema = {
         'type': 'array',
-        'x-python-datatype': 'list',
         'prefixItems': [
             {},
             {},
@@ -510,7 +508,7 @@ def test_nested_json_args_value_formatting():
     [
         pytest.param(
             ['a', 1, True],
-            {'type': 'array', 'x-python-datatype': 'list'},
+            {'type': 'array'},
             "['a', 1, True]",
             id='list',
         ),

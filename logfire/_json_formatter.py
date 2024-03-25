@@ -23,7 +23,6 @@ class JsonArgsValueFormatter:
             'dataclass': partial(self._format_items, '(', '=', ')', False),
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
             'tuple': partial(self._format_list_like, '(', ')'),
-            'list': partial(self._format_list_like, '[', ']'),
             'Sequence': partial(self._format_sequence, '([', '])'),
             'set': partial(self._format_list_like, '{', '}'),
             'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
@@ -68,7 +67,10 @@ class JsonArgsValueFormatter:
         if schema is not None:
             if 'type' in schema:
                 if (data_type := schema.get('x-python-datatype')) is None:
-                    self._format_items('{', ': ', '}', True, indent_current, value, None)
+                    if schema['type'] == 'object':
+                        self._format_items('{', ': ', '}', True, indent_current, value, None)
+                    else:
+                        self._format_list_like('[', ']', indent_current, value, schema)
                 else:
                     func = self._data_type_map.get(data_type)
                     assert func is not None, f'Unknown data type {data_type}'
@@ -126,7 +128,7 @@ class JsonArgsValueFormatter:
             if len(shape) > 1:
                 # We convert to list because we don't want the "array(" prefix to be added
                 # when we call _format_list_like recursively.
-                items_schema = {'x-shape': shape[1:], 'type': 'array', 'x-python-datatype': 'list'}
+                items_schema = {'x-shape': shape[1:], 'type': 'array'}
         for i, v in enumerate(value):
             if first:
                 first = False

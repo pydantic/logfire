@@ -28,7 +28,6 @@ DataType = Literal[
     'PosixPath',
     'Pattern',
     # iterable types
-    'list',
     'set',
     'frozenset',
     'tuple',
@@ -104,7 +103,7 @@ _ArrayBase = TypedDict(
     '_ArrayBase',
     {
         'type': Literal['array'],
-        'x-python-datatype': Literal['list', 'tuple', 'deque', 'set', 'frozenset', 'ndarray'],
+        'x-python-datatype': Literal['tuple', 'deque', 'set', 'frozenset', 'ndarray'],
         'x-columns': NotRequired[List[str]],
         'x-indices': NotRequired[List[Any]],
         'x-shape': NotRequired[List[int]],
