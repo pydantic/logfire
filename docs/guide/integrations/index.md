@@ -29,24 +29,5 @@ If a package you are using is not listed here, please let us know on our [Slack]
 | [Celery](celery.md)                    | Task Queue              |
 
 
-```
-          - Pydantic: guide/integrations/pydantic.md
-          - Logging: guide/integrations/logging.md
-          - FastAPI: guide/integrations/fastapi.md
-          - Django: guide/integrations/django.md
-          - Flask: guide/integrations/flask.md
-          - Starlette: guide/integrations/starlette.md
-          - ASGI: guide/integrations/asgi.md
-          - WSGI: guide/integrations/wsgi.md
-          - HTTPX: guide/integrations/httpx.md
-          - Requests: guide/integrations/requests.md
-          - AIOHTTP: guide/integrations/aiohttp.md
-          - PyMongo: guide/integrations/pymongo.md
-          - Psycopg2: guide/integrations/psycopg2.md
-          - Redis: guide/integrations/redis.md
-          - SQLAlchemy: guide/integrations/sqlalchemy.md
-          - Celery: guide/integrations/celery.md
-```
-
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
 [opentelemetry]: https://opentelemetry.io/
