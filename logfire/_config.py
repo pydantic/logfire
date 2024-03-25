@@ -470,19 +470,6 @@ class LogfireConfig(_LogfireConfigData):
         self._initialized = False
         self._lock = RLock()
 
-    # TODO(Marcelo): We should test the `load_token` method.
-    @staticmethod
-    def load_token(
-        token: str | None = None,
-        data_dir: Path = Path('.logfire'),
-    ) -> tuple[str | None, LogfireCredentials | None]:  # pragma: no cover
-        file_creds = LogfireCredentials.load_creds_file(data_dir)
-        if token is None:
-            token = os.getenv('LOGFIRE_TOKEN')
-            if token is None and file_creds:
-                token = file_creds.token
-        return token, file_creds
-
     def configure(
         self,
         base_url: str | None,
@@ -609,7 +596,7 @@ class LogfireConfig(_LogfireConfigData):
 
             metric_readers = self.metric_readers
 
-            if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire:
+            if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
                 new_credentials: LogfireCredentials | None = None
                 if self.token is None:
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)

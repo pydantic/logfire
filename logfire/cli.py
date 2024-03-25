@@ -88,7 +88,7 @@ def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
     logfire.configure(data_dir=data_dir, base_url=logfire_url, collect_system_metrics=False)
     config = logfire._config.GLOBAL_CONFIG
     config.initialize()
-    token, _ = config.load_token()
+    token = config.token
     assert token is not None  # if no token was available a new project should have been created
     console = Console(file=sys.stderr)
     with Progress(console=console) as progress:

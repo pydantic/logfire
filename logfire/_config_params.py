@@ -140,7 +140,8 @@ class ParamManager:
         param = CONFIG_PARAMS[name]
         for env_var in param.env_vars:
             value = os.getenv(env_var)
-            if value is not None:
+            # `None` (unset) and `''` (empty string) are generally considered the same
+            if value:
                 return self._cast(value, name, param.tp)
 
         if param.allow_file_config:

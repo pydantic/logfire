@@ -1072,3 +1072,56 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
         ),
     ]
+
+
+def test_send_to_logfire_true(tmp_path: Path) -> None:
+    """
+    Test that with send_to_logfire=True, the logic is triggered to ask about creating a project.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(
+            mock.patch('logfire._config.LogfireCredentials.get_user_projects', side_effect=RuntimeError('expected'))
+        )
+        with pytest.raises(RuntimeError, match='^expected$'):
+            configure(send_to_logfire=True, console=False)
+
+
+def test_send_to_logfire_false() -> None:
+    """
+    Test that with send_to_logfire=False, that logic is NOT triggered.
+    """
+    with mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError):
+        configure(send_to_logfire=False, console=False)
+
+
+def test_send_to_logfire_if_token_present() -> None:
+    with mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError):
+        configure(send_to_logfire='if-token-present', console=False)
+
+
+def test_send_to_logfire_if_token_present_empty() -> None:
+    os.environ['LOGFIRE_TOKEN'] = ''
+    try:
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError))
+            requests_mocker = stack.enter_context(requests_mock.Mocker())
+            configure(send_to_logfire='if-token-present', console=False)
+            assert len(requests_mocker.request_history) == 0
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
+def test_send_to_logfire_if_token_present_not_empty() -> None:
+    os.environ['LOGFIRE_TOKEN'] = 'foobar'
+    try:
+        with requests_mock.Mocker() as request_mocker:
+            request_mocker.get('https://api.logfire.dev/v1/health', status_code=200)
+            configure(send_to_logfire='if-token-present', console=False)
+            assert len(request_mocker.request_history) == 1
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
