@@ -68,9 +68,13 @@ except ImportError:  # pragma: no cover
 # 1. It's convenient to pass the result of sys.exc_info() directly
 # 2. It mirrors the exc_info argument of the stdlib logging methods
 # 3. The argument name exc_info is very suggestive of the sys function.
-ExcInfo: typing.TypeAlias = (
-    'tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None] | BaseException | bool | None'
-)
+ExcInfo: typing.TypeAlias = Union[
+    'tuple[type[BaseException], BaseException, TracebackType | None]',
+    'tuple[None, None, None]',
+    BaseException,
+    bool,
+    None,
+]
 
 
 class Logfire:

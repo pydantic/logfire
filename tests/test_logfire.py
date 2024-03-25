@@ -5,6 +5,7 @@ import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
+from logging import getLogger
 from typing import Callable
 
 import pytest
@@ -29,6 +30,7 @@ from logfire._constants import (
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
+from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -1545,7 +1547,11 @@ def test_tags(exporter: TestExporter) -> None:
 
 
 def test_exc_info(exporter: TestExporter):
+    logger = getLogger(__name__)
+    logger.addHandler(LogfireLoggingHandler())
+
     logfire.debug('no error', _exc_info=True)
+    logger.error('no error', exc_info=True)
 
     try:
         raise TypeError('other error')
@@ -1562,14 +1568,16 @@ def test_exc_info(exporter: TestExporter):
         logfire.warn('exc3', _exc_info=True)
         logfire.error('exc4', _exc_info=sys.exc_info())
         logfire.exception('exc5')
+        logger.exception('exc6')
 
     span_dicts = exporter.exported_spans_as_dict()
-    # insert_assert(span_dicts)
 
-    assert len(span_dicts) == 7
-    assert 'events' not in span_dicts[0]
+    assert len(span_dicts) == 9
 
-    for span_dict in span_dicts[1:3]:
+    for span_dict in span_dicts[:2]:
+        assert 'events' not in span_dict
+
+    for span_dict in span_dicts[2:4]:
         [event] = span_dict['events']
         assert event['attributes'] == {
             'exception.type': 'TypeError',
@@ -1578,7 +1586,7 @@ def test_exc_info(exporter: TestExporter):
             'exception.escaped': 'False',
         }
 
-    for span_dict in span_dicts[3:]:
+    for span_dict in span_dicts[4:]:
         [event] = span_dict['events']
         assert event['attributes'] == {
             'exception.type': 'ValueError',
