@@ -335,8 +335,9 @@ class LogfirePydanticPlugin:
 
 plugin = LogfirePydanticPlugin()
 
-# set of modules to ignore completed
-IGNORED_MODULE_PREFIXES: tuple[str, ...] = 'fastapi.', 'logfire_backend.'
+# set of modules to ignore completely
+IGNORED_MODULES: tuple[str, ...] = 'fastapi', 'logfire_backend', 'fastui'
+IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNORED_MODULES)
 
 
 def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
@@ -349,20 +350,17 @@ def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool
         return _include_model(schema['schema'])  # type: ignore
 
     # check if the model is in ignored model
-    if any(schema_type_path.module.startswith(prefix) for prefix in IGNORED_MODULE_PREFIXES):  # pragma: no cover
+    module = schema_type_path.module
+    if module.startswith(IGNORED_MODULE_PREFIXES) or module in IGNORED_MODULES:  # pragma: no cover
         return False
 
     # check if the model is in exclude models
-    if exclude and any(
-        re.search(f'{pattern}$', f'{schema_type_path.module}::{schema_type_path.name}') for pattern in exclude
-    ):
+    if exclude and any(re.search(f'{pattern}$', f'{module}::{schema_type_path.name}') for pattern in exclude):
         return False
 
     # check if the model is in include models
     if include:
-        return any(
-            re.search(f'{pattern}$', f'{schema_type_path.module}::{schema_type_path.name}') for pattern in include
-        )
+        return any(re.search(f'{pattern}$', f'{module}::{schema_type_path.name}') for pattern in include)
     return True
 
 
