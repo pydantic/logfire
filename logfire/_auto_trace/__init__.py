@@ -5,6 +5,7 @@ import sys
 import warnings
 from typing import TYPE_CHECKING, Callable, Literal, Sequence
 
+from .._constants import ONE_SECOND_IN_NANOSECONDS
 from .import_hook import LogfireFinder
 from .types import AutoTraceModule
 
@@ -17,6 +18,7 @@ def install_auto_tracing(
     modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None,
     *,
     check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
+    min_duration: float = 0,
 ) -> None:
     """Install automatic tracing.
 
@@ -59,7 +61,9 @@ def install_auto_tracing(
                         AutoTraceModuleAlreadyImportedWarning,
                         stacklevel=2,
                     )
-    finder = LogfireFinder(logfire, modules)
+
+    min_duration = int(min_duration * ONE_SECOND_IN_NANOSECONDS)
+    finder = LogfireFinder(logfire, modules, min_duration)
     sys.meta_path.insert(0, finder)
 
 

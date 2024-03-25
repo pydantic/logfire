@@ -21,6 +21,7 @@ class LogfireFinder(MetaPathFinder):
 
     logfire: Logfire
     modules_filter: Callable[[AutoTraceModule], bool]
+    min_duration: int
 
     def find_spec(
         self, fullname: str, path: Sequence[str] | None, target: ModuleType | None = None
@@ -50,7 +51,7 @@ class LogfireFinder(MetaPathFinder):
             if not self.modules_filter(AutoTraceModule(fullname, plain_spec.origin)):
                 return None  # tell the import system to try the next meta path finder
 
-            loader = LogfireLoader(plain_spec, source, self.logfire)
+            loader = LogfireLoader(plain_spec, source, self.logfire, self.min_duration)
             return spec_from_loader(fullname, loader)
 
     def _find_plain_specs(
@@ -82,6 +83,7 @@ class LogfireLoader(Loader):
     """The source code of the module, as returned by `plain_spec.loader.get_source(fullname)`."""
 
     logfire: Logfire
+    min_duration: int
 
     def exec_module(self, module: ModuleType):
         """Execute a modified AST of the module's source code in the module's namespace.
@@ -99,7 +101,7 @@ class LogfireLoader(Loader):
                 pass
         filename = filename or f'<{module.__name__}>'
 
-        exec_source(self.source, filename, module.__name__, module.__dict__, self.logfire)
+        exec_source(self.source, filename, module.__name__, module.__dict__, self.logfire, self.min_duration)
 
     # This is required when `exec_module` is defined.
     # It returns None to indicate that the usual module creation process should be used.

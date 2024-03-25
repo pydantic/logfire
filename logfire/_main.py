@@ -637,6 +637,7 @@ class Logfire:
         modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None,
         *,
         check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
+        min_duration: float = 0,
     ) -> None:
         """Install automatic tracing.
 
@@ -662,8 +663,12 @@ class Logfire:
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
+            min_duration: An optional minimum duration in seconds for which a function must run before it's traced.
+                The default is `0`, which means all functions are traced from the beginning.
+                Otherwise, the first time(s) each function is called, it will be timed but not traced.
+                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
-        install_auto_tracing(self, modules, check_imported_modules=check_imported_modules)
+        install_auto_tracing(self, modules, check_imported_modules=check_imported_modules, min_duration=min_duration)
 
     def instrument_fastapi(
         self,

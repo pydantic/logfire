@@ -113,8 +113,19 @@ class InstrumentTransformer(BaseTransformer):
 
         return super().rewrite_function(node, qualname)
 
+    def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
+        return ast.Call(
+            func=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
+            args=self.logfire_method_arg_nodes(node, qualname),
+            keywords=[],
+        )
+
     def logfire_method_arg_nodes(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> list[ast.expr]:
-        result = super().logfire_method_arg_nodes(node, qualname)
+        msg, attributes = self.logfire_method_arg_values(qualname, node.lineno)
+        attributes_stmt = ast.parse(repr(attributes)).body[0]
+        assert isinstance(attributes_stmt, ast.Expr)
+        attributes_node = attributes_stmt.value
+        result = [ast.Constant(value=msg), attributes_node]
         if self.logfire_args.extract_args:
             args = node.args
             arg_names = [

@@ -4,6 +4,7 @@ import sys
 from importlib.machinery import SourceFileLoader
 
 import pytest
+from inline_snapshot import snapshot
 
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
 from logfire._auto_trace import (
@@ -231,34 +232,37 @@ class Class3:
 
 
 def test_rewrite_ast():
+    context_factories = []
     tree = rewrite_ast(
         nested_sample,
         'foo.py',
         'logfire_span',
         'module.name',
         DEFAULT_LOGFIRE_INSTANCE,
+        context_factories,
+        min_duration=0,
     )
     result = """
 def func():
-    with logfire_span('Calling module.name.func', {'code.filepath': 'foo.py', 'code.lineno': 2, 'code.function': 'func', 'logfire.msg_template': 'Calling module.name.func', 'logfire.tags': ('auto-trace',)}):
+    with logfire_span[3]():
         x = 1
 
         class Class:
             x = 2
 
             def method(self):
-                with logfire_span('Calling module.name.func.<locals>.Class.method', {'code.filepath': 'foo.py', 'code.lineno': 8, 'code.function': 'func.<locals>.Class.method', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method', 'logfire.tags': ('auto-trace',)}):
+                with logfire_span[0]():
                     y = 3
                     return y
 
             async def method2(self):
-                with logfire_span('Calling module.name.func.<locals>.Class.method2', {'code.filepath': 'foo.py', 'code.lineno': 12, 'code.function': 'func.<locals>.Class.method2', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2', 'logfire.tags': ('auto-trace',)}):
+                with logfire_span[2]():
 
                     class Class2:
                         z = 4
 
                         async def method3(self):
-                            with logfire_span('Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3', {'code.filepath': 'foo.py', 'code.lineno': 16, 'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3', 'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3', 'logfire.tags': ('auto-trace',)}):
+                            with logfire_span[1]():
                                 a = 5
                                 return a
                     return Class2().method3()
@@ -268,7 +272,7 @@ class Class3:
     x = 6
 
     def method4(self):
-        with logfire_span('Calling module.name.Class3.method4', {'code.filepath': 'foo.py', 'code.lineno': 26, 'code.function': 'Class3.method4', 'logfire.msg_template': 'Calling module.name.Class3.method4', 'logfire.tags': ('auto-trace',)}):
+        with logfire_span[4]():
             b = 7
             return b
 """
@@ -281,6 +285,61 @@ class Class3:
         compile(tree, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
         or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
         or ast.dump(tree) == ast.dump(ast.parse(result))
+    )
+
+    assert [f.args for f in context_factories] == snapshot(
+        [
+            (
+                'Calling module.name.func.<locals>.Class.method',
+                {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 8,
+                    'code.function': 'func.<locals>.Class.method',
+                    'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method',
+                    'logfire.tags': ('auto-trace',),
+                },
+            ),
+            (
+                'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
+                {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 16,
+                    'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3',
+                    'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
+                    'logfire.tags': ('auto-trace',),
+                },
+            ),
+            (
+                'Calling module.name.func.<locals>.Class.method2',
+                {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 12,
+                    'code.function': 'func.<locals>.Class.method2',
+                    'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2',
+                    'logfire.tags': ('auto-trace',),
+                },
+            ),
+            (
+                'Calling module.name.func',
+                {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 2,
+                    'code.function': 'func',
+                    'logfire.msg_template': 'Calling module.name.func',
+                    'logfire.tags': ('auto-trace',),
+                },
+            ),
+            (
+                'Calling module.name.Class3.method4',
+                {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 26,
+                    'code.function': 'Class3.method4',
+                    'logfire.msg_template': 'Calling module.name.Class3.method4',
+                    'logfire.tags': ('auto-trace',),
+                },
+            ),
+        ]
     )
 
 
@@ -352,14 +411,17 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    tree = rewrite_ast(
+    context_factories = []
+    rewrite_ast(
         sample,
         'foo.py',
         'logfire_span',
         'module.name',
         DEFAULT_LOGFIRE_INSTANCE,
+        context_factories,
+        min_duration=0,
     )
-    return {node.items[0].context_expr.args[0].value for node in ast.walk(tree) if isinstance(node, ast.With)}
+    return {f.args[0] for f in context_factories}
 
 
 def test_no_auto_trace():
@@ -395,4 +457,58 @@ def test_no_auto_trace():
     assert (
         get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '@other.no_auto_trace'))
         == all_calling_strings
+    )
+
+
+def test_min_duration(exporter: TestExporter):
+    install_auto_tracing('tests.auto_trace_samples.simple_nesting', min_duration=5)
+
+    from tests.auto_trace_samples import simple_nesting
+
+    assert simple_nesting.func1() == 42
+
+    # The first time the functions are called, we only measure their durations,
+    # so no spans are created.
+    assert exporter.exported_spans == []
+
+    assert simple_nesting.func1() == 42
+
+    # In the first run, func1 and func2 are found to take at least 5 seconds,
+    # (because the timestamp generator is advanced when measuring the duration)
+    # so now they have spans, but func3 and func4 are still too short.
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Calling tests.auto_trace_samples.simple_nesting.func2',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 15000000000,
+                'attributes': {
+                    'code.filepath': 'simple_nesting.py',
+                    'code.lineno': 123,
+                    'code.function': 'func2',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func2',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.simple_nesting.func2',
+                },
+            },
+            {
+                'name': 'Calling tests.auto_trace_samples.simple_nesting.func1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 16000000000,
+                'attributes': {
+                    'code.filepath': 'simple_nesting.py',
+                    'code.lineno': 123,
+                    'code.function': 'func1',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func1',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.simple_nesting.func1',
+                },
+            },
+        ]
     )

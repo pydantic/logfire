@@ -3,7 +3,8 @@ from __future__ import annotations
 import ast
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from functools import partial
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, TypeVar
 
 import logfire
 from logfire._ast_utils import BaseTransformer, LogfireArgs
@@ -12,32 +13,57 @@ if TYPE_CHECKING:
     from logfire._main import Logfire
 
 
-def exec_source(source: str, filename: str, module_name: str, globs: dict[str, Any], logfire: Logfire) -> None:
+def exec_source(
+    source: str, filename: str, module_name: str, globs: dict[str, Any], logfire_instance: Logfire, min_duration: int
+) -> None:
     """Execute a modified AST of the module's source code in the module's namespace.
 
-    The modified AST wraps the body of every function definition in `with logfire.span(...):`.
-    `logfire.span` is added to the module's namespace as `logfire_<uuid>`.
-    The argument to `logfire.span` contains `module_name` and the qualified name of the current function.
+    The modified AST wraps the body of every function definition in `with context_factories[index]():`.
+    `context_factories` is added to the module's namespace as `logfire_<uuid>`.
+    `index` is a different constant number for each function definition.
+    `context_factories[index]` is one of these:
+        - `partial(logfire_instance._fast_span, name, attributes)` where the name and attributes
+            are constructed from `filename`, `module_name`, attributes of `logfire_instance`,
+            and the qualified name and line number of the current function.
+        - `MeasureTime`, a class that measures the time elapsed. If it exceeds `min_duration`,
+            then `context_factories[index]` is replaced with the `partial` above.
+    If `min_duration` is greater than 0, then `context_factories[index]` is initially `MeasureTime`.
+    Otherwise, it's initially the `partial` above.
     """
     logfire_name = f'logfire_{uuid.uuid4().hex}'
-    globs[logfire_name] = logfire._fast_span  # type: ignore
-    tree = rewrite_ast(source, filename, logfire_name, module_name, logfire)
+    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    globs[logfire_name] = context_factories
+    tree = rewrite_ast(source, filename, logfire_name, module_name, logfire_instance, context_factories, min_duration)
     assert isinstance(tree, ast.Module)  # for type checking
     # dont_inherit=True is necessary to prevent the module from inheriting the __future__ import from this module.
     code = compile(tree, filename, 'exec', dont_inherit=True)
     exec(code, globs, globs)
 
 
-def rewrite_ast(source: str, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire) -> ast.AST:
+def rewrite_ast(
+    source: str,
+    filename: str,
+    logfire_name: str,
+    module_name: str,
+    logfire_instance: Logfire,
+    context_factories: list[Callable[[], ContextManager[Any]]],
+    min_duration: int,
+) -> ast.AST:
     tree = ast.parse(source)
     logfire_args = LogfireArgs(logfire_instance._tags + ['auto-trace'], logfire_instance._sample_rate)  # type: ignore
-    transformer = AutoTraceTransformer(logfire_args, logfire_name, filename, module_name)
+    transformer = AutoTraceTransformer(
+        logfire_args, logfire_name, filename, module_name, logfire_instance, context_factories, min_duration
+    )
     return transformer.visit(tree)
 
 
 @dataclass
 class AutoTraceTransformer(BaseTransformer):
     """Trace all encountered functions except those explicitly marked with `@no_auto_trace`."""
+
+    logfire_instance: Logfire
+    context_factories: list[Callable[[], ContextManager[Any]]]
+    min_duration: int
 
     def check_no_auto_trace(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:
         """Return true if the node has a `@no_auto_trace` or `@logfire.no_auto_trace` decorator."""
@@ -67,7 +93,49 @@ class AutoTraceTransformer(BaseTransformer):
 
         return super().visit_FunctionDef(node)
 
-    visit_AsyncFunctionDef = visit_FunctionDef
+    def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
+        # See the exec_source docstring
+        index = len(self.context_factories)
+        span_factory = partial(
+            self.logfire_instance._fast_span,  # type: ignore
+            *self.logfire_method_arg_values(qualname, node.lineno),
+        )
+        if self.min_duration > 0:
+            config = self.logfire_instance._config  # type: ignore
+
+            # Local vars for fast access
+            timer = config.ns_timestamp_generator
+            min_duration = self.min_duration
+
+            # This needs to be as fast as possible since it's the cost of auto-tracing a function
+            # that never actually gets instrumented because its calls are all faster than `min_duration`.
+            class MeasureTime:
+                __slots__ = 'start'
+
+                def __enter__(_self):
+                    _self.start = timer()
+
+                def __exit__(_self, *_):
+                    if timer() - _self.start >= min_duration:
+                        self.context_factories[index] = span_factory
+
+            self.context_factories.append(MeasureTime)
+        else:
+            self.context_factories.append(span_factory)
+
+        # This node means:
+        #   context_factories[index]()
+        # where `context_factories` is a global variable with the name `self.logfire_method_name`
+        # pointing to the `self.context_factories` list.
+        return ast.Call(
+            func=ast.Subscript(
+                value=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
+                slice=ast.Index(value=ast.Constant(value=index)),
+                ctx=ast.Load(),
+            ),
+            args=[],
+            keywords=[],
+        )
 
 
 T = TypeVar('T')

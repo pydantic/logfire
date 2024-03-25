@@ -61,18 +61,17 @@ class BaseTransformer(ast.NodeTransformer):
 
         return self.rewrite_function(node, qualname)
 
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        return self.visit_FunctionDef(node)
+
     def rewrite_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.AST:
         # Replace the body of the function with:
-        #     with <logfire_span_name>('Calling ...'):
+        #     with <logfire_method_call_node>:
         #         <original body>
         span = ast.With(
             items=[
                 ast.withitem(
-                    context_expr=ast.Call(
-                        func=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
-                        args=self.logfire_method_arg_nodes(node, qualname),
-                        keywords=[],
-                    ),
+                    context_expr=self.logfire_method_call_node(node, qualname),
                 )
             ],
             body=node.body,
@@ -92,14 +91,8 @@ class BaseTransformer(ast.NodeTransformer):
             )
         )
 
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-    def logfire_method_arg_nodes(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> list[ast.expr]:
-        msg, attributes = self.logfire_method_arg_values(qualname, node.lineno)
-        attributes_stmt = ast.parse(repr(attributes)).body[0]
-        assert isinstance(attributes_stmt, ast.Expr)
-        attributes_node = attributes_stmt.value
-        return [ast.Constant(value=msg), attributes_node]
+    def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
+        raise NotImplementedError()
 
     def logfire_method_arg_values(self, qualname: str, lineno: int) -> tuple[str, dict[str, otel_types.AttributeValue]]:
         stack_info: StackInfo = {
