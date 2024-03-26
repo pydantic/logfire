@@ -56,7 +56,7 @@ class FileSpanExporter(SpanExporter):
                     ensure_data_dir_exists(self.file_path.parent)
                     if self._warn:
                         warnings.warn(
-                            f'Failed to export spans, writing to fallback file: {self.file_path}',
+                            f'Failed to export spans, writing to fallback file: {self.file_path.absolute()}',
                             WritingFallbackWarning,
                         )
                     self._file = self.file_path.open('ab')
