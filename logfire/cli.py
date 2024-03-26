@@ -57,14 +57,13 @@ def parse_whoami(args: argparse.Namespace) -> None:
 def parse_clean(args: argparse.Namespace) -> None:
     """Clean Logfire data."""
     data_dir = Path(args.data_dir)
-    if not data_dir.exists():
+    if not data_dir.exists() or not data_dir.is_dir():
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
     confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y]')
     if confirm.lower() in ('yes', 'y'):
-        if data_dir.exists() and data_dir.is_dir():  # pragma: no branch
-            shutil.rmtree(data_dir)
+        shutil.rmtree(data_dir)
         sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')

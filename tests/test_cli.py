@@ -97,7 +97,14 @@ def test_clean(
     assert capsys.readouterr().err == output
 
 
-def test_clean_default_dir_does_not_exist(
+def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(shlex.split('clean --data-dir potato'))
+    assert 'No Logfire data found in' in capsys.readouterr().err
+    assert exc.value.code == 1
+
+
+def test_clean_default_dir_is_not_a_directory(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,
     capsys: pytest.CaptureFixture[str],
@@ -106,7 +113,7 @@ def test_clean_default_dir_does_not_exist(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     with pytest.raises(SystemExit) as exc:
-        main(shlex.split('clean --data-dir potato'))
+        main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}/logfire_credentials.json'))
     assert 'No Logfire data found in' in capsys.readouterr().err
     assert exc.value.code == 1
 
