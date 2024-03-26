@@ -1,6 +1,6 @@
-# [FastAPI][fastapi]
+# FastAPI
 
-Logfire provides custom instrumentation for [FastAPI][fastapi]. It also works with the
+**Logfire** provides custom instrumentation for [FastAPI][fastapi]. It also works with the
 third-party [OpenTelemetry FastAPI Instrumentation][opentelemetry-fastapi] package. The two can be used together or
 separately.
 

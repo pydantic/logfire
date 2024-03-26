@@ -1,6 +1,6 @@
-#  [HTTPX][httpx]
+# HTTPX
 
-The [OpenTelemetry Instrumentation HTTPX][opentelemetry-httpx] package can be used to instrument HTTPX.
+The [OpenTelemetry Instrumentation HTTPX][opentelemetry-httpx] package can be used to instrument [HTTPX][httpx].
 
 ## Installation
 

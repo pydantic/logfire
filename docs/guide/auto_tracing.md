@@ -55,9 +55,9 @@ Once you've selected which modules to trace, you probably don't want to trace *e
 To exclude a function from auto-tracing, add the [`no_auto_trace`][logfire.no_auto_trace] decorator to it:
 
 ```py
-from logfire import no_auto_trace
+import logfire
 
-@no_auto_trace
+@logfire.no_auto_trace
 def my_function():
     # Nested functions will also be excluded
     def inner_function():

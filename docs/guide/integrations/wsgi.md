@@ -1,7 +1,7 @@
-# [WSGI][wsgi]
+# WSGI
 
-The analogous applies to WSGI. If the WSGI framework doesn't have a dedicated OpenTelemetry
-package, you can use the [OpenTelemetry WSGI middleware][opentelemetry-wsgi].
+If the [WSGI][wsgi] framework doesn't have a dedicated OpenTelemetry package, you can use the
+[OpenTelemetry WSGI middleware][opentelemetry-wsgi].
 
 ## Installation
 

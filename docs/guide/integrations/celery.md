@@ -1,6 +1,6 @@
-# [Celery][celery]
+# Celery
 
-The [OpenTelemetry Instrumentation Celery][opentelemetry-celery] package can be used to instrument Celery.
+The [OpenTelemetry Instrumentation Celery][opentelemetry-celery] package can be used to instrument [Celery][celery].
 
 ## Installation
 

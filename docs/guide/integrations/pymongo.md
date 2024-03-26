@@ -1,6 +1,6 @@
-# [PyMongo][pymongo]
+# PyMongo
 
-The [OpenTelemetry Instrumentation PyMongo][opentelemetry-pymongo] package can be used to instrument PyMongo.
+The [OpenTelemetry Instrumentation PyMongo][opentelemetry-pymongo] package can be used to instrument [PyMongo][pymongo].
 
 ## Installation
 

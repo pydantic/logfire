@@ -1,6 +1,6 @@
-# [Redis][redis]
+# Redis
 
-The [OpenTelemetry Instrumentation Redis][opentelemetry-redis] package can be used to instrument Redis.
+The [OpenTelemetry Instrumentation Redis][opentelemetry-redis] package can be used to instrument [Redis][redis].
 
 ## Installation
 

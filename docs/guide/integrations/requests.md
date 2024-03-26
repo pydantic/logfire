@@ -1,6 +1,6 @@
-# [Requests][requests]
+# Requests
 
-The [OpenTelemetry Instrumentation Requests][opentelemetry-requests] package can be used to instrument Requests.
+The [OpenTelemetry Instrumentation Requests][opentelemetry-requests] package can be used to instrument [Requests][requests].
 
 ## Installation
 

@@ -1,14 +1,14 @@
-# [Pydantic][pydantic]
+# Pydantic
 
-Logfire has a [Pydantic plugin][pydantic-plugin] to instrument Pydantic models. The plugin provides logs and metrics
-about model validation.
+Logfire has a [Pydantic plugin][pydantic-plugin] to instrument [Pydantic][pydantic] models.
+The plugin provides logs and metrics about model validation.
 
 You can enable it using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
 ```py
-from logfire import configure, PydanticPlugin
+import logfire
 
-configure(pydantic_plugin=PydanticPlugin(record='all'))
+logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))
 ```
 
 ## Third party modules
@@ -17,18 +17,18 @@ By default, third party modules are not instrumented by the plugin to avoid nois
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
 ```py
-from logfire import PydanticPlugin, configure
+import logfire
 
-configure(pydantic_plugin=PydanticPlugin(record='all', include={'openai'}))
+logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', include={'openai'}))
 ```
 
 You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
 ```py
-from logfire import PydanticPlugin, configure
+import logfire
 
-configure(pydantic_plugin=PydanticPlugin(record='all', exclude={'app.api.v1'}))
+logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', exclude={'app.api.v1'}))
 ```
 
 ## Model configuration

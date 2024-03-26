@@ -1,3 +1,0 @@
-logfire
-fastapi>=0.100
-uvicorn==0.23.2

@@ -1,6 +1,6 @@
-# [Flask][flask]
+# Flask
 
-The [OpenTelemetry Instrumentation Flask][opentelemetry-flask] package can be used to instrument Flask.
+The [OpenTelemetry Instrumentation Flask][opentelemetry-flask] package can be used to instrument [Flask][flask].
 
 ## Install
 

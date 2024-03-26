@@ -1,6 +1,6 @@
-# [ASGI][asgi]
+# ASGI
 
-If the ASGI framework doesn't have a dedicated OpenTelemetry package, you can use the
+If the [ASGI][asgi] framework doesn't have a dedicated OpenTelemetry package, you can use the
 [OpenTelemetry ASGI middleware][opentelemetry-asgi].
 
 ## Installation

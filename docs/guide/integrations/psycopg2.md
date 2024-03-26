@@ -1,6 +1,6 @@
-# [Psycopg2][psycopg2]
+# Psycopg2
 
-The [OpenTelemetry Instrumentation Psycopg2][opentelemetry-psycopg2] package can be used to instrument Psycopg2.
+The [OpenTelemetry Instrumentation Psycopg2][opentelemetry-psycopg2] package can be used to instrument [Psycopg2][psycopg2].
 
 ## Installation
 

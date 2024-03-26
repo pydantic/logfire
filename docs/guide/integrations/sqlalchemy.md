@@ -1,6 +1,7 @@
-# [SQLAlchemy][sqlalchemy]
+# SQLAlchemy
 
-The [OpenTelemetry Instrumentation SQLAlchemy][opentelemetry-sqlalchemy] package can be used to instrument SQLAlchemy.
+The [OpenTelemetry Instrumentation SQLAlchemy][opentelemetry-sqlalchemy] package can be used to
+instrument [SQLAlchemy][sqlalchemy].
 
 ## Installation
 

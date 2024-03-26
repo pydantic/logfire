@@ -1,6 +1,6 @@
-# [Starlette][starlette]
+# Starlette
 
-The [OpenTelemetry Instrumentation Starlette][opentelemetry-starlette] package can be used to instrument Starlette.
+The [OpenTelemetry Instrumentation Starlette][opentelemetry-starlette] package can be used to instrument [Starlette][starlette].
 
 ## Installation
 

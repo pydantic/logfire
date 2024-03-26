@@ -1,6 +1,7 @@
-# [Standard Library Logging][logging]
+# Standard Library Logging
 
-Logfire can act as a sink for standard library logging by emitting a Logfire log for every standard library log record.
+**Logfire** can act as a sink for [standard library logging][logging] by emitting a **Logfire** log for
+every standard library log record.
 
 ```py title="main.py"
 from logging import basicConfig, getLogger

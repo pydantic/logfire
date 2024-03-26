@@ -1,6 +1,6 @@
-# [Django][django]
+# Django
 
-The [OpenTelemetry Instrumentation Django][opentelemetry-django] package can be used to instrument Django.
+The [OpenTelemetry Instrumentation Django][opentelemetry-django] package can be used to instrument [Django][django].
 
 ## Installation
 
