@@ -28,12 +28,22 @@ try:
 except ImportError:  # pragma: no cover
     Gauge = None
 
-# copied from opentelemetry/instrumentation/system_metrics/__init__.py
+# All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
+# except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
+# Docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times
+CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
+
+# All the virtual_memory fields provided by psutil across all platforms,
+# except for 'percent' which can be calculated as `(total - available) / total * 100`.
+# Docs: https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory
+MEMORY_FIELDS = 'total available used free active inactive buffers cached shared wired slab'.split()
+
+# Based on opentelemetry/instrumentation/system_metrics/__init__.py
 DEFAULT_CONFIG = {
-    'system.cpu.time': ['idle', 'user', 'system', 'irq'],
-    'system.cpu.utilization': ['idle', 'user', 'system', 'irq'],
-    'system.memory.usage': ['used', 'free', 'cached'],
-    'system.memory.utilization': ['used', 'free', 'cached'],
+    'system.cpu.time': CPU_FIELDS,
+    'system.cpu.utilization': CPU_FIELDS,
+    'system.memory.usage': MEMORY_FIELDS,
+    'system.memory.utilization': MEMORY_FIELDS,
     'system.swap.usage': ['used', 'free'],
     'system.swap.utilization': ['used', 'free'],
     'system.disk.io': ['read', 'write'],
