@@ -178,8 +178,8 @@ def parse_inspect(args: argparse.Namespace) -> None:
             packages[name] = otel_package
 
     # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):  # pragma: no branch
-        del packages['starlette']  # pragma: no cover
+    if packages.get('starlette') and packages.get('fastapi'):
+        del packages['starlette']
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
