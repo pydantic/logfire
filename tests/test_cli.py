@@ -542,6 +542,32 @@ def test_projecs_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials
     }
 
 
+def test_projecs_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(patch('logfire.cli.Console'))
+        stack.enter_context(patch('logfire.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://api.logfire.dev/v1/projects/', json=[])
+        m.get('https://api.logfire.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://api.logfire.dev/v1/projects/fake_org',
+            [create_project_response],
+        )
+
+        with pytest.raises(LogfireConfigError, match='Invalid credentials, when initializing project:'):
+            main(['projects', 'new', 'myproject', '--org', 'fake_org'])
+
+
 def test_projecs_without_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
@@ -659,3 +685,49 @@ def test_projecs_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path)
         **create_project_response['json'],
         'logfire_api_url': 'https://api.logfire.dev',
     }
+
+
+def test_projecs_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(patch('logfire.cli.Console'))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[],
+        )
+
+        main(['projects', 'use', 'myproject'])
+
+        assert prompt_mock.mock_calls == [call('There is no project to use. Continue?', default=True)]
+
+
+def test_projecs_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(patch('logfire.cli.Console'))
+        stack.enter_context(patch('logfire.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://api.logfire.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        with pytest.raises(LogfireConfigError, match='Invalid credentials, when initializing project:'):
+            main(['projects', 'use', 'myproject', '--org', 'fake_org'])

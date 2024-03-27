@@ -12,7 +12,7 @@ import sys
 import warnings
 import webbrowser
 from pathlib import Path
-from typing import Iterator, cast
+from typing import Any, Iterator, cast
 from urllib.parse import urljoin
 
 import requests
@@ -269,6 +269,15 @@ def parse_list_projects(args: argparse.Namespace) -> None:
             )
 
 
+def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api_url: str) -> LogfireCredentials:
+    try:
+        credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_api_url)
+        credentials.write_creds_file(data_dir)
+        return credentials
+    except TypeError as e:
+        raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
+
+
 def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
@@ -285,12 +294,8 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
             default_organization=default_organization,
             project_name=project_name,
         )
-    try:
-        credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
-        credentials.write_creds_file(data_dir)
-        console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
-    except TypeError as e:  # pragma: no cover
-        raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
+    credentials = _write_credentials(project_info, data_dir, logfire_url)
+    console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
 
 
 def parse_use_project(args: argparse.Namespace) -> None:
@@ -309,16 +314,9 @@ def parse_use_project(args: argparse.Namespace) -> None:
             organization=organization,
             project_name=project_name,
         )
-        # TODO(Marcelo): We should test when `project_info` is None, and maybe send a message to the user.
-        if project_info:  # pragma: no branch
-            try:
-                credentials = LogfireCredentials(**project_info, logfire_api_url=logfire_url)
-                credentials.write_creds_file(data_dir)
-                console.print(
-                    f'Project configured successfully. You will be able to view it at: {credentials.project_url}'
-                )
-            except TypeError as e:  # pragma: no cover
-                raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
+        if project_info:
+            credentials = _write_credentials(project_info, data_dir, logfire_url)
+            console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
 
 
 def main(args: list[str] | None = None) -> None:
