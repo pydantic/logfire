@@ -256,8 +256,7 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     console = Console(file=sys.stderr)
     with requests.Session() as session:
         projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
-        # TODO(Marcelo): Add a test for this scenario.
-        if projects:  # pragma: no cover
+        if projects:
             table = Table()
             table.add_column('Organization')
             table.add_column('Project')

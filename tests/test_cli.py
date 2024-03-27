@@ -233,6 +233,22 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
 def test_projecs_list(default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        table_add_row = stack.enter_context(patch('logfire.cli.Table.add_row'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/', json=[{'organization_name': 'test-org', 'project_name': 'test-pr'}]
+        )
+
+        main(['projects', 'list'])
+
+    assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
+
+
+def test_projecs_list_no_project(default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire.cli.Console'))
 
         m = requests_mock.Mocker()
