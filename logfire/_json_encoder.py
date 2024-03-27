@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import datetime
 import json
@@ -12,48 +13,10 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 from uuid import UUID
 
 from logfire._utils import JsonValue, safe_repr
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
-else:
-    try:
-        from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
-    except ImportError:  # pragma: no cover
-        DeclarativeBase = type('DeclarativeBase', (), {})
-        DeclarativeMeta = type('DeclarativeMeta', (), {})
-
-try:
-    import pydantic
-except ModuleNotFoundError:  # pragma: no cover
-    # pydantic is not installed, possible since it's not a dependency
-    # don't add the types to the lookup logic
-    pydantic = None
-
-try:
-    import pandas
-except ModuleNotFoundError:  # pragma: no cover
-    pandas = None
-
-try:
-    import numpy
-except ModuleNotFoundError:  # pragma: no cover
-    numpy = None
-
-try:
-    import attrs
-except ModuleNotFoundError:  # pragma: no cover
-    attrs = None
-
-try:
-    import sqlalchemy
-    from sqlalchemy import inspect as sa_inspect
-except ModuleNotFoundError:  # pragma: no cover
-    sqlalchemy = None
-    sa_inspect = None
 
 __all__ = ('logfire_json_dumps',)
 
@@ -157,7 +120,8 @@ def _numpy_array_encoder(o: Any) -> JsonValue:
     ]
     """
     # If we reach here, numpy is installed.
-    assert numpy and isinstance(o, numpy.ndarray)
+    import numpy
+
     shape = o.shape
     dimensions = o.ndim
 
@@ -170,25 +134,29 @@ def _numpy_array_encoder(o: Any) -> JsonValue:
         # Slicing and concatenating arrays along the specified axis
         slices = [slice(None)] * dimensions
         slices[dimension] = slice(0, half)
-        front = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
+        front = o[tuple(slices)]
 
         slices[dimension] = slice(-half, None)
-        end = o[tuple(slices)]  # type: ignore[reportUnknownVariableType]
-        o = numpy.concatenate((front, end), axis=dimension)  # type: ignore[reportUnknownVariableType]
+        end = o[tuple(slices)]
+        o = numpy.concatenate((front, end), axis=dimension)
 
     return to_json_value(o.tolist())
 
 
 def _pydantic_model_encoder(o: Any) -> JsonValue:
-    assert pydantic and isinstance(o, pydantic.BaseModel)
+    import pydantic
+
+    assert isinstance(o, pydantic.BaseModel)
     return to_json_value(o.model_dump())
 
 
 def _get_sqlalchemy_data(o: Any) -> JsonValue:
-    if sa_inspect is not None:  # pragma: no branch
+    try:
+        from sqlalchemy import inspect as sa_inspect
+
         state = sa_inspect(o)
         deferred = state.unloaded
-    else:  # pragma: no cover
+    except ModuleNotFoundError:  # pragma: no cover
         deferred = set()  # type: ignore
 
     return to_json_value(
@@ -224,7 +192,9 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         UUID: str,
         Exception: str,
     }
-    if pydantic:  # pragma: no cover
+    with contextlib.suppress(ModuleNotFoundError):
+        import pydantic
+
         lookup.update(
             {
                 pydantic.AnyUrl: str,
@@ -235,9 +205,13 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
             }
         )
 
-    if pandas:  # pragma: no cover
+    with contextlib.suppress(ModuleNotFoundError):
+        import pandas
+
         lookup.update({pandas.DataFrame: _pandas_data_frame_encoder})
-    if numpy:  # pragma: no cover
+    with contextlib.suppress(ModuleNotFoundError):
+        import numpy
+
         lookup.update({numpy.ndarray: _numpy_array_encoder})
 
     return lookup
@@ -251,8 +225,8 @@ def to_json_value(o: Any) -> JsonValue:
             return {key if isinstance(key, str) else safe_repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
         elif dataclasses.is_dataclass(o):
             return {f.name: to_json_value(getattr(o, f.name)) for f in dataclasses.fields(o)}
-        elif attrs is not None and attrs.has(o.__class__):
-            return {f.name: to_json_value(getattr(o, f.name)) for f in attrs.fields(o.__class__)}
+        elif is_attrs(o):
+            return _get_attrs_data(o)
         elif is_sqlalchemy(o):
             return _get_sqlalchemy_data(o)
 
@@ -279,8 +253,26 @@ def logfire_json_dumps(obj: Any) -> str:
 
 
 def is_sqlalchemy(obj: Any) -> bool:
-    if sqlalchemy is None:  # pragma: no cover
+    try:
+        from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
+
+        if isinstance(obj, DeclarativeBase):
+            return True
+        return isinstance(obj.__class__, DeclarativeMeta)
+    except ImportError:  # pragma: no cover
         return False
-    if isinstance(obj, DeclarativeBase):
-        return True
-    return isinstance(obj.__class__, DeclarativeMeta)
+
+
+def is_attrs(obj: Any) -> bool:
+    try:
+        import attrs
+
+        return attrs.has(obj.__class__)
+    except ModuleNotFoundError:  # pragma: no cover
+        return False
+
+
+def _get_attrs_data(o: Any) -> JsonValue:
+    import attrs
+
+    return {f.name: to_json_value(getattr(o, f.name)) for f in attrs.fields(o.__class__)}

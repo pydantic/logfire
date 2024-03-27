@@ -14,6 +14,7 @@ conflicts with the official keywords. The custom keywords are:
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import datetime
 import re
@@ -27,45 +28,16 @@ from pathlib import PosixPath
 from types import GeneratorType
 from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 
-from logfire._json_encoder import is_sqlalchemy, to_json_value
+from logfire._json_encoder import is_attrs, is_sqlalchemy, to_json_value
 from logfire._stack_info import STACK_INFO_KEYS
 from logfire._utils import JsonDict, dump_json, safe_repr
-
-try:
-    import pydantic
-    import pydantic_core
-except ModuleNotFoundError:  # pragma: no cover
-    pydantic = None
-    pydantic_core = None
-
-try:
-    import attrs
-except ModuleNotFoundError:  # pragma: no cover
-    attrs = None
-
-try:
-    import pandas
-except ModuleNotFoundError:  # pragma: no cover
-    pandas = None
-
-try:
-    import numpy
-except ModuleNotFoundError:  # pragma: no cover
-    numpy = None
-
-try:
-    import sqlalchemy
-    from sqlalchemy import inspect as sa_inspect
-except ModuleNotFoundError:  # pragma: no cover
-    sqlalchemy = None
-    sa_inspect = None
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema'
 
 
 @lru_cache
 def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any], JsonDict]]:
-    return {
+    lookup: dict[type[Any], JsonDict | Callable[[Any], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
         Enum: _enum_schema,
@@ -91,20 +63,34 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any], JsonDict]]:
         range: {'type': 'array', 'x-python-datatype': 'range'},
         PosixPath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
         Exception: _exception_schema,
-        **dict(
-            {}
-            if pydantic is None or pydantic_core is None
-            else {
-                pydantic_core.Url: {'type': 'string', 'x-python-datatype': 'Url'},
+    }
+    with contextlib.suppress(ModuleNotFoundError):
+        import pydantic
+
+        lookup.update(
+            {
                 pydantic.NameEmail: {'type': 'string', 'x-python-datatype': 'NameEmail'},
                 pydantic.SecretStr: {'type': 'string', 'x-python-datatype': 'SecretStr'},
                 pydantic.SecretBytes: {'type': 'string', 'x-python-datatype': 'SecretBytes'},
                 pydantic.BaseModel: _pydantic_model_schema,
             }
-        ),
-        **dict({} if pandas is None else {pandas.DataFrame: _pandas_schema}),
-        **dict({} if numpy is None else {numpy.ndarray: _numpy_schema}),
-    }
+        )
+
+    with contextlib.suppress(ModuleNotFoundError):
+        import pydantic_core
+
+        lookup.update({pydantic_core.Url: {'type': 'string', 'x-python-datatype': 'Url'}})
+
+    with contextlib.suppress(ModuleNotFoundError):
+        import numpy
+
+        lookup.update({numpy.ndarray: _numpy_schema})
+
+    with contextlib.suppress(ModuleNotFoundError):
+        import pandas
+
+        lookup.update({pandas.DataFrame: _pandas_schema})
+    return lookup
 
 
 _type_to_schema = None
@@ -123,7 +109,7 @@ def create_json_schema(obj: Any) -> JsonDict:
         return _dataclass_schema(obj)
     elif isinstance(obj, Mapping):
         return _mapping_schema(obj)
-    elif attrs and attrs.has(obj):
+    elif is_attrs(obj):
         return _attrs_schema(obj)
     elif is_sqlalchemy(obj):
         return _sqlalchemy_schema(obj)
@@ -268,12 +254,16 @@ def _exception_schema(obj: Exception) -> JsonDict:
 
 
 def _pydantic_model_schema(obj: Any) -> JsonDict:
-    assert pydantic and isinstance(obj, pydantic.BaseModel)
+    import pydantic
+
+    assert isinstance(obj, pydantic.BaseModel)
     return _custom_object_schema(obj, 'PydanticModel', [*obj.model_fields, *(obj.model_extra or {})])
 
 
 def _pandas_schema(obj: Any) -> JsonDict:
-    assert pandas and isinstance(obj, pandas.DataFrame)
+    import pandas
+
+    assert isinstance(obj, pandas.DataFrame)
 
     row_count, column_count = obj.shape
 
@@ -316,7 +306,8 @@ def _attrs_schema(obj: Any) -> JsonDict:
 
 
 def _sqlalchemy_schema(obj: Any) -> JsonDict:
-    assert sqlalchemy and sa_inspect
+    from sqlalchemy import inspect as sa_inspect
+
     return _custom_object_schema(obj, 'sqlalchemy', sa_inspect(obj).attrs.keys())
 
 
