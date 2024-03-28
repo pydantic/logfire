@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import sys
+import webbrowser
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import call, patch
@@ -140,12 +141,15 @@ def test_inspect_drop_dependant_packages(
         assert 'opentelemetry-instrumentation-starlette' not in output
 
 
-def test_auth(tmp_path: Path) -> None:
+@pytest.mark.parametrize('webbrowser_error', [False, True])
+def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire.cli.DEFAULT_FILE', auth_file))
         console = stack.enter_context(patch('logfire.cli.Console'))
-        webbrowser_open = stack.enter_context(patch('webbrowser.open'))
+        webbrowser_open = stack.enter_context(
+            patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -228,6 +232,20 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
         with pytest.warns(UserWarning, match=r'^Failed to poll for token\. Retrying\.\.\.$'):
             with pytest.raises(LogfireConfigError, match='Failed to poll for token.'):
                 main(['auth'])
+
+
+def test_auth_on_authenticated_user(default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire.cli.DEFAULT_FILE', default_credentials))
+        console = stack.enter_context(patch('logfire.cli.Console'))
+
+        main(['auth'])
+
+    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+    assert console_calls == [
+        IsStr(regex=r'^\(file=.*'),
+        f"print('You are already logged in. (Your credentials are stored in [bold]{default_credentials}[/])')",
+    ]
 
 
 def test_projecs_list(default_credentials: Path) -> None:

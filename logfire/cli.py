@@ -211,9 +211,9 @@ def parse_auth(args: argparse.Namespace) -> None:
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
 
-    if DEFAULT_FILE.is_file():  # pragma: no cover
+    if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-        if is_logged_in(data, logfire_url):
+        if is_logged_in(data, logfire_url):  # pragma: no branch
             console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
             return
     else:
@@ -229,7 +229,7 @@ def parse_auth(args: argparse.Namespace) -> None:
         console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
         try:
             webbrowser.open(frontend_auth_url, new=2)
-        except webbrowser.Error:  # pragma: no cover
+        except webbrowser.Error:
             pass
         console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
         console.print('Waiting for you to authenticate with Logfire...')

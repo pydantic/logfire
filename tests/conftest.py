@@ -88,8 +88,11 @@ def tmp_dir_cwd(tmp_path: Path):
 @pytest.fixture
 def default_credentials(tmp_path: Path) -> Path:
     auth_file = tmp_path / 'default.toml'
-    with open(auth_file, 'w') as f:
-        f.write('[tokens."http://localhost:8000"]')
-        f.write('token = "0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"')
-        f.write('expiration = "2025-03-14T17:14:52.586536Z"')
+    auth_file.write_text(
+        """
+        [tokens."https://api.logfire.dev"]
+        token = "0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        """
+    )
     return auth_file
