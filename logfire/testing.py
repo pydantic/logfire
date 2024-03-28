@@ -1,7 +1,9 @@
 """Testing utilities for Logfire."""
 from __future__ import annotations
 
+import os
 import random
+import re
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -14,6 +16,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import IdGenerator
+from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.semconv.trace import SpanAttributes
 from pydantic import BaseModel
 
@@ -71,6 +74,12 @@ class TestExporter(SpanExporter):
             if name == 'code.function':
                 if sys.version_info >= (3, 11) and _strip_function_qualname:
                     return value.split('.')[-1]
+            if name == ResourceAttributes.PROCESS_PID:
+                assert value == os.getpid()
+                return 1234
+            if name == ResourceAttributes.SERVICE_INSTANCE_ID:
+                if re.match(r'^[0-9a-f]{32}$', value):
+                    return '0' * 32
             return value
 
         def build_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -126,8 +135,9 @@ class TestExporter(SpanExporter):
             if span.events:
                 res['events'] = [build_event(event) for event in span.events]
             if include_resources:
+                resource_attributes = build_attributes(span.resource.attributes)
                 res['resource'] = {
-                    'attributes': build_attributes(span.resource.attributes),
+                    'attributes': resource_attributes,
                 }
             return res
 

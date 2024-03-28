@@ -216,8 +216,10 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
     )
 
 
-def test_scrub_resource(exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator):
-    os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe'
+def test_dont_scrub_resource(
+    exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator
+):
+    os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
     logfire.configure(
         send_to_logfire=False,
         console=False,
@@ -231,8 +233,8 @@ def test_scrub_resource(exporter: TestExporter, id_generator: IncrementalIdGener
         {
             'telemetry.sdk.language': 'python',
             'telemetry.sdk.name': 'opentelemetry',
-            'my_password': "[Redacted due to 'password']",
-            'yours': "[Redacted due to 'password']",
-            'other': 'safe',
+            'my_password': 'hunter2',
+            'yours': 'your_password',
+            'other': 'safe=good',
         }
     )

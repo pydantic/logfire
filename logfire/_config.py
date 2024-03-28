@@ -12,6 +12,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
+from uuid import uuid4
 
 import requests
 from opentelemetry import metrics, trace
@@ -537,20 +538,28 @@ class LogfireConfig(_LogfireConfigData):
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
                 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
+                ResourceAttributes.PROCESS_PID: os.getpid(),
             }
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if otel_resource_attributes_from_env:
-                extra_resource_attributes = {}
                 for _field in otel_resource_attributes_from_env.split(','):
-                    key, value = _field.split('=')
-                    extra_resource_attributes[key.strip()] = value.strip()
-                otel_resource_attributes.update(
-                    self.scrubber.scrub(('otel_resource_attributes',), extra_resource_attributes)
-                )
+                    key, value = _field.split('=', maxsplit=1)
+                    otel_resource_attributes[key.strip()] = value.strip()
 
             resource = Resource.create(otel_resource_attributes)
+
+            # Set service instance ID to a random UUID if it hasn't been set already.
+            # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
+            # but doing it here means that resource detectors (checked in Resource.create) get priority.
+            # This attribute is currently experimental. The latest released docs about it are here:
+            # https://opentelemetry.io/docs/specs/semconv/resource/#service-experimental
+            # Currently there's a newer version with some differences here:
+            # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
+            # Both recommend generating a UUID.
+            resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
+
             tracer_provider = SDKTracerProvider(
                 sampler=ParentBasedTraceIdRatio(self.trace_sample_rate),
                 resource=resource,

@@ -650,6 +650,8 @@ def test_otel_service_name_env_var() -> None:
                     'telemetry.sdk.version': '0.0.0',
                     'service.name': 'potato',
                     'service.version': '1.2.3',
+                    'service.instance.id': '00000000000000000000000000000000',
+                    'process.pid': 1234,
                 }
             },
         }
@@ -660,7 +662,10 @@ def test_otel_otel_resource_attributes_env_var() -> None:
     time_generator = TimeGenerator()
     exporter = TestExporter()
 
-    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.name=banana,service.version=1.2.3'}):
+    with patch.dict(
+        os.environ,
+        {'OTEL_RESOURCE_ATTRIBUTES': 'service.name=banana,service.version=1.2.3,service.instance.id=instance_id'},
+    ):
         configure(
             send_to_logfire=False,
             console=False,
@@ -697,6 +702,8 @@ def test_otel_otel_resource_attributes_env_var() -> None:
                     'telemetry.sdk.version': '0.0.0',
                     'service.name': 'banana',
                     'service.version': '1.2.3',
+                    'service.instance.id': 'instance_id',
+                    'process.pid': 1234,
                 }
             },
         }
@@ -747,6 +754,8 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                     'telemetry.sdk.version': '0.0.0',
                     'service.name': 'banana',
                     'service.version': '1.2.3',
+                    'service.instance.id': '00000000000000000000000000000000',
+                    'process.pid': 1234,
                 }
             },
         }
