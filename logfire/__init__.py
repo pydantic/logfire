@@ -1,4 +1,7 @@
 """**Logfire** is the observability tool focused on developer experience."""
+from __future__ import annotations
+
+from typing import Any
 
 from ._auto_trace import AutoTraceModule
 from ._auto_trace.rewrite_ast import no_auto_trace
@@ -37,6 +40,17 @@ metric_up_down_counter = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter
 metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
+
+
+def loguru_handler() -> dict[str, Any]:
+    """Create a **Logfire** handler for Loguru.
+
+    Returns:
+        A dictionary with the handler and format for Loguru.
+    """
+    from .integrations import loguru
+
+    return {'sink': loguru.LogfireHandler(), 'format': '{message}'}
 
 
 __version__ = VERSION

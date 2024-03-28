@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord
+from typing import Any, ClassVar
 
 from logfire import log
-from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY
+from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes
@@ -36,26 +37,36 @@ RESERVED_ATTRS: tuple[str, ...] = (
 
 
 class LogfireLoggingHandler(LoggingHandler):
-    """A logging handler that sends logs to Logfire.
+    """A logging handler that sends logs to **Logfire**."""
 
-    ```py
-    from logging import basicConfig, getLogger
-
-    from logfire.integrations.logging import LogfireLoggingHandler
-
-    basicConfig(handlers=[LogfireLoggingHandler()])
-
-    logger = getLogger(__name__)
-
-    logger.error('{first_name=} failed!', extra={'first_name': 'Fred'})
-    ```
-    """
+    custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
 
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.
 
         Args:
             record: The log record to send.
+        """
+        attributes = self.fill_attributes(record)
+
+        log(
+            msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
+            level=record.levelname.lower(),  # type: ignore
+            attributes=attributes,
+            custom_scope_suffix=self.custom_scope_suffix,
+            exc_info=record.exc_info,
+        )
+
+    def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
+        """Fill the attributes to send to Logfire.
+
+        This method can be overridden to add more attributes.
+
+        Args:
+            record: The log record.
+
+        Returns:
+            The attributes for the log record.
         """
         attributes = {k: v for k, v in record.__dict__.items() if k not in RESERVED_ATTRS}
         attributes['code.filepath'] = record.pathname
@@ -72,10 +83,4 @@ class LogfireLoggingHandler(LoggingHandler):
         else:
             attributes[ATTRIBUTES_MESSAGE_KEY] = record.msg
 
-        log(
-            msg_template=record.msg,  # type: ignore
-            level=record.levelname.lower(),  # type: ignore
-            attributes=attributes,
-            custom_scope_suffix='stdlib.logging',
-            exc_info=record.exc_info,
-        )
+        return attributes

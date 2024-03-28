@@ -73,6 +73,7 @@ nav:
           - Pydantic: guide/integrations/pydantic.md
           - Logging: guide/integrations/logging.md
           - Structlog: guide/integrations/structlog.md
+          - Loguru: guide/integrations/loguru.md
           - FastAPI: guide/integrations/fastapi.md
           - Django: guide/integrations/django.md
           - Flask: guide/integrations/flask.md
