@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Mapping, cast
 
 from logfire import log
 from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
@@ -73,14 +73,39 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes['code.lineno'] = record.lineno
         attributes['code.function'] = record.funcName
 
-        # If there are args, we want to include them in the log message.
-        if record.args:
-            attributes[ATTRIBUTES_MESSAGE_KEY] = record.msg % record.args
-            if isinstance(record.args, dict):
-                attributes.update(record.args)
-            else:
-                attributes[ATTRIBUTES_LOGGING_ARGS_KEY] = record.args
-        else:
-            attributes[ATTRIBUTES_MESSAGE_KEY] = record.msg
+        attributes[ATTRIBUTES_MESSAGE_KEY], args = _format_message(record)
+        attributes.update(args)
 
         return attributes
+
+
+def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
+    args = record.args
+    msg = record.msg
+
+    if not args:
+        return msg, {}
+
+    if type(args) is tuple:
+        return msg % args, {ATTRIBUTES_LOGGING_ARGS_KEY: args}
+
+    try:
+        # args is a Mapping. Python extracted it from a tuple here:
+        # https://github.com/python/cpython/blob/4c71d51a4b7989fc8754ba512c40e21666f9db0d/Lib/logging/__init__.py#L324-L326
+        # Whether it should be treated as one positional argument or a mapping of keyword arguments
+        # depends on the format string.
+        # First check if the user wrote something like:
+        #   log('Hello %s', {'name': 'Alice'})
+        # in which case we should treat {'name': 'Alice'} as a single positional argument.
+        formatted = msg % (args,)
+    except TypeError:
+        # This means the user wrote something like:
+        #   log('Hello %(name)s', {'name': 'Alice'})
+        # so `name` should be treated as a keyword argument, i.e. its own attribute.
+        return msg % args, cast('Mapping[str, Any]', args)
+    else:
+        # We have to wrap the single positional argument in a tuple.
+        # Otherwise this:
+        #   log('Hello %s', x)
+        # would result in the shape of the data depending on whether x is a Mapping or not.
+        return formatted, {ATTRIBUTES_LOGGING_ARGS_KEY: (args,)}

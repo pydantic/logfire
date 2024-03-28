@@ -2,6 +2,7 @@ from logging import Logger, getLogger
 
 import pytest
 from dirty_equals import IsJson, IsPositiveInt
+from inline_snapshot import snapshot
 
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
@@ -66,6 +67,34 @@ def test_stdlib_logging_with_positional_params(exporter: TestExporter, logger: L
             },
         }
     ]
+
+
+def test_stdlib_logging_with_positional_dict_param(exporter: TestExporter, logger: Logger) -> None:
+    logger.error('This is a test message %s.', {'param': 'with a parameter'})
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'This is a test message %s.',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_name': 'error',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'This is a test message %s.',
+                    'logfire.msg': "This is a test message {'param': 'with a parameter'}.",
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_stdlib_logging_with_positional_dict_param',
+                    'code.lineno': 123,
+                    'logfire.logging_args': '[{"param":"with a parameter"}]',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_stdlib_logging_with_parenthesis_params(exporter: TestExporter, logger: Logger) -> None:
