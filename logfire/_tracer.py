@@ -134,7 +134,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
 
     def record_exception(
         self,
-        exception: Exception,
+        exception: BaseException,
         attributes: otel_types.Attributes = None,
         timestamp: int | None = None,
         escaped: bool = False,
@@ -206,7 +206,7 @@ class _ProxyTracer(Tracer):
 
     # This means that `with start_as_current_span(...):`
     # is roughly equivalent to `with use_span(start_span(...)):`
-    start_as_current_span = SDKTracer.start_as_current_span  # type: ignore
+    start_as_current_span = SDKTracer.start_as_current_span
 
 
 @dataclass

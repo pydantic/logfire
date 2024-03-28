@@ -1192,7 +1192,7 @@ def _record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
 
-    span.record_exception(cast(Exception, exception), attributes=attributes, timestamp=timestamp, escaped=escaped)
+    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
