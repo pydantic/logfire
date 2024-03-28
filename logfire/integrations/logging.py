@@ -9,30 +9,32 @@ from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_K
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes
-RESERVED_ATTRS: tuple[str, ...] = (
-    'args',
-    'asctime',
-    'created',
-    'exc_info',
-    'exc_text',
-    'filename',
-    'funcName',
-    'levelname',
-    'levelno',
-    'lineno',
-    'module',
-    'msecs',
-    'message',
-    'msg',
-    'name',
-    'pathname',
-    'process',
-    'processName',
-    'relativeCreated',
-    'stack_info',
-    'thread',
-    'threadName',
-    'taskName',  # 3.12+
+RESERVED_ATTRS: frozenset[str] = frozenset(
+    [
+        'args',
+        'asctime',
+        'created',
+        'exc_info',
+        'exc_text',
+        'filename',
+        'funcName',
+        'levelname',
+        'levelno',
+        'lineno',
+        'module',
+        'msecs',
+        'message',
+        'msg',
+        'name',
+        'pathname',
+        'process',
+        'processName',
+        'relativeCreated',
+        'stack_info',
+        'thread',
+        'threadName',
+        'taskName',  # 3.12+
+    ]
 )
 
 
