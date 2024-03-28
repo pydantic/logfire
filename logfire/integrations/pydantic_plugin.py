@@ -256,8 +256,7 @@ def get_schema_name(schema: CoreSchema) -> str:
     """
     if schema['type'] in {'model', 'dataclass'}:
         return schema['cls'].__name__  # type: ignore
-    # TODO(Marcelo): This should be tested.
-    elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:  # pragma: no cover
+    elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
         return get_schema_name(schema['schema'])  # type: ignore
     elif schema['type'] == 'definitions':
         inner_schema = schema['schema']
@@ -322,7 +321,7 @@ class LogfirePydanticPlugin:
         if record == 'off':
             return None, None, None
 
-        if _include_model(schema, schema_type_path):
+        if _include_model(schema_type_path):
             _patch_build_wrapper()
             return (
                 _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record),
@@ -340,14 +339,10 @@ IGNORED_MODULES: tuple[str, ...] = 'fastapi', 'logfire_backend', 'fastui'
 IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNORED_MODULES)
 
 
-def _include_model(schema: CoreSchema, schema_type_path: SchemaTypePath) -> bool:
+def _include_model(schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
     include = GLOBAL_CONFIG.pydantic_plugin.include
     exclude = GLOBAL_CONFIG.pydantic_plugin.exclude
-
-    schema_type = schema['type']
-    if schema_type in {'function-after', 'function-before', 'function-wrap'}:  # pragma: no cover
-        return _include_model(schema['schema'])  # type: ignore
 
     # check if the model is in ignored model
     module = schema_type_path.module

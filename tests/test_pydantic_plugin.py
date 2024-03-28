@@ -10,8 +10,11 @@ from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMet
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
+from pydantic.functional_validators import AfterValidator
 from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
+from pydantic.type_adapter import TypeAdapter
 from pydantic_core import core_schema
+from typing_extensions import Annotated
 
 import logfire
 from logfire._config import GLOBAL_CONFIG, PydanticPlugin
@@ -1058,3 +1061,42 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
     finally:
         del _loader._plugins['old']
         del _loader._plugins['dummy']
+
+
+def test_function_validator(exporter: TestExporter):
+    def double(v: Any) -> Any:
+        return v * 2
+
+    MyNumber = Annotated[int, AfterValidator(double)]
+
+    MyNumberAdapter = TypeAdapter(MyNumber, config={'plugin_settings': {'logfire': {'record': 'all'}}})
+
+    assert MyNumberAdapter.validate_python(3) == 6
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'pydantic.validate_python',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'pydantic_plugin.py',
+                    'code.function': '_on_enter',
+                    'code.lineno': 123,
+                    'schema_name': 'int',
+                    'validation_method': 'validate_python',
+                    'input_data': 3,
+                    'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                    'logfire.level_name': 'info',
+                    'logfire.level_num': 9,
+                    'logfire.span_type': 'span',
+                    'success': True,
+                    'result': 6,
+                    'logfire.msg': 'Pydantic int validate_python succeeded',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{}}}',
+                },
+            }
+        ]
+    )
