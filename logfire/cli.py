@@ -1,10 +1,11 @@
 """The CLI for Pydantic Logfire."""
-
 from __future__ import annotations
 
 import argparse
+import functools
 import importlib
 import importlib.util
+import logging
 import os
 import platform
 import shutil
@@ -16,6 +17,7 @@ from typing import Any, Iterator, cast
 from urllib.parse import urljoin
 
 import requests
+from opentelemetry import trace
 from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
@@ -24,13 +26,24 @@ import logfire._config
 from logfire._auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from logfire._config import LogfireCredentials
 from logfire._constants import LOGFIRE_BASE_URL
+from logfire._tracer import SDKTracerProvider
 from logfire._utils import read_toml_file
 from logfire.exceptions import LogfireConfigError
+from logfire.propagate import ContextCarrier, get_context
 from logfire.version import VERSION
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://docs.logfire.dev'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/guide/integrations/'
+
+HOME_LOGFIRE.mkdir(exist_ok=True)
+
+LOGFIRE_LOG_FILE = HOME_LOGFIRE / 'log.txt'
+file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
+file_handler.setLevel(logging.DEBUG)
+logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
 
 
 def version_callback() -> None:
@@ -56,6 +69,9 @@ def parse_whoami(args: argparse.Namespace) -> None:
 
 def parse_clean(args: argparse.Namespace) -> None:
     """Clean Logfire data."""
+    if args.logs and LOGFIRE_LOG_FILE.exists():  # pragma: no cover
+        LOGFIRE_LOG_FILE.unlink()
+
     data_dir = Path(args.data_dir)
     if not data_dir.exists() or not data_dir.is_dir():
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
@@ -224,20 +240,18 @@ def parse_auth(args: argparse.Namespace) -> None:
     console.print('Before you can send data to Logfire, we need to authenticate you.')
     console.print()
 
-    with requests.Session() as session:
-        device_code, frontend_auth_url = request_device_code(session, logfire_url)
-        console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
-        try:
-            webbrowser.open(frontend_auth_url, new=2)
-        except webbrowser.Error:
-            pass
-        console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
-        console.print('Waiting for you to authenticate with Logfire...')
+    device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
+    console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
+    try:
+        webbrowser.open(frontend_auth_url, new=2)
+    except webbrowser.Error:
+        pass
+    console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
+    console.print('Waiting for you to authenticate with Logfire...')
 
-        data['tokens'][logfire_url] = poll_for_token(session, device_code, logfire_url)
-        console.print('Successfully authenticated!')
+    data['tokens'][logfire_url] = poll_for_token(args._session, device_code, logfire_url)
+    console.print('Successfully authenticated!')
 
-    HOME_LOGFIRE.mkdir(exist_ok=True)
     # There's no standard library package to write TOML files, so we'll write it manually.
     with DEFAULT_FILE.open('w') as f:
         for url, info in data['tokens'].items():
@@ -254,19 +268,18 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     logfire_url = args.logfire_url
     console = Console(file=sys.stderr)
-    with requests.Session() as session:
-        projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
-        if projects:
-            table = Table()
-            table.add_column('Organization')
-            table.add_column('Project')
-            for project in projects:
-                table.add_row(project['organization_name'], project['project_name'])
-            console.print(table)
-        else:
-            console.print(
-                "No projects found for the current user. You can create a new project by 'logfire projects create' command"
-            )
+    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
+    if projects:
+        table = Table()
+        table.add_column('Organization')
+        table.add_column('Project')
+        for project in projects:
+            table.add_row(project['organization_name'], project['project_name'])
+        console.print(table)
+    else:
+        console.print(
+            "No projects found for the current user. You can create a new project by 'logfire projects create' command"
+        )
 
 
 def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api_url: str) -> LogfireCredentials:
@@ -286,14 +299,13 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     organization = args.org
     default_organization = args.default_org
     console = Console(file=sys.stderr)
-    with requests.Session() as session:
-        project_info = LogfireCredentials.create_new_project(
-            session=session,
-            logfire_api_url=logfire_url,
-            organization=organization,
-            default_organization=default_organization,
-            project_name=project_name,
-        )
+    project_info = LogfireCredentials.create_new_project(
+        session=args._session,
+        logfire_api_url=logfire_url,
+        organization=organization,
+        default_organization=default_organization,
+        project_name=project_name,
+    )
     credentials = _write_credentials(project_info, data_dir, logfire_url)
     console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
 
@@ -305,18 +317,17 @@ def parse_use_project(args: argparse.Namespace) -> None:
     project_name = args.project_name
     organization = args.org
     console = Console(file=sys.stderr)
-    with requests.Session() as session:
-        projects = LogfireCredentials.get_user_projects(session=session, logfire_api_url=logfire_url)
-        project_info = LogfireCredentials.use_existing_project(
-            session=session,
-            logfire_api_url=logfire_url,
-            projects=projects,
-            organization=organization,
-            project_name=project_name,
-        )
-        if project_info:
-            credentials = _write_credentials(project_info, data_dir, logfire_url)
-            console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
+    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
+    project_info = LogfireCredentials.use_existing_project(
+        session=args._session,
+        logfire_api_url=logfire_url,
+        projects=projects,
+        organization=organization,
+        project_name=project_name,
+    )
+    if project_info:
+        credentials = _write_credentials(project_info, data_dir, logfire_url)
+        console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
 
 
 def main(args: list[str] | None = None) -> None:
@@ -345,6 +356,7 @@ def main(args: list[str] | None = None) -> None:
 
     cmd_clean = subparsers.add_parser('clean', help='Remove the contents of the Logfire data directory')
     cmd_clean.add_argument('--data-dir', default='.logfire')
+    cmd_clean.add_argument('--logs', action='store_true', default=False, help='Remove the Logfire logs.')
     cmd_clean.set_defaults(func=parse_clean)
 
     cmd_inspect = subparsers.add_parser(
@@ -381,7 +393,21 @@ def main(args: list[str] | None = None) -> None:
     cmd_projects_use.set_defaults(func=parse_use_project)
 
     namespace = parser.parse_args(args)
-    if namespace.version:
-        version_callback()
-    else:
-        namespace.func(namespace)
+
+    trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
+    tracer = trace.get_tracer(__name__)
+
+    def log_trace_id(response: requests.Response, context: ContextCarrier, *args: Any, **kwargs: Any) -> None:
+        logger.debug('context=%s url=%s', context, response.url)
+
+    with tracer.start_as_current_span('logfire_cli'):
+        with requests.Session() as session:
+            context = get_context()
+            session.hooks = {'response': functools.partial(log_trace_id, context=context)}
+            session.headers.update(context)
+            namespace._session = session
+
+            if namespace.version:
+                version_callback()
+            else:
+                namespace.func(namespace)
