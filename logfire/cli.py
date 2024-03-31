@@ -69,7 +69,7 @@ def parse_whoami(args: argparse.Namespace) -> None:
 
 def parse_clean(args: argparse.Namespace) -> None:
     """Clean Logfire data."""
-    if args.logs and LOGFIRE_LOG_FILE.exists():  # pragma: no cover
+    if args.logs and LOGFIRE_LOG_FILE.exists():
         LOGFIRE_LOG_FILE.unlink()
 
     data_dir = Path(args.data_dir)

@@ -94,7 +94,7 @@ def test_clean(
 ) -> None:
     monkeypatch.setattr(sys, 'stdin', io.StringIO(confirm))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)} --logs'))
     assert capsys.readouterr().err == output
 
 
