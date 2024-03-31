@@ -749,3 +749,25 @@ def test_projecs_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None
 
         with pytest.raises(LogfireConfigError, match='Invalid credentials, when initializing project:'):
             main(['projects', 'use', 'myproject', '--org', 'fake_org'])
+
+
+def test_projecs_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(patch('logfire.cli.Console'))
+        stack.enter_context(patch('logfire.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+        )
+        m.post(
+            'https://api.logfire.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            text='Error',
+            status_code=500,
+        )
+
+        with pytest.raises(LogfireConfigError, match='Error creating project write token.'):
+            main(['projects', 'use', 'myproject', '--org', 'fake_org'])

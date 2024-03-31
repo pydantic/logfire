@@ -904,7 +904,7 @@ class LogfireCredentials:
         try:
             response = session.post(project_write_token_url, headers=headers)
             UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:  # pragma: no cover
+        except requests.RequestException as e:
             raise LogfireConfigError('Error creating project write token.') from e
 
         return response.json()
