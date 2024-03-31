@@ -1177,3 +1177,10 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+
+
+def test_get_user_token_not_authenticated(tmp_path: Path):
+    with pytest.raises(
+        LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
+    ):
+        LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8000')

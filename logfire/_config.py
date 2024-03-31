@@ -822,9 +822,7 @@ class LogfireCredentials:
             data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
             if is_logged_in(data, logfire_api_url):  # pragma: no branch
                 return data['tokens'][logfire_api_url]['token']
-        raise LogfireConfigError(  # pragma: no cover
-            'You are not authenticated. Please run `logfire auth` to authenticate.'
-        )
+        raise LogfireConfigError('You are not authenticated. Please run `logfire auth` to authenticate.')
 
     @classmethod
     def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
@@ -885,7 +883,7 @@ class LogfireCredentials:
         projects_map = {str(index + 1): (p['organization_name'], p['project_name']) for index, p in enumerate(projects)}
 
         if (organization, project_name) not in projects_map.values():
-            if not projects_map:  # pragma: no cover
+            if not projects_map:
                 Prompt.ask('There is no project to use. Continue?', default=True)
                 return None
 
