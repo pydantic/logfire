@@ -24,6 +24,7 @@ from logfire._config import (
     ConsoleOptions,
     LogfireConfig,
     LogfireConfigError,
+    LogfireCredentials,
     sanitize_project_name,
 )
 from logfire.exporters._fallback import FallbackSpanExporter
@@ -495,6 +496,15 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.pydantic_plugin.record == 'metrics'
     assert GLOBAL_CONFIG.pydantic_plugin.include == {'test1', 'test2'}
     assert GLOBAL_CONFIG.pydantic_plugin.exclude == {'test3', 'test4'}
+
+
+def test_logfire_invalid_config_dir(tmp_path: Path):
+    (tmp_path / 'pyproject.toml').write_text('invalid-data')
+    with pytest.raises(
+        LogfireConfigError,
+        match='Invalid config file:',
+    ):
+        LogfireConfig(config_dir=tmp_path)
 
 
 def test_logfire_config_console_options() -> None:
@@ -1134,3 +1144,36 @@ def test_send_to_logfire_if_token_present_not_empty() -> None:
             assert len(request_mocker.request_history) == 1
     finally:
         del os.environ['LOGFIRE_TOKEN']
+
+
+def test_load_creds_file_invalid_json_content(tmp_path: Path):
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text('invalid-data')
+
+    with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
+        LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+
+
+def test_load_creds_file_lagecy_key(tmp_path: Path):
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text(
+        """
+        {
+            "dashboard_url": "http://dash.localhost:8000/test",
+            "token":"test",
+            "project_name": "test",
+            "logfire_api_url": "http://dash.localhost:8000/"
+        }
+        """
+    )
+
+    cred = LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+    assert cred.project_url == 'http://dash.localhost:8000/test'
+
+
+def test_load_creds_file_invalid_key(tmp_path: Path):
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text('{"test": "test"}')
+
+    with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
+        LogfireCredentials.load_creds_file(creds_dir=tmp_path)

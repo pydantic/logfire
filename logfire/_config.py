@@ -400,7 +400,7 @@ class _LogfireConfigData:
         try:
             data = read_toml_file(config_file)
             return data.get('tool', {}).get('logfire', {})
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             raise LogfireConfigError(f'Invalid config file: {config_file}') from exc
 
 
@@ -804,16 +804,16 @@ class LogfireCredentials:
             try:
                 with path.open('rb') as f:
                     data = json.load(f)
-            except (ValueError, OSError) as e:  # pragma: no cover
+            except (ValueError, OSError) as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path}') from e
 
             try:
                 # Handle legacy key
-                dashboard_url = data.get('dashboard_url')
-                if dashboard_url is not None:  # pragma: no cover
+                dashboard_url = data.pop('dashboard_url', None)
+                if dashboard_url is not None:
                     data.setdefault('project_url', dashboard_url)
                 return cls(**data)
-            except TypeError as e:  # pragma: no cover
+            except TypeError as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
