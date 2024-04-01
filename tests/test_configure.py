@@ -1097,6 +1097,7 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
     """
     Test that with send_to_logfire=True, the logic is triggered to ask about creating a project.
     """
+    data_dir = tmp_path / 'logfire_data'
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -1107,7 +1108,7 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
             mock.patch('logfire._config.LogfireCredentials.get_user_projects', side_effect=RuntimeError('expected'))
         )
         with pytest.raises(RuntimeError, match='^expected$'):
-            configure(send_to_logfire=True, console=False)
+            configure(send_to_logfire=True, console=False, data_dir=data_dir)
 
 
 def test_send_to_logfire_false() -> None:
@@ -1179,8 +1180,10 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
 
 
-def test_get_user_token_not_authenticated(tmp_path: Path):
-    with pytest.raises(
-        LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
-    ):
-        LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8000')
+def test_get_user_token_not_authenticated(default_credentials: Path):
+    with patch('logfire._config.DEFAULT_FILE', default_credentials):
+        with pytest.raises(
+            LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
+        ):
+            # Use a port that we don't use for local development to reduce conflicts with local configuration
+            LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')
