@@ -627,6 +627,51 @@ def test_projecs_without_project_name_without_org(tmp_dir_cwd: Path, default_cre
     }
 
 
+def test_projecs_new_get_organizations_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://api.logfire.dev/v1/organizations/', text='Error', status_code=500)
+
+        with pytest.raises(LogfireConfigError, match='Error retrieving list of organizations.'):
+            main(['projects', 'new'])
+
+
+def test_projecs_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://api.logfire.dev/v1/projects/', json=[])
+        m.get(
+            'https://api.logfire.dev/v1/organizations/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
+        )
+        m.get('https://api.logfire.dev/v1/account/me', text='Error', status_code=500)
+
+        with pytest.raises(LogfireConfigError, match='Error retrieving user information.'):
+            main(['projects', 'new'])
+
+
+def test_projecs_new_create_project_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(patch('logfire.cli.Console'))
+        stack.enter_context(patch('logfire.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://api.logfire.dev/v1/projects/', json=[])
+        m.get('https://api.logfire.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.post('https://api.logfire.dev/v1/projects/fake_org', text='Error', status_code=500)
+
+        with pytest.raises(LogfireConfigError, match='Error creating new project.'):
+            main(['projects', 'new', 'myproject', '--org', 'fake_org'])
+
+
 def test_projecs_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._config.LogfireCredentials._get_user_token', return_value=''))

@@ -946,7 +946,7 @@ class LogfireCredentials:
         try:
             response = session.get(organizations_url, headers=headers)
             UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:  # pragma: no cover
+        except requests.RequestException as e:
             raise LogfireConfigError('Error retrieving list of organizations.') from e
         organizations = [item['organization_name'] for item in response.json()]
 
@@ -957,7 +957,7 @@ class LogfireCredentials:
                 try:
                     response = session.get(account_info_url, headers=headers)
                     UnexpectedResponse.raise_for_status(response)
-                except requests.RequestException as e:  # pragma: no cover
+                except requests.RequestException as e:
                     raise LogfireConfigError('Error retrieving user information.') from e
                 json_response = response.json()
                 user_default_organization_name = json_response.get('default_organization', {}).get('organization_name')
@@ -1015,7 +1015,7 @@ class LogfireCredentials:
                         project_name = None
                         continue
                 UnexpectedResponse.raise_for_status(response)
-            except requests.RequestException as e:  # pragma: no cover
+            except requests.RequestException as e:
                 raise LogfireConfigError('Error creating new project.') from e
             else:
                 return response.json()
