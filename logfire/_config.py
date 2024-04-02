@@ -749,12 +749,12 @@ class LogfireConfig(_LogfireConfigData):
         """
         try:
             response = self.logfire_api_session.get(urljoin(self.base_url, '/v1/health'), timeout=10)
-        except requests.RequestException as e:  # pragma: no cover
+        except requests.RequestException as e:
             warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
         else:
-            if response.status_code == 401:  # pragma: no cover
+            if response.status_code == 401:
                 raise LogfireConfigError('Invalid Logfire token.')
-            elif response.status_code != 200:  # pragma: no cover
+            elif response.status_code != 200:
                 # any other status code is considered unhealthy
                 warnings.warn(
                     f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'

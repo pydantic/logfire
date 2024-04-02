@@ -1187,3 +1187,33 @@ def test_get_user_token_not_authenticated(default_credentials: Path):
         ):
             # Use a port that we don't use for local development to reduce conflicts with local configuration
             LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')
+
+
+def test_check_logfire_backend_unreachable():
+    with pytest.warns(
+        UserWarning,
+        match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/health': No scheme supplied.",
+    ):
+        LogfireConfig(base_url='').check_logfire_backend()
+
+
+def test_check_logfire_backend_invalid_token():
+    with ExitStack() as stack:
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://api.logfire.dev/v1/health', text='Error', status_code=401)
+
+        with pytest.raises(LogfireConfigError, match='Invalid Logfire token.'):
+            LogfireConfig().check_logfire_backend()
+
+
+def test_check_logfire_backend_unhealthy():
+    with ExitStack() as stack:
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://api.logfire.dev/v1/health', text='Error', status_code=500)
+
+        with pytest.warns(
+            UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
+        ):
+            LogfireConfig().check_logfire_backend()
