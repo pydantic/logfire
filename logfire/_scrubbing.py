@@ -95,6 +95,7 @@ class Scrubber:
         SpanAttributes.HTTP_TARGET,
         SpanAttributes.HTTP_ROUTE,
         SpanAttributes.DB_STATEMENT,
+        'db.plan',
     }
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
