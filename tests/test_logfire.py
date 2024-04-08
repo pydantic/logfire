@@ -22,7 +22,6 @@ import logfire
 from logfire import Logfire
 from logfire._config import LogfireConfig, configure
 from logfire._constants import (
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
@@ -464,7 +463,6 @@ def test_log(exporter: TestExporter, level: str):
     s = exporter.exported_spans[0]
 
     assert s.attributes is not None
-    assert s.attributes[ATTRIBUTES_LOG_LEVEL_NAME_KEY] == level
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name} {number} {none}'
     assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 null'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
@@ -483,7 +481,6 @@ def test_log(exporter: TestExporter, level: str):
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': level,
                 'logfire.level_num': LEVEL_NUMBERS[level],
                 'logfire.msg_template': 'test {name} {number} {none}',
                 'logfire.msg': 'test foo 2 null',
@@ -508,7 +505,6 @@ def test_log_equals(exporter: TestExporter) -> None:
     assert s.attributes['foo'] == 'foo'
     assert s.attributes['bar'] == 3
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test message {foo=} {bar=}'
-    assert s.attributes[ATTRIBUTES_LOG_LEVEL_NAME_KEY] == 'info'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
 
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
@@ -521,7 +517,6 @@ def test_log_equals(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'test message {foo=} {bar=}',
                 'logfire.msg': 'test message foo=foo bar=3',
@@ -558,7 +553,6 @@ def test_log_with_tags(exporter: TestExporter):
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'test {name} {number}',
                 'logfire.msg': 'test foo 2',
@@ -721,7 +715,6 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                 'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
                 'a': 'haha',
                 'logfire.span_type': 'span',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'exception.logfire.data': IsJson(
                     [
@@ -792,7 +785,6 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                 'logfire.msg_template': 'test',
                 'logfire.msg': 'test',
                 'logfire.span_type': 'span',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'exception.logfire.data': IsJson(
                     [
@@ -933,7 +925,6 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
             'end_time': 3000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'test1',
                 'logfire.msg': 'test1',
@@ -950,7 +941,6 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
             'end_time': 4000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'test2',
                 'logfire.msg': 'test2',
@@ -1247,7 +1237,6 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': '{http.status}',
                 'logfire.msg': '123',
@@ -1327,7 +1316,6 @@ def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> No
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'test {_foo=}',
                 'logfire.msg': 'test _foo=bar',
@@ -1517,7 +1505,6 @@ def test_tags(exporter: TestExporter) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'a log',
                 'logfire.msg': 'a log',
@@ -1615,7 +1602,6 @@ def test_span_level(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
@@ -1633,7 +1619,6 @@ def test_span_level(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.span_type': 'span',
                 },
@@ -1663,7 +1648,6 @@ def test_span_set_level_before_start(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
@@ -1681,7 +1665,6 @@ def test_span_set_level_before_start(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.span_type': 'span',
                 },
@@ -1704,7 +1687,6 @@ def test_invalid_log_level(exporter: TestExporter):
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'log message',
                     'logfire.msg': 'log message',

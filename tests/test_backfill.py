@@ -84,8 +84,8 @@ def test_write_spans_and_logs() -> None:
                                             'value': {'stringValue': 'log'},
                                         },
                                         {
-                                            'key': 'logfire.level_name',
-                                            'value': {'stringValue': 'info'},
+                                            'key': 'logfire.level_num',
+                                            'value': {'intValue': '9'},
                                         },
                                         {
                                             'key': 'logfire.msg_template',

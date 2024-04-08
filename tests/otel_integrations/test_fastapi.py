@@ -97,7 +97,6 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET http send response.start',
                     'http.status_code': 404,
                     'type': 'http.response.start',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                 },
             },
@@ -111,7 +110,6 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET http send response.body',
                     'type': 'http.response.body',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                 },
             },
@@ -198,7 +196,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.pending_parent_id': '0000000000000001',
                     'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -219,7 +216,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -246,7 +242,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.status_code': 200,
                     'type': 'http.response.start',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -272,7 +267,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /with_path_param/{param} http send response.body',
                     'type': 'http.response.body',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -369,7 +363,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.pending_parent_id': '0000000000000003',
                     'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -380,7 +373,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'inside request handler',
                     'logfire.msg': 'inside request handler',
@@ -407,7 +399,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -434,7 +425,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.status_code': 200,
                     'type': 'http.response.start',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -460,7 +450,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg': 'GET / http send response.body',
                     'type': 'http.response.body',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -518,7 +507,6 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'custom_attr': 'custom_value',
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
@@ -576,7 +564,6 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'http.status_code': 422,
                     'type': 'http.response.start',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -590,7 +577,6 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /other http send response.body',
                     'type': 'http.response.body',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -641,7 +627,6 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('fastapi',),
-                    'logfire.level_name': 'error',
                     'logfire.msg': 'GET /exception (exception)',
                     'logfire.level_num': 17,
                 },
@@ -720,7 +705,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error (validation_error)',
                     'logfire.level_num': 17,
-                    'logfire.level_name': 'error',
                     'logfire.tags': ('fastapi',),
                 },
                 'events': [
@@ -748,7 +732,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.status_code': 422,
                     'type': 'http.response.start',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -762,7 +745,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.msg': 'GET /validation_error http send response.body',
                     'type': 'http.response.body',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -811,7 +793,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
@@ -845,7 +826,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /secret/{path_param} (get_secret)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.tags': ('fastapi',),
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -861,7 +841,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /secret/{path_param} http send response.start',
                     'http.status_code': 200,
                     'type': 'http.response.start',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                 },
             },
@@ -875,7 +854,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /secret/{path_param} http send response.body',
                     'type': 'http.response.body',
-                    'logfire.level_name': 'debug',
                     'logfire.level_num': 5,
                 },
             },

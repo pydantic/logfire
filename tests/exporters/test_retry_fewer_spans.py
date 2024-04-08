@@ -83,7 +83,6 @@ def test_retry_fewer_spans_with_some_spans_too_large(exporter: TestExporter):
             'end_time': error_log_span_id * 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': 'Failed to export a span of size {size:,} bytes: {span_name}',
                 'logfire.msg': f'Failed to export a span of size 20,000,000 bytes: test span name {too_big_span_id}',

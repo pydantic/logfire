@@ -854,7 +854,6 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True)[0]['attributes'] == snapshot(
         {
             'logfire.span_type': 'log',
-            'logfire.level_name': 'info',
             'logfire.level_num': 9,
             'logfire.msg_template': 'test message {a=} {complex_list=} {complex_dict=}',
             'logfire.msg': (
@@ -917,7 +916,6 @@ def test_log_dicts_and_lists(exporter: TestExporter) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'hi',
                 'logfire.msg': 'hi',

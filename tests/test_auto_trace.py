@@ -143,7 +143,6 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'logfire.span_type': 'span',
                 'logfire.tags': ('auto-trace',),
                 'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
             },
             'events': [

@@ -80,7 +80,6 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'inside request handler',
                     'logfire.msg': 'inside request handler',

@@ -28,7 +28,6 @@ def test_stdlib_logging(exporter: TestExporter, logger: Logger) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': '{first_name=} is in trouble!',
                 'logfire.msg': '{first_name=} is in trouble!',
@@ -55,7 +54,6 @@ def test_stdlib_logging_with_positional_params(exporter: TestExporter, logger: L
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': 'This is a test message %s.',
                 'logfire.msg': 'This is a test message with a parameter.',
@@ -82,7 +80,6 @@ def test_stdlib_logging_with_positional_dict_param(exporter: TestExporter, logge
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'This is a test message %s.',
                     'logfire.msg': "This is a test message {'param': 'with a parameter'}.",
@@ -110,7 +107,6 @@ def test_stdlib_logging_with_parenthesis_params(exporter: TestExporter, logger: 
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': 'This is a test message %(module)s',
                 'logfire.msg': 'This is a test message %(module)s',
@@ -135,7 +131,6 @@ def test_stdlib_logging_with_custom_parenthesis_params(exporter: TestExporter, l
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': 'abc %(blah)s',
                 'logfire.msg': 'abc blah',
@@ -162,7 +157,6 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warning',
                 'logfire.level_num': 13,
                 'logfire.msg_template': '%s is in some trouble',
                 'logfire.msg': 'Fred is in some trouble',

@@ -162,7 +162,6 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Validation on {schema_name} failed',
                     'logfire.msg': 'Validation on MyModel failed',
@@ -296,7 +295,6 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                     'schema_name': 'MyModel',
                     'validation_method': 'validate_python',
                     'logfire.level_num': 9,
-                    'logfire.level_name': 'info',
                 },
             }
         ]
@@ -352,7 +350,6 @@ def test_pydantic_plugin_python_error_record_failure(
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Validation on {schema_name} failed',
                     'logfire.msg': 'Validation on MyModel failed',
@@ -373,7 +370,6 @@ def test_pydantic_plugin_python_error_record_failure(
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Validation on {schema_name} failed',
                     'logfire.msg': 'Validation on MyModel failed',
@@ -447,7 +443,6 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
                     'validation_method': 'validate_python',
                     'input_data': '{"x":"a"}',
                     'logfire.level_num': 13,
-                    'logfire.level_name': 'warn',
                 },
             }
         ]
@@ -482,7 +477,6 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
                     'schema_name': 'MyModel',
                     'validation_method': 'validate_json',
                     'logfire.level_num': 9,
-                    'logfire.level_name': 'info',
                 },
             }
         ]
@@ -519,7 +513,6 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
                     'validation_method': 'validate_python',
                     'input_data': '{"x":"a"}',
                     'logfire.level_num': 13,
-                    'logfire.level_name': 'warn',
                 },
             }
         ]
@@ -554,7 +547,6 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
                     'schema_name': 'MyModel',
                     'validation_method': 'validate_strings',
                     'logfire.level_num': 9,
-                    'logfire.level_name': 'info',
                 },
             }
         ]
@@ -591,7 +583,6 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
                     'validation_method': 'validate_strings',
                     'input_data': '{"x":"a"}',
                     'logfire.level_num': 13,
-                    'logfire.level_name': 'warn',
                 },
             }
         ]
@@ -616,7 +607,6 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'warn',
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Validation on {schema_name} failed',
                     'logfire.msg': 'Validation on MyDataclass failed',
@@ -745,7 +735,6 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'schema_name': 'Model1',
                     'validation_method': 'validate_python',
                     'logfire.level_num': 9,
-                    'logfire.level_name': 'info',
                 },
             },
             {
@@ -768,7 +757,6 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'result': '{"m":{"x":10}}',
                     'success': True,
                     'logfire.level_num': 9,
-                    'logfire.level_name': 'info',
                 },
             },
             {
@@ -792,7 +780,6 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"y"}]',
                     'logfire.level_num': 13,
-                    'logfire.level_name': 'warn',
                 },
             },
             {
@@ -816,7 +803,6 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["m","x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"y"}]',
                     'logfire.level_num': 13,
-                    'logfire.level_name': 'warn',
                 },
             },
         ]
@@ -844,7 +830,6 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
@@ -895,7 +880,6 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'Validation on {schema_name} raised {exception_type}',
                     'logfire.msg': 'Validation on MyModel raised TypeError',
@@ -989,7 +973,6 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'validation_method': 'validate_python',
                         'input_data': '{"x":1}',
                         'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
-                        'logfire.level_name': 'info',
                         'logfire.level_num': 9,
                         'logfire.span_type': 'span',
                         'success': True,
@@ -1015,7 +998,6 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'logfire.span_type': 'span',
                         'success': False,
                         'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
-                        'logfire.level_name': 'error',
                         'logfire.level_num': 17,
                         'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
                     },
@@ -1051,7 +1033,6 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'error_count': 1,
                         'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
                         'logfire.msg': 'Pydantic MyModel validate_python failed',
-                        'logfire.level_name': 'warn',
                         'logfire.level_num': 13,
                         'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
                     },
@@ -1089,7 +1070,6 @@ def test_function_validator(exporter: TestExporter):
                     'validation_method': 'validate_python',
                     'input_data': 3,
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,

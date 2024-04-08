@@ -365,7 +365,6 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
             end_time=1000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'Hello {name}!',
                 'logfire.msg': 'Hello world!',
@@ -433,7 +432,6 @@ def test_tags(exporter):
             end_time=1000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'Hello',
                 'logfire.msg': 'Hello',
@@ -477,7 +475,6 @@ def test_levels(exporter):
             end_time=1000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'trace',
                 'logfire.level_num': 1,
                 'logfire.msg_template': 'trace message',
                 'logfire.msg': 'trace message',
@@ -496,7 +493,6 @@ def test_levels(exporter):
             end_time=2000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'debug',
                 'logfire.level_num': 5,
                 'logfire.msg_template': 'debug message',
                 'logfire.msg': 'debug message',
@@ -515,7 +511,6 @@ def test_levels(exporter):
             end_time=3000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'info message',
                 'logfire.msg': 'info message',
@@ -534,7 +529,6 @@ def test_levels(exporter):
             end_time=4000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'notice',
                 'logfire.level_num': 10,
                 'logfire.msg_template': 'notice message',
                 'logfire.msg': 'notice message',
@@ -553,7 +547,6 @@ def test_levels(exporter):
             end_time=5000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'warn message',
                 'logfire.msg': 'warn message',
@@ -572,7 +565,6 @@ def test_levels(exporter):
             end_time=6000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
                 'logfire.msg_template': 'error message',
                 'logfire.msg': 'error message',
@@ -591,7 +583,6 @@ def test_levels(exporter):
             end_time=7000000000,
             attributes={
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'fatal',
                 'logfire.level_num': 21,
                 'logfire.msg_template': 'fatal message',
                 'logfire.msg': 'fatal message',

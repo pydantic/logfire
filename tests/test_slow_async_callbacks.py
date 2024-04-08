@@ -35,7 +35,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async callback mock_block blocked for 2.000 seconds',
@@ -56,7 +55,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async task foo 1 (foo) blocked for 2.000 seconds',
@@ -77,7 +75,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async task bar 1 (bar) blocked for 2.000 seconds',
@@ -98,7 +95,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async task bar 1 (bar) blocked for 3.000 seconds',
@@ -119,7 +115,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async task foo 2 (foo) blocked for 2.000 seconds',
@@ -140,7 +135,6 @@ def test_slow_async_callbacks(exporter) -> None:
             'end_time': IsInt,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'warn',
                 'logfire.level_num': 13,
                 'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
                 'logfire.msg': 'Async task bar 1 (bar) blocked for 4.000 seconds',

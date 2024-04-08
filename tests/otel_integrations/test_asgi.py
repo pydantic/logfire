@@ -43,7 +43,6 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'inside request handler',
                     'logfire.msg': 'inside request handler',
@@ -64,7 +63,6 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'http.status_code': 200,
                     'type': 'http.response.start',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {
@@ -78,7 +76,6 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'logfire.msg': 'GET / http send response.body',
                     'type': 'http.response.body',
                     'logfire.level_num': 5,
-                    'logfire.level_name': 'debug',
                 },
             },
             {

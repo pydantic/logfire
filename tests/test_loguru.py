@@ -35,7 +35,6 @@ def test_loguru(exporter: TestExporter) -> None:
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'Positional arguments are merged to the message: {}',
                     'logfire.msg': 'Positional arguments are merged to the message: positional',
@@ -54,7 +53,6 @@ def test_loguru(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'Keyword arguments are stored in the "extra", we extra them from there: {name}',
                     'logfire.msg': 'Keyword arguments are stored in the "extra", we extra them from there: named',
@@ -73,7 +71,6 @@ def test_loguru(exporter: TestExporter) -> None:
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'An exception was raised: {foo}',
                     'logfire.msg': 'An exception was raised: bar',

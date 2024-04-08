@@ -17,15 +17,17 @@ LEVEL_NUMBERS = {
     'debug': 5,
     'info': 9,
     'notice': 10,
-    'warn': 13,
     # warning is used by standard lib logging, has same meaning as "warn"
     'warning': 13,
+    'warn': 13,
     'error': 17,
     'fatal': 21,
 }
 
+NUMBER_TO_LEVEL = {v: k for k, v in LEVEL_NUMBERS.items()}
+
 ATTRIBUTES_LOG_LEVEL_NAME_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_name'
-"""The key within OTEL attributes where logfire puts the log level name."""
+"""Deprecated, use only ATTRIBUTES_LOG_LEVEL_NUM_KEY."""
 
 ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 """The key within OTEL attributes where logfire puts the log level number."""
@@ -38,7 +40,6 @@ def log_level_attributes(level: LevelName) -> dict[str, otel_types.AttributeValu
         level = 'error'
 
     return {
-        ATTRIBUTES_LOG_LEVEL_NAME_KEY: level,
         ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS[level],
     }
 

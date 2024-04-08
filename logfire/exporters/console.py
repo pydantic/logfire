@@ -21,7 +21,6 @@ from rich.text import Text
 
 from .._constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
@@ -29,6 +28,7 @@ from .._constants import (
     ATTRIBUTES_TAGS_KEY,
     DISABLE_CONSOLE_KEY,
     LEVEL_NUMBERS,
+    NUMBER_TO_LEVEL,
     ONE_SECOND_IN_NANOSECONDS,
 )
 from .._json_formatter import json_args_value_formatter
@@ -175,7 +175,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
             if lineno:  # pragma: no branch
                 file_location += f':{lineno}'
 
-        log_level = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NAME_KEY) or ''
+        log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
+        log_level = NUMBER_TO_LEVEL.get(log_level_num, '')
 
         if file_location or log_level:
             return [

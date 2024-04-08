@@ -40,7 +40,6 @@ def test_capfire_fixture(capfire: CaptureLogfire) -> None:
             'end_time': 2000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'a log!',
                 'logfire.msg': 'a log!',
@@ -62,7 +61,6 @@ def test_capfire_fixture(capfire: CaptureLogfire) -> None:
                 'logfire.msg_template': 'a span!',
                 'logfire.msg': 'a span!',
                 'logfire.span_type': 'span',
-                'logfire.level_name': 'error',
                 'logfire.level_num': 17,
             },
             'events': [

@@ -40,7 +40,6 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
             'end_time': 1000000000,
             'attributes': {
                 'logfire.span_type': 'log',
-                'logfire.level_name': 'info',
                 'logfire.level_num': 9,
                 'logfire.msg_template': 'This is now being logged.',
                 'logfire.msg': 'This is now being logged.',

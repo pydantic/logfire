@@ -33,7 +33,6 @@ def test_scrub_attribute(exporter: TestExporter):
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'Password: {user_password}',
                     'logfire.msg': "Password: ['hunter2']",
@@ -65,7 +64,6 @@ def test_scrub_message(exporter: TestExporter):
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'User: {user}',
                     'logfire.msg': "User: [Redacted due to 'password']",
@@ -122,7 +120,6 @@ def test_scrub_events(exporter: TestExporter):
                     'logfire.msg_template': 'get_password',
                     'logfire.msg': 'get_password',
                     'logfire.span_type': 'span',
-                    'logfire.level_name': 'error',
                     'logfire.level_num': 17,
                 },
                 'events': [
@@ -194,7 +191,6 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_name': 'info',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'hi',
                     'logfire.msg': 'hi',

@@ -14,10 +14,11 @@ from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 from opentelemetry.trace.status import Status, StatusCode
 
 from ._constants import (
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
+    LEVEL_NUMBERS,
     LevelName,
 )
 from ._formatter import logfire_format
@@ -156,7 +157,7 @@ class PrepareBackfill:
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-                ATTRIBUTES_LOG_LEVEL_NAME_KEY: data.level,
+                ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS[data.level],
                 ATTRIBUTES_MESSAGE_TEMPLATE_KEY: data.msg_template,
                 ATTRIBUTES_MESSAGE_KEY: formatted_message,
                 **otlp_attributes,
