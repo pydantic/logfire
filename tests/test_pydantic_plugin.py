@@ -17,8 +17,8 @@ from pydantic_core import core_schema
 from typing_extensions import Annotated
 
 import logfire
-from logfire._config import GLOBAL_CONFIG, PydanticPlugin
-from logfire.integrations.pydantic_plugin import LogfirePydanticPlugin, get_schema_name
+from logfire._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from logfire.integrations.pydantic import LogfirePydanticPlugin, get_schema_name
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
 
@@ -285,7 +285,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_python succeeded',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'result': '{"x":1}',
@@ -432,7 +432,7 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_python failed',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
@@ -467,7 +467,7 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_json succeeded',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'result': '{"x":1}',
@@ -502,7 +502,7 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_python failed',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
@@ -537,7 +537,7 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_strings succeeded',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'result': '{"x":1}',
@@ -572,7 +572,7 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_strings failed',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
@@ -725,7 +725,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic Model1 validate_python succeeded',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'result': '{"x":10}',
@@ -744,7 +744,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                 'start_time': 1000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
@@ -769,7 +769,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic Model1 validate_python failed',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
@@ -789,7 +789,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                 'start_time': 5000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'Model2',
@@ -833,7 +833,7 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
@@ -966,7 +966,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                     'start_time': 1000000000,
                     'end_time': 2000000000,
                     'attributes': {
-                        'code.filepath': 'pydantic_plugin.py',
+                        'code.filepath': 'pydantic.py',
                         'code.function': '_on_enter',
                         'code.lineno': 123,
                         'schema_name': 'MyModel',
@@ -988,7 +988,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                     'start_time': 3000000000,
                     'end_time': 5000000000,
                     'attributes': {
-                        'code.filepath': 'pydantic_plugin.py',
+                        'code.filepath': 'pydantic.py',
                         'code.function': '_on_enter',
                         'code.lineno': 123,
                         'schema_name': 'MyModel',
@@ -1021,7 +1021,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                     'start_time': 6000000000,
                     'end_time': 7000000000,
                     'attributes': {
-                        'code.filepath': 'pydantic_plugin.py',
+                        'code.filepath': 'pydantic.py',
                         'code.function': '_on_enter',
                         'code.lineno': 123,
                         'schema_name': 'MyModel',
@@ -1063,7 +1063,7 @@ def test_function_validator(exporter: TestExporter):
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'pydantic_plugin.py',
+                    'code.filepath': 'pydantic.py',
                     'code.function': '_on_enter',
                     'code.lineno': 123,
                     'schema_name': 'int',

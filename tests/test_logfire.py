@@ -20,8 +20,8 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire
-from logfire._config import LogfireConfig, configure
-from logfire._constants import (
+from logfire._internal.config import LogfireConfig, configure
+from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
@@ -1196,7 +1196,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
 
 
 def check_project_name(expected_project_name: str) -> None:
-    from logfire._config import GLOBAL_CONFIG
+    from logfire._internal.config import GLOBAL_CONFIG
 
     assert GLOBAL_CONFIG.project_name == expected_project_name
 

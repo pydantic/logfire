@@ -3,7 +3,7 @@
 
 [tool.poetry]
 name = "logfire"
-version = "0.23.0"
+version = "0.24.0"
 description = "Coming soon..."
 authors = [
     "Pydantic Team <engineering@pydantic.dev>",
@@ -119,7 +119,7 @@ test = [
 logfire = "logfire.cli:main"
 
 [tool.poetry.plugins."pydantic"]
-logfire-plugin = "logfire.integrations.pydantic_plugin:plugin"
+logfire-plugin = "logfire.integrations.pydantic:plugin"
 
 [tool.poetry.plugins."pytest11"]
 logfire = "logfire.testing"

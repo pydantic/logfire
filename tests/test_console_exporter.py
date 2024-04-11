@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
 from logfire import ConsoleOptions
-from logfire.exporters.console import (
+from logfire._internal.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,

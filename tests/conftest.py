@@ -9,7 +9,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from logfire import configure
-from logfire._config import METRICS_PREFERRED_TEMPORALITY
+from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire.testing import (
     IncrementalIdGenerator,
     TestExporter,

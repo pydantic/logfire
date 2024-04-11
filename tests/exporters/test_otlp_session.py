@@ -4,7 +4,7 @@ import pytest
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
-from logfire.exporters._otlp import BodyTooLargeError, OTLPExporterHttpSession
+from logfire._internal.exporters.otlp import BodyTooLargeError, OTLPExporterHttpSession
 
 
 class SinkHTTPAdapter(HTTPAdapter):

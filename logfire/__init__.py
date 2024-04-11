@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from ._auto_trace import AutoTraceModule
-from ._auto_trace.rewrite_ast import no_auto_trace
-from ._config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
-from ._main import LevelName, Logfire, LogfireSpan
-from ._scrubbing import ScrubMatch
-from .exporters._file import load_file as load_spans_from_file
+from ._internal.auto_trace import AutoTraceModule
+from ._internal.auto_trace.rewrite_ast import no_auto_trace
+from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
+from ._internal.constants import LevelName
+from ._internal.exporters.file import load_file as load_spans_from_file
+from ._internal.main import Logfire, LogfireSpan
+from ._internal.scrubbing import ScrubMatch
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -82,4 +83,5 @@ __all__ = (
     'no_auto_trace',
     'METRICS_PREFERRED_TEMPORALITY',
     'ScrubMatch',
+    'VERSION',
 )

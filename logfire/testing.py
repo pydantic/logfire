@@ -21,7 +21,12 @@ from opentelemetry.semconv.trace import SpanAttributes
 from pydantic import BaseModel
 
 import logfire
-from logfire._constants import ATTRIBUTES_SPAN_TYPE_KEY, ONE_SECOND_IN_NANOSECONDS, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
+
+from ._internal.constants import (
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    ONE_SECOND_IN_NANOSECONDS,
+    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+)
 
 
 class TestExporter(SpanExporter):

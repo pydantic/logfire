@@ -3,7 +3,8 @@
 from structlog.types import EventDict, WrappedLogger
 
 import logfire
-from logfire.integrations.logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
+
+from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
 _STRUCTLOG_CALL_OFFSET = 5
 """The offset to the stack to find the caller of the structlog event."""

@@ -5,7 +5,8 @@ from logging import Handler as LoggingHandler, LogRecord
 from typing import Any, ClassVar, Mapping, cast
 
 from logfire import log
-from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
+
+from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes

@@ -13,7 +13,7 @@ from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.trace.status import Status, StatusCode
 
 import logfire
-from logfire.exporters._file import FileSpanExporter
+from logfire._internal.exporters.file import FileSpanExporter
 
 TEST_SPAN = ReadableSpan(
     name='test',

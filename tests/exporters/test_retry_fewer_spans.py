@@ -12,7 +12,7 @@ from opentelemetry.sdk.util.instrumentation import (
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.trace.status import Status, StatusCode
 
-from logfire.exporters._otlp import BodyTooLargeError, RetryFewerSpansSpanExporter
+from logfire._internal.exporters.otlp import BodyTooLargeError, RetryFewerSpansSpanExporter
 from logfire.testing import TestExporter
 
 RESOURCE = Resource.create({'service.name': 'test', 'telemetry.sdk.version': '1.0.0'})

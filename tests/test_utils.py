@@ -2,7 +2,7 @@ import pytest
 import requests
 import requests_mock
 
-from logfire._utils import UnexpectedResponse
+from logfire._internal.utils import UnexpectedResponse
 
 
 def test_raise_for_status() -> None:

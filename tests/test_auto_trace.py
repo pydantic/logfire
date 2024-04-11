@@ -7,13 +7,13 @@ import pytest
 from inline_snapshot import snapshot
 
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
-from logfire._auto_trace import (
+from logfire._internal.auto_trace import (
     AutoTraceModuleAlreadyImportedException,
     AutoTraceModuleAlreadyImportedWarning,
     LogfireFinder,
 )
-from logfire._auto_trace.import_hook import LogfireLoader
-from logfire._auto_trace.rewrite_ast import rewrite_ast
+from logfire._internal.auto_trace.import_hook import LogfireLoader
+from logfire._internal.auto_trace.rewrite_ast import rewrite_ast
 from logfire.testing import TestExporter
 
 

@@ -8,7 +8,7 @@ from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
 
-from logfire import _config_params as config_params, _metrics as metrics
+from logfire._internal import config_params, metrics
 
 LOGFIRE_DIR = Path(__file__).parent.parent.parent
 

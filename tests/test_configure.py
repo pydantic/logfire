@@ -19,18 +19,18 @@ from requests.adapters import HTTPAdapter
 
 import logfire
 from logfire import configure
-from logfire._config import (
+from logfire._internal.config import (
     GLOBAL_CONFIG,
     ConsoleOptions,
     LogfireConfig,
-    LogfireConfigError,
     LogfireCredentials,
     sanitize_project_name,
 )
-from logfire.exporters._fallback import FallbackSpanExporter
-from logfire.exporters._file import WritingFallbackWarning
-from logfire.exporters._wrapper import WrapperSpanExporter
-from logfire.integrations._executors import deserialize_config, serialize_config
+from logfire._internal.exporters.fallback import FallbackSpanExporter
+from logfire._internal.exporters.file import WritingFallbackWarning
+from logfire._internal.exporters.wrapper import WrapperSpanExporter
+from logfire._internal.integrations.executors import deserialize_config, serialize_config
+from logfire.exceptions import LogfireConfigError
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -769,8 +769,8 @@ def test_config_serializable():
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
         import logfire
-        from logfire.exporters.console import SimpleConsoleSpanExporter
-        from logfire.integrations._executors import serialize_config
+        from logfire._internal.exporters.console import SimpleConsoleSpanExporter
+        from logfire._internal.integrations.executors import serialize_config
 
         logfire.configure(processors=[SimpleSpanProcessor(SimpleConsoleSpanExporter())])
 
@@ -839,7 +839,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['', 'myproject', '']))
 
@@ -871,7 +871,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', '']))
 
@@ -922,7 +922,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, True]))
         prompt_mock = stack.enter_context(
             mock.patch(
@@ -1038,7 +1038,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
         prompt_mock = stack.enter_context(
             mock.patch('rich.prompt.Prompt.ask', side_effect=['fake_org', 'mytestproject1', ''])
         )
@@ -1091,9 +1091,11 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
         stack.enter_context(
-            mock.patch('logfire._config.LogfireCredentials.get_user_projects', side_effect=RuntimeError('expected'))
+            mock.patch(
+                'logfire._internal.config.LogfireCredentials.get_user_projects', side_effect=RuntimeError('expected')
+            )
         )
         with pytest.raises(RuntimeError, match='^expected$'):
             configure(send_to_logfire=True, console=False, data_dir=data_dir)
@@ -1103,12 +1105,12 @@ def test_send_to_logfire_false() -> None:
     """
     Test that with send_to_logfire=False, that logic is NOT triggered.
     """
-    with mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire=False, console=False)
 
 
 def test_send_to_logfire_if_token_present() -> None:
-    with mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire='if-token-present', console=False)
 
 
@@ -1116,7 +1118,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
     os.environ['LOGFIRE_TOKEN'] = ''
     try:
         with ExitStack() as stack:
-            stack.enter_context(mock.patch('logfire._config.Confirm.ask', side_effect=RuntimeError))
+            stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
             requests_mocker = stack.enter_context(requests_mock.Mocker())
             configure(send_to_logfire='if-token-present', console=False)
             assert len(requests_mocker.request_history) == 0
@@ -1169,7 +1171,7 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
 
 
 def test_get_user_token_not_authenticated(default_credentials: Path):
-    with patch('logfire._config.DEFAULT_FILE', default_credentials):
+    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
         with pytest.raises(
             LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
         ):

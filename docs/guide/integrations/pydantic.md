@@ -37,7 +37,7 @@ If you want more granular control over the plugin, you can use the the
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
 
 ```py
-from logfire.integrations.pydantic_plugin import PluginSettings
+from logfire.integrations.pydantic import PluginSettings
 from pydantic import BaseModel
 
 
@@ -47,7 +47,7 @@ class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'
 
 ### Record
 
-The [`record`][logfire.integrations.pydantic_plugin.LogfireSettings.record] is used to configure what to record.
+The [`record`][logfire.integrations.pydantic.LogfireSettings.record] is used to configure what to record.
 It can be one of the following values:
 
   * `off`: Disable instrumentation. This is default value.
@@ -71,7 +71,7 @@ class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample
 ### Tags
 
 Tags are used to add additional information to the traces, and metrics. They can be included by
-adding the [`tags`][logfire.integrations.pydantic_plugin.LogfireSettings.tags] key in
+adding the [`tags`][logfire.integrations.pydantic.LogfireSettings.tags] key in
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings].
 
 ```py

@@ -3,8 +3,8 @@ from typing import Any, Mapping
 
 from inline_snapshot import snapshot
 
-from logfire._formatter import chunks_formatter, logfire_format
-from logfire._scrubbing import Scrubber
+from logfire._internal.formatter import chunks_formatter, logfire_format
+from logfire._internal.scrubbing import Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):

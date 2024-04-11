@@ -1,5 +1,5 @@
 import logfire
-from logfire.exporters._remove_pending import RemovePendingSpansExporter
+from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire.testing import TestExporter
 
 

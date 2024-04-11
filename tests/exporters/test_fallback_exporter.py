@@ -12,7 +12,7 @@ from opentelemetry.sdk.util.instrumentation import (
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.trace.status import Status, StatusCode
 
-from logfire.exporters._fallback import FallbackSpanExporter
+from logfire._internal.exporters.fallback import FallbackSpanExporter
 from logfire.testing import TestExporter
 
 

@@ -8,12 +8,12 @@ from typing import Any
 
 from loguru import logger
 
-from logfire._constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
-from logfire.integrations.logging import LogfireLoggingHandler
+from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
+from .logging import LogfireLoggingHandler
 
 
 class LogfireHandler(LogfireLoggingHandler):
-    """A handler that sends logs to **Logfire**."""
+    """A loguru handler that sends logs to **Logfire**."""
 
     custom_scope_suffix = 'loguru'
 

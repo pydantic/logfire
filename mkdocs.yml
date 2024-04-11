@@ -102,11 +102,10 @@ nav:
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
-      - Backfill: api/backfill.md
       - Propagate: api/propagate.md
       - Exceptions: api/exceptions.md
       - Integrations:
-          - api/integrations/pydantic_plugin.md
+          - api/integrations/pydantic.md
           - api/integrations/logging.md
           - api/integrations/structlog.md
   - Help: help.md

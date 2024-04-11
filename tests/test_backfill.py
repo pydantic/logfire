@@ -7,8 +7,8 @@ from io import BytesIO
 import pytest
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
-from logfire.backfill import Log, PrepareBackfill, StartSpan
-from logfire.exporters._file import FileParser, to_json_lines
+from logfire._internal.backfill import Log, PrepareBackfill, StartSpan
+from logfire._internal.exporters.file import FileParser, to_json_lines
 
 
 def test_write_spans_and_logs() -> None:
