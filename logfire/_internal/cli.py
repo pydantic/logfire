@@ -14,7 +14,7 @@ import warnings
 import webbrowser
 from pathlib import Path
 from typing import Any, Iterator, cast
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 from opentelemetry import trace
@@ -243,7 +243,8 @@ def parse_auth(args: argparse.Namespace) -> None:
     console.print()
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
-    console.input('Press [bold]Enter[/] to open logfire.dev in your browser...')
+    frontend_host = urlparse(frontend_auth_url).netloc
+    console.input(f'Press [bold]Enter[/] to open {frontend_host} in your browser...')
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:

@@ -155,7 +155,7 @@ def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
         stack.enter_context(m)
         m.post(
             'https://api.logfire.dev/v1/device-auth/new/',
-            text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
         m.get(
             'https://api.logfire.dev/v1/device-auth/wait/DC',
@@ -180,15 +180,15 @@ def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
         "print('Welcome to Logfire! :fire:')",
         "print('Before you can send data to Logfire, we need to authenticate you.')",
         'print()',
-        "input('Press [bold]Enter[/] to open logfire.dev in your browser...')",
-        'print("Please open [bold]FE_URL[/] in your browser to authenticate if it hasn\'t already.")',
+        "input('Press [bold]Enter[/] to open example.com in your browser...')",
+        'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
         "print('Waiting for you to authenticate with Logfire...')",
         "print('Successfully authenticated!')",
         'print()',
         f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
     ]
 
-    webbrowser_open.assert_called_once_with('FE_URL', new=2)
+    webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
@@ -201,7 +201,8 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+            'https://api.logfire.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
         m.get(
             'https://api.logfire.dev/v1/device-auth/wait/DC',
@@ -225,7 +226,8 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://api.logfire.dev/v1/device-auth/new/', text='{"device_code": "DC", "frontend_auth_url": "FE_URL"}'
+            'https://api.logfire.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
         m.get('https://api.logfire.dev/v1/device-auth/wait/DC', text='Error', status_code=500)
 
