@@ -130,6 +130,19 @@ class AttrsType:
     z: AttrsType | None = None
 
 
+@define
+class AttrsError(Exception):
+    code: int
+
+
+class ListSubclass(list):
+    pass
+
+
+class StrSubclass(str):
+    pass
+
+
 @pytest.mark.parametrize(
     'value,value_repr,value_json,json_schema',
     [
@@ -220,6 +233,19 @@ class AttrsType:
             '[]',
             {'type': 'array', 'x-python-datatype': 'tuple'},
             id='empty_tuple',
+        ),
+        pytest.param(
+            ListSubclass([1, 2, 3]),
+            '[1, 2, 3]',
+            '[1,2,3]',
+            {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'ListSubclass'},
+            id='ListSubclass',
+        ),
+        pytest.param(
+            StrSubclass('test'),
+            'test',
+            'test',
+            {},
         ),
         pytest.param(
             (MyDataclass(10), MyDataclass(20), MyDataclass(30)),
@@ -732,6 +758,14 @@ class AttrsType:
             'AttrsType(x=1, y=2, z=None)',
             '{"x":1,"y":2,"z":null}',
             {'type': 'object', 'title': 'AttrsType', 'x-python-datatype': 'attrs'},
+            id='attrs-simple',
+        ),
+        pytest.param(
+            AttrsError(404),
+            '404',
+            '{"code":404}',
+            {'type': 'object', 'title': 'AttrsError', 'x-python-datatype': 'attrs'},
+            id='attrs-error',
         ),
         pytest.param(
             AttrsType(1, 2, AttrsType(1, 2)),
@@ -749,7 +783,7 @@ class AttrsType:
                     }
                 },
             },
-            id='attrs',
+            id='attrs-nsted',
         ),
         pytest.param(
             [{str: bytes, int: float}],

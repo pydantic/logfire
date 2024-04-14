@@ -46,11 +46,6 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any], JsonDict]]:
         datetime.date: {'type': 'string', 'format': 'date'},
         datetime.time: {'type': 'string', 'format': 'time'},
         datetime.timedelta: {'type': 'string', 'x-python-datatype': 'timedelta'},
-        list: _array_schema,
-        tuple: _array_schema,
-        set: _array_schema,
-        frozenset: _array_schema,
-        deque: _array_schema,
         GeneratorType: _generator_schema,
         IPv4Address: {'type': 'string', 'format': 'ipv4'},
         IPv6Address: {'type': 'string', 'format': 'ipv6'},
@@ -105,10 +100,18 @@ def create_json_schema(obj: Any) -> JsonDict:
     Returns:
         The JSON Schema.
     """
-    if dataclasses.is_dataclass(obj):
-        return _dataclass_schema(obj)
+    if obj is None:
+        return {}
+    # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
+    obj_type = obj.__class__
+    if obj_type in {str, int, bool, float}:
+        return {}
+    elif obj_type in {list, tuple, set, frozenset, deque}:
+        return _array_schema(obj)
     elif isinstance(obj, Mapping):
         return _mapping_schema(obj)
+    elif dataclasses.is_dataclass(obj):
+        return _dataclass_schema(obj)
     elif is_attrs(obj):
         return _attrs_schema(obj)
     elif is_sqlalchemy(obj):
@@ -116,7 +119,7 @@ def create_json_schema(obj: Any) -> JsonDict:
 
     global _type_to_schema
     _type_to_schema = _type_to_schema or type_to_schema()
-    for base in obj.__class__.__mro__[:-1]:
+    for base in obj_type.__mro__[:-1]:
         try:
             schema = _type_to_schema[base]
         except KeyError:
@@ -124,11 +127,11 @@ def create_json_schema(obj: Any) -> JsonDict:
         else:
             return schema(obj) if callable(schema) else schema
 
-    if obj is None or isinstance(obj, (str, int, bool, float)):
+    # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+    if isinstance(obj, (str, int, float)):
         return {}
-    elif isinstance(obj, Sequence) and not isinstance(obj, str):
-        name = obj.__class__.__name__  # type: ignore[reportUnknownMemberType]
-        return {'type': 'array', 'title': name, 'x-python-datatype': 'Sequence'}
+    elif isinstance(obj, Sequence):
+        return {'type': 'array', 'title': obj_type.__name__, 'x-python-datatype': 'Sequence'}
 
     return {'type': 'object', 'x-python-datatype': 'unknown'}
 

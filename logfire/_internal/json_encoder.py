@@ -42,9 +42,9 @@ def _bytearray_encoder(o: bytearray) -> str:
 
 def _set_encoder(o: set[Any]) -> JsonValue:
     try:
-        return to_json_value(sorted(o))
+        return [to_json_value(item) for item in sorted(o)]
     except TypeError:
-        return to_json_value(list(o))
+        return [to_json_value(item) for item in o]
 
 
 def _to_isoformat(o: Any) -> str:
@@ -219,6 +219,9 @@ def to_json_value(o: Any) -> JsonValue:
     try:
         if isinstance(o, (int, float, str, bool, type(None))):
             return o
+        if isinstance(o, (list, tuple)):
+            # we do list & tuple before Mapping as it's > twice as fast and just as common
+            return [to_json_value(item) for item in o]  # type: ignore
         elif isinstance(o, Mapping):
             return {key if isinstance(key, str) else safe_repr(key): to_json_value(value) for key, value in o.items()}  # type: ignore
         elif dataclasses.is_dataclass(o):
@@ -247,7 +250,12 @@ def to_json_value(o: Any) -> JsonValue:
 
 
 def logfire_json_dumps(obj: Any) -> str:
-    return json.dumps(to_json_value(obj), separators=(',', ':'))
+    try:
+        return json.dumps(obj, default=to_json_value, separators=(',', ':'))
+    except TypeError:
+        # fallback to eagerly calling to_json_value to take care of object keys which are not strings
+        # see https://github.com/pydantic/platform/pull/2045
+        return json.dumps(to_json_value(obj), separators=(',', ':'))
 
 
 def is_sqlalchemy(obj: Any) -> bool:
