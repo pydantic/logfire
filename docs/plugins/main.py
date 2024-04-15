@@ -52,7 +52,7 @@ def check_documented_system_metrics(markdown: str, page: Page) -> str:
 
 def logfire_print_help(markdown: str, page: Page) -> str:
     # if you don't filter to the specific route that needs this substitution, things will be very slow
-    if page.file.src_uri != 'guide/cli.md':
+    if page.file.src_uri != 'guides/reference/cli.md':
         return markdown
 
     output = subprocess.run(['logfire', '--help'], capture_output=True, check=True)
@@ -65,7 +65,7 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
     Check http://127.0.0.1:8000/configuration/#using-environment-variables.
     """
-    if page.file.src_uri != 'guide/configuration.md':
+    if page.file.src_uri != 'guides/reference/configuration.md':
         return markdown
 
     module_lines = Path(config_params.__file__).read_text().splitlines()
@@ -93,7 +93,10 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
 def install_logfire(markdown: str, page: Page) -> str:
     """Build the installation instructions for each integration."""
-    if not (page.file.src_uri.startswith('guide/integrations') or page.file.src_uri.endswith('first_steps.md')):
+    if not (
+        page.file.src_uri.startswith('guides/reference/integrations')
+        or page.file.src_uri.endswith('first_steps/index.md')
+    ):
         return markdown
 
     # Match instructions like "{{ install_logfire(extras=['fastapi']) }}". Get the extras, if any.

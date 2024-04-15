@@ -10,7 +10,7 @@ If you need help getting started with **Pydantic Logfire** or with advanced usag
 
 ## :material-help: Usage Documentation
 
-The [usage documentation](guide/first_steps.md) is the most complete guide on how to get started with **Pydantic Logfire**.
+The [usage documentation](guides/first_steps/index.md) is the most complete guide on how to get started with **Pydantic Logfire**.
 
 ## :material-api: SDK API Documentation
 

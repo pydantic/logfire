@@ -59,6 +59,6 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
 
 Will show in **Logfire** like this:
 
-![Logfire spans screenshot](../images/logfire-screenshot-spans.png)
+![Logfire spans screenshot](../../images/logfire-screenshot-spans.png)
 
 [conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html

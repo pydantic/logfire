@@ -39,7 +39,7 @@ You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-w
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-- [Quick guide](../http_servers.md#capturing-http-server-request-and-response-headers)
+- [Quick guide](../../use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html#capture-http-request-and-response-headers)
 
 [wsgi]: https://wsgi.readthedocs.io/en/latest/

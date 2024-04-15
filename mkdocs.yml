@@ -45,6 +45,13 @@ theme:
     - navigation.path
     - navigation.tabs
     - navigation.instant
+    - navigation.instant.preview
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.tracking
+    - navigation.top # alternatively, we could do navigation.tabs.sticky
+    - toc.follow
   logo: "logo-white.svg"
   favicon: "favicon.png"
 
@@ -63,42 +70,62 @@ extra_javascript:
 
 nav:
   - Intro: index.md
-  - Guide:
-      - First Steps: guide/first_steps.md
-#      - Tracing: guide/tracing.md
-      - Metrics: guide/metrics.md
-      - Configuration: guide/configuration.md
-      - Integrations:
-          - Integrations: guide/integrations/index.md
-          - Pydantic: guide/integrations/pydantic.md
-          - Logging: guide/integrations/logging.md
-          - Structlog: guide/integrations/structlog.md
-          - Loguru: guide/integrations/loguru.md
-          - FastAPI: guide/integrations/fastapi.md
-          - Django: guide/integrations/django.md
-          - Flask: guide/integrations/flask.md
-          - Starlette: guide/integrations/starlette.md
-          - ASGI: guide/integrations/asgi.md
-          - WSGI: guide/integrations/wsgi.md
-          - HTTPX: guide/integrations/httpx.md
-          - Requests: guide/integrations/requests.md
-          - AIOHTTP: guide/integrations/aiohttp.md
-          - SQLAlchemy: guide/integrations/sqlalchemy.md
-          - Psycopg2: guide/integrations/psycopg2.md
-          - PyMongo: guide/integrations/pymongo.md
-          - Redis: guide/integrations/redis.md
-          - Celery: guide/integrations/celery.md
-      - Auto Tracing: guide/auto_tracing.md
-      - HTTP Servers: guide/http_servers.md
-      - Dashboard: guide/dashboard.md
-      - SQL Explorer: guide/sql_explorer.md
-      # - Direct Connection: guide/direct_connection.md
-      - Sampling: guide/sampling.md
-      - Scrubbing sensitive data: guide/scrubbing.md
-      - Backfill: guide/backfill.md
-      - Testing: guide/testing.md
-      - CLI: guide/cli.md
-      - Organization Structure: guide/organization_structure.md
+  - Guides:
+      - Guides: guides/index.md
+      - First Steps:
+        - First Steps: guides/first_steps/index.md
+      - New App Checklist:
+        - New App Checklist: guides/new_app_checklist/index.md
+        - Create a Project: guides/new_app_checklist/01_create_a_project.md
+        - Integrate Existing Logging: guides/new_app_checklist/02_integrate_existing_logging.md
+        - Add OpenTelemetry Instrumentations: guides/new_app_checklist/03_add_otel_instrumentations.md
+        - Add Logfire (Manual) Tracing: guides/new_app_checklist/04_add_manual_tracing.md
+        - Add Logfire Auto-Tracing: guides/new_app_checklist/05_add_auto_tracing.md
+        - Add Logfire Metrics: guides/new_app_checklist/06_add_metrics.md
+      - Web UI:
+        - Intro to the Web UI: guides/web_ui/index.md
+        - Live View: guides/web_ui/01_live.md
+        - Dashboards: guides/web_ui/02_dashboards.md
+        - Alerts: guides/web_ui/03_alerts.md
+        - SQL Explorer: guides/web_ui/04_explore.md
+      - Advanced User Guide:
+        - Advanced User Guide: guides/advanced/index.md
+        - Sampling: guides/advanced/01_sampling.md
+        - Scrubbing: guides/advanced/02_scrubbing.md
+        - Testing: guides/advanced/03_testing.md
+        - Backfill: guides/advanced/04_backfill.md
+        - Creating Write Tokens: guides/advanced/05_creating_write_tokens.md
+        - Direct Database Connections: guides/advanced/06_direct_database_connections.md
+      - Reference:
+        - Reference: guides/reference/index.md
+        - Integrations:
+          - Integrations: guides/reference/integrations/index.md
+          - OpenTelemetry:
+            - FastAPI: guides/reference/integrations/fastapi.md
+            - Django: guides/reference/integrations/django.md
+            - Flask: guides/reference/integrations/flask.md
+            - Starlette: guides/reference/integrations/starlette.md
+            - ASGI: guides/reference/integrations/asgi.md
+            - WSGI: guides/reference/integrations/wsgi.md
+            - HTTPX: guides/reference/integrations/httpx.md
+            - Requests: guides/reference/integrations/requests.md
+            - AIOHTTP: guides/reference/integrations/aiohttp.md
+            - SQLAlchemy: guides/reference/integrations/sqlalchemy.md
+            - Psycopg2: guides/reference/integrations/psycopg2.md
+            - PyMongo: guides/reference/integrations/pymongo.md
+            - Redis: guides/reference/integrations/redis.md
+            - Celery: guides/reference/integrations/celery.md
+            - System Metrics: guides/reference/integrations/system_metrics.md
+          - Logging:
+            - Logging: guides/reference/integrations/logging.md
+            - Structlog: guides/reference/integrations/structlog.md
+            - Loguru: guides/reference/integrations/loguru.md
+          - Pydantic: guides/reference/integrations/pydantic.md
+        - Configuration: guides/reference/configuration.md
+        - CLI: guides/reference/cli.md
+        - Organization Structure: guides/reference/organization_structure.md
+        - Use Cases:
+            - Web Frameworks: guides/use_cases/web_frameworks.md
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
@@ -138,7 +165,8 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.tabbed:
       alternate_style: true
-
+  - pymdownx.tasklist:
+      custom_checkbox: true
 watch:
   - logfire
 

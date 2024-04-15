@@ -80,8 +80,8 @@ pip install logfire # (1)!
 logfire auth # (2)!
 ```
 
-1. The **Pydantic Logfire** SDK can be installed from PyPI or Conda, [Learn more](guide/first_steps.md#install).
-2. The SDK comes with a CLI for authentication and more, [Learn more](guide/cli.md).
+1. The **Pydantic Logfire** SDK can be installed from PyPI or Conda, [Learn more](guides/first_steps/index.md#install).
+2. The SDK comes with a CLI for authentication and more, [Learn more](guides/reference/cli.md).
 
 Then in your code:
 
@@ -162,7 +162,7 @@ User(name='Charlie', country_code='GBR', dob='1990-03-03')
 1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs][logfire.PydanticPlugin].
 2. Since we've enabled the Pydantic Plugin, all Pydantic validations will be recorded in Logfire.
 
-Learn more about the [Pydantic Plugin here](guide/integrations/pydantic.md).
+Learn more about the [Pydantic Plugin here](guides/reference/integrations/pydantic.md).
 
 ![Logfire pydantic plugin screenshot](images/index/logfire-screenshot-pydantic-plugin.png)
 
@@ -199,10 +199,10 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-1. In addition to [configuring logfire](guide/configuration.md) this line is generally all you need to instrument a FastAPI app with Logfire, the same applies to most other popular Python web frameworks.
-2. The [integrations](guide/integrations/index.md) page has more information on how to instrument other parts of your app.
+1. In addition to [configuring logfire](guides/reference/configuration.md) this line is generally all you need to instrument a FastAPI app with Logfire, the same applies to most other popular Python web frameworks.
+2. The [integrations](guides/reference/integrations/index.md) page has more information on how to instrument other parts of your app.
 
-We'll need the [FastAPI contrib package](guide/integrations/fastapi.md), FastAPI itself and uvicorn installed to run this:
+We'll need the [FastAPI contrib package](guides/reference/integrations/fastapi.md), FastAPI itself and uvicorn installed to run this:
 
 ```bash
 pip install 'logfire[fastapi]' fastapi uvicorn  # (1)!
