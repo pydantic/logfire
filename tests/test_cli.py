@@ -40,6 +40,15 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
     assert VERSION in capsys.readouterr().out.strip()
 
 
+def test_nice_interrupt(capsys: pytest.CaptureFixture[str]) -> None:
+    with patch('logfire._internal.cli._main', side_effect=KeyboardInterrupt):
+        try:
+            main([])
+        except SystemExit:
+            pass
+        assert capsys.readouterr().err == 'User cancelled.\n'
+
+
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'whoami --data-dir {tmp_dir_cwd}'))
@@ -250,7 +259,12 @@ def test_auth_on_authenticated_user(default_credentials: Path) -> None:
     ]
 
 
-def test_projecs_list(default_credentials: Path) -> None:
+def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
+    main(['projects'])
+    assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,use} ...'
+
+
+def test_projects_list(default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         table_add_row = stack.enter_context(patch('logfire._internal.cli.Table.add_row'))
@@ -266,7 +280,7 @@ def test_projecs_list(default_credentials: Path) -> None:
     assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
 
 
-def test_projecs_list_no_project(default_credentials: Path) -> None:
+def test_projects_list_no_project(default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -284,7 +298,7 @@ def test_projecs_list_no_project(default_credentials: Path) -> None:
     ]
 
 
-def test_projecs_new_with_project_name_and_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -319,7 +333,7 @@ def test_projecs_new_with_project_name_and_org(tmp_dir_cwd: Path, default_creden
     }
 
 
-def test_projecs_new_with_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -359,7 +373,7 @@ def test_projecs_new_with_project_name_without_org(tmp_dir_cwd: Path, default_cr
     }
 
 
-def test_projecs_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -399,7 +413,7 @@ def test_projecs_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default_
     }
 
 
-def test_projecs_new_with_project_name_and_default_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -434,7 +448,59 @@ def test_projecs_new_with_project_name_and_default_org(tmp_dir_cwd: Path, defaul
     }
 
 
-def test_projecs_new_with_project_name_and_default_org_multiple_organizations(
+def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['fake_org']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://api.logfire.dev/v1/projects/', json=[])
+        m.get(
+            'https://api.logfire.dev/v1/organizations/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
+        )
+        m.get(
+            'https://api.logfire.dev/v1/account/me',
+            json={'default_organization': {'organization_name': 'fake_default_org'}},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://api.logfire.dev/v1/projects/fake_org',
+            [create_project_response],
+        )
+
+        main(['projects', 'new', 'myproject'])
+
+    assert prompt_mock.mock_calls == [
+        call(
+            '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+            choices=['fake_org', 'fake_default_org'],
+            default='fake_default_org',
+        )
+    ]
+
+    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+    assert console_calls == [
+        IsStr(regex=r'^\(file=.*'),
+        "print('Project created successfully. You will be able to view it at: fake_project_url')",
+    ]
+
+    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+        **create_project_response['json'],
+        'logfire_api_url': 'https://api.logfire.dev',
+    }
+
+
+def test_projects_new_with_project_name_and_default_org_multiple_organizations(
     tmp_dir_cwd: Path, default_credentials: Path
 ) -> None:
     with ExitStack() as stack:
@@ -479,7 +545,7 @@ def test_projecs_new_with_project_name_and_default_org_multiple_organizations(
     }
 
 
-def test_projecs_new_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -516,7 +582,7 @@ def test_projecs_new_without_project_name(tmp_dir_cwd: Path, default_credentials
     }
 
 
-def test_projecs_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -562,7 +628,7 @@ def test_projecs_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials
     }
 
 
-def test_projecs_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -588,7 +654,7 @@ def test_projecs_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
-def test_projecs_without_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_without_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -629,7 +695,7 @@ def test_projecs_without_project_name_without_org(tmp_dir_cwd: Path, default_cre
     }
 
 
-def test_projecs_new_get_organizations_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
 
@@ -641,7 +707,7 @@ def test_projecs_new_get_organizations_error(tmp_dir_cwd: Path, default_credenti
             main(['projects', 'new'])
 
 
-def test_projecs_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
 
@@ -658,7 +724,7 @@ def test_projecs_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials:
             main(['projects', 'new'])
 
 
-def test_projecs_new_create_project_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -674,7 +740,7 @@ def test_projecs_new_create_project_error(tmp_dir_cwd: Path, default_credentials
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
-def test_projecs_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -711,7 +777,7 @@ def test_projecs_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     }
 
 
-def test_projecs_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -752,7 +818,7 @@ def test_projecs_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path)
     }
 
 
-def test_projecs_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -770,7 +836,7 @@ def test_projecs_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Pat
         assert prompt_mock.mock_calls == [call('There is no project to use. Continue?', default=True)]
 
 
-def test_projecs_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         stack.enter_context(patch('logfire._internal.cli.Console'))
@@ -798,7 +864,7 @@ def test_projecs_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None
             main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
 
-def test_projecs_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         stack.enter_context(patch('logfire._internal.cli.Console'))

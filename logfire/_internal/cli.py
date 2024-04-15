@@ -333,8 +333,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
         console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
 
 
-def main(args: list[str] | None = None) -> None:
-    """Run the CLI."""
+def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
@@ -373,6 +372,7 @@ def main(args: list[str] | None = None) -> None:
     cmd_whoami.set_defaults(func=parse_whoami)
 
     cmd_projects = subparsers.add_parser('projects', help='Project management with Logfire.')
+    cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
     projects_subparsers = cmd_projects.add_subparsers()
     cmd_projects_list = projects_subparsers.add_parser('list', help='List projects.')
     cmd_projects_list.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
@@ -414,3 +414,12 @@ def main(args: list[str] | None = None) -> None:
                 version_callback()
             else:
                 namespace.func(namespace)
+
+
+def main(args: list[str] | None = None) -> None:
+    """Run the CLI."""
+    try:
+        _main(args)
+    except KeyboardInterrupt:
+        sys.stderr.write('User cancelled.\n')
+        sys.exit(1)
