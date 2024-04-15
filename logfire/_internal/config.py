@@ -826,6 +826,25 @@ class LogfireCredentials:
         raise LogfireConfigError('You are not authenticated. Please run `logfire auth` to authenticate.')
 
     @classmethod
+    def get_current_user(cls, session: requests.Session, logfire_api_url: str) -> dict[str, Any] | None:
+        try:
+            user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
+        except LogfireConfigError:
+            return None
+        return cls._get_user_for_token(user_token, session, logfire_api_url)
+
+    @classmethod
+    def _get_user_for_token(cls, user_token: str, session: requests.Session, logfire_api_url: str) -> dict[str, Any]:
+        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
+        account_info_url = urljoin(logfire_api_url, '/v1/account/me')
+        try:
+            response = session.get(account_info_url, headers=headers)
+            UnexpectedResponse.raise_for_status(response)
+        except requests.RequestException as e:
+            raise LogfireConfigError('Error retrieving user information.') from e
+        return response.json()
+
+    @classmethod
     def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
         """Get list of projects that user has access to them.
 
@@ -954,14 +973,9 @@ class LogfireCredentials:
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
-                account_info_url = urljoin(logfire_api_url, '/v1/account/me')
-                try:
-                    response = session.get(account_info_url, headers=headers)
-                    UnexpectedResponse.raise_for_status(response)
-                except requests.RequestException as e:
-                    raise LogfireConfigError('Error retrieving user information.') from e
-                json_response = response.json()
-                user_default_organization_name = json_response.get('default_organization', {}).get('organization_name')
+                user_details = cls._get_user_for_token(user_token, session, logfire_api_url)
+                assert user_details is not None
+                user_default_organization_name = user_details.get('default_organization', {}).get('organization_name')
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name

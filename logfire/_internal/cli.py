@@ -60,6 +60,12 @@ def version_callback() -> None:
 def parse_whoami(args: argparse.Namespace) -> None:
     """Get your dashboard url and project name."""
     data_dir = Path(args.data_dir)
+    current_user = LogfireCredentials.get_current_user(session=args._session, logfire_api_url=args.logfire_url)
+    if current_user is None:
+        sys.stderr.write('Not logged in. Run `logfire auth` to log in.\n')
+    else:
+        username = current_user['name']
+        sys.stderr.write(f'Logged in as: {username}\n')
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
         sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
@@ -342,18 +348,18 @@ def _main(args: list[str] | None = None) -> None:
     )
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
+    global_opts = parser.add_argument_group(title='global options')
+    global_opts.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
     # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
     cmd_auth = subparsers.add_parser('auth', help='Authenticate with Logfire')
-    cmd_auth.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
     cmd_auth.set_defaults(func=parse_auth)
 
     cmd_backfill = subparsers.add_parser('backfill', help='Bulk ingest backfill data')
     cmd_backfill.add_argument('--data-dir', default='.logfire')
     cmd_backfill.add_argument('--file', default='logfire_spans.bin')
-    cmd_backfill.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
     cmd_backfill.set_defaults(func=parse_backfill)
 
     cmd_clean = subparsers.add_parser('clean', help='Remove the contents of the Logfire data directory')
@@ -375,13 +381,11 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
     projects_subparsers = cmd_projects.add_subparsers()
     cmd_projects_list = projects_subparsers.add_parser('list', help='List projects.')
-    cmd_projects_list.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
     cmd_projects_list.set_defaults(func=parse_list_projects)
 
     cmd_projects_new = projects_subparsers.add_parser('new', help='Create a new project.')
     cmd_projects_new.add_argument('project_name', nargs='?', help='Project name.')
     cmd_projects_new.add_argument('--data-dir', default='.logfire')
-    cmd_projects_new.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
     cmd_projects_new.add_argument('--org', help='Project organization.')
     cmd_projects_new.add_argument(
         '--default-org', action='store_true', help='Whether to create project under user default organization.'
@@ -392,7 +396,6 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects_use.add_argument('project_name', help='Project name.')
     cmd_projects_use.add_argument('--org', help='Project organization.')
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
-    cmd_projects_use.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help='Logfire API URL.')
     cmd_projects_use.set_defaults(func=parse_use_project)
 
     namespace = parser.parse_args(args)

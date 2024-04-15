@@ -51,10 +51,13 @@ def test_nice_interrupt(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'whoami --data-dir {tmp_dir_cwd}'))
+    main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
     # insert_assert(capsys.readouterr().err)
     assert capsys.readouterr().err == (
-        f'Credentials loaded from data dir: {tmp_dir_cwd}\n' '\n' 'Logfire project URL: https://dashboard.logfire.dev\n'
+        'Not logged in. Run `logfire auth` to log in.\n'
+        f'Credentials loaded from data dir: {tmp_dir_cwd}\n'
+        '\n'
+        'Logfire project URL: https://dashboard.logfire.dev\n'
     )
 
 
@@ -63,22 +66,47 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
     current_dir = os.getcwd()
     os.chdir(tmp_dir_cwd)
     try:
-        main(['whoami'])
+        main(['--logfire-url=http://localhost:0', 'whoami'])
     except SystemExit as e:
         assert e.code == 1
         # insert_assert(capsys.readouterr().err)
-        assert capsys.readouterr().err == f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
+        assert capsys.readouterr().err == (
+            'Not logged in. Run `logfire auth` to log in.\n' f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
+        )
     finally:
         os.chdir(current_dir)
+
+
+def test_whoami_logged_in(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+) -> None:
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value='123'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+
+        m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
+
+        main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+    # insert_assert(capsys.readouterr().err)
+    assert capsys.readouterr().err == (
+        'Logged in as: test-user\n'
+        f'Credentials loaded from data dir: {tmp_dir_cwd}\n'
+        '\n'
+        'Logfire project URL: https://dashboard.logfire.dev\n'
+    )
 
 
 def test_whoami_default_dir(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    main(['whoami'])
+    main(['--logfire-url=http://localhost:0', 'whoami'])
     # insert_assert(capsys.readouterr().err)
     assert capsys.readouterr().err == (
+        'Not logged in. Run `logfire auth` to log in.\n'
         f'Credentials loaded from data dir: {tmp_dir_cwd}/.logfire\n'
         '\n'
         'Logfire project URL: https://dashboard.logfire.dev\n'
