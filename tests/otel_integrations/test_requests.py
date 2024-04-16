@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 import requests
 from inline_snapshot import snapshot
@@ -8,10 +10,10 @@ from logfire.testing import TestExporter
 
 
 @pytest.fixture(autouse=True)  # only applies within this module
-def instrument_requests(monkeypatch):
+def instrument_requests(monkeypatch: pytest.MonkeyPatch):
     # The following monkeypatching is similar in purpose to the mock transport in test_httpx.py.
 
-    def send(self, request, **kwargs):
+    def send(self: Any, request: requests.Request, **kwargs: Any):
         response = requests.Response()
         response.status_code = 200
         response.headers = request.headers
@@ -19,15 +21,16 @@ def instrument_requests(monkeypatch):
 
     monkeypatch.setattr(requests.Session, 'send', send)
 
-    instrumenter = RequestsInstrumentor()
-    instrumenter.instrument()
+    instrumentor = RequestsInstrumentor()
+    instrumentor.instrument()  # type: ignore
     yield
-    instrumenter.uninstrument()
+    instrumentor.uninstrument()  # type: ignore
 
 
 @pytest.mark.anyio
 async def test_requests_instrumentation(exporter: TestExporter):
     with logfire.span('test span') as span:
+        assert span.context
         trace_id = span.context.trace_id
         response = requests.get('https://example.org/')
         # Validation of context propagation: ensure that the traceparent header contains the trace ID

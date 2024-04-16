@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 
 from inline_snapshot import snapshot
@@ -22,11 +24,11 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
         logfire.info('inside request handler')
         return PlainTextResponse('middleware test')
 
-    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(OpenTelemetryMiddleware)])
+    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(OpenTelemetryMiddleware)])  # type: ignore
 
     client = TestClient(app)
     with logfire.span('outside request handler'):
-        headers = {}
+        headers: dict[str, str] = {}
         inject(headers)
         response = client.get('/', headers=headers)
 
@@ -129,7 +131,7 @@ def test_asgi_middleware_with_lifespan(exporter: TestExporter):
         yield
         cleanup_complete = True
 
-    app = Starlette(lifespan=lifespan, middleware=[Middleware(OpenTelemetryMiddleware)])
+    app = Starlette(lifespan=lifespan, middleware=[Middleware(OpenTelemetryMiddleware)])  # type: ignore
 
     with TestClient(app):
         assert startup_complete

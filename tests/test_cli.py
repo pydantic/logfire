@@ -13,6 +13,7 @@ import pytest
 import requests
 import requests_mock
 from dirty_equals import IsStr
+from inline_snapshot import snapshot
 
 from logfire import VERSION
 from logfire._internal.cli import OTEL_PACKAGES, main
@@ -204,28 +205,31 @@ def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
 
         main(['auth'])
 
-    # insert_assert(auth_file.read_text())
-    assert (
-        auth_file.read_text() == '[tokens."https://api.logfire.dev"]\ntoken = "fake_token"\nexpiration = "fake_exp"\n'
-    )
+        assert auth_file.read_text() == snapshot(
+            """\
+[tokens."https://api.logfire.dev"]
+token = "fake_token"
+expiration = "fake_exp"
+"""
+        )
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    # insert_assert(console_calls)
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        'print()',
-        "print('Welcome to Logfire! :fire:')",
-        "print('Before you can send data to Logfire, we need to authenticate you.')",
-        'print()',
-        "input('Press [bold]Enter[/] to open example.com in your browser...')",
-        'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
-        "print('Waiting for you to authenticate with Logfire...')",
-        "print('Successfully authenticated!')",
-        'print()',
-        f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        # insert_assert(console_calls)
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            'print()',
+            "print('Welcome to Logfire! :fire:')",
+            "print('Before you can send data to Logfire, we need to authenticate you.')",
+            'print()',
+            "input('Press [bold]Enter[/] to open example.com in your browser...')",
+            'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
+            "print('Waiting for you to authenticate with Logfire...')",
+            "print('Successfully authenticated!')",
+            'print()',
+            f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
+        ]
 
-    webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
+        webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
@@ -280,11 +284,11 @@ def test_auth_on_authenticated_user(default_credentials: Path) -> None:
 
         main(['auth'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        f"print('You are already logged in. (Your credentials are stored in [bold]{default_credentials}[/])')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            f"print('You are already logged in. (Your credentials are stored in [bold]{default_credentials}[/])')",
+        ]
 
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
@@ -305,7 +309,7 @@ def test_projects_list(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-    assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
+        assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
 
 
 def test_projects_list_no_project(default_credentials: Path) -> None:
@@ -319,11 +323,11 @@ def test_projects_list_no_project(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        'print("No projects found for the current user. You can create a new project by \'logfire projects create\' command")',
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            'print("No projects found for the current user. You can create a new project by \'logfire projects create\' command")',
+        ]
 
 
 def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -349,16 +353,16 @@ def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_crede
 
         main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -385,20 +389,20 @@ def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_c
 
         main(['projects', 'new', 'myproject'])
 
-    assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True),
-    ]
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -425,20 +429,20 @@ def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default
 
         main(['projects', 'new', 'myproject', '--org', 'wrong_org'])
 
-    assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True),
-    ]
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -464,16 +468,16 @@ def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, defau
 
         main(['projects', 'new', 'myproject', '--default-org'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -508,24 +512,24 @@ def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path
 
         main(['projects', 'new', 'myproject'])
 
-    assert prompt_mock.mock_calls == [
-        call(
-            '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
-            choices=['fake_org', 'fake_default_org'],
-            default='fake_default_org',
-        )
-    ]
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_default_org'],
+                default='fake_default_org',
+            )
+        ]
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(
@@ -561,16 +565,16 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
 
         main(['projects', 'new', 'myproject', '--default-org'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -597,17 +601,19 @@ def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credential
 
         main(['projects', 'new', '--default-org'])
 
-    assert prompt_mock.mock_calls == [call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))]
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))
+        ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -634,26 +640,26 @@ def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credential
 
         main(['projects', 'new', 'invalid name', '--default-org'])
 
-    assert prompt_mock.mock_calls == [
-        call(
-            "\nThe project you've entered is invalid. Valid project names:\n"
-            '  * may contain lowercase alphanumeric characters\n'
-            '  * may contain single hyphens\n'
-            '  * may not start or end with a hyphen\n\n'
-            'Enter the project name you want to use:',
-            default='invalid name',
-        ),
-    ]
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        assert prompt_mock.mock_calls == [
+            call(
+                "\nThe project you've entered is invalid. Valid project names:\n"
+                '  * may contain lowercase alphanumeric characters\n'
+                '  * may contain single hyphens\n'
+                '  * may not start or end with a hyphen\n\n'
+                'Enter the project name you want to use:',
+                default='invalid name',
+            ),
+        ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -707,20 +713,22 @@ def test_projects_without_project_name_without_org(tmp_dir_cwd: Path, default_cr
 
         main(['projects', 'new'])
 
-    assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True),
-    ]
-    assert prompt_mock.mock_calls == [call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))]
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project created successfully. You will be able to view it at: fake_project_url')",
-    ]
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))
+        ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project created successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -793,16 +801,16 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
 
         main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-    ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -831,19 +839,21 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
 
         main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
 
-    assert prompt_mock.mock_calls == [
-        call('Please select one of the existing project number:\n1. fake_org/myproject\n', choices=['1'], default='1')
-    ]
-    console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-    assert console_calls == [
-        IsStr(regex=r'^\(file=.*'),
-        "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-    ]
+        assert prompt_mock.mock_calls == [
+            call(
+                'Please select one of the existing project number:\n1. fake_org/myproject\n', choices=['1'], default='1'
+            )
+        ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
+        ]
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
 def test_projects_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Path) -> None:

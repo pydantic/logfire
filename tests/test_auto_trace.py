@@ -2,6 +2,7 @@ import ast
 import asyncio
 import sys
 from importlib.machinery import SourceFileLoader
+from typing import Any, Callable, ContextManager
 
 import pytest
 from inline_snapshot import snapshot
@@ -176,7 +177,7 @@ def test_default_modules() -> None:
         install_auto_tracing(check_imported_modules='warn')
 
     with pytest.raises(ValueError):
-        install_auto_tracing(check_imported_modules='other')
+        install_auto_tracing(check_imported_modules='other')  # type: ignore
 
     # This should match anything in the `tests` package, so remove the finder at the end of the test.
     meta_path = sys.meta_path.copy()
@@ -231,7 +232,7 @@ class Class3:
 
 
 def test_rewrite_ast():
-    context_factories = []
+    context_factories: list[Callable[[], ContextManager[Any]]] = []
     tree = rewrite_ast(
         nested_sample,
         'foo.py',
@@ -281,12 +282,12 @@ class Class3:
 
     # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.
     assert (
-        compile(tree, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
+        compile(nested_sample, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
         or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
         or ast.dump(tree) == ast.dump(ast.parse(result))
     )
 
-    assert [f.args for f in context_factories] == snapshot(
+    assert [f.args for f in context_factories] == snapshot(  # type: ignore
         [
             (
                 'Calling module.name.func.<locals>.Class.method',
@@ -410,7 +411,7 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    context_factories = []
+    context_factories: list[Callable[[], ContextManager[Any]]] = []
     rewrite_ast(
         sample,
         'foo.py',
@@ -420,7 +421,7 @@ def get_calling_strings(sample: str):
         context_factories,
         min_duration=0,
     )
-    return {f.args[0] for f in context_factories}
+    return {f.args[0] for f in context_factories}  # type: ignore
 
 
 def test_no_auto_trace():

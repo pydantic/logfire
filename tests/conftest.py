@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-import anyio._backends._asyncio  # noqa
+import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -10,11 +10,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
-from logfire.testing import (
-    IncrementalIdGenerator,
-    TestExporter,
-    TimeGenerator,
-)
+from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
 @pytest.fixture(scope='session', autouse=True)

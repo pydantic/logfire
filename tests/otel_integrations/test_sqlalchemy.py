@@ -25,7 +25,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         # Need to  ensure this import happens _after_ importing sqlalchemy
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
-        SQLAlchemyInstrumentor().instrument(engine=engine, enable_commenter=True, commenter_options={})
+        SQLAlchemyInstrumentor().instrument(engine=engine, enable_commenter=True, commenter_options={})  # type: ignore
 
         class Base(DeclarativeBase):
             pass

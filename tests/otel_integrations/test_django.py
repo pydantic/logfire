@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
 
@@ -5,7 +6,7 @@ from logfire.testing import TestExporter
 
 
 def test_good_route(client: Client, exporter: TestExporter):
-    response = client.get('/django_test_app/123/')
+    response: HttpResponse = client.get('/django_test_app/123/')  # type: ignore
     assert response.status_code == 200
     assert response.content == b'item_id: 123'
 
@@ -38,7 +39,7 @@ def test_good_route(client: Client, exporter: TestExporter):
 
 
 def test_error_route(client: Client, exporter: TestExporter):
-    response = client.get('/django_test_app/bad/')
+    response: HttpResponse = client.get('/django_test_app/bad/')  # type: ignore
     assert response.status_code == 400
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -81,7 +82,7 @@ def test_error_route(client: Client, exporter: TestExporter):
 
 
 def test_no_matching_route(client: Client, exporter: TestExporter):
-    response = client.get('/django_test_app/nowhere/')
+    response: HttpResponse = client.get('/django_test_app/nowhere/')  # type: ignore
     assert response.status_code == 404
 
     assert exporter.exported_spans_as_dict() == snapshot(

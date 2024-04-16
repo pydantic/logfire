@@ -6,6 +6,7 @@ from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
 from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
+from starlette.websockets import WebSocket
 
 from logfire.testing import TestExporter
 
@@ -14,7 +15,7 @@ async def secret(path_param: str):
     raise ValueError('test exception')
 
 
-async def websocket_endpoint(websocket):
+async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     assert (await websocket.receive_text()) == 'ping'
     await websocket.send_text('pong')
@@ -30,7 +31,7 @@ def app():
 
     app = Starlette(routes=routes)
     try:
-        StarletteInstrumentor.instrument_app(app)
+        StarletteInstrumentor.instrument_app(app)  # type: ignore
         yield app
     finally:
         StarletteInstrumentor.uninstrument_app(app)

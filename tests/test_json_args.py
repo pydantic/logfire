@@ -84,11 +84,19 @@ def generator() -> Iterator[int]:
 gen = generator()
 
 
-class MySequence(Sequence):
+if sys.version_info >= (3, 9):  # pragma: no branch
+    _MySequence = Sequence[int]
+    _ListSubclass = list[int]
+else:  # pragma: no cover
+    _MySequence = Sequence
+    _ListSubclass = list
+
+
+class MySequence(_MySequence):
     def __len__(self):
         return 2  # pragma: no cover
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> int:  # type: ignore
         if key == 0:
             return 1
         elif key == 1:
@@ -97,14 +105,14 @@ class MySequence(Sequence):
             raise IndexError()
 
 
-class MyMapping(Mapping):
-    def __init__(self, d):
+class MyMapping(Mapping[str, Any]):
+    def __init__(self, d: Any):
         self._d = d
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         return self._d[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._d)
 
     def __len__(self):  # pragma: no cover
@@ -135,8 +143,8 @@ class AttrsError(Exception):
     code: int
 
 
-class ListSubclass(list):
-    pass
+class ListSubclass(_ListSubclass):
+    ...
 
 
 class StrSubclass(str):
@@ -475,7 +483,7 @@ class StrSubclass(str):
             id='uuid',
         ),
         pytest.param(
-            MyModel(x='x', y=10, u='http://test.com'),
+            MyModel(x='x', y=10, u=AnyUrl('http://test.com')),
             "x='x' y=10 u=Url('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/"}',
             {
@@ -816,6 +824,7 @@ def test_log_non_scalar_args(
 
     assert s.name == 'test message {var=}'
     assert s.attributes, "Span doesn't have attributes"
+    assert isinstance(s.attributes['logfire.msg'], str)
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
     assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
@@ -831,7 +840,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
         id: Mapped[int] = mapped_column('user_id', primary_key=True)
         name: Mapped[str] = mapped_column('user_name', String(30))
 
-        def __init__(self, id, name):
+        def __init__(self, id: int, name: str):
             self.id = id
             self.name = name
 
@@ -847,7 +856,8 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
 
     s = exporter.exported_spans[0]
 
-    assert s.attributes['logfire.msg'].startswith(
+    assert s.attributes is not None
+    assert isinstance(s.attributes['logfire.msg'], str) and s.attributes['logfire.msg'].startswith(
         'test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at'
     )
     assert s.attributes['var'] == '{"id":1,"name":"test name"}'

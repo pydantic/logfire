@@ -52,7 +52,7 @@ def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:  # pragm
 @pytest.mark.parametrize('sample_rate', [-1, 1.5])
 def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
     with pytest.raises(ValueError, match='sample_rate must be between 0 and 1'):
-        logfire.with_trace_sample_rate(sample_rate)
+        logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(sample_rate)
 
 
 def test_sample_rate_config() -> None:
@@ -91,7 +91,7 @@ def test_sample_rate_runtime() -> None:  # pragma: no cover
     )
 
     for _ in range(100):
-        with logfire.with_trace_sample_rate(0.5).span('outer'):
+        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.5).span('outer'):
             with logfire.span('inner'):
                 pass
 
@@ -116,7 +116,7 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
     )
 
     for _ in range(10):
-        with logfire.with_trace_sample_rate(0.1).span('1'):
+        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.1).span('1'):
             with logfire.span('2'):
                 with logfire.span('3'):
                     pass
@@ -144,9 +144,9 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
     )
 
     for _ in range(10):
-        with logfire.with_trace_sample_rate(0.75).span('1'):
-            with logfire.with_trace_sample_rate(0.75).span('2'):
-                with logfire.with_trace_sample_rate(0.75).span('3'):
+        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('1'):
+            with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('2'):
+                with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('3'):
                     pass
 
     # insert_assert(build_tree(exporter.exported_spans_as_dict()))
@@ -178,9 +178,9 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
     )
 
     for _ in range(10):
-        with logfire.with_trace_sample_rate(0).span('1'):
+        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0).span('1'):
             for _ in range(100):
-                with logfire.with_trace_sample_rate(1).span('2'):
+                with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(1).span('2'):
                     pass
 
     # insert_assert(build_tree(exporter.exported_spans_as_dict()))

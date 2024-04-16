@@ -501,6 +501,7 @@ def test_log_equals(exporter: TestExporter) -> None:
 
     s = exporter.exported_spans[0]
 
+    assert s.attributes is not None
     assert s.attributes['logfire.msg'] == 'test message foo=foo bar=3'
     assert s.attributes['foo'] == 'foo'
     assert s.attributes['bar'] == 3
@@ -841,10 +842,12 @@ def test_json_args(exporter: TestExporter) -> None:
 
     assert len(exporter.exported_spans) == 2
     s = exporter.exported_spans[0]
+    assert s.attributes
     assert s.attributes['logfire.msg'] == 'test message foo=Foo(x=1, y=2)'
     assert s.attributes['foo'] == '{"x":1,"y":2}'
 
     s = exporter.exported_spans[1]
+    assert s.attributes
     assert s.attributes['logfire.msg'] == 'test message foos=[Foo(x=1, y=2)]'
     assert s.attributes['foos'] == '[{"x":1,"y":2}]'
 
@@ -1225,7 +1228,7 @@ def test_config_preserved_across_thread_or_process(
 
 
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
-    logfire.info('{http.status}', **{'http.status': 123})
+    logfire.info('{http.status}', **{'http.status': 123})  # type: ignore
 
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
@@ -1251,7 +1254,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
 
     exporter.exported_spans.clear()
 
-    with logfire.span('{http.status} - {code.lineno}', **{'http.status': 123}):
+    with logfire.span('{http.status} - {code.lineno}', **{'http.status': 123}):  # type: ignore
         pass
 
     # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
@@ -1675,7 +1678,7 @@ def test_span_set_level_before_start(exporter: TestExporter):
 
 def test_invalid_log_level(exporter: TestExporter):
     with pytest.warns(UserWarning, match="Invalid log level name: 'bad_log_level'"):
-        logfire.log('bad_log_level', 'log message')
+        logfire.log('bad_log_level', 'log message')  # type: ignore
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

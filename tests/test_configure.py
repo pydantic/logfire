@@ -5,7 +5,7 @@ import json
 import os
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 from unittest import mock
 from unittest.mock import call, patch
 
@@ -480,6 +480,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.base_url == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
     assert GLOBAL_CONFIG.project_name == 'test'
+    assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
@@ -799,7 +800,7 @@ def test_config_serializable():
     deserialize_config(serialized)
     serialized2 = serialize_config()
 
-    def normalize(s):
+    def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
         # These values get deepcopied by dataclasses.asdict, so we can't compare them directly
@@ -831,7 +832,7 @@ def test_sanitize_project_name():
     assert sanitize_project_name(long_name) == long_name[:41]
 
 
-def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, tmp_path: Path):
     os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
 
     auth_file = tmp_path / 'default.toml'
@@ -858,12 +859,12 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
 
         logfire.configure()
 
-    assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True),
-    ]
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
 
 
-def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
 
     auth_file = tmp_path / 'default.toml'
@@ -895,26 +896,28 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
 
         logfire.configure()
 
-    assert confirm_mock.mock_calls == [
-        call('Do you want to use one of your existing projects? ', default=True),
-    ]
-    assert prompt_mock.mock_calls == [
-        call(
-            'Please select one of the existing project number:\n1. fake_org/fake_project\n', choices=['1'], default='1'
-        ),
-        call(
-            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
-        ),
-    ]
-    assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+        assert confirm_mock.mock_calls == [
+            call('Do you want to use one of your existing projects? ', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call(
+                'Please select one of the existing project number:\n1. fake_org/fake_project\n',
+                choices=['1'],
+                default='1',
+            ),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            ),
+        ]
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
-def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
 
     auth_file = tmp_path / 'default.toml'
@@ -985,52 +988,52 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
         logfire.configure()
 
-    for request in request_mocker.request_history:
-        assert request.headers['Authorization'] == 'fake_user_token'
+        for request in request_mocker.request_history:
+            assert request.headers['Authorization'] == 'fake_user_token'
 
-    assert request_mocker.request_history[2].json() == create_existing_project_request_json
-    assert request_mocker.request_history[3].json() == create_reserved_project_request_json
-    assert request_mocker.request_history[4].json() == create_project_request_json
+        assert request_mocker.request_history[2].json() == create_existing_project_request_json
+        assert request_mocker.request_history[3].json() == create_reserved_project_request_json
+        assert request_mocker.request_history[4].json() == create_project_request_json
 
-    assert confirm_mock.mock_calls == [
-        call('The project will be created in the organization "fake_org". Continue?', default=True),
-    ]
-    assert prompt_mock.mock_calls == [
-        call(
-            'Enter the project name',
-            default='testinitializeprojectcreate0',
-        ),
-        call(
-            "\nThe project you've entered is invalid. Valid project names:\n"
-            '  * may contain lowercase alphanumeric characters\n'
-            '  * may contain single hyphens\n'
-            '  * may not start or end with a hyphen\n\n'
-            'Enter the project name you want to use:',
-            default='testinitializeprojectcreate0',
-        ),
-        call(
-            '\nA project with that name already exists. Please enter a different project name',
-            default=...,
-        ),
-        call(
-            '\nThe project name you entered is invalid:\n'
-            'The project name is reserved and cannot be used\n'
-            'Please enter a different project name',
-            default=...,
-        ),
-        call(
-            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
-        ),
-    ]
-    assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call(
+                'Enter the project name',
+                default='testinitializeprojectcreate0',
+            ),
+            call(
+                "\nThe project you've entered is invalid. Valid project names:\n"
+                '  * may contain lowercase alphanumeric characters\n'
+                '  * may contain single hyphens\n'
+                '  * may not start or end with a hyphen\n\n'
+                'Enter the project name you want to use:',
+                default='testinitializeprojectcreate0',
+            ),
+            call(
+                '\nA project with that name already exists. Please enter a different project name',
+                default=...,
+            ),
+            call(
+                '\nThe project name you entered is invalid:\n'
+                'The project name is reserved and cannot be used\n'
+                'Please enter a different project name',
+                default=...,
+            ),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            ),
+        ]
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
-    assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
-        **create_project_response['json'],
-        'logfire_api_url': 'https://api.logfire.dev',
-    }
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
 
 
-def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path, capsys):
+def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
     os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
 
     auth_file = tmp_path / 'default.toml'
@@ -1045,6 +1048,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
 
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
+        # request_mocker.get('https://api.logfire.dev/v1/health', json={'project_name': 'myproject'})
         request_mocker.get('https://api.logfire.dev/v1/projects/', json=[])
         request_mocker.get(
             'https://api.logfire.dev/v1/organizations/',
@@ -1068,17 +1072,17 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
 
         logfire.configure()
 
-    assert prompt_mock.mock_calls == [
-        call(
-            '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
-            choices=['fake_org', 'fake_org1'],
-            default='fake_org1',
-        ),
-        call('Enter the project name', default='testinitializeprojectcreate1'),
-        call(
-            'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
-        ),
-    ]
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default='fake_org1',
+            ),
+            call('Enter the project name', default='testinitializeprojectcreate1'),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
 
 
 def test_send_to_logfire_true(tmp_path: Path) -> None:
@@ -1159,7 +1163,7 @@ def test_load_creds_file_lagecy_key(tmp_path: Path):
     )
 
     cred = LogfireCredentials.load_creds_file(creds_dir=tmp_path)
-    assert cred.project_url == 'http://dash.localhost:8000/test'
+    assert cred and cred.project_url == 'http://dash.localhost:8000/test'
 
 
 def test_load_creds_file_invalid_key(tmp_path: Path):
@@ -1176,7 +1180,7 @@ def test_get_user_token_not_authenticated(default_credentials: Path):
             LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
         ):
             # Use a port that we don't use for local development to reduce conflicts with local configuration
-            LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')
+            LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')  # type: ignore
 
 
 def test_check_logfire_backend_unreachable():

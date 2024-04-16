@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 from __future__ import annotations
 
 import io
@@ -70,7 +71,7 @@ def simple_spans() -> list[ReadableSpan]:
     ]
 
 
-def test_simple_console_exporter_no_colors_concise(simple_spans) -> None:
+def test_simple_console_exporter_no_colors_concise(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=False, colors='never').export(simple_spans)
 
@@ -81,7 +82,7 @@ def test_simple_console_exporter_no_colors_concise(simple_spans) -> None:
     ]
 
 
-def test_simple_console_exporter_colors_concise(simple_spans) -> None:
+def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=False, colors='always').export(simple_spans)
 
@@ -92,7 +93,7 @@ def test_simple_console_exporter_colors_concise(simple_spans) -> None:
     ]
 
 
-def test_simple_console_exporter_no_colors_verbose(simple_spans) -> None:
+def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(simple_spans)
 
@@ -107,7 +108,7 @@ def test_simple_console_exporter_no_colors_verbose(simple_spans) -> None:
 def pending_span(
     msg_template: str, timestamp: int, trace_id: int, span_id: int, parent_id: int, grand_parent_id: int | None = None
 ) -> ReadableSpan:
-    extra_attributes = {}
+    extra_attributes: dict[str, str] = {}
     if grand_parent_id is not None:
         extra_attributes['logfire.pending_parent_id'] = format(grand_parent_id, '016x')
     return ReadableSpan(
@@ -380,7 +381,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
         )
     ]
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(spans)
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(spans)  # type: ignore
     lines = [line.rstrip(' ') for line in out.getvalue().splitlines()]
     assert lines == [
         '00:00:01.000 Hello world!',
@@ -393,7 +394,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export(spans)
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export(spans)  # type: ignore
     lines = [line.rstrip(' ') for line in out.getvalue().splitlines()]
     assert lines == [
         'Hello world!',
@@ -406,7 +407,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, verbose=True, colors='always').export(spans)
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='always').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '\x1b[32m00:00:01.000\x1b[0m Hello world!',
@@ -419,7 +420,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     ]
 
 
-def test_tags(exporter):
+def test_tags(exporter: TestExporter):
     logfire.with_tags('tag1', 'tag2').info('Hello')
     spans = exporter.exported_spans_as_models()
     # insert_assert(spans)
@@ -445,17 +446,17 @@ def test_tags(exporter):
         )
     ]
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)
+    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)  # type: ignore
     # insert_assert(out.getvalue())
     assert out.getvalue() == '00:00:01.000 Hello [tag1,tag2]\n'
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)
+    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)  # type: ignore
     # insert_assert(out.getvalue())
     assert out.getvalue() == '\x1b[32m00:00:01.000\x1b[0m Hello \x1b[36m[tag1,tag2]\x1b[0m\n'
 
 
-def test_levels(exporter):
+def test_levels(exporter: TestExporter):
     logfire.trace('trace message')
     logfire.debug('debug message')
     logfire.info('info message')
@@ -596,7 +597,7 @@ def test_levels(exporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)
+    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '00:00:01.000 trace message',
@@ -609,7 +610,7 @@ def test_levels(exporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='never', verbose=True).export(spans)
+    SimpleConsoleSpanExporter(output=out, colors='never', verbose=True).export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '00:00:01.000 trace message',
@@ -629,7 +630,7 @@ def test_levels(exporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)
+    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '\x1b[32m00:00:01.000\x1b[0m trace message',
@@ -642,7 +643,7 @@ def test_levels(exporter):
     ]
 
 
-def test_console_logging_to_stdout(capsys):
+def test_console_logging_to_stdout(capsys: pytest.CaptureFixture[str]):
     # This is essentially a basic integration test, the other tests using an exporter
     # missed that console logging had stopped working entirely for spans.
 

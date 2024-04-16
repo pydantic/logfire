@@ -1,3 +1,5 @@
+from typing import Iterator
+
 import logfire
 
 
@@ -6,7 +8,7 @@ async def bar():
     return lst[10]
 
 
-def gen():
+def gen() -> Iterator[int]:
     yield from range(3)
 
 

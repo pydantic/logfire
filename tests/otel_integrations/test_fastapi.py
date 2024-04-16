@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
+from typing import Any
 
 import pytest
 from dirty_equals import IsJson, IsUrl
-from fastapi import BackgroundTasks, FastAPI, Response
+from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.params import Header
 from fastapi.security import SecurityScopes
@@ -65,7 +68,7 @@ def app():
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def auto_instrument_fastapi(app: FastAPI):
-    def request_attributes_mapper(request, attributes):
+    def request_attributes_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any] | None:
         if request.scope['route'].name in ('other_route_name', 'secret'):
             attributes['custom_attr'] = 'custom_value'
             return attributes
@@ -297,7 +300,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
 
 def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> None:
     with logfire.span('outside request handler'):
-        headers = {}
+        headers: dict[str, str] = {}
         inject(headers)
         response = client.get('/', headers=headers)
 

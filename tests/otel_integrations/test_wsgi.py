@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
@@ -10,16 +12,16 @@ from logfire.testing import TestExporter
 
 def test_wsgi_middleware(exporter: TestExporter) -> None:
     app = Flask(__name__)
-    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)
+    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)  # type: ignore
 
     @app.route('/')
-    def homepage():
+    def homepage():  # type: ignore
         logfire.info('inside request handler')
         return 'middleware test'
 
     client = Client(app)
     with logfire.span('outside request handler'):
-        headers = {}
+        headers: dict[str, str] = {}
         inject(headers)
         response = client.get('/', headers=headers)
         # Read the response to ensure that the OTEL middleware span ends

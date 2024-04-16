@@ -160,7 +160,7 @@ def test_scrub_events(exporter: TestExporter):
 
 
 def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator):
-    def callback(match):
+    def callback(match: logfire.ScrubMatch):
         if match.path[-1] == 'my_password':
             return str(match)
         elif match.path[-1] == 'bad_value':

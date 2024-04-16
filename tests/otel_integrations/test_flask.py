@@ -11,16 +11,16 @@ from logfire.testing import TestExporter, TimeGenerator
 
 def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGenerator) -> None:
     app = Flask(__name__)
-    FlaskInstrumentor().instrument_app(app)
+    FlaskInstrumentor().instrument_app(app)  # type: ignore
 
     @app.route('/')
-    def homepage():
+    def homepage():  # type: ignore
         logfire.info('inside request handler')
         return 'middleware test'
 
     client = Client(app)
     with logfire.span('outside request handler'):
-        headers = {}
+        headers: dict[str, str] = {}
         inject(headers)
 
         # FlaskInstrumentor sets start_time=time_ns() directly, so our ns_timestamp_generator is not used.

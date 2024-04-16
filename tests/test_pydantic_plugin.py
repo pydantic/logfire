@@ -87,7 +87,7 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
 
 @pytest.mark.parametrize(
     'include,exclude,module,name,expected_to_include',
-    (
+    (  # type: ignore
         # include
         ({'MyModel'}, set(), '', 'MyModel', True),
         ({'MyModel'}, set(), 'test_module', 'MyModel', True),
@@ -595,7 +595,7 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
         x: int
 
     with pytest.raises(ValidationError):
-        MyDataclass(x='a')
+        MyDataclass(x='a')  # type: ignore
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -919,7 +919,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
         def on_error(self, error: ValidationError) -> None:
             events.append('error')
 
-        def on_exception(self, exc: Exception) -> None:
+        def on_exception(self, exception: Exception) -> None:
             events.append('exception')
 
     class OldPlugin(PydanticPluginProtocol):
@@ -935,7 +935,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
     from pydantic.plugin import _loader
 
     _loader.get_plugins()
-    _loader._plugins['old'] = OldPlugin()
+    _loader._plugins['old'] = OldPlugin()  # type: ignore
     _loader._plugins['dummy'] = DummyPlugin()  # type: ignore
 
     try:
@@ -953,7 +953,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
         with pytest.raises(TypeError):
             MyModel(x=2)
         with pytest.raises(ValidationError):
-            MyModel(x='a')
+            MyModel(x='a')  # type: ignore
 
         assert events == ['success', 'exception', 'error']
 
@@ -1040,8 +1040,8 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
             ]
         )
     finally:
-        del _loader._plugins['old']
-        del _loader._plugins['dummy']
+        del _loader._plugins['old']  # type: ignore
+        del _loader._plugins['dummy']  # type: ignore
 
 
 def test_function_validator(exporter: TestExporter):
@@ -1050,7 +1050,8 @@ def test_function_validator(exporter: TestExporter):
 
     MyNumber = Annotated[int, AfterValidator(double)]
 
-    MyNumberAdapter = TypeAdapter(MyNumber, config={'plugin_settings': {'logfire': {'record': 'all'}}})
+    config = ConfigDict(plugin_settings={'logfire': {'record': 'all'}})
+    MyNumberAdapter = TypeAdapter(MyNumber, config=config)
 
     assert MyNumberAdapter.validate_python(3) == 6
 

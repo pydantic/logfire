@@ -5,10 +5,11 @@ import pytest
 from dirty_equals import IsInt
 
 import logfire
+from logfire.testing import TestExporter
 from tests.import_used_for_tests.slow_async_callbacks_example import main
 
 
-def test_slow_async_callbacks(exporter) -> None:
+def test_slow_async_callbacks(exporter: TestExporter) -> None:
     assert Handle._run.__qualname__ == 'Handle._run'
 
     # There a many small async callbacks called internally by asyncio.

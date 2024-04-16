@@ -51,7 +51,7 @@ TOO_BIG_SPAN_IDS = [1, 10, 100, 500, 600, 601, 602, 603, 700, 701, 710, 800, 900
 class SomeSpansTooLargeExporter(TestExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in spans:
-            if span.context.span_id in TOO_BIG_SPAN_IDS:
+            if span.context and span.context.span_id in TOO_BIG_SPAN_IDS:
                 raise BodyTooLargeError(20_000_000, 5_000_000)
         return super().export(spans)
 
@@ -67,7 +67,7 @@ def test_retry_fewer_spans_with_some_spans_too_large(exporter: TestExporter):
     res = retry_exporter.export(TEST_SPANS)
     assert res is SpanExportResult.FAILURE
     assert underlying_exporter.exported_spans == [
-        span for span in TEST_SPANS if span.context.span_id not in TOO_BIG_SPAN_IDS
+        span for span in TEST_SPANS if span.context and span.context.span_id not in TOO_BIG_SPAN_IDS
     ]
 
     # For the too big spans, `logfire.error` is called once each in place of exporting the original span.

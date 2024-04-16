@@ -1,9 +1,9 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from logfire._internal.json_formatter import json_args_value_formatter, json_args_value_formatter_compact
-from logfire._internal.json_types import DataType, JSONSchema
+from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
 
 
 @pytest.mark.parametrize(
@@ -460,29 +460,32 @@ def test_nested_json_args_value_formatting():
         {'p': 20},
         # {'$__datatype__': 'BaseModel', 'data': {'p': 20}, 'cls': 'MyPydanticDataclass'},
     ]
-    schema = {
-        'type': 'array',
-        'prefixItems': [
-            {},
-            {},
-            {
-                'type': 'object',
-                'x-python-datatype': 'PydanticModel',
-                'title': 'MyModel',
-                'properties': {'y': {'type': 'string', 'x-python-datatype': 'datetime'}},
-            },
-            {
-                'type': 'object',
-                'x-python-datatype': 'dataclass',
-                'title': 'MyDataclass',
-            },
-            {
-                'type': 'object',
-                'x-python-datatype': 'dataclass',
-                'title': 'MyPydanticDataclass',
-            },
-        ],
-    }
+    schema = cast(
+        ArraySchema,
+        {
+            'type': 'array',
+            'prefixItems': [
+                {},
+                {},
+                {
+                    'type': 'object',
+                    'x-python-datatype': 'PydanticModel',
+                    'title': 'MyModel',
+                    'properties': {'y': {'type': 'string', 'x-python-datatype': 'datetime'}},
+                },
+                {
+                    'type': 'object',
+                    'x-python-datatype': 'dataclass',
+                    'title': 'MyDataclass',
+                },
+                {
+                    'type': 'object',
+                    'x-python-datatype': 'dataclass',
+                    'title': 'MyPydanticDataclass',
+                },
+            ],
+        },
+    )
 
     assert (
         json_args_value_formatter(value, schema=schema)
@@ -686,5 +689,5 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
 
 
 def test_all_types_covered():
-    types = set(DataType.__args__)
-    assert types == set(json_args_value_formatter_compact._data_type_map.keys())
+    types = set(DataType.__args__)  # type: ignore
+    assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore

@@ -10,10 +10,10 @@ from logfire.testing import TestExporter
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def instrument_httpx():
-    instrumenter = HTTPXClientInstrumentor()
-    instrumenter.instrument()
+    instrumentor = HTTPXClientInstrumentor()
+    instrumentor.instrument()  # type: ignore
     yield
-    instrumenter.uninstrument()
+    instrumentor.uninstrument()  # type: ignore
 
 
 @pytest.mark.anyio
@@ -26,6 +26,7 @@ async def test_httpx_instrumentation(exporter: TestExporter):
     transport = httpx.MockTransport(handler)
 
     with logfire.span('test span') as span:
+        assert span.context
         trace_id = span.context.trace_id
         with httpx.Client(transport=transport) as client:
             response = client.get('https://example.org/')

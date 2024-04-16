@@ -162,10 +162,10 @@ class TestExporter(SpanExporter):
         include_package_versions: bool = False,
         _include_pending_spans: bool = False,
         _strip_function_qualname: bool = True,
-    ):
+    ) -> list[ReadableSpanModel]:
         """Same as exported_spans_as_dict but converts the dicts to pydantic models.
 
-        This allows using the result in exporters that expect ReadableSpans, not dicts.
+        This allows using the result in exporters that expect `ReadableSpan`s, not dicts.
         """
         return [
             ReadableSpanModel(**span)
