@@ -160,7 +160,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /secret/my_token',
+                    'logfire.msg': "GET /secret/my_token ? foo='foo_val' & password='hunter2'",
                     'http.scheme': 'http',
                     'http.host': 'testserver',
                     'net.host.port': 80,

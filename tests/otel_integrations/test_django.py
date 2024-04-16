@@ -6,7 +6,9 @@ from logfire.testing import TestExporter
 
 
 def test_good_route(client: Client, exporter: TestExporter):
-    response: HttpResponse = client.get('/django_test_app/123/')  # type: ignore
+    response: HttpResponse = client.get(  # type: ignore
+        '/django_test_app/123/?very_long_query_param_name=very+long+query+param+value&foo=1'
+    )
     assert response.status_code == 200
     assert response.content == b'item_id: 123'
 
@@ -21,12 +23,12 @@ def test_good_route(client: Client, exporter: TestExporter):
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /django_test_app/123/',
+                    'logfire.msg': "GET /django_test_app/123/ ? foo='1' & very_long…aram_name='very long…ram value'",
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.scheme': 'http',
                     'net.host.port': 80,
-                    'http.url': 'http://testserver/django_test_app/123/',
+                    'http.url': 'http://testserver/django_test_app/123/?very_long_query_param_name=very+long+query+param+value&foo=1',
                     'net.peer.ip': '127.0.0.1',
                     'http.flavor': '1.1',
                     'http.route': 'django_test_app/<int:item_id>/',
@@ -39,7 +41,7 @@ def test_good_route(client: Client, exporter: TestExporter):
 
 
 def test_error_route(client: Client, exporter: TestExporter):
-    response: HttpResponse = client.get('/django_test_app/bad/')  # type: ignore
+    response: HttpResponse = client.get('/django_test_app/bad/?foo=1')  # type: ignore
     assert response.status_code == 400
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -52,12 +54,12 @@ def test_error_route(client: Client, exporter: TestExporter):
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /django_test_app/bad/',
+                    'logfire.msg': "GET /django_test_app/bad/ ? foo='1'",
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.scheme': 'http',
                     'net.host.port': 80,
-                    'http.url': 'http://testserver/django_test_app/bad/',
+                    'http.url': 'http://testserver/django_test_app/bad/?foo=1',
                     'net.peer.ip': '127.0.0.1',
                     'http.flavor': '1.1',
                     'http.route': 'django_test_app/bad/',
@@ -82,7 +84,7 @@ def test_error_route(client: Client, exporter: TestExporter):
 
 
 def test_no_matching_route(client: Client, exporter: TestExporter):
-    response: HttpResponse = client.get('/django_test_app/nowhere/')  # type: ignore
+    response: HttpResponse = client.get('/django_test_app/nowhere/?foo=1')  # type: ignore
     assert response.status_code == 404
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -95,12 +97,12 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /django_test_app/nowhere/',
+                    'logfire.msg': "GET /django_test_app/nowhere/ ? foo='1'",
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.scheme': 'http',
                     'net.host.port': 80,
-                    'http.url': 'http://testserver/django_test_app/nowhere/',
+                    'http.url': 'http://testserver/django_test_app/nowhere/?foo=1',
                     'net.peer.ip': '127.0.0.1',
                     'http.flavor': '1.1',
                     'http.status_code': 404,
