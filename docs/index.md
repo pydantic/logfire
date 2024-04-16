@@ -3,37 +3,26 @@ hide:
 - navigation
 ---
 
-# Welcome to Pydantic Logfire
+# Introducing Pydantic Logfire
 
-**Pydantic Logfire** redefines observability for the Python ecosystem, transforming how developers understand and
-interact with their code.
+From the team behind Pydantic, **Logfire** is a new type of observability platform built on the same belief as our
+open source library — that the most powerful tools can be easy to use.
 
-## The Pain
+**Pydantic Logfire** is your window into the inner workings of your application,
+designed with the developer's needs and experience in mind:
 
-As a Python developer, you've likely encountered frustrating scenarios like these:
+- **Uncomplicated Observability**: Logfire's dashboard is simple relative to the power it provides, meaning your whole engineering team will use it
+- **Better insights:** from rich display of Python objects to event-loop telemetry, profiling Python code and database query performance, Pydantic Logfire can give you a view into how your Python code is running that you can't get from any other observability tool
+- **SQL:** query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn. Using Postgres also means every existing tool that can connect to Postgres can query Logfire.
+- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, meaning you can use a wealth of existing tooling and infrastructure, including instrumentation for many common Python packages, it also means you can use Logfire with virtually any language
+- **Pydantic integration:** Logfire lets you understand the data that's passing through your Pydantic models and get analytics on validations out of the box
 
-- **Sifting through endless `print` statements** to find that needle-in-the-haystack insight
-- **Decoding cryptic portrayals** of Python objects in your logs
-- **Guessing at the performance hit** from a specific function, or a mysterious slowdown of your app
-- **Piecing together a user's journey** to an error, without clear breadcrumbs
-
-Sound familiar? You're not alone. These aren't just annoyances — they're barriers to efficient, informed development.
-
-## Enter Pydantic Logfire: Observability, tailored for Python
-
-![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
-
-**Pydantic Logfire** is more than an observability platform. It's your window into the inner workings of your application,
-designed with the Python developer's needs in mind:
-
-- **Instant Clarity**: Transform garbled logs into clear, actionable insights.
-- **Performance Insights**: Discover not just how long a function takes to run, but which queries slow down your app.
-- **Comprehensive Visibility**: From request headers and bodies to the full trace of program execution, see your
-application's behavior in high definition.
-- **Data-Driven Decisions**: Turn your logs into visualizations, dashboards, and alerts that drive your development
-forward.
 
 Pydantic Logfire will empower you to quickly instrument your applications using best practices, less code, less time, better understanding.
+
+## Find the needle in a _stacktrace_
+
+![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
 We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python
 developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having
