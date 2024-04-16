@@ -47,7 +47,7 @@ You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-a
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-- [Quick guide](../../use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
+- [Quick guide](use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html#capture-http-request-and-response-headers)
 
 [asgi]: https://asgi.readthedocs.io/en/latest/

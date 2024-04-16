@@ -51,7 +51,7 @@ You can read more about the Django OpenTelemetry package [here][opentelemetry-dj
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-- [Quick guide](../../use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
+- [Quick guide](use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html#capture-http-request-and-response-headers)
 
 [django]: https://www.djangoproject.com/

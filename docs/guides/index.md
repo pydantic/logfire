@@ -7,7 +7,7 @@ to Logfire, and viewing it in the Logfire Web UI.
 ## **[⭐️ New App Checklist ⭐️](new_app_checklist/index.md)**
 In this guide, we provide a checklist with step-by-step instructions to take an existing application and thoroughly
 instrument it to send data to Logfire. In particular, we'll show you how to leverage Logfire's various
-[integrations](reference/integrations/index.md) to generate as much useful data with as little development effort as possible.
+[integrations](../integrations/index.md) to generate as much useful data with as little development effort as possible.
 
 **Following this checklist for your application is _critical_ to getting the most out of Logfire.**
 
@@ -40,16 +40,16 @@ database containing your project's data. You can use this for ad-hoc querying, o
 business intelligence tools like Grafana, Tableau, Metabase, etc.
 * ... and more.
 
-## **[Reference](reference/index.md)**
+## **[Reference](../reference/index.md)**
 
-* **[Integrations](reference/integrations/index.md):**
+* **[Integrations](../integrations/index.md):**
 In this section of the docs we explain what an OpenTelemetry instrumentation is, and offer detailed guidance about how
 to get the most out of them in combination with Logfire. We also document here how to send data to Logfire from other
 logging libraries you might already be using, including `loguru`, `structlog`, and the Python standard library's
 `logging` module.
-* **[Configuration](reference/configuration.md):**
+* **[Configuration](../reference/configuration.md):**
 In this section we document the various ways you can configure which Logfire project your deployment will send data to.
-* **[Organization Structure](reference/organization_structure.md):**
+* **[Organization Structure](../reference/organization_structure.md):**
 In this section we document the organization, project, and permissions model in Logfire.
-* **[SDK CLI docs](reference/cli.md):**
+* **[SDK CLI docs](../reference/cli.md):**
 Documentation of the `logfire` command-line interface.

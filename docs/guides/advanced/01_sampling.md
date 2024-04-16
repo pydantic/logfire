@@ -8,7 +8,7 @@ To configure sampling for the SDK:
 - Set the `LOGFIRE_TRACE_SAMPLE_RATE` environment variable, or
 - Set the `trace_sample_rate` config file option.
 
-See [Configuration](../reference/configuration.md) for more information.
+See [Configuration](../../reference/configuration.md) for more information.
 
 ```python
 import logfire

@@ -26,26 +26,28 @@ If a package you are using is not listed here, please let us know on our [Slack]
 | [Celery](celery.md)                 | Task Queue              |
 | [System Metrics](system_metrics.md) | System Metrics          |
 
-If you are using Logfire with a web application, we also recommend reviewing our [Web Frameworks](../../use_cases/web_frameworks.md)
+If you are using Logfire with a web application, we also recommend reviewing
+our [Web Frameworks](use_cases/web_frameworks.md)
 documentation.
 
 ----
 
 We also have documentation for how to use Logfire with existing logging libraries:
 
-| Package                                | Type                    |
-|----------------------------------------|-------------------------|
-| [Standard Library Logging](logging.md) | Logging                 |
-| [Loguru](loguru.md)                    | Logging                 |
-| [Structlog](structlog.md)              | Logging                 |
+| Package                                | Type    |
+|----------------------------------------|---------|
+| [Standard Library Logging](logging.md) | Logging |
+| [Loguru](loguru.md)                    | Logging |
+| [Structlog](structlog.md)              | Logging |
 
 ----
 
 Finally, we also have special integration with the Pydantic library:
 
-| Package                                | Type                    |
-|----------------------------------------|-------------------------|
-| [Pydantic](pydantic.md)                | Data Validation         |
+| Package                 | Type            |
+|-------------------------|-----------------|
+| [Pydantic](pydantic.md) | Data Validation |
 
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
+
 [opentelemetry]: https://opentelemetry.io/

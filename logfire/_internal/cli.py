@@ -36,7 +36,7 @@ from .utils import read_toml_file
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://docs.logfire.dev'
-INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/guide/integrations/'
+INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
 
 HOME_LOGFIRE.mkdir(exist_ok=True)
 
