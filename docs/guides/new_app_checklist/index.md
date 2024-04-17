@@ -1,5 +1,5 @@
 In this guide, we'll proceed through the following checklist one step at a time to get your application instrumented for
-use with Logfire. At each step, we'll demonstrate what you can expect to see in the Logfire Web UI, and how to interact
+use with **Logfire**. At each step, we'll demonstrate what you can expect to see in the Logfire Web UI, and how to interact
 with the data you're generating.
 
 * [ ] **[Create a Logfire project for your application](01_create_a_project.md)**
