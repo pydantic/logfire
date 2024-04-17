@@ -125,7 +125,7 @@ nav:
       - Reference: reference/index.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization_structure.md
-      - SDK CLI Docs: reference/cli.md
+      - SDK CLI: reference/cli.md
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md

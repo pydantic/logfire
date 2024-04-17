@@ -230,7 +230,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.
 
-    This command will authenticate you with Logfire, and store the credentials.
+    It will authenticate you with Logfire, and store the credentials.
     """
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
@@ -343,7 +343,6 @@ def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
-        add_help=True,
         epilog='See https://docs.logfire.dev/guide/cli/ for more detailed documentation.',
     )
 
@@ -354,47 +353,47 @@ def _main(args: list[str] | None = None) -> None:
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
     # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help='Authenticate with Logfire')
+    cmd_auth = subparsers.add_parser('auth', help='authenticate with Logfire', description=parse_auth.__doc__)
     cmd_auth.set_defaults(func=parse_auth)
 
-    cmd_backfill = subparsers.add_parser('backfill', help='Bulk ingest backfill data')
+    cmd_backfill = subparsers.add_parser('backfill', help='bulk ingest backfill data')
     cmd_backfill.add_argument('--data-dir', default='.logfire')
     cmd_backfill.add_argument('--file', default='logfire_spans.bin')
     cmd_backfill.set_defaults(func=parse_backfill)
 
-    cmd_clean = subparsers.add_parser('clean', help='Remove the contents of the Logfire data directory')
+    cmd_clean = subparsers.add_parser('clean', help='remove the contents of the Logfire data directory')
     cmd_clean.add_argument('--data-dir', default='.logfire')
-    cmd_clean.add_argument('--logs', action='store_true', default=False, help='Remove the Logfire logs.')
+    cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
     cmd_clean.set_defaults(func=parse_clean)
 
     cmd_inspect = subparsers.add_parser(
         'inspect',
-        help="Suggest opentelemetry instrumentations based on your environment's installed packages",
+        help="suggest OpenTelemetry instrumentations based on your environment's installed packages",
     )
     cmd_inspect.set_defaults(func=parse_inspect)
 
-    cmd_whoami = subparsers.add_parser('whoami', help='Display the URL to your Logfire project')
+    cmd_whoami = subparsers.add_parser('whoami', help='display the URL to your Logfire project')
     cmd_whoami.add_argument('--data-dir', default='.logfire')
     cmd_whoami.set_defaults(func=parse_whoami)
 
-    cmd_projects = subparsers.add_parser('projects', help='Project management with Logfire.')
+    cmd_projects = subparsers.add_parser('projects', help='project management for Logfire')
     cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
     projects_subparsers = cmd_projects.add_subparsers()
-    cmd_projects_list = projects_subparsers.add_parser('list', help='List projects.')
+    cmd_projects_list = projects_subparsers.add_parser('list', help='list projects')
     cmd_projects_list.set_defaults(func=parse_list_projects)
 
-    cmd_projects_new = projects_subparsers.add_parser('new', help='Create a new project.')
-    cmd_projects_new.add_argument('project_name', nargs='?', help='Project name.')
+    cmd_projects_new = projects_subparsers.add_parser('new', help='create a new project')
+    cmd_projects_new.add_argument('project_name', nargs='?', help='project name')
     cmd_projects_new.add_argument('--data-dir', default='.logfire')
-    cmd_projects_new.add_argument('--org', help='Project organization.')
+    cmd_projects_new.add_argument('--org', help='project organization')
     cmd_projects_new.add_argument(
-        '--default-org', action='store_true', help='Whether to create project under user default organization.'
+        '--default-org', action='store_true', help='whether to create project under user default organization'
     )
     cmd_projects_new.set_defaults(func=parse_create_new_project)
 
-    cmd_projects_use = projects_subparsers.add_parser('use', help='Use a project.')
-    cmd_projects_use.add_argument('project_name', help='Project name.')
-    cmd_projects_use.add_argument('--org', help='Project organization.')
+    cmd_projects_use = projects_subparsers.add_parser('use', help='use a project')
+    cmd_projects_use.add_argument('project_name', help='project name')
+    cmd_projects_use.add_argument('--org', help='project organization')
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
     cmd_projects_use.set_defaults(func=parse_use_project)
 
