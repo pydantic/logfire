@@ -602,38 +602,31 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
-            credentials_from_local_file = None
-
             metric_readers = self.metric_readers
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
-                new_credentials: LogfireCredentials | None = None
+                credentials: LogfireCredentials | None = None
                 if self.token is None:
-                    credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
-                    credentials_to_save = credentials_from_local_file
-                    if not credentials_from_local_file:  # pragma: no branch
-                        new_credentials = LogfireCredentials.initialize_project(
+                    if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
+                        credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.base_url,
                             project_name=self.project_name,
                             session=self.logfire_api_session,
                         )
-                        new_credentials.write_creds_file(self.data_dir)
-                        if self.show_summary:  # pragma: no branch
-                            new_credentials.print_token_summary()
-                        credentials_to_save = new_credentials
-                        # to avoid printing another summary
-                        credentials_from_local_file = None
+                        credentials.write_creds_file(self.data_dir)
+                    self.token = credentials.token
+                    self.project_name = credentials.project_name
+                    self.base_url = self.base_url or credentials.logfire_api_url
+                else:
+                    credentials = self._initialize_credentials_from_token(self.token)
+                    if credentials is not None:
+                        self.project_name = credentials.project_name
 
-                    assert credentials_to_save is not None
-                    self.token = self.token or credentials_to_save.token
-                    self.project_name = self.project_name or credentials_to_save.project_name
-                    self.base_url = self.base_url or credentials_to_save.logfire_api_url
+                if self.show_summary and credentials is not None:  # pragma: no cover
+                    credentials.print_token_summary()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                # NOTE: Only check the backend if we didn't call it already.
-                if new_credentials is None:
-                    self.logfire_api_session.headers.update(headers)
-                    self.check_logfire_backend()
+                self.logfire_api_session.headers.update(headers)
 
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
@@ -669,9 +662,6 @@ class LogfireConfig(_LogfireConfigData):
             tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
 
             metric_readers = metric_readers or []
-
-            if self.show_summary and credentials_from_local_file:  # pragma: no cover
-                credentials_from_local_file.print_token_summary()
 
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:
@@ -731,7 +721,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
-    def check_logfire_backend(self) -> None:
+    def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
@@ -742,17 +732,31 @@ class LogfireConfig(_LogfireConfigData):
             LogfireConfigError: If the token is invalid.
         """
         try:
-            response = self.logfire_api_session.get(urljoin(self.base_url, '/v1/health'), timeout=10)
+            response = self.logfire_api_session.get(
+                urljoin(self.base_url, '/v1/info'),
+                timeout=10,
+                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
+            )
         except requests.RequestException as e:
             warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
-        else:
-            if response.status_code == 401:
-                raise LogfireConfigError('Invalid Logfire token.')
-            elif response.status_code != 200:
-                # any other status code is considered unhealthy
-                warnings.warn(
-                    f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
-                )
+            return None
+
+        if response.status_code == 401:
+            raise LogfireConfigError('Invalid Logfire token.')
+        elif response.status_code != 200:
+            # any other status code is considered unhealthy
+            warnings.warn(
+                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
+            )
+            return None
+
+        data = response.json()
+        return LogfireCredentials(
+            token=token,
+            project_name=data['project_name'],
+            project_url=data['project_url'],
+            logfire_api_url=self.base_url,
+        )
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:

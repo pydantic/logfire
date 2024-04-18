@@ -5,17 +5,15 @@ import json
 import os
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Sequence
 from unittest import mock
 from unittest.mock import call, patch
 
 import pytest
-import requests
 import requests_mock
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
-from requests.adapters import HTTPAdapter
 
 import logfire
 from logfire import configure
@@ -32,29 +30,6 @@ from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire.exceptions import LogfireConfigError
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
-
-
-class StubAdapter(HTTPAdapter):
-    """
-    A Transport Adapter that stores all requests sent, and provides pre-canned responses.
-    """
-
-    def __init__(self, requests: list[requests.PreparedRequest], responses: Iterable[requests.Response]) -> None:
-        self.requests = requests
-        self.responses = iter(responses)
-        super().__init__()
-
-    def send(
-        self,
-        request: requests.PreparedRequest,
-        stream: bool = False,
-        timeout: None | float | tuple[float, float] | tuple[float, None] = None,
-        verify: bool | str = True,
-        cert: None | bytes | str | tuple[bytes | str, bytes | str] = None,
-        proxies: Mapping[str, str] | None = None,
-    ) -> requests.Response:
-        self.requests.append(request)
-        return next(self.responses)
 
 
 def test_propagate_config_to_tags() -> None:
@@ -528,11 +503,11 @@ def test_logfire_config_console_options() -> None:
 
 
 def test_configure_fallback_path(tmp_path: str) -> None:
-    logfire_api_session = requests.Session()
-    response = requests.Response()
-    response.status_code = 200
-    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response])
-    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
+    request_mocker = requests_mock.Mocker()
+    request_mocker.get(
+        'https://api.logfire.dev/v1/info',
+        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+    )
 
     class FailureExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
@@ -549,14 +524,14 @@ def test_configure_fallback_path(tmp_path: str) -> None:
 
         return SimpleSpanProcessor(exporter)
 
-    data_dir = Path(tmp_path) / 'logfire_data'
-    logfire.configure(
-        data_dir=data_dir,
-        token='abc',
-        default_span_processor=default_span_processor,
-        logfire_api_session=logfire_api_session,
-        metric_readers=[InMemoryMetricReader()],
-    )
+    with request_mocker:
+        data_dir = Path(tmp_path) / 'logfire_data'
+        logfire.configure(
+            data_dir=data_dir,
+            token='abc',
+            default_span_processor=default_span_processor,
+            metric_readers=[InMemoryMetricReader()],
+        )
 
     assert not data_dir.exists()
     path = data_dir / 'logfire_spans.bin'
@@ -569,45 +544,43 @@ def test_configure_fallback_path(tmp_path: str) -> None:
 
 
 def test_configure_service_version(tmp_path: str) -> None:
-    logfire_api_session = requests.Session()
-    response = requests.Response()
-    response.status_code = 200
-    check_logfire_backend_adapter = StubAdapter(requests=[], responses=[response] * 3)
-    logfire_api_session.adapters['https://'] = check_logfire_backend_adapter
+    request_mocker = requests_mock.Mocker()
+    request_mocker.get(
+        'https://api.logfire.dev/v1/info',
+        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+    )
 
     import subprocess
 
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-    configure(
-        token='abc',
-        service_version='1.2.3',
-        logfire_api_session=logfire_api_session,
-        metric_readers=[InMemoryMetricReader()],
-    )
-
-    assert GLOBAL_CONFIG.service_version == '1.2.3'
-
-    configure(
-        token='abc',
-        logfire_api_session=logfire_api_session,
-        metric_readers=[InMemoryMetricReader()],
-    )
-
-    assert GLOBAL_CONFIG.service_version == git_sha
-
-    dir = os.getcwd()
-
-    try:
-        os.chdir(tmp_path)
+    with request_mocker:
         configure(
             token='abc',
-            logfire_api_session=logfire_api_session,
+            service_version='1.2.3',
             metric_readers=[InMemoryMetricReader()],
         )
-        assert GLOBAL_CONFIG.service_version is None
-    finally:
-        os.chdir(dir)
+
+        assert GLOBAL_CONFIG.service_version == '1.2.3'
+
+        configure(
+            token='abc',
+            metric_readers=[InMemoryMetricReader()],
+        )
+
+        assert GLOBAL_CONFIG.service_version == git_sha
+
+        dir = os.getcwd()
+
+        try:
+            os.chdir(tmp_path)
+            configure(
+                token='abc',
+                metric_readers=[InMemoryMetricReader()],
+            )
+            assert GLOBAL_CONFIG.service_version is None
+        finally:
+            os.chdir(dir)
 
 
 def test_otel_service_name_env_var() -> None:
@@ -1040,7 +1013,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
 
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        # request_mocker.get('https://api.logfire.dev/v1/health', json={'project_name': 'myproject'})
+        # request_mocker.get('https://api.logfire.dev/v1/info', json={'project_name': 'myproject'})
         request_mocker.get('https://api.logfire.dev/v1/projects/', json=[])
         request_mocker.get(
             'https://api.logfire.dev/v1/organizations/',
@@ -1122,13 +1095,17 @@ def test_send_to_logfire_if_token_present_empty() -> None:
         del os.environ['LOGFIRE_TOKEN']
 
 
-def test_send_to_logfire_if_token_present_not_empty() -> None:
+def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
         with requests_mock.Mocker() as request_mocker:
-            request_mocker.get('https://api.logfire.dev/v1/health', status_code=200)
+            request_mocker.get(
+                'https://api.logfire.dev/v1/info',
+                json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+            )
             configure(send_to_logfire='if-token-present', console=False)
             assert len(request_mocker.request_history) == 1
+            assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
     finally:
         del os.environ['LOGFIRE_TOKEN']
 
@@ -1141,7 +1118,7 @@ def test_load_creds_file_invalid_json_content(tmp_path: Path):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
 
 
-def test_load_creds_file_lagecy_key(tmp_path: Path):
+def test_load_creds_file_legacy_key(tmp_path: Path):
     creds_file = tmp_path / 'logfire_credentials.json'
     creds_file.write_text(
         """
@@ -1175,31 +1152,31 @@ def test_get_user_token_not_authenticated(default_credentials: Path):
             LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')  # type: ignore
 
 
-def test_check_logfire_backend_unreachable():
+def test_initialize_credentials_from_token_unreachable():
     with pytest.warns(
         UserWarning,
-        match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/health': No scheme supplied.",
+        match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/info': No scheme supplied.",
     ):
-        LogfireConfig(base_url='').check_logfire_backend()
+        LogfireConfig(base_url='')._initialize_credentials_from_token('some-token')  # type: ignore
 
 
-def test_check_logfire_backend_invalid_token():
+def test_initialize_credentials_from_token_invalid_token():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://api.logfire.dev/v1/health', text='Error', status_code=401)
+        request_mocker.get('https://api.logfire.dev/v1/info', text='Error', status_code=401)
 
         with pytest.raises(LogfireConfigError, match='Invalid Logfire token.'):
-            LogfireConfig().check_logfire_backend()
+            LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 
-def test_check_logfire_backend_unhealthy():
+def test_initialize_credentials_from_token_unhealthy():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://api.logfire.dev/v1/health', text='Error', status_code=500)
+        request_mocker.get('https://api.logfire.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
             UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
         ):
-            LogfireConfig().check_logfire_backend()
+            LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
