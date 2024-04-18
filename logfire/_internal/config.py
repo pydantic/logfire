@@ -612,18 +612,11 @@ class LogfireConfig(_LogfireConfigData):
                     credentials_from_local_file = LogfireCredentials.load_creds_file(self.data_dir)
                     credentials_to_save = credentials_from_local_file
                     if not credentials_from_local_file:  # pragma: no branch
-                        if os.getenv('LOGFIRE_ANONYMOUS_PROJECT_ENABLED') == 'true':  # pragma: no cover
-                            new_credentials = LogfireCredentials.create_anonymous_project(
-                                logfire_api_url=self.base_url,
-                                requested_project_name=self.project_name or default_project_name(),
-                                session=self.logfire_api_session,
-                            )
-                        else:
-                            new_credentials = LogfireCredentials.initialize_project(
-                                logfire_api_url=self.base_url,
-                                project_name=self.project_name,
-                                session=self.logfire_api_session,
-                            )
+                        new_credentials = LogfireCredentials.initialize_project(
+                            logfire_api_url=self.base_url,
+                            project_name=self.project_name,
+                            session=self.logfire_api_session,
+                        )
                         new_credentials.write_creds_file(self.data_dir)
                         if self.show_summary:  # pragma: no branch
                             new_credentials.print_token_summary()
@@ -1091,42 +1084,6 @@ class LogfireCredentials:
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
-
-    @classmethod
-    def create_anonymous_project(
-        cls,
-        *,
-        logfire_api_url: str,
-        requested_project_name: str,
-        session: requests.Session,
-    ) -> Self:  # pragma: no cover
-        """Create a new project on logfire.dev requesting the given project name.
-
-        Args:
-            logfire_api_url: The Logfire API base URL.
-            requested_project_name: Name to request for the project, the actual returned name may include a random
-                suffix to make it unique.
-            session: HTTP client session used to communicate with the Logfire API.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error creating the new project.
-        """
-        url = urljoin(logfire_api_url, '/v1/projects/')
-        try:
-            params = {'requested_project_name': requested_project_name}
-            response = session.post(url, params=params, headers=COMMON_REQUEST_HEADERS)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error creating new project.') from e
-        else:
-            json_data = response.json()
-            try:
-                return cls(**json_data, logfire_api_url=logfire_api_url)
-            except TypeError as e:
-                raise LogfireConfigError(f'Invalid credentials, when creating project at {url}: {e}') from e
 
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""

@@ -833,8 +833,6 @@ def test_sanitize_project_name():
 
 
 def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, tmp_path: Path):
-    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
-
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -865,8 +863,6 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
 
 
 def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
-
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -918,8 +914,6 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
 
 
 def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
-
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -1034,8 +1028,6 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
 
 def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
-    os.environ['LOGFIRE_ANONYMOUS_PROJECT_ENABLED'] = 'false'
-
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://api.logfire.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
