@@ -7,11 +7,11 @@ and use traces and spans to instrument your code for observability.
 Before diving in, let's briefly cover two fundamental OpenTelemetry concepts:
 
 - **Traces:** A trace represents the entire journey of a request or operation as it moves through a
-(possibly distributed) system. It's composed of one or more spans.
+  (possibly distributed) system. It's composed of one or more spans.
 - **Spans:** A span represents a unit of work within a trace, and are a way to track the execution of your code.
-Unlike traditional logs, which contain a message at a single moment in time, spans can be nested to form a tree-like
-structure, with a root span representing the overall operation, and child spans representing sub-operations.
-Spans are used to measure timing and record metadata about the work being performed.
+  Unlike traditional logs, which contain a message at a single moment in time, spans can be nested to form a tree-like
+  structure, with a root span representing the overall operation, and child spans representing sub-operations.
+  Spans are used to measure timing and record metadata about the work being performed.
 
 In Logfire, we'll frequently visualize traces as a tree of its spans:
 
@@ -26,7 +26,8 @@ To install the latest version of **Logfire**, run:
 {{ install_logfire() }}
 
 === "Conda"
-    If you have used [`conda`](https://docs.conda.io/en/latest/) to create your virtual environment, you can install `logfire` using:
+    If you have used [`conda`](https://docs.conda.io/en/latest/) to create your virtual environment, you can
+    install `logfire` using:
     ```bash
     conda install logfire -c conda-forge
     ```
@@ -52,12 +53,13 @@ To use Logfire, simply import it and call the desired logging function:
 ```py
 import logfire
 
-logfire.info('Hello, {name}!', name='world') # (1)!
+logfire.info('Hello, {name}!', name='world')  # (1)!
 ```
 
 1. This will log `Hello world!` with `info` level.
 
-!!! info
+!!! note
+
     Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
     `error`, and `fatal`.
 
@@ -77,7 +79,8 @@ Press Enter to continue:
 Here's what happens:
 
 1. Logfire detects that no project credentials exist and prompts you to create a new project.
-2. You're asked to confirm the organization where the project will be created (defaulting to your personal organization).
+2. You're asked to confirm the organization where the project will be created (defaulting to your personal
+   organization).
 3. You enter a name for your new project (defaulting to the name of the folder your script is running from).
 4. Logfire initializes the project and provides the URL where you can view your project's data.
 5. Press Enter to continue, and the script will proceed.

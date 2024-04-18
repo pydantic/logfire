@@ -4,7 +4,7 @@ Here are some tutorials to help you get started using Logfire:
 In this guide, we walk you through installation and authentication in your local environment, sending a log message
 to Logfire, and viewing it in the Logfire Web UI.
 
-## **[⭐️ New App Checklist ⭐️](new_app_checklist/index.md)**
+## **[⭐️ Onboarding Checklist ⭐️](onboarding_checklist/index.md)**
 In this guide, we provide a checklist with step-by-step instructions to take an existing application and thoroughly
 instrument it to send data to Logfire. In particular, we'll show you how to leverage Logfire's various
 [integrations](../integrations/index.md) to generate as much useful data with as little development effort as possible.

@@ -74,14 +74,14 @@ nav:
       - Guides: guides/index.md
       - First Steps:
           - First Steps: guides/first_steps/index.md
-      - New App Checklist:
-          - New App Checklist: guides/new_app_checklist/index.md
-          - Create a Project: guides/new_app_checklist/01_create_a_project.md
-          - Integrate Existing Logging: guides/new_app_checklist/02_integrate_existing_logging.md
-          - Add OpenTelemetry Instrumentations: guides/new_app_checklist/03_add_otel_instrumentations.md
-          - Add Logfire (Manual) Tracing: guides/new_app_checklist/04_add_manual_tracing.md
-          - Add Logfire Auto-Tracing: guides/new_app_checklist/05_add_auto_tracing.md
-          - Add Logfire Metrics: guides/new_app_checklist/06_add_metrics.md
+      - Onboarding Checklist:
+          - Onboarding Checklist: guides/onboarding_checklist/index.md
+          - Create a Project: guides/onboarding_checklist/01_create_a_project.md
+          - Integrate Existing Logging: guides/onboarding_checklist/02_integrate_existing_logging.md
+          - Add OpenTelemetry Instrumentations: guides/onboarding_checklist/03_add_otel_instrumentations.md
+          - Add Logfire (Manual) Tracing: guides/onboarding_checklist/04_add_manual_tracing.md
+          - Add Logfire Auto-Tracing: guides/onboarding_checklist/05_add_auto_tracing.md
+          - Add Logfire Metrics: guides/onboarding_checklist/06_add_metrics.md
       - Web UI:
           - Intro to the Web UI: guides/web_ui/index.md
           - Live View: guides/web_ui/01_live.md

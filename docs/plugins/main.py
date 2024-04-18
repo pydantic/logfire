@@ -20,7 +20,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
-    if page.file.src_uri == 'guides/new_app_checklist/06_add_metrics.md':
+    if page.file.src_uri == 'guides/onboarding_checklist/06_add_metrics.md':
         check_documented_system_metrics(markdown, page)
     return markdown
 
