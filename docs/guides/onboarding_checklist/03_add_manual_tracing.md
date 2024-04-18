@@ -1,4 +1,4 @@
-In the previous sections, we focused on how to integrate Logfire with your application and leverage automatic
+In the previous sections, we focused on how to integrate **Logfire** with your application and leverage automatic
 instrumentation. In this section, we'll go into more detail about manual tracing, which allows you to add custom spans
 and logs to your code for targeted data collection.
 
@@ -9,13 +9,13 @@ spend time discussing the general principles and scenarios where manual tracing 
 
 ### Using the `@logfire.instrument` Decorator
 
-The [`@logfire.instrument`][logfire.Logfire.instrument] decorator is a convenient way to create a span around an entire function. To use it, simply
-add the decorator above the function definition:
+The [`@logfire.instrument`][logfire.Logfire.instrument] decorator is a convenient way to create a span around an entire
+function. To use it, simply add the decorator above the function definition:
 
 ```python
 @logfire.instrument("Function Name", extract_args=True)
 def my_function(arg1, arg2):
-# Function code
+    # Function code
 ```
 
 The first argument to the decorator is the name of the span, and you can optionally set `extract_args=True` to

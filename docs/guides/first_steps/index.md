@@ -26,8 +26,6 @@ To install the latest version of **Logfire**, run:
 {{ install_logfire() }}
 
 === "Conda"
-    If you have used [`conda`](https://docs.conda.io/en/latest/) to create your virtual environment, you can
-    install `logfire` using:
     ```bash
     conda install logfire -c conda-forge
     ```
