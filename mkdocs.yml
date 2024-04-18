@@ -79,7 +79,7 @@ nav:
           - Create a Project: guides/onboarding_checklist/01_create_a_project.md
           - Integrate Existing Logging: guides/onboarding_checklist/02_integrate_existing_logging.md
           - Add OpenTelemetry Instrumentations: guides/onboarding_checklist/03_add_otel_instrumentations.md
-          - Add Logfire (Manual) Tracing: guides/onboarding_checklist/04_add_manual_tracing.md
+          - Add Logfire Manual Tracing: guides/onboarding_checklist/04_add_manual_tracing.md
           - Add Logfire Auto-Tracing: guides/onboarding_checklist/05_add_auto_tracing.md
           - Add Logfire Metrics: guides/onboarding_checklist/06_add_metrics.md
       - Web UI:
