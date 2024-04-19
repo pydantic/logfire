@@ -326,7 +326,7 @@ def test_projects_list_no_project(default_credentials: Path) -> None:
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
         assert console_calls == [
             IsStr(regex=r'^\(file=.*'),
-            'print("No projects found for the current user. You can create a new project by \'logfire projects create\' command")',
+            "print('No projects found for the current user. You can create a new project with `logfire projects new`')",
         ]
 
 
@@ -785,7 +785,110 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
         stack.enter_context(m)
         m.get(
             'https://api.logfire.dev/v1/projects/',
-            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'fake_org', 'project_name': 'otherproject'},
+            ],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://api.logfire.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use', 'myproject'])
+
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
+        ]
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
+
+
+def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        config_console = stack.enter_context(patch('logfire._internal.config.Console'))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'other_org', 'project_name': 'myproject'},
+            ],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://api.logfire.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use', 'myproject'])
+
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
+        ]
+
+        config_console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in config_console.mock_calls]
+        assert config_console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Found multiple projects with name `myproject`.')",
+        ]
+
+        assert prompt_mock.mock_calls == [
+            call(
+                (
+                    'Please select one of the following projects by number:\n'
+                    '1. fake_org/myproject\n'
+                    '2. other_org/myproject\n'
+                ),
+                choices=['1', '2'],
+                default='1',
+            )
+        ]
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://api.logfire.dev',
+        }
+
+
+def test_projects_use_multiple_with_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'other_org', 'project_name': 'myproject'},
+            ],
         )
         create_project_response = {
             'json': {
@@ -817,7 +920,7 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
         console = stack.enter_context(patch('logfire._internal.cli.Console'))
-        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['y', '1']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -841,8 +944,15 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
 
         assert prompt_mock.mock_calls == [
             call(
-                'Please select one of the existing project number:\n1. fake_org/myproject\n', choices=['1'], default='1'
-            )
+                'No projects with name `wrong-project` found for the current user in organization `fake_org`. Choose from all projects?',
+                choices=['y', 'n'],
+                default='y',
+            ),
+            call(
+                'Please select one of the following projects by number:\n1. fake_org/myproject\n',
+                choices=['1'],
+                default='1',
+            ),
         ]
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
         assert console_calls == [
@@ -856,11 +966,43 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
         }
 
 
-def test_projects_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_wrong_project_give_up(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
-        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['']))
+        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        config_console = stack.enter_context(patch('logfire._internal.config.Console'))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['n']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://api.logfire.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+        )
+
+        main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                'No projects with name `wrong-project` found for the current user in organization `fake_org`. Choose from all projects?',
+                choices=['y', 'n'],
+                default='y',
+            ),
+        ]
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+        ]
+        config_console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in config_console.mock_calls]
+        assert config_console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('You can create a new project in organization `fake_org` with `logfire projects new --org fake_org`')",
+        ]
+
+
+def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -871,7 +1013,10 @@ def test_projects_use_witout_projects(tmp_dir_cwd: Path, default_credentials: Pa
 
         main(['projects', 'use', 'myproject'])
 
-        assert prompt_mock.mock_calls == [call('There is no project to use. Continue?', default=True)]
+        assert (
+            re.sub(r'\s+', ' ', capsys.readouterr().err).strip()
+            == 'No projects found for the current user. You can create a new project with `logfire projects new`'
+        )
 
 
 def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:

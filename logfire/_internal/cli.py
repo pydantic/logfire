@@ -287,7 +287,7 @@ def parse_list_projects(args: argparse.Namespace) -> None:
         console.print(table)
     else:
         console.print(
-            "No projects found for the current user. You can create a new project by 'logfire projects create' command"
+            'No projects found for the current user. You can create a new project with `logfire projects new`'
         )
 
 

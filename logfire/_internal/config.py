@@ -4,6 +4,7 @@ import dataclasses
 import json
 import os
 import re
+import sys
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -42,6 +43,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.semconv.resource import ResourceAttributes
+from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self
 
@@ -896,21 +898,70 @@ class LogfireCredentials:
         user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
-        # {1: (<organization_name1>, <project_name1>), 2: (<organization_name2>, <project_name2>)}
-        projects_map = {str(index + 1): (p['organization_name'], p['project_name']) for index, p in enumerate(projects)}
+        org_message = ''
+        org_flag = ''
+        project_message = 'projects'
+        filtered_projects = projects
 
-        if (organization, project_name) not in projects_map.values():
-            if not projects_map:
-                Prompt.ask('There is no project to use. Continue?', default=True)
+        console = Console(file=sys.stderr)
+
+        if organization is not None:
+            filtered_projects = [p for p in projects if p['organization_name'] == organization]
+            org_message = f' in organization `{organization}`'
+            org_flag = f' --org {organization}'
+
+        if project_name is not None:
+            project_message = f'projects with name `{project_name}`'
+            filtered_projects = [p for p in filtered_projects if p['project_name'] == project_name]
+
+        if project_name is not None and len(filtered_projects) == 1:
+            # exact match to requested project
+            organization = filtered_projects[0]['organization_name']
+            project_name = filtered_projects[0]['project_name']
+        elif not filtered_projects:
+            if not projects:
+                console.print(
+                    'No projects found for the current user. You can create a new project with `logfire projects new`'
+                )
                 return None
+            elif (
+                Prompt.ask(
+                    f'No {project_message} found for the current user{org_message}. Choose from all projects?',
+                    choices=['y', 'n'],
+                    default='y',
+                )
+                == 'n'
+            ):
+                # user didn't want to expand search, print a hint and quit
+                console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
+                return None
+            # try all projects
+            filtered_projects = projects
+            organization = None
+            project_name = None
+        else:
+            # multiple matches
+            if project_name is not None and organization is None:
+                # only bother printing if the user asked for a specific project
+                # but didn't specify an organization
+                console.print(f'Found multiple {project_message}.')
+            organization = None
+            project_name = None
 
-            project_choices_str = '\n'.join([f'{index}. {item[0]}/{item[1]}' for index, item in projects_map.items()])
+        if organization is None or project_name is None:
+            project_choices = {
+                str(index + 1): (item['organization_name'], item['project_name'])
+                for index, item in enumerate(filtered_projects)
+            }
+            project_choices_str = '\n'.join(
+                [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
+            )
             selected_project_key = Prompt.ask(
-                f'Please select one of the existing project number:\n' f'{project_choices_str}\n',
-                choices=list(projects_map.keys()),
+                f'Please select one of the following projects by number:\n' f'{project_choices_str}\n',
+                choices=list(project_choices.keys()),
                 default='1',
             )
-            project_info_tuple = projects_map[selected_project_key]
+            project_info_tuple = project_choices[selected_project_key]
             organization = project_info_tuple[0]
             project_name = project_info_tuple[1]
 

@@ -870,7 +870,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         ]
         assert prompt_mock.mock_calls == [
             call(
-                'Please select one of the existing project number:\n1. fake_org/fake_project\n',
+                'Please select one of the following projects by number:\n1. fake_org/fake_project\n',
                 choices=['1'],
                 default='1',
             ),
