@@ -35,7 +35,7 @@ class ChunksFormatter(Formatter):
         scrubber: Scrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
-        stacklevel: int = 3,
+        stack_offset: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
@@ -91,7 +91,7 @@ class ChunksFormatter(Formatter):
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
+                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -128,13 +128,13 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stacklevel: int = 3) -> str:
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
     return ''.join(
         chunk['v']
         for chunk in chunks_formatter.chunks(
             format_string,
             kwargs,
             scrubber=scrubber,
-            stacklevel=stacklevel,
+            stack_offset=stack_offset,
         )
     )

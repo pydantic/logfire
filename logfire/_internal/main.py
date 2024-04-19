@@ -51,6 +51,7 @@ from .tracer import ProxyTracerProvider
 from .utils import uniquify_sequence
 
 if TYPE_CHECKING:
+    import openai
     from fastapi import FastAPI
     from starlette.requests import Request
     from starlette.websockets import WebSocket
@@ -81,30 +82,24 @@ class Logfire:
 
     def __init__(
         self,
-        tags: Sequence[str] = (),
+        *,
         config: LogfireConfig = GLOBAL_CONFIG,
         sample_rate: float | None = None,
+        tags: Sequence[str] = (),
+        stack_offset: int = 0,
+        console_log: bool = True,
+        otel_scope: str = 'logfire',
     ) -> None:
-        self._tags = list(tags)
+        self._tags = tuple(tags)
         self._config = config
         self._sample_rate = sample_rate
+        self._stack_offset = stack_offset
+        self._console_log = console_log
+        self._otel_scope = otel_scope
 
     @property
     def config(self) -> LogfireConfig:
         return self._config
-
-    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:  # pragma: no cover
-        """A new Logfire instance with the given sampling ratio applied.
-
-        Args:
-            sample_rate: The sampling ratio to use.
-
-        Returns:
-            A new Logfire instance with the sampling ratio applied.
-        """
-        if sample_rate > 1 or sample_rate < 0:
-            raise ValueError('sample_rate must be between 0 and 1')
-        return Logfire(self._tags, self._config, sample_rate)
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -122,9 +117,9 @@ class Logfire:
     def _spans_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str = 'logfire') -> Tracer:
+    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str | None = None) -> Tracer:
         return self._tracer_provider.get_tracer(
-            otel_scope,
+            self._otel_scope if otel_scope is None else otel_scope,
             VERSION,
             is_span_tracer=is_span_tracer,
         )
@@ -138,12 +133,14 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
-        stacklevel: int = 3,
+        _stack_offset: int = 3,
     ) -> LogfireSpan:
-        stack_info = get_caller_stack_info(stacklevel=stacklevel)
+        stack_info = get_caller_stack_info(_stack_offset)
         merged_attributes = {**stack_info, **attributes}
 
-        log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber, stacklevel=stacklevel + 2)
+        log_message = logfire_format(
+            msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
+        )
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -152,7 +149,7 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = (self._tags or []) + list(_tags or [])
+        tags = (self._tags or ()) + tuple(_tags or ())
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -192,7 +189,7 @@ class Logfire:
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
         attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
-            msg_template, function_args, self._config.scrubber, stacklevel=4
+            msg_template, function_args, self._config.scrubber, stack_offset=4
         )
         if json_schema_properties := attributes_json_schema_properties(function_args):
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
@@ -434,6 +431,7 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
+        _stack_offset: int = 3,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -450,6 +448,7 @@ class Logfire:
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
+            _stack_offset: The stack level offset to use when collecting stack info, defaults to `3`.
 
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
@@ -462,6 +461,7 @@ class Logfire:
             _tags=_tags,
             _span_name=_span_name,
             _level=_level,
+            _stack_offset=_stack_offset,
         )
 
     def instrument(
@@ -501,8 +501,8 @@ class Logfire:
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
-        stack_offset: int = 0,
-        console_log: bool = True,
+        stack_offset: int | None = None,
+        console_log: bool | None = None,
         custom_scope_suffix: str | None = None,
     ) -> None:
         """Log a message.
@@ -529,13 +529,13 @@ class Logfire:
                 logfire to instrument another library like structlog or loguru.
                 See `TraceProvider.get_tracer(instrumenting_module_name)` docstring for more info.
         """
-        stacklevel = stack_offset + 2
-        stack_info = get_caller_stack_info(stacklevel)
+        stack_offset = (self._stack_offset if stack_offset is None else stack_offset) + 2
+        stack_info = get_caller_stack_info(stack_offset)
 
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stacklevel=stacklevel + 2)
+            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stack_offset=stack_offset + 2)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
@@ -547,7 +547,7 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = (self._tags or []) + list(tags or [])
+        tags = self._tags + tuple(tags or ())
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -559,7 +559,7 @@ class Logfire:
         if sample_rate is not None and sample_rate != 1:  # pragma: no cover
             otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        if not console_log:
+        if not (self._console_log if console_log is None else console_log):
             otlp_attributes[DISABLE_CONSOLE_KEY] = True
         start_time = self._config.ns_timestamp_generator()
 
@@ -605,7 +605,57 @@ class Logfire:
         Returns:
             A new Logfire instance with the `tags` added to any existing tags.
         """
-        return Logfire(self._tags + list(tags), self._config, self._sample_rate)
+        return self.with_settings(tags=tags)
+
+    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:  # pragma: no cover
+        """A new Logfire instance with the given sampling ratio applied.
+
+        Args:
+            sample_rate: The sampling ratio to use.
+
+        Returns:
+            A new Logfire instance with the sampling ratio applied.
+        """
+        if sample_rate > 1 or sample_rate < 0:
+            raise ValueError('sample_rate must be between 0 and 1')
+        return Logfire(
+            config=self._config,
+            tags=self._tags,
+            sample_rate=sample_rate,
+        )
+
+    def with_settings(
+        self,
+        *,
+        tags: Sequence[str] = (),
+        stack_offset: int | None = None,
+        console_log: bool | None = None,
+        custom_scope_suffix: str | None = None,
+    ) -> Logfire:
+        """A new Logfire instance which uses the given settings.
+
+        Args:
+            tags: Sequence of tags to include in the log.
+            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
+                message formatting might emit, defaults to `0` which means the stack info will be collected from the
+                position where `logfire.log` was called.
+            console_log: Whether to log to the console, defaults to `True`.
+            custom_scope_suffix: A custom suffix to append to `logfire.`, should only be used when you're using
+                logfire to instrument another library like structlog or loguru.
+                See `TraceProvider.get_tracer(instrumenting_module_name)` docstring for more info.
+
+        Returns:
+            A new Logfire instance with the given settings applied.
+        """
+        # TODO add sample_rate once it's more stable
+        return Logfire(
+            config=self._config,
+            tags=self._tags + tuple(tags),
+            sample_rate=self._sample_rate,
+            stack_offset=self._stack_offset if stack_offset is None else stack_offset,
+            console_log=self._console_log if console_log is None else console_log,
+            otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
+        )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:
         """Force flush all spans.
@@ -733,6 +783,53 @@ class Logfire:
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
         )
+
+    def instrument_openai(
+        self, openai_client: openai.OpenAI | openai.AsyncOpenAI, *, suppress_other_instrumentation: bool = True
+    ) -> ContextManager[None]:
+        """Instrument an OpenAI client so that spans are automatically created for each request.
+
+        The following methods are instrumented for both the sync the async clients:
+
+        - [`client.chat.completions.create`](https://platform.openai.com/docs/guides/text-generation/chat-completions-api) — with and without `stream=True`
+        - [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api) — with and without `stream=True`
+        - [`client.embeddings.create`](https://platform.openai.com/docs/guides/embeddings/how-to-get-embeddings)
+        - [`client.images.generate`](https://platform.openai.com/docs/guides/images/generations)
+
+        When `stream=True` a second span is created to instrument the streamed response.
+
+        Example usage:
+
+        ```python
+        import logfire
+        import openai
+
+        client = openai.OpenAI()
+        logfire.instrument_openai(client)
+
+        response = client.chat.completions.create(
+            model='gpt-4',
+            messages=[
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+        )
+        print('answer:', response.choices[0].message.content)
+        ```
+
+        Args:
+            openai_client: The OpenAI client to instrument, either `openai.OpenAI` or `openai.AsyncOpenAI`.
+            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
+                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
+                OpenAI uses HTTPX to make HTTP requests.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.openai import instrument_openai
+
+        return instrument_openai(self, openai_client, suppress_other_instrumentation)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.

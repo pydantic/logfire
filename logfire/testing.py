@@ -53,6 +53,7 @@ class TestExporter(SpanExporter):
         strip_filepaths: bool = True,
         include_resources: bool = False,
         include_package_versions: bool = False,
+        include_instrumentation_scope: bool = False,
         _include_pending_spans: bool = False,
         _strip_function_qualname: bool = True,
     ) -> list[dict[str, Any]]:
@@ -63,6 +64,7 @@ class TestExporter(SpanExporter):
             strip_filepaths: Whether to strip the filepaths from the exported spans.
             include_resources: Whether to include the resource attributes in the exported spans.
             include_package_versions: Whether to include the package versions in the exported spans.
+            include_instrumentation_scope: Whether to include the instrumentation scope in the exported spans.
 
         Returns:
             A list of dicts representing the exported spans.
@@ -117,6 +119,12 @@ class TestExporter(SpanExporter):
                     attributes[SpanAttributes.EXCEPTION_STACKTRACE] = last_line
             return res
 
+        def build_instrumentation_scope(span: ReadableSpan) -> dict[str, Any]:
+            if include_instrumentation_scope:
+                return {'instrumentation_scope': span.instrumentation_scope and span.instrumentation_scope.name}
+            else:
+                return {}
+
         def build_span(span: ReadableSpan) -> dict[str, Any]:
             context = span.context or trace.INVALID_SPAN_CONTEXT
             res: dict[str, Any] = {
@@ -135,6 +143,7 @@ class TestExporter(SpanExporter):
                 else None,
                 'start_time': span.start_time,
                 'end_time': span.end_time,
+                **build_instrumentation_scope(span),
                 'attributes': build_attributes(span.attributes),
             }
             if span.events:

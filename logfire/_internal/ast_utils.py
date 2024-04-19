@@ -109,7 +109,7 @@ class BaseTransformer(ast.NodeTransformer):
         span_name = logfire_args.span_name or msg_template
 
         if logfire_args.tags:
-            attributes[ATTRIBUTES_TAGS_KEY] = tuple(uniquify_sequence(logfire_args.tags))
+            attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(logfire_args.tags)
 
         sample_rate = logfire_args.sample_rate
         if sample_rate not in (None, 1):  # pragma: no cover

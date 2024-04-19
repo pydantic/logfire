@@ -30,11 +30,11 @@ else:
         return pydantic_core.to_json(obj).decode()
 
 
-def uniquify_sequence(seq: Sequence[T]) -> list[T]:
+def uniquify_sequence(seq: Sequence[T]) -> tuple[T, ...]:
     """Remove duplicates from a sequence preserving order."""
     seen: set[T] = set()
     seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
+    return tuple(x for x in seq if not (x in seen or seen_add(x)))
 
 
 def safe_repr(obj: Any) -> str:

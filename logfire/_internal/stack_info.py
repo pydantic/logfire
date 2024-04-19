@@ -42,13 +42,13 @@ def get_stack_info_from_frame(frame: FrameType) -> StackInfo:
     }
 
 
-def get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
+def get_caller_stack_info(stack_offset: int = 3) -> StackInfo:
     """Get the stack info of the caller.
 
     This is used to bind the caller's stack info to logs and spans.
 
     Args:
-        stacklevel: The stack level to get the info from.
+        stack_offset: The stack level to get the info from.
 
     Returns:
         A dictionary of stack info attributes.
@@ -58,7 +58,7 @@ def get_caller_stack_info(stacklevel: int = 3) -> StackInfo:
         if frame is None:  # pragma: no cover
             return {}
         # traverse stack_level frames up
-        for _ in range(stacklevel):
+        for _ in range(stack_offset):
             frame = frame.f_back
             if frame is None:  # pragma: no cover
                 return {}

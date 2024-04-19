@@ -13,15 +13,17 @@ from ._internal.scrubbing import ScrubMatch
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
-with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
-# with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
+instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
+with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
+# with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
+with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
