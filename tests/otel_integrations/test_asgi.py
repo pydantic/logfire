@@ -98,6 +98,8 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.status_code': 200,
                 },
             },

@@ -4,7 +4,7 @@ import os
 from typing import Any
 
 import pytest
-from dirty_equals import IsJson, IsUrl
+from dirty_equals import IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.params import Header
@@ -134,6 +134,8 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.status_code': 404,
                 },
             },
@@ -174,6 +176,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/with_path_param/{param}',
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET /with_path_param/param_val',
@@ -290,6 +294,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/with_path_param/{param}',
                     'http.status_code': 200,
                 },
@@ -341,6 +347,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
@@ -473,6 +481,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/',
                     'http.status_code': 200,
                 },
@@ -517,17 +527,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'code.function': 'solve_dependencies',
                     'code.lineno': 123,
                     'values': '{"foo":"foo_val"}',
-                    'errors': IsJson(
-                        [
-                            {
-                                'type': 'int_parsing',
-                                'loc': ['query', 'bar'],
-                                'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                                'input': 'bar_val',
-                                'url': IsUrl,
-                            }
-                        ]
-                    ),
+                    'errors': '[{"type":"int_parsing","loc":["query","bar"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"bar_val"}]',
                     'http.method': 'GET',
                     'http.route': '/other',
                     'fastapi.route.name': 'other_route_name',
@@ -600,6 +600,8 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/other',
                     'http.status_code': 422,
                 },
@@ -664,6 +666,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/exception',
                 },
                 'events': [
@@ -768,6 +772,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/validation_error',
                     'http.status_code': 422,
                 },
@@ -878,6 +884,8 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
                     'http.route': '/secret/{path_param}',
                     'http.request.header.testauthorization': ("[Redacted due to 'auth']",),
                     'http.status_code': 200,
