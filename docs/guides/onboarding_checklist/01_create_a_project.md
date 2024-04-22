@@ -23,7 +23,7 @@ You have created a new project in **Logfire**! :partying_face:
 ??? success "You can also create a project via Web UI..."
     To create a new project within the UI, you can follow these steps:
 
-    1. Go to the [Logfire Web UI](https://dash.logfire.dev/).
+    1. Go to the [Logfire Web UI](https://logfire.pydantic.dev).
 
     ![Logfire Web UI](../../images/guide/browser-create-project.png)
 

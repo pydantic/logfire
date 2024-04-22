@@ -38,7 +38,7 @@ Authenticate your local environment with **Logfire** by running:
 logfire auth
 ```
 
-This opens a browser window to sign up or log in at [dash.logfire.dev](https://dash.logfire.dev).
+This opens a browser window to sign up or log in at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
 
 ## Basic Usage
@@ -70,7 +70,7 @@ All data sent to Logfire must be associated with a project.
 
 The project will be created in the organization "dmontagu". Continue? [y/n] (y):
 Enter the project name (platform): my-project
-Project initialized successfully. You will be able to view it at: http://dash.logfire.dev/dmontagu/my-project
+Project initialized successfully. You will be able to view it at: https://logfire.pydantic.dev/dmontagu/my-project
 Press Enter to continue:
 ```
 
@@ -89,7 +89,7 @@ same directory.
 Once you've created a project (or if you already had one), you should see:
 
 ```bash
-Logfire project URL: http://dash.logfire.dev/dmontagu/my-project
+Logfire project URL: https://logfire.pydantic.dev/dmontagu/my-project
 19:52:12.323 Hello, world!
 ```
 
