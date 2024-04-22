@@ -28,13 +28,14 @@ You'll be able to create **teams** with organization.
 
 ### Alerts & Notifications
 
-The following features are planned for the alerts and notifications system.
+The following features are planned for the alerts and notifications system:
 
-- Slack integration
-- Email integration
-- Webhook integration
+- [ ] Slack integration
+- [ ] Email integration
+- [X] Webhook integration
 
-Alerts will probably be based on SQL queries (with canned templates for common cases) that are run periodically, and decide if a new event has occurred.
+Alerts are based on SQL queries (with canned templates for common cases) that are run periodically, and decide if a
+new event has occurred.
 
 ### Links to GitHub code source
 
@@ -49,11 +50,6 @@ You'll be able to create dashboards with information from multiple projects.
 
 We are planning to offer an on-premise deployment option for Logfire.
 This will allow you to deploy Logfire on your own infrastructure.
-
-### Direct connection to Postgres
-
-You'll be able to connect to our Postgres database directly from an external service, and
-query Logfire data directly from your local machine.
 
 ### Schema Catalog
 
