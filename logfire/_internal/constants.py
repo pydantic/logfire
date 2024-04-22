@@ -78,7 +78,7 @@ NULL_ARGS_KEY = 'logfire.null_args'
 PENDING_SPAN_NAME_SUFFIX = ' (pending)'
 """Suffix added to the name of a pending span to indicate it's a pending span and avoid collisions with the real span while in flight."""
 
-LOGFIRE_BASE_URL = 'https://api.logfire.dev'
+LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 """The Logfire API base URL."""
 
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'

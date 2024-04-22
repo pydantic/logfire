@@ -86,7 +86,7 @@ def default_credentials(tmp_path: Path) -> Path:
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         """
-        [tokens."https://api.logfire.dev"]
+        [tokens."https://logfire-api.pydantic.dev"]
         token = "0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
         expiration = "2099-12-31T23:59:59"
         """
