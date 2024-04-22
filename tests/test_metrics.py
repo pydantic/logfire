@@ -56,7 +56,7 @@ def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
     # This is thanks to this setting in the metric reader:
     #   preferred_temporality=METRICS_PREFERRED_TEMPORALITY
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'counter',
                 'description': '',
@@ -87,7 +87,7 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
     histogram.record(4000)
 
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'histogram',
                 'description': '',
@@ -138,7 +138,7 @@ def test_create_metric_up_down_counter(metrics_reader: InMemoryMetricReader) -> 
     counter.add(4000)
 
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'up_down_counter',
                 'description': '',
@@ -173,7 +173,7 @@ def test_create_metric_counter_callback(metrics_reader: InMemoryMetricReader) ->
     observation = Observation(4321)
 
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'counter_callback',
                 'description': '',
@@ -207,7 +207,7 @@ def test_create_metric_gauge_callback(metrics_reader: InMemoryMetricReader) -> N
     observations = [Observation(300), Observation(4000)]
 
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'gauge_callback',
                 'description': '',
@@ -240,7 +240,7 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
     observation = Observation(4321)
 
     assert get_collected_metrics(metrics_reader) == snapshot(
-        [  # type: ignore
+        [
             {
                 'name': 'up_down_counter_callback',
                 'description': '',
