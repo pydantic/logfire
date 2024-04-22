@@ -17,7 +17,6 @@ There are a lot of features that we are planning to implement in Logfire. Here a
 
 The **Logfire** SDK scrubs sensitive data from logs on the client side before sending them to the server.
 
-
 We are planning to implement similar scrubbing on the server side for other OpenTelemetry clients.
 
 We'll also support adhoc scrubbing of rows.
