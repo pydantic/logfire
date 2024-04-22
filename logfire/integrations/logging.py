@@ -1,4 +1,5 @@
 """Integration with the standard library logging module."""
+
 from __future__ import annotations
 
 from logging import Handler as LoggingHandler, LogRecord

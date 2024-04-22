@@ -2,6 +2,7 @@
 
 Inspired by https://opentelemetry-python.readthedocs.io/en/latest/_modules/opentelemetry/sdk/trace/export.html#ConsoleSpanExporter
 """
+
 from __future__ import annotations
 
 import json

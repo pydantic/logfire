@@ -1,4 +1,5 @@
 """Backfill logfire logs and spans from a file or stream."""
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Dict, Union

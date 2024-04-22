@@ -32,8 +32,7 @@ if sys.version_info >= (3, 11):  # pragma: no branch
     from enum import StrEnum
 else:  # pragma: no cover
 
-    class StrEnum(str, Enum):
-        ...
+    class StrEnum(str, Enum): ...
 
 
 pandas.set_option('display.max_columns', 10)
@@ -143,8 +142,7 @@ class AttrsError(Exception):
     code: int
 
 
-class ListSubclass(_ListSubclass):
-    ...
+class ListSubclass(_ListSubclass): ...
 
 
 class StrSubclass(str):

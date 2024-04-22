@@ -74,8 +74,7 @@ def test_instrument_without_kwargs():
     with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
 
         @logfire.instrument('{foo}')
-        def home() -> None:
-            ...
+        def home() -> None: ...
 
         home()
 

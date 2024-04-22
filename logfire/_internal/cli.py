@@ -1,4 +1,5 @@
 """The CLI for Pydantic Logfire."""
+
 from __future__ import annotations
 
 import argparse

@@ -1,4 +1,5 @@
 """**Logfire** is the observability tool focused on developer experience."""
+
 from __future__ import annotations
 
 from typing import Any
