@@ -175,7 +175,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         datetime.date: _to_isoformat,
         datetime.datetime: _to_isoformat,
         datetime.time: _to_isoformat,
-        datetime.timedelta: lambda o: str(o.total_seconds()),
+        datetime.timedelta: lambda o: o.total_seconds(),
         Decimal: str,
         Enum: lambda o: to_json_value(o.value),
         GeneratorType: repr,

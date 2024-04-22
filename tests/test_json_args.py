@@ -327,7 +327,7 @@ class StrSubclass(str):
         pytest.param(
             timedelta(1, seconds=3672),
             '1 day, 1:01:12',
-            '"90072.0"',
+            '90072.0',
             {'type': 'string', 'x-python-datatype': 'timedelta'},
             id='timedelta',
         ),
