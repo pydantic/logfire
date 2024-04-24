@@ -18,7 +18,7 @@ jobs:
           python-version: '3.12'
       - run: |
             pip install poetry
-            poetry install -E lint -E type-check
+            poetry install -E test
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files --verbose

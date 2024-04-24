@@ -2303,7 +2303,6 @@ django = ["opentelemetry-instrumentation-django"]
 fastapi = ["opentelemetry-instrumentation-fastapi"]
 flask = ["opentelemetry-instrumentation-flask"]
 httpx = ["opentelemetry-instrumentation-httpx"]
-lint = ["ruff"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2"]
 pymongo = ["opentelemetry-instrumentation-pymongo"]
 redis = ["opentelemetry-instrumentation-redis"]
@@ -2311,10 +2310,9 @@ requests = ["opentelemetry-instrumentation-requests"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy"]
 starlette = ["opentelemetry-instrumentation-starlette"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
-test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "django", "eval-type-backport", "fastapi", "gitpython", "httpx", "inline-snapshot", "loguru", "openai", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-django", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-flask", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-starlette", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pydantic", "pytest", "pytest-django", "requests", "requests-mock", "sqlalchemy", "starlette", "structlog"]
-type-check = ["pyright"]
+test = ["Flask", "anyio", "attrs", "devtools", "dirty-equals", "django", "eval-type-backport", "fastapi", "gitpython", "httpx", "inline-snapshot", "loguru", "openai", "opentelemetry-instrumentation-aiohttp-client", "opentelemetry-instrumentation-asgi", "opentelemetry-instrumentation-django", "opentelemetry-instrumentation-fastapi", "opentelemetry-instrumentation-flask", "opentelemetry-instrumentation-httpx", "opentelemetry-instrumentation-requests", "opentelemetry-instrumentation-sqlalchemy", "opentelemetry-instrumentation-starlette", "opentelemetry-instrumentation-system-metrics", "opentelemetry-instrumentation-wsgi", "pandas", "pydantic", "pyright", "pytest", "pytest-django", "requests", "requests-mock", "ruff", "sqlalchemy", "starlette", "structlog"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "8343f78023f7f18438574eee98bcca0dcbed27a01ed3cdef0f58e8727164810a"
+content-hash = "e958328b5dfd230160334f40be92ee3a814c25b2458a27034c6f863619953e0c"

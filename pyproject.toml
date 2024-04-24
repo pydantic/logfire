@@ -117,9 +117,9 @@ test = [
     "inline-snapshot",
     "structlog",
     "loguru",
+    "ruff",
+    "pyright"
 ]
-lint = ["ruff"]
-type-check = ["pyright"]
 
 [tool.poetry.scripts]
 logfire = "logfire.cli:main"
