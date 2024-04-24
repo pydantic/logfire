@@ -158,7 +158,12 @@ markdown_extensions:
   - pymdownx.snippets
   - pymdownx.highlight:
       pygments_lang_class: true
-  - pymdownx.extra
+  - pymdownx.extra:
+      pymdownx.superfences:
+        custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
@@ -175,11 +180,11 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [ src/packages/logfire/logfire ]
+          paths: [src/packages/logfire/logfire]
           options:
             members_order: source
             separate_signature: true
-            filters: [ "!^_" ]
+            filters: ["!^_"]
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true
