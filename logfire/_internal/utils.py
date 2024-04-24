@@ -150,7 +150,7 @@ class UnexpectedResponse(RequestException):
             f'{request.method} {request.url} —> {self.response.status_code}\n'
             f'body: {truncate_string(body, max_length=120)}\n'
             'If the error persists, please contact us. '
-            '(See https://docs.logfire.dev/help/ for contact information.)'
+            '(See https://docs.pydantic.dev/logfire/help/ for contact information.)'
         )
 
     @classmethod

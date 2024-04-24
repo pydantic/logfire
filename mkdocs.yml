@@ -1,7 +1,7 @@
 site_name: Pydantic Logfire Documentation
 site_description: Pydantic Logfire Documentation
 strict: true
-site_url: https://docs.logfire.dev
+site_url: https://docs.pydantic.dev/logfire
 
 # TODO(Marcelo): Uncomment the following when the package gets its own repository.
 # repo_name: pydantic/logfire

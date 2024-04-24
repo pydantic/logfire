@@ -36,7 +36,7 @@ from .tracer import SDKTracerProvider
 from .utils import read_toml_file
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
-BASE_DOCS_URL = 'https://docs.logfire.dev'
+BASE_DOCS_URL = 'https://docs.pydantic.dev/logfire'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
 
 HOME_LOGFIRE.mkdir(exist_ok=True)
@@ -344,7 +344,7 @@ def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
-        epilog='See https://docs.logfire.dev/guide/cli/ for more detailed documentation.',
+        epilog='See https://docs.pydantic.dev/logfire/guide/cli/ for more detailed documentation.',
     )
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
