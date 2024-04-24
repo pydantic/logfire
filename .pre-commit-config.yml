@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: no-commit-to-branch # prevent direct commits to main branch
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff
+        entry: poetry run ruff
+        args: ["check", "--fix"]
+        types: [python]
+        language: system
+      - id: ruff format
+        name: Ruff Format
+        entry: poetry run ruff
+        args: [format]
+        language: system
+        types: [python]
+      - id: pyright
+        name: pyright
+        entry: poetry run pyright
+        args: [src]
+        language: system
+        types: [python]
+        pass_filenames: false
