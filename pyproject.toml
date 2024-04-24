@@ -120,7 +120,7 @@ test = [
     "structlog",
     "loguru",
     "ruff",
-    "pyright"
+    "pyright",
 ]
 
 [tool.poetry.scripts]
@@ -178,3 +178,8 @@ reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 exclude = ['docs/**/*.py', 'site/**/*.py']
 venvPath = '.venv'
+
+[tool.pytest.ini_options]
+xfail_strict = true
+filterwarnings = ['error']
+DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
