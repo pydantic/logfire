@@ -374,7 +374,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         while parent_id:
             try:
                 indent, line, grand_parent_id = self._span_history[parent_id]
-            except KeyError:
+            except KeyError:  # pragma: no cover
                 break
             else:
                 try:
