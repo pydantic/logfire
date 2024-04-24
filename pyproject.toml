@@ -66,6 +66,8 @@ pytest-django = { version = "^4.8.0", optional = true }
 openai = { version = ">=1.17.0", optional = true }
 structlog = { version = ">=21.1.0", optional = true }
 loguru = { version = "*", optional = true }
+ruff = "*"
+pyright = "*"
 
 [tool.poetry.extras]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
@@ -115,6 +117,8 @@ test = [
     "inline-snapshot",
     "structlog",
     "loguru",
+    "ruff",
+    "pyright"
 ]
 
 [tool.poetry.scripts]
@@ -129,3 +133,46 @@ logfire = "logfire.testing"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# https://beta.ruff.rs/docs/configuration/
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+    'Q',
+    'RUF100',
+    'C90',
+    'UP',
+    'I',
+    'D',
+    'DTZ005', # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
+] # add 'T' to disallow prints
+flake8-quotes = { inline-quotes = 'single', multiline-quotes = 'double' }
+isort = { combine-as-imports = true, known-first-party = ['logfire'] }
+mccabe = { max-complexity = 14 }
+ignore = [
+    'D107', # ignore missing docstring in __init__ methods
+    'D100', # ignore missing docstring in module
+    'D104', # ignore missing docstring in public package
+    'D105', # ignore missing docstring in magic methods
+    'C901', # ignore too complex functions, doesn't seem to be worth it
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ['D']
+"docs/**/*.py" = ['D']
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = 'single'
+
+[tool.pyright]
+typeCheckingMode = 'strict'
+reportUnnecessaryTypeIgnoreComment = true
+reportMissingTypeStubs = false
+exclude = ['docs/**/*.py', 'site/**/*.py']
+venvPath = '.venv'
