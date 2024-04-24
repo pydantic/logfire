@@ -30,3 +30,10 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      - id: lockfile
+        name: lockfile
+        entry: poetry check
+        args: [--lock]
+        language: system
+        pass_filenames: false
+        files: "pyproject.toml|poetry.lock"

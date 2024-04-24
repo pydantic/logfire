@@ -66,6 +66,8 @@ pytest-django = { version = "^4.8.0", optional = true }
 openai = { version = ">=1.17.0", optional = true }
 structlog = { version = ">=21.1.0", optional = true }
 loguru = { version = "*", optional = true }
+ruff = "*"
+pyright = "*"
 
 [tool.poetry.extras]
 system-metrics = ["opentelemetry-instrumentation-system-metrics"]
