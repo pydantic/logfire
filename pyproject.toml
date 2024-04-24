@@ -116,6 +116,8 @@ test = [
     "structlog",
     "loguru",
 ]
+lint = ["ruff"]
+type-check = ["pyright"]
 
 [tool.poetry.scripts]
 logfire = "logfire.cli:main"
