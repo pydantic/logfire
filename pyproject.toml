@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "logfire"
 version = "0.26.0"
@@ -97,10 +101,6 @@ dev-dependencies = [
 [tool.rye.scripts]
 type-check = "pyright"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.hatch.metadata]
 allow-direct-references = true
 
@@ -169,8 +169,7 @@ filterwarnings = [
     # See test_filter_warnings in test_testing.py
     'ignore:(?s).*google/cloud/pubsub_v1/subscriber/_protocol/streaming_pull_manager.*scheduler\.shutdown.*IndexError. tuple index out of range:pytest.PytestUnhandledThreadExceptionWarning',
     'ignore:(?s).*aiosqlite/core\.py.*get_loop\(future\).call_soon_threadsafe.*RuntimeError. Event loop is closed:pytest.PytestUnhandledThreadExceptionWarning',
-    # This problem is fixed in https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2013,
-    # but not the warning.
+    # This problem is fixed in https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2013, but not the warning.
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
     # ignore DeprecationWarning from httpx - Marcelo knows why this is happening
     "ignore:The 'app' shortcut is now deprecated.*:DeprecationWarning:httpx*:",
