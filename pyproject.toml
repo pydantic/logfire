@@ -92,7 +92,7 @@ dev-dependencies = [
     "pyright",
     "pip>=24.0",
     "pre-commit>=3.7.0",
-    "mkdocs>=1.6.0",
+    "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.17",
     "mkdocs-glightbox>=0.3.7",
     "mkdocstrings-python>=1.8.0",
@@ -100,6 +100,10 @@ dev-dependencies = [
 
 [tool.rye.scripts]
 type-check = "pyright"
+
+[[tool.rye.sources]]
+name = "company-internal"
+url = "https://${INDEX_USERNAME}:${INDEX_PASSWORD}@pppr.pydantic.dev/simple/"
 
 [tool.hatch.metadata]
 allow-direct-references = true
