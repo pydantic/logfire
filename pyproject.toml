@@ -88,6 +88,10 @@ dev-dependencies = [
     "pyright",
     "pip>=24.0",
     "pre-commit>=3.7.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.17",
+    "mkdocs-glightbox>=0.3.7",
+    "mkdocstrings-python>=1.8.0",
 ]
 
 [tool.rye.scripts]
