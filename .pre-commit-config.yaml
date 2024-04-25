@@ -13,26 +13,20 @@ repos:
     hooks:
       - id: ruff
         name: Ruff
-        entry: poetry run ruff
-        args: ["check", "--fix"]
+        entry: rye
+        args: ["lint"]
         types: [python]
         language: system
       - id: ruff format
         name: Ruff Format
-        entry: poetry run ruff
+        entry: ruff
         args: [format]
         language: system
         types: [python]
       # - id: pyright
       #   name: pyright
-      #   entry: poetry run pyright
+      #   entry: rye
       #   language: system
+      #   args: ["run", "type-check"]
       #   types: [python]
       #   pass_filenames: false
-      - id: lockfile
-        name: lockfile
-        entry: poetry check
-        args: [--lock]
-        language: system
-        pass_filenames: false
-        files: "pyproject.toml|poetry.lock"
