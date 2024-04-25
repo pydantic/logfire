@@ -47,7 +47,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Ensure requests to production domains fail
-        uses: ./.github/actions/no-production-domains
+        if: ${{ matrix.os }} == 'ubuntu-latest'
+        run: |
+          echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
       - name: set up python
         uses: actions/setup-python@v5
         with:
