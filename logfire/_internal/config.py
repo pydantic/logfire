@@ -1039,9 +1039,11 @@ class LogfireCredentials:
             else:
                 organization = organizations[0]
                 if not default_organization:
-                    Confirm.ask(
+                    confirm = Confirm.ask(
                         f'The project will be created in the organization "{organization}". Continue?', default=True
                     )
+                    if not confirm:
+                        sys.exit(1)
 
         project_name_default: str | None = project_name or default_project_name()
         project_name_prompt = 'Enter the project name'

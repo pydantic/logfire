@@ -942,6 +942,34 @@ def test_initialize_project_not_using_existing_project(
         }
 
 
+def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, False]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+
+        with pytest.raises(SystemExit):
+            logfire.configure()
+
+        assert confirm_mock.mock_calls == [
+            call('Do you want to use one of your existing projects? ', default=True),
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+
+
 def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -949,7 +977,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
     )
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
-        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, True]))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         prompt_mock = stack.enter_context(
             mock.patch(
                 'rich.prompt.Prompt.ask',
