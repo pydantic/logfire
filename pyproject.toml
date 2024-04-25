@@ -86,6 +86,7 @@ dev-dependencies = [
     "loguru",
     "ruff",
     "pyright",
+    "pip>=24.0",
 ]
 
 [build-system]

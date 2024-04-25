@@ -173,6 +173,7 @@ packaging==24.0
 pandas==2.2.2
 pathspec==0.12.1
     # via black
+pip==24.0
 platformdirs==4.2.1
     # via black
 pluggy==1.5.0
