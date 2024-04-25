@@ -21,6 +21,8 @@ jobs:
           python-version: '3.8'
       - uses: eifinger/setup-rye@v2
       - run: rye sync
+        env:
+          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye lint
       - run: rye format --check
 
@@ -45,5 +47,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: eifinger/setup-rye@v2
       - run: rye sync
+        env:
+          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye show
       - run: rye test

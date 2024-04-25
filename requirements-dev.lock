@@ -115,22 +115,20 @@ mdurl==0.1.2
     # via markdown-it-py
 mergedeep==1.3.4
     # via mkdocs
-    # via mkdocs-get-deps
-mkdocs==1.6.0
+    # via mkdocs-material
+mkdocs==1.5.3
     # via mkdocs-autorefs
     # via mkdocs-material
     # via mkdocstrings
 mkdocs-autorefs==1.0.1
     # via mkdocstrings
-mkdocs-get-deps==0.2.0
-    # via mkdocs
 mkdocs-glightbox==0.3.7
-mkdocs-material==9.5.19
+mkdocs-material==9.5.17+insiders.4.53.5
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocstrings==0.24.3
     # via mkdocstrings-python
-mkdocstrings-python==1.10.0
+mkdocstrings-python==1.8.0.1.6.0
 mypy-extensions==1.0.0
     # via black
 nodeenv==1.8.0
@@ -230,7 +228,7 @@ pathspec==0.12.1
 pip==24.0
 platformdirs==4.2.1
     # via black
-    # via mkdocs-get-deps
+    # via mkdocs
     # via mkdocstrings
     # via virtualenv
 pluggy==1.5.0
@@ -266,7 +264,6 @@ pytz==2024.1
     # via pandas
 pyyaml==6.0.1
     # via mkdocs
-    # via mkdocs-get-deps
     # via pre-commit
     # via pymdown-extensions
     # via pyyaml-env-tag
