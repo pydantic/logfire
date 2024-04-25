@@ -1,89 +1,56 @@
-# TODO revert this file to hatchling using https://github.com/pydantic/platform/pull/264/commits/01e4d2258776f98284d019d5040eceeb5e9af42f
-# when we move it to a new repo
-
-[tool.poetry]
+[project]
 name = "logfire"
 version = "0.26.0"
-description = "Coming soon..."
+description = "The best Python observability tool! 🪵🔥"
 authors = [
-    "Pydantic Team <engineering@pydantic.dev>",
-    "Samuel Colvin <samuel@pydantic.dev>",
-    "Hasan Ramezani <hasan@pydantic.dev>",
-    "Adrian Garcia Badaracco <adrian@pydantic.dev>",
-    "David Montague <david@pydantic.dev>",
-    "Marcelo Trylesinski <marcelo@pydantic.dev>",
-    "David Hewitt <david.hewitt@pydantic.dev>",
-    "Alex Hall <alex@pydantic.dev>",
+    { name = "Pydantic Team", email = "engineering@pydantic.dev" },
+    { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
+    { name = "Hasan Ramezani", email = "hasan@pydantic.dev" },
+    { name = "Adrian Garcia Badaracco", email = "adrian@pydantic.dev" },
+    { name = "David Montague", email = "david@pydantic.dev" },
+    { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
+    { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
+    { name = "Alex Hall", email = "alex@pydantic.dev" },
 ]
 license = "MIT"
 readme = "README.md"
+dependencies = [
+    "opentelemetry-sdk >= 1.21.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.21.0",
+    "opentelemetry-instrumentation >= 0.41b0",
+    "rich >= 13.4.2",
+    "protobuf >= 4.23.4",
+    "typing-extensions >= 4.0.0",
+    "tomli >= 2.0.1; python_version < '3.11'",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.8"
-opentelemetry-sdk = ">=1.21.0"
-opentelemetry-exporter-otlp-proto-http = ">=1.21.0"
-opentelemetry-instrumentation = ">=0.41b0"
-rich = ">=13.4.2"
-protobuf = ">=4.23.4"
-typing-extensions = ">=4.0.0"
-tomli = { version = ">=2.0.1", python = "<3.11" }
-# Extras
-anyio = { version = ">=4.2.0", optional = true }
-httpx = { version = ">=0.22.0", optional = true }
-pydantic = { version = ">=2.5.3", optional = true }
-starlette = { version = ">=0.27.0", optional = true }
-fastapi = { version = ">=0.68.0", optional = true }
-django = { version = ">=3.2.0", optional = true }
-Flask = { version = ">=3.0.0", optional = true }
-dirty-equals = { version = ">=0.6.0", optional = true }
-pytest = { version = ">=7.4.2", optional = true }
-opentelemetry-instrumentation-aiohttp-client = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-asgi = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-wsgi = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-celery = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-django = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-fastapi = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-flask = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-starlette = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-httpx = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-requests = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-sqlalchemy = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-pymongo = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-psycopg2 = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-redis = { version = ">=0.42b0", optional = true }
-opentelemetry-instrumentation-system-metrics = { version = ">=0.42b0", optional = true }
-requests = { version = ">=2.31.0", optional = true }
-sqlalchemy = { version = ">=2.0.22", optional = true }
-pandas = { version = "*", optional = true }
-attrs = { version = ">=23.1.0", optional = true }
-# gitpython is optionally used to get the current git commit hash without a subprocess call
-gitpython = { version = ">=3.1.40", optional = true }
-devtools = { version = "^0.12.2", optional = true }
-requests-mock = { version = "*", optional = true }
-inline-snapshot = { version = ">=0", optional = true }
-eval-type-backport = { version = "^0.1.3", optional = true }
-pytest-django = { version = "^4.8.0", optional = true }
-openai = { version = ">=1.17.0", optional = true }
-structlog = { version = ">=21.1.0", optional = true }
-loguru = { version = "*", optional = true }
-ruff = "*"
-pyright = "*"
+[project.optional-dependencies]
+system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
+aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
+celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
+django = ["opentelemetry-instrumentation-django >= 0.42b0"]
+fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
+flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
+httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
+starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
+sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
+psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0"]
+pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
+redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
+requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 
-[tool.poetry.extras]
-system-metrics = ["opentelemetry-instrumentation-system-metrics"]
-aiohttp = ["opentelemetry-instrumentation-aiohttp-client"]
-celery = ["opentelemetry-instrumentation-celery"]
-django = ["opentelemetry-instrumentation-django"]
-fastapi = ["opentelemetry-instrumentation-fastapi"]
-flask = ["opentelemetry-instrumentation-flask"]
-httpx = ["opentelemetry-instrumentation-httpx"]
-starlette = ["opentelemetry-instrumentation-starlette"]
-sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy"]
-psycopg2 = ["opentelemetry-instrumentation-psycopg2"]
-pymongo = ["opentelemetry-instrumentation-pymongo"]
-redis = ["opentelemetry-instrumentation-redis"]
-requests = ["opentelemetry-instrumentation-requests"]
-test = [
+[project.scripts]
+logfire = "logfire.cli:main"
+
+[project.entry-points."pydantic"]
+logfire-plugin = "logfire.integrations.pydantic:plugin"
+
+[project.entry-points."pytest11"]
+logfire = "logfire.testing"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
     "anyio",
     "httpx",
     "starlette",
@@ -118,21 +85,18 @@ test = [
     "structlog",
     "loguru",
     "ruff",
-    "pyright"
+    "pyright",
 ]
 
-[tool.poetry.scripts]
-logfire = "logfire.cli:main"
-
-[tool.poetry.plugins."pydantic"]
-logfire-plugin = "logfire.integrations.pydantic:plugin"
-
-[tool.poetry.plugins."pytest11"]
-logfire = "logfire.testing"
-
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["logfire"]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
@@ -176,3 +140,30 @@ reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 exclude = ['docs/**/*.py', 'site/**/*.py']
 venvPath = '.venv'
+
+[tool.pytest.ini_options]
+xfail_strict = true
+filterwarnings = [
+    'error',
+    # fastapi uses deprecated pydantic functions
+    'ignore:`FieldValidationInfo` is deprecated.*:DeprecationWarning:pydantic_core:',
+    'ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:fastapi:',
+    'ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:pydantic_core:',
+    # google packages are using deprecated APIs
+    'ignore::DeprecationWarning:pkg_resources*:',
+    'ignore::DeprecationWarning:google*:',
+    'ignore:.* google._upb._message.*:DeprecationWarning',
+    # OTEL uses some deprecated APIs
+    'ignore:pkg_resources:DeprecationWarning:opentelemetry.instrumentation.dependencies*:',
+    # To be able to test numpy.matrix
+    'ignore:the matrix subclass is not the recommended way.*:PendingDeprecationWarning',
+    # See test_filter_warnings in test_testing.py
+    'ignore:(?s).*google/cloud/pubsub_v1/subscriber/_protocol/streaming_pull_manager.*scheduler\.shutdown.*IndexError. tuple index out of range:pytest.PytestUnhandledThreadExceptionWarning',
+    'ignore:(?s).*aiosqlite/core\.py.*get_loop\(future\).call_soon_threadsafe.*RuntimeError. Event loop is closed:pytest.PytestUnhandledThreadExceptionWarning',
+    # This problem is fixed in https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2013,
+    # but not the warning.
+    "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
+    # ignore DeprecationWarning from httpx - Marcelo knows why this is happening
+    "ignore:The 'app' shortcut is now deprecated.*:DeprecationWarning:httpx*:",
+]
+DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"

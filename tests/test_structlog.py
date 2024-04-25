@@ -45,7 +45,7 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                 'logfire.msg': 'This is now being logged.',
                 'code.filepath': 'python.py',
                 'code.function': 'pytest_pyfunc_call',
-                'code.lineno': 194,
+                'code.lineno': 195,
                 'logfire.disable_console_log': True,
             },
         }

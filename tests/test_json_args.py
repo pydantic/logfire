@@ -18,7 +18,7 @@ import numpy
 import pandas
 import pytest
 from attrs import define
-from dirty_equals._other import IsJson
+from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -852,17 +852,68 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
     var = session.query(Model).all()[0]
     logfire.info('test message {var=}', var=var)
 
-    s = exporter.exported_spans[0]
-
-    assert s.attributes is not None
-    assert isinstance(s.attributes['logfire.msg'], str) and s.attributes['logfire.msg'].startswith(
-        'test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at'
-    )
-    assert s.attributes['var'] == '{"id":1,"name":"test name"}'
-    # insert_assert(s.attributes['logfire.json_schema'])
-    assert (
-        s.attributes['logfire.json_schema']
-        == '{"type":"object","properties":{"var":{"type":"object","title":"Model","x-python-datatype":"sqlalchemy"}}}'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'connect',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'connect',
+                    'db.name': ':memory:',
+                    'db.system': 'sqlite',
+                },
+            },
+            {
+                'name': 'connect',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'connect',
+                    'db.name': ':memory:',
+                    'db.system': 'sqlite',
+                },
+            },
+            {
+                'name': 'connect',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'connect',
+                    'db.name': ':memory:',
+                    'db.system': 'sqlite',
+                },
+            },
+            {
+                'name': 'test message {var=}',
+                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                'parent': None,
+                'start_time': 7000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test message {var=}',
+                    'logfire.msg': IsStr(
+                        regex='test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at .*'
+                    ),
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_log_sqlalchemy_class',
+                    'code.lineno': 123,
+                    'var': '{"id":1,"name":"test name"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"Model","x-python-datatype":"sqlalchemy"}}}',
+                },
+            },
+        ]
     )
 
 
