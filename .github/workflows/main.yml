@@ -66,9 +66,9 @@ jobs:
   release:
     name: Release
     needs: [check]
-    # if: "success() && startsWith(github.ref, 'refs/tags/')"
+    if: "success() && startsWith(github.ref, 'refs/tags/')"
     runs-on: ubuntu-latest
-    # environment: release
+    environment: release
 
     permissions:
       id-token: write
@@ -88,5 +88,5 @@ jobs:
 
       - run: rye build
 
-      # - name: Upload package to PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
