@@ -37,6 +37,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: eifinger/setup-rye@v2
       - run: rye sync
       - run: rye show
       - run: rye test
