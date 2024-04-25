@@ -471,6 +471,8 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(metrics.NoOpMeterProvider())
+        # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
+        self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
 
@@ -676,7 +678,8 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
-            if self is GLOBAL_CONFIG and not self._initialized:
+            if self is GLOBAL_CONFIG and not self._has_set_providers:
+                self._has_set_providers = True
                 trace.set_tracer_provider(self._tracer_provider)
                 metrics.set_meter_provider(self._meter_provider)
 

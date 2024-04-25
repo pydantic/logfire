@@ -14,6 +14,7 @@ import requests_mock
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
+from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure
@@ -1267,3 +1268,8 @@ def test_initialize_credentials_from_token_unhealthy():
             UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
         ):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
+
+
+def test_configure_twice_no_warning(caplog: LogCaptureFixture):
+    logfire.configure(send_to_logfire=False)
+    assert not caplog.messages
