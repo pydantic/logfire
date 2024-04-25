@@ -51,3 +51,42 @@ jobs:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye show
       - run: rye test
+
+  # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
+  check:
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+
+  release:
+    name: Release
+    needs: [check]
+    # if: "success() && startsWith(github.ref, 'refs/tags/')"
+    runs-on: ubuntu-latest
+    # environment: release
+
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # We can't do this yet https://github.com/astral-sh/rye/issues/1028
+      # - name: check GITHUB_REF matches package version
+      #   uses: samuelcolvin/check-python-version@v4.1
+      #   with:
+      #     version_file_path: logfire/version.py
+
+      - run: rye build
+
+      # - name: Upload package to PyPI
+      #   uses: pypa/gh-action-pypi-publish@release/v1
