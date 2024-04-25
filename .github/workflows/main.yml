@@ -21,6 +21,9 @@ jobs:
           python-version: '3.8'
       - uses: eifinger/setup-rye@v2
       - run: rye sync
+        env:
+          INDEX_USERNAME: ${{ secrets.INDEX_USERNAME }}
+          INDEX_PASSWORD: ${{ secrets.INDEX_PASSWORD }}
       - run: rye lint
       - run: rye format --check
 
@@ -45,5 +48,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: eifinger/setup-rye@v2
       - run: rye sync
+        env:
+          INDEX_USERNAME: ${{ secrets.INDEX_USERNAME }}
+          INDEX_PASSWORD: ${{ secrets.INDEX_PASSWORD }}
       - run: rye show
       - run: rye test
