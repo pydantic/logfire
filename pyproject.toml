@@ -101,10 +101,6 @@ dev-dependencies = [
 [tool.rye.scripts]
 type-check = "pyright"
 
-[[tool.rye.sources]]
-name = "company-internal"
-url = "https://${INDEX_USERNAME}:${INDEX_PASSWORD}@pppr.pydantic.dev/simple/"
-
 [tool.hatch.metadata]
 allow-direct-references = true
 

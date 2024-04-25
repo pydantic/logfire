@@ -22,8 +22,7 @@ jobs:
       - uses: eifinger/setup-rye@v2
       - run: rye sync
         env:
-          INDEX_USERNAME: ${{ secrets.INDEX_USERNAME }}
-          INDEX_PASSWORD: ${{ secrets.INDEX_PASSWORD }}
+          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye lint
       - run: rye format --check
 
@@ -49,7 +48,6 @@ jobs:
       - uses: eifinger/setup-rye@v2
       - run: rye sync
         env:
-          INDEX_USERNAME: ${{ secrets.INDEX_USERNAME }}
-          INDEX_PASSWORD: ${{ secrets.INDEX_PASSWORD }}
+          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye show
       - run: rye test
