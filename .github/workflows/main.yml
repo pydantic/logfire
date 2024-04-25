@@ -16,9 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.8'
-      - run: |
-            pip install poetry
-            poetry install -E test
+      - uses: sksat/setup-rye@v0.8.0
+      - run: rye install
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files --verbose
