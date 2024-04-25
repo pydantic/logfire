@@ -47,6 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Ensure requests to production domains fail
+        shell: bash
         run: |
           if [ "$NOT_LINUX" == "true" ] ; then
             echo "Can't set /etc/hosts configuration on non-Linux runner"
@@ -56,7 +57,7 @@ jobs:
           echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
         env:
-          NOT_LINUX: runner.os != 'linux'
+          NOT_LINUX: ${{ matrix.os }} != 'linux'
       - name: set up python
         uses: actions/setup-python@v5
         with:
