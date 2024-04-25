@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.8'
-      - uses: sksat/setup-rye@v0.8.0
+      - run: curl -sSf https://rye-up.com/get | bash
       - run: rye sync
       - run: rye lint
       - run: rye format --check
