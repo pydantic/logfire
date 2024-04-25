@@ -643,7 +643,7 @@ def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credential
 
         assert prompt_mock.mock_calls == [
             call(
-                "\nThe project you've entered is invalid. Valid project names:\n"
+                "\nThe project name you've entered is invalid. Valid project names:\n"
                 '  * may contain lowercase alphanumeric characters\n'
                 '  * may contain single hyphens\n'
                 '  * may not start or end with a hyphen\n\n'
