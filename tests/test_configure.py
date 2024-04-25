@@ -888,6 +888,60 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         }
 
 
+def test_initialize_project_not_using_existing_project(
+    tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, True]))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['my-project', '']))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure()
+
+        assert confirm_mock.mock_calls == [
+            call('Do you want to use one of your existing projects? ', default=True),
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default='testinitializeprojectnotus0'),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
 def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -932,7 +986,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
                 'detail': [
                     {
                         'loc': ['body', 'project_name'],
-                        'msg': 'The project name is reserved and cannot be used',
+                        'msg': 'This project name is reserved and cannot be used.',
                     }
                 ],
             },
@@ -975,7 +1029,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
                 default='testinitializeprojectcreate0',
             ),
             call(
-                "\nThe project you've entered is invalid. Valid project names:\n"
+                "\nThe project name you've entered is invalid. Valid project names:\n"
                 '  * may contain lowercase alphanumeric characters\n'
                 '  * may contain single hyphens\n'
                 '  * may not start or end with a hyphen\n\n'
@@ -983,12 +1037,12 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
                 default='testinitializeprojectcreate0',
             ),
             call(
-                '\nA project with that name already exists. Please enter a different project name',
+                "\nA project with the name 'existingprojectname' already exists. Please enter a different project name",
                 default=...,
             ),
             call(
                 '\nThe project name you entered is invalid:\n'
-                'The project name is reserved and cannot be used\n'
+                'This project name is reserved and cannot be used.\n'
                 'Please enter a different project name',
                 default=...,
             ),

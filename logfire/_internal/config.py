@@ -986,6 +986,7 @@ class LogfireCredentials:
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
+        force_project_name_prompt: bool = False,
     ) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
@@ -997,7 +998,8 @@ class LogfireCredentials:
             logfire_api_url: The Logfire API base URL.
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
-            project_name: Name of the project.
+            project_name: The default name of the project.
+            force_project_name_prompt: Whether to force a prompt for the project name.
             service_name: Name of the service.
 
         Returns:
@@ -1044,11 +1046,11 @@ class LogfireCredentials:
         project_name_default: str | None = project_name or default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
-            if not project_name:
+            if force_project_name_prompt or not project_name:
                 project_name = Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
-                    "\nThe project you've entered is invalid. Valid project names:\n"
+                    "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
                     '  * may contain single hyphens\n'
                     '  * may not start or end with a hyphen\n\n'
@@ -1062,7 +1064,8 @@ class LogfireCredentials:
                 if response.status_code == 409:
                     project_name_default = ...  # type: ignore  # this means the value is required
                     project_name_prompt = (
-                        '\nA project with that name already exists. Please enter a different project name'
+                        f"\nA project with the name '{project_name}' already exists."
+                        f' Please enter a different project name'
                     )
                     project_name = None
                     continue
@@ -1128,6 +1131,7 @@ class LogfireCredentials:
                 session=session,
                 logfire_api_url=logfire_api_url,
                 project_name=project_name,
+                force_project_name_prompt=True,
             )
 
         try:
