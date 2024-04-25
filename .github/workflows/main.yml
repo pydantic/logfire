@@ -18,6 +18,5 @@ jobs:
           python-version: '3.8'
       - uses: sksat/setup-rye@v0.8.0
       - run: rye sync
-      - uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: --all-files --verbose
+      - run: rye lint
+      - run: rye format --check
