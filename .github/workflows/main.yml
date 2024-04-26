@@ -33,15 +33,11 @@ jobs:
       # we use uv directly here since I couldn't get rye to work with UV_EXTRA_INDEX_URL
       # see https://github.com/pydantic/logfire/pull/12
       - run: pip install uv
-      - run: uv venv
-      - run: uv pip install -r requirements.lock -r requirements-dev.lock
+      - run: uv pip install --system -r requirements.lock -r requirements-dev.lock
+      - run: uv pip install --system -U mkdocs-material mkdocstrings-python
         env:
-          VIRTUAL_ENV: ./.venv
-      - run: uv pip install -U mkdocs-material mkdocstrings-python
-        env:
-          VIRTUAL_ENV: ./.venv
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-      - run: ./.venv/bin/mkdocs build
+      - run: mkdocs build
 
   test:
     name: test on ${{ matrix.python-version }}
