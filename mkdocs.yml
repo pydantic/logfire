@@ -96,6 +96,9 @@ nav:
           - Direct Database Connections: guides/advanced/06_direct_database_connections.md
   - Integrations:
       - Integrations: integrations/index.md
+      - Custom:
+          - Pydantic: integrations/pydantic.md
+          - OpenAI: integrations/openai.md
       - OpenTelemetry:
           - FastAPI: integrations/fastapi.md
           - Django: integrations/django.md
@@ -116,7 +119,6 @@ nav:
           - Logging: integrations/logging.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
-      - Pydantic: integrations/pydantic.md
       - Use Cases:
           - Web Frameworks: integrations/use_cases/web_frameworks.md
   - Reference:
@@ -198,5 +200,6 @@ plugins:
             - url: https://opentelemetry-python.readthedocs.io/en/latest/objects.inv
             - url: https://requests.readthedocs.io/en/latest/objects.inv
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
+            - url: https://rich.readthedocs.io/en/stable/objects.inv
 hooks:
   - docs/plugins/main.py
