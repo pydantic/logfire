@@ -4,29 +4,31 @@
 [![pypi](https://img.shields.io/pypi/v/logfire.svg)](https://pypi.python.org/pypi/logfire)
 [![license](https://img.shields.io/github/license/pydantic/logfire.svg)](https://github.com/pydantic/logfire/blob/main/LICENSE)
 
-Logging like you always hoped it would be.
-
 See the [documentation](https://docs.pydantic.dev/logfire/) for more information.
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
-This repo contains the Python SDK for `logfire` and documentation, the server application for recording and displaying data is closed source.
+This repo contains the Python SDK for `logfire` and documentation; the server application for recording and displaying data is closed source.
 
-## Setup
+## Using Logfire
 
-Install:
+This is a very brief overview of how to use Logfire, the [documentation](https://docs.pydantic.dev/logfire/) has much more detail.
+
+### Install
+
 ```bash
 pip install logfire
 ```
 [_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#install)
 
-Authenticate:
+## Authenticate
+
 ```bash
 logfire auth
 ```
 [_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#authentication)
 
-## Usage
+### Manual tracing
 
 Here's a simple manual tracing (aka logging) example:
 
@@ -42,6 +44,8 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 [_(learn more)_](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/03_add_manual_tracing/)
+
+### Integration
 
 Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://docs.pydantic.dev/logfire/integrations/), here's an example of integrating with FastAPI:
 
