@@ -64,6 +64,7 @@ dev-dependencies = [
     "dirty-equals",
     "pytest",
     "pytest-django",
+    "pytest-pretty",
     "pydantic",
     "requests",
     "sqlalchemy",
@@ -99,7 +100,7 @@ dev-dependencies = [
 ]
 
 [tool.rye.scripts]
-type-check = "pyright"
+typecheck = "pyright"
 
 [tool.hatch.metadata]
 allow-direct-references = true

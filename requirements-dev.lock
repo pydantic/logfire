@@ -115,7 +115,6 @@ mdurl==0.1.2
     # via markdown-it-py
 mergedeep==1.3.4
     # via mkdocs
-    # via mkdocs-material
 mkdocs==1.5.3
     # via mkdocs-autorefs
     # via mkdocs-material
@@ -123,12 +122,12 @@ mkdocs==1.5.3
 mkdocs-autorefs==1.0.1
     # via mkdocstrings
 mkdocs-glightbox==0.3.7
-mkdocs-material==9.5.17+insiders.4.53.5
+mkdocs-material==9.5.18
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocstrings==0.24.3
     # via mkdocstrings-python
-mkdocstrings-python==1.8.0.1.6.0
+mkdocstrings-python==1.10.0
 mypy-extensions==1.0.0
     # via black
 nodeenv==1.8.0
@@ -255,7 +254,9 @@ pymdown-extensions==10.8
 pyright==1.1.360
 pytest==8.1.1
     # via pytest-django
+    # via pytest-pretty
 pytest-django==4.8.0
+pytest-pretty==1.2.0
 python-dateutil==2.9.0.post0
     # via ghp-import
     # via pandas
@@ -278,6 +279,7 @@ requests==2.31.0
 requests-mock==1.12.1
 rich==13.7.1
     # via logfire
+    # via pytest-pretty
 ruff==0.4.1
 setuptools==69.5.1
     # via nodeenv

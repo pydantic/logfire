@@ -78,13 +78,12 @@ jobs:
       - name: set up python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.12"
 
-      # We can't do this yet https://github.com/astral-sh/rye/issues/1028
-      # - name: check GITHUB_REF matches package version
-      #   uses: samuelcolvin/check-python-version@v4.1
-      #   with:
-      #     version_file_path: logfire/version.py
+      - name: check GITHUB_REF matches package version
+        uses: samuelcolvin/check-python-version@v4.1
+        with:
+          version_file_path: pyproject.toml
 
       - uses: eifinger/setup-rye@v2
       - run: rye build
