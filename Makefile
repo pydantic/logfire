@@ -39,3 +39,11 @@ docs-serve:
 
 .PHONY: all
 all: format lint test
+
+.PHONY: cf-pages-build
+cf-pages-build:
+	python3 -V
+	python3 -m pip install --user uv
+	uv pip install --system -r requirements.lock -r requirements-dev.lock
+	uv pip install --system -U mkdocs-material mkdocstrings-python
+	mkdocs build
