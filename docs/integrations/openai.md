@@ -123,6 +123,8 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
+Shows up like this in Logfire:
+
 <figure markdown="span">
   ![Logfire OpenAI Streaming](../images/logfire-screenshot-openai-stream.png){ width="500" }
   <figcaption>OpenAI streaming response</figcaption>
