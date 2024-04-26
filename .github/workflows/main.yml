@@ -20,6 +20,7 @@ jobs:
         with:
           python-version: "3.8"
       - uses: eifinger/setup-rye@v2.6
+      - run: rye config --set-bool behavior.use-uv=true
       - run: rye sync --no-lock
       - run: make lint
 
@@ -59,6 +60,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: eifinger/setup-rye@v2.6
+      - run: rye config --set-bool behavior.use-uv=true
       - run: rye sync --no-lock
       - run: rye show
       - run: make test
@@ -97,6 +99,7 @@ jobs:
           version_file_path: pyproject.toml
 
       - uses: eifinger/setup-rye@v2
+      - run: rye config --set-bool behavior.use-uv=true
       - run: rye build
 
       - name: Upload package to PyPI
