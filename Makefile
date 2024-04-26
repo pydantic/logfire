@@ -45,4 +45,4 @@ cf-pages-build:
 	python3 -V
 	python3 -m pip install -r requirements.lock -r requirements-dev.lock
 	python3 -m pip install --extra-index-url $(PPPR_URL) -U mkdocs-material mkdocstrings-python
-	mkdocs build
+	python3 -m mkdocs build
