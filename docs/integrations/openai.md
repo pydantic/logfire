@@ -24,7 +24,7 @@ print(response.choices[0].text)
 
 1. In general, `logfire.instrument_openai()` should be all you need.
 
-For more information, see the [`instrument_openai()` API reference][logfire.Logfire.instrument_openai].
+_For more information, see the [`instrument_openai()` API reference][logfire.Logfire.instrument_openai]._
 
 With that you get:
 
@@ -53,7 +53,7 @@ The following OpenAI methods are covered:
 
 All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 
-For example, here's instrumentation of a image generation call:
+For example, here's instrumentation of an image generation call:
 
 ```python
 import openai
