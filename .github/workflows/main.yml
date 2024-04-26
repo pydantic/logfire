@@ -32,6 +32,7 @@ jobs:
           python-version: "3.12"
       - uses: eifinger/setup-rye@v2
       - run: rye sync
+      - run: rye sync --update mkdocs-material --update mkdocstrings-python
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: make docs
