@@ -43,6 +43,7 @@ all: format lint test
 .PHONY: cf-pages-build  # Build the docs for GitHub Pages
 cf-pages-build:
 	python3 -V
-	python3 -m pip install -r requirements.lock -r requirements-dev.lock
-	python3 -m pip install --extra-index-url $(PPPR_URL) -U mkdocs-material mkdocstrings-python
+	python3 -m pip install uv
+	python3 -m uv pip install --system -r requirements.lock -r requirements-dev.lock
+	python3 -m uv pip install --system --extra-index-url $(PPPR_URL) -U mkdocs-material mkdocstrings-python
 	python3 -m mkdocs build
