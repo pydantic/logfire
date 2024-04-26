@@ -1,27 +1,34 @@
-# Logfire — Uncomplicated Observability
+# Pydantic Logfire — Uncomplicated Observability
 
 [![CI](https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push)](https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI)
 [![pypi](https://img.shields.io/pypi/v/logfire.svg)](https://pypi.python.org/pypi/logfire)
 [![license](https://img.shields.io/github/license/pydantic/logfire.svg)](https://github.com/pydantic/logfire/blob/main/LICENSE)
 
-Logging and more like you always hoped it would be.
+Logging like you always hoped it would be.
 
 See the [documentation](https://docs.pydantic.dev/logfire/) for more information.
 
-**Feel free to report issues and ask questions about `logfire` in this repository!**
+**Feel free to report issues and ask any questions about Logfire in this repository!**
 
 This repo contains the Python SDK for `logfire` and documentation, the server application for recording and displaying data is closed source.
 
-## Installation
+## Setup
 
+Install:
 ```bash
 pip install logfire
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/?h=install#install)
+[_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#install)
+
+Authenticate:
+```bash
+logfire auth
+```
+[_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#authentication)
 
 ## Usage
 
-Very simple logging/tracing example:
+Here's a simple manual tracing (aka logging) example:
 
 ```python
 import logfire
@@ -36,10 +43,9 @@ with logfire.span('Asking the user their {question}', question='age'):
 ```
 [_(learn more)_](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/03_add_manual_tracing/)
 
-Or you can avoid manual instrumentation and instead integrate with [lots of popular packages](https://github.com/samuelcolvin?tab=repositories), here's an example of integrating with FastAPI:
+Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://docs.pydantic.dev/logfire/integrations/), here's an example of integrating with FastAPI:
 
 ```py
-from datetime import date
 import logfire
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -50,12 +56,9 @@ logfire.configure()
 logfire.instrument_fastapi(app)
 # next, instrument your database connector, http library etc. and add the logging handler
 
-
 class User(BaseModel):
     name: str
     country_code: str
-    dob: date
-
 
 @app.post('/')
 async def add_user(user: User):
@@ -63,6 +66,10 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 [_(learn more)_](https://docs.pydantic.dev/logfire/integrations/fastapi/)
+
+Logfire gives you a view into how your code is running like this:
+
+![Logfire screenshot](https://docs.pydantic.dev/logfire/images/index/logfire-screenshot-fastapi-200.png)
 
 ## Contributing
 
