@@ -19,7 +19,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
-      - uses: eifinger/setup-rye@v2.6
+      - name: Install Rye
+        run: |
+          curl -sSf https://rye-up.com/get | bash
+          echo "$HOME/.rye/shims" >> $GITHUB_PATH
+        env:
+          RYE_VERSION: 0.33.0
+          RYE_INSTALL_OPTION: "--yes"
+
       - run: rye sync --no-lock
       - run: make lint
 
@@ -58,7 +65,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: eifinger/setup-rye@v2.6
+      - name: Install Rye
+        run: |
+          curl -sSf https://rye-up.com/get | bash
+          echo "$HOME/.rye/shims" >> $GITHUB_PATH
+        env:
+          RYE_VERSION: 0.33.0
+          RYE_INSTALL_OPTION: "--yes"
+
       - run: rye sync --no-lock
       - run: rye show
       - run: make test
