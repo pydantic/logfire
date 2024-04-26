@@ -13,13 +13,13 @@ repos:
     hooks:
       - id: ruff
         name: Ruff
-        entry: rye
-        args: ["lint"]
+        entry: make
+        args: [lint]
         types: [python]
         language: system
       - id: ruff format
         name: Ruff Format
-        entry: ruff
+        entry: make
         args: [format]
         language: system
         types: [python]
@@ -27,6 +27,6 @@ repos:
       #   name: pyright
       #   entry: rye
       #   language: system
-      #   args: ["run", "type-check"]
+      #   args: ["run", "typecheck"]
       #   types: [python]
       #   pass_filenames: false
