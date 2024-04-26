@@ -101,6 +101,9 @@ dev-dependencies = [
 
 [tool.rye.scripts]
 typecheck = "pyright"
+docs = "mkdocs build"
+# no strict so you can build the docs without insiders packages
+docs-serve = "mkdocs serve --no-strict"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -114,59 +117,59 @@ line-length = 120
 
 [tool.ruff.lint]
 extend-select = [
-    'Q',
-    'RUF100',
-    'C90',
-    'UP',
-    'I',
-    'D',
-    'DTZ005', # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
-] # add 'T' to disallow prints
-flake8-quotes = { inline-quotes = 'single', multiline-quotes = 'double' }
-isort = { combine-as-imports = true, known-first-party = ['logfire'] }
+    "Q",
+    "RUF100",
+    "C90",
+    "UP",
+    "I",
+    "D",
+    "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
+] # add "T" to disallow prints
+flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
+isort = { combine-as-imports = true, known-first-party = ["logfire"] }
 mccabe = { max-complexity = 14 }
 ignore = [
-    'D107', # ignore missing docstring in __init__ methods
-    'D100', # ignore missing docstring in module
-    'D104', # ignore missing docstring in public package
-    'D105', # ignore missing docstring in magic methods
-    'C901', # ignore too complex functions, doesn't seem to be worth it
+    "D107", # ignore missing docstring in __init__ methods
+    "D100", # ignore missing docstring in module
+    "D104", # ignore missing docstring in public package
+    "D105", # ignore missing docstring in magic methods
+    "C901", # ignore too complex functions, doesn't seem to be worth it
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ['D']
-"docs/**/*.py" = ['D']
+"tests/**/*.py" = ["D"]
+"docs/**/*.py" = ["D"]
 
 [tool.ruff.format]
 docstring-code-format = true
-quote-style = 'single'
+quote-style = "single"
 
 [tool.pyright]
-typeCheckingMode = 'strict'
+typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ['docs/**/*.py', 'site/**/*.py']
-venvPath = '.venv'
+exclude = ["docs/**/*.py", "site/**/*.py"]
+venvPath = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
 filterwarnings = [
-    'error',
+    "error",
     # fastapi uses deprecated pydantic functions
-    'ignore:`FieldValidationInfo` is deprecated.*:DeprecationWarning:pydantic_core:',
-    'ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:fastapi:',
-    'ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:pydantic_core:',
+    "ignore:`FieldValidationInfo` is deprecated.*:DeprecationWarning:pydantic_core:",
+    "ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:fastapi:",
+    "ignore:`general_(before|after|wrap|plain)_validator_function` is deprecated.*:DeprecationWarning:pydantic_core:",
     # google packages are using deprecated APIs
-    'ignore::DeprecationWarning:pkg_resources*:',
-    'ignore::DeprecationWarning:google*:',
-    'ignore:.* google._upb._message.*:DeprecationWarning',
+    "ignore::DeprecationWarning:pkg_resources*:",
+    "ignore::DeprecationWarning:google*:",
+    "ignore:.* google._upb._message.*:DeprecationWarning",
     # OTEL uses some deprecated APIs
-    'ignore:pkg_resources:DeprecationWarning:opentelemetry.instrumentation.dependencies*:',
+    "ignore:pkg_resources:DeprecationWarning:opentelemetry.instrumentation.dependencies*:",
     # To be able to test numpy.matrix
-    'ignore:the matrix subclass is not the recommended way.*:PendingDeprecationWarning',
+    "ignore:the matrix subclass is not the recommended way.*:PendingDeprecationWarning",
     # See test_filter_warnings in test_testing.py
     'ignore:(?s).*google/cloud/pubsub_v1/subscriber/_protocol/streaming_pull_manager.*scheduler\.shutdown.*IndexError. tuple index out of range:pytest.PytestUnhandledThreadExceptionWarning',
     'ignore:(?s).*aiosqlite/core\.py.*get_loop\(future\).call_soon_threadsafe.*RuntimeError. Event loop is closed:pytest.PytestUnhandledThreadExceptionWarning',

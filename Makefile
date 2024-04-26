@@ -16,18 +16,26 @@ install: .rye .pre-commit
 	pre-commit install --install-hooks
 
 .PHONY: format  ## Format the code
-format: .rye
+format:
 	rye format
 	rye lint --fix
 
 .PHONY: lint  ## Lint the code
-lint: .rye
+lint:
 	rye lint
 	rye format --check
 
 .PHONY: test  ## Run the tests
-test: .rye
+test:
 	rye test
+
+.PHONY: docs  ## Build the documentation
+docs:
+	rye run docs
+
+.PHONY: docs-serve  ## Build the documentation
+docs-serve:
+	rye run docs-serve
 
 .PHONY: all
 all: format lint test

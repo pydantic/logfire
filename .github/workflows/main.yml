@@ -18,13 +18,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: "3.8"
+      - uses: eifinger/setup-rye@v2
+      - run: rye sync
+      - run: make lint
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
       - uses: eifinger/setup-rye@v2
       - run: rye sync
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-      - run: rye lint
-      - run: rye format --check
+      - run: make docs
 
   test:
     name: test on ${{ matrix.python-version }}
@@ -47,15 +57,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: eifinger/setup-rye@v2
       - run: rye sync
-        env:
-          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: rye show
-      - run: rye test
+      - run: make test
 
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [lint, test]
+    needs: [lint, docs, test]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
