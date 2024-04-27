@@ -44,6 +44,7 @@ click==8.1.7
 colorama==0.4.6
     # via griffe
     # via mkdocs-material
+coverage==7.5.0
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
@@ -224,7 +225,6 @@ pandas==2.2.2
 pathspec==0.12.1
     # via black
     # via mkdocs
-pip==24.0
 platformdirs==4.2.1
     # via black
     # via mkdocs
