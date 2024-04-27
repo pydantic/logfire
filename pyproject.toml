@@ -112,12 +112,12 @@ dev-dependencies = [
     "loguru",
     "ruff",
     "pyright",
-    "pip>=24.0",
     "pre-commit>=3.7.0",
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.17",
     "mkdocs-glightbox>=0.3.7",
     "mkdocstrings-python>=1.8.0",
+    "coverage[toml]>=7.5.0",
 ]
 
 [tool.rye.scripts]

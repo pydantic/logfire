@@ -27,7 +27,12 @@ lint:
 
 .PHONY: test  # Run the tests
 test:
-	rye test
+	rye run coverage run -m pytest
+
+.PHONY: testcov  # Run tests and generate a coverage report
+testcov: test
+	@echo "building coverage html"
+	@rye run coverage html
 
 .PHONY: docs  # Build the documentation
 docs:
