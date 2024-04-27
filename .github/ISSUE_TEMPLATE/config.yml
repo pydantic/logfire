@@ -7,5 +7,5 @@ contact_links:
     url: 'https://github.com/pydantic/pydantic/discussions/new?category=question'
     about: Ask a question about how to use Logfire using github discussions
   - name: 📧 Email Us
-    url: 'mailto:engineering@pydantic.dev'
-    about: To contact us privately, please email engineering@pydantic.dev
+    url: 'https://docs.pydantic.dev/logfire/help/#email'
+    about: To contact us privately, email engineering@pydantic.dev
