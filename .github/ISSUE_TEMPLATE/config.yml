@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Join Slack
+    url: 'https://docs.pydantic.dev/logfire/help/#slack'
+    about: Join the Pydantic Logfire Slack to ask questions, get help and chat about Logfire
+  - name: 🤔 Ask a Question on GitHub Discussions
+    url: 'https://github.com/pydantic/pydantic/discussions/new?category=question'
+    about: Ask a question about how to use Logfire using github discussions
+  - name: 📧 Email Us
+    url: 'mailto:engineering@pydantic.dev'
+    about: To contact us privately, please email engineering@pydantic.dev
