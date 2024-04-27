@@ -1068,3 +1068,10 @@ def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: 
 
         with pytest.raises(LogfireConfigError, match='Error creating project write token.'):
             main(['projects', 'use', 'myproject', '--org', 'fake_org'])
+
+
+def test_info(capsys: pytest.CaptureFixture[str]) -> None:
+    main(['info'])
+    output = capsys.readouterr().err.strip()
+    assert output.startswith('logfire="')
+    assert '[related_packages]' in output

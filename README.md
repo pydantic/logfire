@@ -82,4 +82,4 @@ We'd love anyone interested to contribute to the Logfire SDK and documentation, 
 
 ## Reporting a Security Vulnerability
 
-See our [security policy](https://github.com/pydantic/.github).
+See our [security policy](https://github.com/pydantic/logfire/security).

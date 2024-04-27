@@ -59,7 +59,7 @@ def version_callback() -> None:
 
 # TODO(Marcelo): Needs to be updated to reflect `logfire auth`.
 def parse_whoami(args: argparse.Namespace) -> None:
-    """Get your dashboard url and project name."""
+    """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
     current_user = LogfireCredentials.get_current_user(session=args._session, logfire_api_url=args.logfire_url)
     if current_user is None:
@@ -77,7 +77,7 @@ def parse_whoami(args: argparse.Namespace) -> None:
 
 
 def parse_clean(args: argparse.Namespace) -> None:
-    """Clean Logfire data."""
+    """Remove the contents of the Logfire data directory."""
     if args.logs and LOGFIRE_LOG_FILE.exists():
         LOGFIRE_LOG_FILE.unlink()
 
@@ -86,7 +86,7 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
-    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y]')
+    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y] ')
     if confirm.lower() in ('yes', 'y'):
         shutil.rmtree(data_dir)
         sys.stderr.write('Cleaned Logfire data.\n')
@@ -96,7 +96,7 @@ def parse_clean(args: argparse.Namespace) -> None:
 
 # TODO(Marcelo): Add tests for this command.
 def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
-    """Bulk load Logfire data."""
+    """Bulk upload data to Logfire."""
     data_dir = Path(args.data_dir)
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
@@ -181,7 +181,7 @@ OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm'}
 
 
 def parse_inspect(args: argparse.Namespace) -> None:
-    """Inspect installed packages and recommend the opentelemetry package that can be used with it."""
+    """Inspect installed packages and recommend packages that might be useful."""
     console = Console(file=sys.stderr)
     table = Table()
     table.add_column('Package')
@@ -231,7 +231,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.
 
-    It will authenticate you with Logfire, and store the credentials.
+    This will authenticate your machine with Logfire and store the credentials.
     """
     console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
@@ -340,11 +340,59 @@ def parse_use_project(args: argparse.Namespace) -> None:
         console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
 
 
+def parse_info(_args: argparse.Namespace) -> None:
+    """Show versions of logfire, OS and related packages."""
+    import importlib.metadata as importlib_metadata
+
+    from rich.syntax import Syntax
+
+    # get data about packages that are closely related to logfire
+    package_names = {
+        # use by otel to send data
+        'requests': 1,
+        # custom integration
+        'pydantic': 2,
+        # otel integration is customed
+        'fastapi': 3,
+        # custom integration
+        'openai': 4,
+        # dependencies of otel
+        'protobuf': 5,
+        # dependencies
+        'rich': 6,
+        # dependencies
+        'typing-extensions': 7,
+        # dependencies
+        'tomli': 8,
+    }
+    otel_index = max(package_names.values(), default=0) + 1
+    related_packages: list[tuple[int, str, str]] = []
+
+    for dist in importlib_metadata.distributions():
+        name = dist.metadata['Name']
+        index = package_names.get(name)
+        if index is not None:
+            related_packages.append((index, name, dist.version))
+        if name.startswith('opentelemetry'):
+            related_packages.append((otel_index, name, dist.version))
+
+    toml_lines = (
+        f'logfire="{VERSION}"',
+        f'platform="{platform.platform()}"',
+        f'python="{sys.version}"',
+        '[related_packages]',
+        *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
+    )
+    console = Console(file=sys.stderr)
+    # use background_color='default' to avoid rich's annoying background color that messes up copy-pasting
+    console.print(Syntax('\n'.join(toml_lines), 'toml', background_color='default', word_wrap=True))
+
+
 def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
-        epilog='See https://docs.pydantic.dev/logfire/guide/cli/ for more detailed documentation.',
+        epilog='See https://docs.pydantic.dev/logfire/reference/cli/ for more detailed documentation.',
     )
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
@@ -354,32 +402,30 @@ def _main(args: list[str] | None = None) -> None:
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
     # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help='authenticate with Logfire', description=parse_auth.__doc__)
+    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)
     cmd_auth.set_defaults(func=parse_auth)
 
-    cmd_backfill = subparsers.add_parser('backfill', help='bulk ingest backfill data')
+    cmd_backfill = subparsers.add_parser('backfill', help=parse_backfill.__doc__)
+    cmd_backfill.set_defaults(func=parse_backfill)
     cmd_backfill.add_argument('--data-dir', default='.logfire')
     cmd_backfill.add_argument('--file', default='logfire_spans.bin')
-    cmd_backfill.set_defaults(func=parse_backfill)
 
-    cmd_clean = subparsers.add_parser('clean', help='remove the contents of the Logfire data directory')
+    cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
+    cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
-    cmd_clean.set_defaults(func=parse_clean)
 
-    cmd_inspect = subparsers.add_parser(
-        'inspect',
-        help="suggest OpenTelemetry instrumentations based on your environment's installed packages",
-    )
+    cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
 
-    cmd_whoami = subparsers.add_parser('whoami', help='display the URL to your Logfire project')
-    cmd_whoami.add_argument('--data-dir', default='.logfire')
+    cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
+    cmd_whoami.add_argument('--data-dir', default='.logfire')
 
-    cmd_projects = subparsers.add_parser('projects', help='project management for Logfire')
+    cmd_projects = subparsers.add_parser('projects', help='Project management for Logfire.')
     cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
     projects_subparsers = cmd_projects.add_subparsers()
+
     cmd_projects_list = projects_subparsers.add_parser('list', help='list projects')
     cmd_projects_list.set_defaults(func=parse_list_projects)
 
@@ -398,6 +444,9 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
     cmd_projects_use.set_defaults(func=parse_use_project)
 
+    cmd_info = subparsers.add_parser('info', help=parse_info.__doc__)
+    cmd_info.set_defaults(func=parse_info)
+
     namespace = parser.parse_args(args)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
@@ -407,15 +456,16 @@ def _main(args: list[str] | None = None) -> None:
         logger.debug('context=%s url=%s', context, response.url)
 
     with tracer.start_as_current_span('logfire._internal.cli'):
-        with requests.Session() as session:
-            context = get_context()
-            session.hooks = {'response': functools.partial(log_trace_id, context=context)}
-            session.headers.update(context)
-            namespace._session = session
-
-            if namespace.version:
-                version_callback()
-            else:
+        if namespace.version:
+            version_callback()
+        elif namespace.func == parse_info:
+            namespace.func(namespace)
+        else:
+            with requests.Session() as session:
+                context = get_context()
+                session.hooks = {'response': functools.partial(log_trace_id, context=context)}
+                session.headers.update(context)
+                namespace._session = session
                 namespace.func(namespace)
 
 
