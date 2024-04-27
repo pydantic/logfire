@@ -7,9 +7,6 @@ repo_name: pydantic/logfire
 repo_url: https://github.com/pydantic/logfire
 edit_uri: edit/main/docs/
 
-# # we have this so the source.html partial is displayed
-# repo_url: http://for-login-button
-
 copyright: © Pydantic Services Inc. 2024
 extra:
   # hide the "Made with Material for MkDocs" message
