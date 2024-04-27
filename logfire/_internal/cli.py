@@ -392,7 +392,7 @@ def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
-        epilog='See https://docs.pydantic.dev/logfire/guide/cli/ for more detailed documentation.',
+        epilog='See https://docs.pydantic.dev/logfire/reference/cli/ for more detailed documentation.',
     )
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
