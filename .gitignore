@@ -4,3 +4,4 @@ site
 dist
 __pycache__
 *.env
+/scratch/
