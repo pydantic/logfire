@@ -86,7 +86,7 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
-    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y]')
+    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y] ')
     if confirm.lower() in ('yes', 'y'):
         shutil.rmtree(data_dir)
         sys.stderr.write('Cleaned Logfire data.\n')
