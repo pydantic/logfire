@@ -97,7 +97,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.xml
           env_vars: PYTHON
-      - run: coverage report --precision=2 --fail-under=99
+      - run: coverage report --fail-under=99
 
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:

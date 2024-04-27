@@ -1,7 +1,7 @@
 import pytest
 
 import logfire
-from logfire.testing import CaptureLogfire, TestExporter
+from logfire.testing import CaptureLogfire, TestExporter, TimeGenerator
 
 
 def test_reset_exported_spans(exporter: TestExporter) -> None:
@@ -77,3 +77,10 @@ def test_capfire_fixture(capfire: CaptureLogfire) -> None:
             ],
         },
     ]
+
+
+def test_time_generator():
+    t = TimeGenerator()
+    assert t() == 1000000000
+    assert t() == 2000000000
+    assert repr(t) == 'TimeGenerator(ns_time=2000000000)'
