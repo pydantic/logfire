@@ -1,12 +1,12 @@
 # Direct Database Connections
 
-The Logfire platform allows you to connect and run SQL queries against your data using PostgreSQL syntax.
+The **Logfire** platform allows you to connect and run SQL queries against your data using PostgreSQL syntax.
 
 By doing this, you can connect your existing tools such as Grafana, Metabase, Superset, or anything else with support for querying PostgreSQL sources.
 
 ## Generating credentials
 
-To connect, you'll first need to generate generate Database Credentials from your project page at `https://logfire.pydantic.dev/<organization>/<project>/settings/database-credentials`
+To connect, you'll first need to generate generate database credentials from your project page at `https://logfire.pydantic.dev/<organization>/<project>/settings/database-credentials`
 
 ![Creating database credentials](../../images/guide/direct-connect-credentials.png)
 
@@ -14,9 +14,9 @@ The credentials generated are a PostgreSQL URI which can be used as a connection
 
 ## Example: pgcli
 
-`pgcli` is a command-line tool to access PostgreSQL databases.
+[`pgcli`](https://www.pgcli.com/) is a command-line tool to access PostgreSQL databases.
 
-Using the credentials generated in the previous step as the argument to `pgcli`, you can connect directly to logfire:
+Using the credentials generated in the previous step as the argument to `pgcli`, you can connect directly to **Logfire**:
 
 ```
 $ pgcli postgresql://<user>:<password>@db.logfire.dev:5432/proj_david-test  # REDACTED
