@@ -1,4 +1,7 @@
+from unittest import mock
+
 import psycopg
+import psycopg.pq
 import psycopg2
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
@@ -55,3 +58,18 @@ def test_instrument_both():
     Psycopg2Instrumentor().uninstrument()
     assert original_connect is psycopg.connect
     assert original_connect2 is psycopg2.connect
+
+
+def test_instrument_psycopg_connection():
+    pgconn = mock.Mock()
+    conn = psycopg.Connection(pgconn)
+    original_cursor_factory = conn.cursor_factory
+
+    instrument_psycopg(conn)
+    assert original_cursor_factory is not conn.cursor_factory
+    assert conn._is_instrumented_by_opentelemetry
+    PsycopgInstrumentor().uninstrument_connection(conn)
+    assert original_cursor_factory is conn.cursor_factory
+
+    pgconn.status = psycopg.pq.ConnStatus.BAD
+    conn.close()

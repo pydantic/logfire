@@ -30,7 +30,7 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
         instrument_psycopg(conn_or_module.__name__, **kwargs)
         return
     else:
-        for cls in conn_or_module.__mro__:
+        for cls in conn_or_module.__class__.__mro__:
             package = cls.__module__.split('.')[0]
             if package in PACKAGE_NAMES:
                 _instrument_psycopg(package, conn_or_module, **kwargs)
