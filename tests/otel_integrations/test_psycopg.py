@@ -42,3 +42,16 @@ def test_instrument_psycopg2():
     assert original_connect is not psycopg2.connect
     Psycopg2Instrumentor().uninstrument()
     assert original_connect is psycopg2.connect
+
+
+def test_instrument_both():
+    original_connect = psycopg.connect
+    original_connect2 = psycopg2.connect
+
+    instrument_psycopg()
+    assert original_connect is not psycopg.connect
+    assert original_connect2 is not psycopg2.connect
+    PsycopgInstrumentor().uninstrument()
+    Psycopg2Instrumentor().uninstrument()
+    assert original_connect is psycopg.connect
+    assert original_connect2 is psycopg2.connect

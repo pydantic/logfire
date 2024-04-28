@@ -10,7 +10,7 @@ from packaging.requirements import Requirement
 
 PACKAGE_NAMES = ('psycopg', 'psycopg2')
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
@@ -22,7 +22,7 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
         for package in PACKAGE_NAMES:
             if find_spec(package):
                 instrument_psycopg(package, **kwargs)
-                return
+        return
     elif conn_or_module in PACKAGE_NAMES:
         _instrument_psycopg(conn_or_module, **kwargs)
         return
