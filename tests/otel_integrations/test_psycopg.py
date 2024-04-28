@@ -1,3 +1,4 @@
+import sys
 from unittest import mock
 
 import psycopg
@@ -79,3 +80,12 @@ def test_instrument_psycopg_connection():
 def test_instrument_unknown():
     with pytest.raises(ValueError):
         instrument_psycopg('unknown')
+
+
+def test_instrument_missing_otel_package():
+    sys.modules['opentelemetry.instrumentation.psycopg'] = None
+    with pytest.raises(
+        ImportError, match=r"Run `pip install 'logfire\[psycopg\]'` to install psycopg instrumentation."
+    ):
+        instrument_psycopg(psycopg)
+    del sys.modules['opentelemetry.instrumentation.psycopg']

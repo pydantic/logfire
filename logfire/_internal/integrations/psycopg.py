@@ -43,7 +43,7 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
     try:
         instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
     except ImportError:
-        raise ImportError("Run `pip install 'logfire[psycopg2]'` to install psycopg2 instrumentation.")
+        raise ImportError(f"Run `pip install 'logfire[{name}]'` to install {name} instrumentation.")
 
     instrumentor = getattr(instrumentor_module, f'{name.capitalize()}Instrumentor')()
     if conn is None:
