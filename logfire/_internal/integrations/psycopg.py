@@ -20,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
     if conn_or_module is None:
         for package in PACKAGE_NAMES:
-            if find_spec(package):
+            if find_spec(package):  # pragma: no branch
                 instrument_psycopg(package, **kwargs)
         return
     elif conn_or_module in PACKAGE_NAMES:
