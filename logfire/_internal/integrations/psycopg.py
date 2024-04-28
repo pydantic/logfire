@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import importlib
 from importlib.util import find_spec
 from types import ModuleType
@@ -21,16 +22,19 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
         for package in PACKAGE_NAMES:
             if find_spec(package):
                 instrument_psycopg(package, **kwargs)
+                return
     elif conn_or_module in PACKAGE_NAMES:
         _instrument_psycopg(conn_or_module, **kwargs)
+        return
     elif isinstance(conn_or_module, ModuleType):
-        instrument_psycopg(conn_or_module.__name__)
+        instrument_psycopg(conn_or_module.__name__, **kwargs)
+        return
     else:
         for cls in conn_or_module.__mro__:
             package = cls.__module__.split('.')[0]
             if package in PACKAGE_NAMES:
-                instrument_psycopg(package)
-                break
+                _instrument_psycopg(package, conn_or_module, **kwargs)
+                return
 
     raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
@@ -51,8 +55,9 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
 
 
 def check_version(name: str, version: str, instrumentor: Instrumentor):
-    for dep in instrumentor.instrumentation_dependencies():
-        req = Requirement(dep)
-        if req.name == name and req.specifier.contains(version):
-            return True
+    with contextlib.suppress(Exception):
+        for dep in instrumentor.instrumentation_dependencies():
+            req = Requirement(dep)
+            if req.name == name and req.specifier.contains(version.split()[0]):
+                return True
     return False
