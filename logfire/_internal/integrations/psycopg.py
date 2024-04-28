@@ -1,14 +1,22 @@
+from __future__ import annotations
+
 import importlib
 from importlib.util import find_spec
 from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from packaging.requirements import Requirement
 
 PACKAGE_NAMES = ('psycopg', 'psycopg2')
 
+if TYPE_CHECKING:
+    from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+    from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
-def instrument_psycopg(conn_or_module: Any = None, **kwargs):
+    Instrumentor = PsycopgInstrumentor | Psycopg2Instrumentor
+
+
+def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
     if conn_or_module is None:
         for package in PACKAGE_NAMES:
             if find_spec(package):
@@ -27,7 +35,7 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs):
     raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
 
-def _instrument_psycopg(name: str, conn: Any = None, **kwargs):
+def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
     try:
         instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
     except ImportError:
@@ -42,7 +50,7 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs):
         instrumentor.instrument_connection(conn)
 
 
-def check_version(name, version, instrumentor):
+def check_version(name: str, version: str, instrumentor: Instrumentor):
     for dep in instrumentor.instrumentation_dependencies():
         req = Requirement(dep)
         if req.name == name and req.specifier.contains(version):
