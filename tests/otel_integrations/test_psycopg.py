@@ -3,6 +3,7 @@ from unittest import mock
 import psycopg
 import psycopg.pq
 import psycopg2
+import pytest
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
@@ -73,3 +74,8 @@ def test_instrument_psycopg_connection():
 
     pgconn.status = psycopg.pq.ConnStatus.BAD
     conn.close()
+
+
+def test_instrument_unknown():
+    with pytest.raises(ValueError):
+        instrument_psycopg('unknown')
