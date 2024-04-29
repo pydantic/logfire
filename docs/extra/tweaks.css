@@ -4,6 +4,12 @@
   --md-default-bg-color: hsla(230, 15%, 21%, 1);
 }
 
+:root {
+  --md-primary-fg-color: #E520E9;
+  --md-primary-fg-color--light: #E520E9;
+  --md-primary-fg-color--dark: #E520E9;
+}
+
 .custom-login-button {
   font-size: 0.8rem;
   font-weight: 700;
