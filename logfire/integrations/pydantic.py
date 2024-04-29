@@ -13,7 +13,8 @@ from typing_extensions import ParamSpec
 import logfire
 from logfire import LogfireSpan
 
-from .._internal.config import GLOBAL_CONFIG
+from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from .._internal.config_params import ParamManager
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
@@ -116,6 +117,14 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                if not GLOBAL_CONFIG._initialized:  # type: ignore
+                    # These wrappers should be created when the model is defined if the plugin is activated
+                    # by env vars even if logfire.configure() hasn't been called yet,
+                    # but we don't want to actually record anything until logfire.configure() has been called.
+                    # For example it would be annoying if the user didn't want to send data to logfire
+                    # but validation ran into an error about not being authenticated.
+                    return validator(input_data, *args, **kwargs)
+
                 # If we get a validation error, we want to let it bubble through.
                 # If we used `with span:` this would set the log level to 'error' and export it,
                 # but we want the log level to be 'warn', so we end the span manually.
@@ -140,6 +149,10 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                if not GLOBAL_CONFIG._initialized:  # type: ignore
+                    # Only start recording after logfire has been configured.
+                    return validator(input_data, *args, **kwargs)
+
                 try:
                     result = validator(input_data, *args, **kwargs)
                 except ValidationError as error:
@@ -158,6 +171,10 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
+                if not GLOBAL_CONFIG._initialized:  # type: ignore
+                    # Only start recording after logfire has been configured.
+                    return validator(input_data, *args, **kwargs)
+
                 try:
                     result = validator(input_data, *args, **kwargs)
                 except Exception:
@@ -318,7 +335,7 @@ class LogfirePydanticPlugin:
         if logfire_settings and 'record' in logfire_settings:
             record = logfire_settings['record']
         else:
-            record = GLOBAL_CONFIG.pydantic_plugin.record
+            record = _pydantic_plugin_config().record
 
         if record == 'off':
             return None, None, None
@@ -341,10 +358,18 @@ IGNORED_MODULES: tuple[str, ...] = 'fastapi', 'logfire_backend', 'fastui'
 IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNORED_MODULES)
 
 
+def _pydantic_plugin_config() -> PydanticPlugin:
+    if GLOBAL_CONFIG._initialized:  # type: ignore
+        return GLOBAL_CONFIG.pydantic_plugin
+    else:
+        return ParamManager.create().pydantic_plugin()
+
+
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
-    include = GLOBAL_CONFIG.pydantic_plugin.include
-    exclude = GLOBAL_CONFIG.pydantic_plugin.exclude
+    config = _pydantic_plugin_config()
+    include = config.include
+    exclude = config.exclude
 
     # check if the model is in ignored model
     module = schema_type_path.module

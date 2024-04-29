@@ -11,8 +11,10 @@ from typing_extensions import get_args, get_origin
 
 from logfire.exceptions import LogfireConfigError
 
+from . import config
 from .constants import LOGFIRE_BASE_URL
 from .exporters.console import ConsoleColorsValues
+from .utils import read_toml_file
 
 try:
     import opentelemetry.instrumentation.system_metrics  # noqa: F401 # type: ignore
@@ -117,6 +119,12 @@ class ParamManager:
     config_from_file: dict[str, Any]
     """Config loaded from the config file."""
 
+    @classmethod
+    def create(cls, config_dir: Path | None = None) -> ParamManager:
+        config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
+        config_from_file = _load_config_from_file(config_dir)
+        return ParamManager(config_from_file=config_from_file)
+
     def load_param(self, name: str, runtime: Any = None) -> Any:
         """Load a parameter given its name.
 
@@ -150,6 +158,13 @@ class ParamManager:
                 return self._cast(value, name, param.tp)
 
         return self._cast(param.default, name, param.tp)
+
+    def pydantic_plugin(self):
+        return config.PydanticPlugin(
+            record=self.load_param('pydantic_plugin_record'),
+            include=self.load_param('pydantic_plugin_include'),
+            exclude=self.load_param('pydantic_plugin_exclude'),
+        )
 
     def _cast(self, value: Any, name: str, tp: type[T]) -> T | None:
         if tp is str:
@@ -191,3 +206,14 @@ def _check_bool(value: Any, name: str) -> bool | None:
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+
+
+def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
+    config_file = config_dir / 'pyproject.toml'
+    if not config_file.exists():
+        return {}
+    try:
+        data = read_toml_file(config_file)
+        return data.get('tool', {}).get('logfire', {})
+    except Exception as exc:
+        raise LogfireConfigError(f'Invalid config file: {config_file}') from exc

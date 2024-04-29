@@ -334,9 +334,7 @@ class _LogfireConfigData:
         scrubbing_callback: ScrubCallback | None = None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
-        config_dir = Path(config_dir or os.getenv('LOGFIRE_CONFIG_DIR') or '.')
-        config_from_file = self._load_config_from_file(config_dir)
-        param_manager = ParamManager(config_from_file=config_from_file)
+        param_manager = ParamManager.create(config_dir)
 
         self.base_url = param_manager.load_param('base_url', base_url)
         self.metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) or urljoin(self.base_url, '/v1/metrics')
@@ -375,11 +373,7 @@ class _LogfireConfigData:
         if isinstance(pydantic_plugin, dict):
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
-        self.pydantic_plugin = pydantic_plugin or PydanticPlugin(
-            record=param_manager.load_param('pydantic_plugin_record'),
-            include=param_manager.load_param('pydantic_plugin_include'),
-            exclude=param_manager.load_param('pydantic_plugin_exclude'),
-        )
+        self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin()
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -395,16 +389,6 @@ class _LogfireConfigData:
                 # many things could go wrong here, e.g. git is not installed, etc.
                 # ignore them
                 pass
-
-    def _load_config_from_file(self, config_dir: Path) -> dict[str, Any]:
-        config_file = config_dir / 'pyproject.toml'
-        if not config_file.exists():
-            return {}
-        try:
-            data = read_toml_file(config_file)
-            return data.get('tool', {}).get('logfire', {})
-        except Exception as exc:
-            raise LogfireConfigError(f'Invalid config file: {config_file}') from exc
 
 
 class LogfireConfig(_LogfireConfigData):
