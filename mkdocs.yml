@@ -93,9 +93,6 @@ nav:
           - Direct Database Connections: guides/advanced/06_direct_database_connections.md
   - Integrations:
       - Integrations: integrations/index.md
-      - Custom:
-          - Pydantic: integrations/pydantic.md
-          - OpenAI: integrations/openai.md
       - OpenTelemetry:
           - FastAPI: integrations/fastapi.md
           - Django: integrations/django.md
@@ -112,6 +109,9 @@ nav:
           - Redis: integrations/redis.md
           - Celery: integrations/celery.md
           - System Metrics: integrations/system_metrics.md
+      - Custom:
+          - Pydantic: integrations/pydantic.md
+          - OpenAI: integrations/openai.md
       - Logging:
           - Logging: integrations/logging.md
           - Structlog: integrations/structlog.md
