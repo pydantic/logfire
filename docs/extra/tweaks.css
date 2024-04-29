@@ -4,6 +4,7 @@
   --md-default-bg-color: hsla(230, 15%, 21%, 1);
 }
 
+/* https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors/#custom-colors */
 :root {
   --md-primary-fg-color: #E520E9;
   --md-primary-fg-color--light: #E520E9;
