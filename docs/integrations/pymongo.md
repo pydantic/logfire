@@ -31,7 +31,7 @@ from pymongo import MongoClient
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 
 logfire.configure()
-PymongoInstrumentor().instrument()
+PymongoInstrumentor().instrument(capture_statement=True)  # (1)!
 
 client = MongoClient()
 db = client["database"]
@@ -39,6 +39,11 @@ collection = db["collection"]
 collection.insert_one({"name": "MongoDB"})
 collection.find_one()
 ```
+
+1. The `capture_statement` parameter is set to `True` to capture the executed statements.
+
+    This is the default behavior on other OpenTelemetry instrumentation packages, but it's
+    disabled by default in PyMongo.
 
 ---
 
