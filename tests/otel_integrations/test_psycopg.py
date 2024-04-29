@@ -89,3 +89,17 @@ def test_instrument_missing_otel_package():
     ):
         instrument_psycopg(psycopg)
     del sys.modules['opentelemetry.instrumentation.psycopg']
+
+
+def test_instrument_connection_kwargs():
+    pgconn = mock.Mock()
+    conn = psycopg.Connection(pgconn)
+
+    with pytest.raises(
+        TypeError,
+        match=r'Extra keyword arguments are only supported when instrumenting the psycopg module, not a connection.',
+    ):
+        instrument_psycopg(conn, enable_commenter=True)
+
+    pgconn.status = psycopg.pq.ConnStatus.BAD
+    conn.close()
