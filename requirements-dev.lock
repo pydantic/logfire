@@ -70,6 +70,8 @@ gitdb==4.0.11
 gitpython==3.1.43
 googleapis-common-protos==1.63.0
     # via opentelemetry-exporter-otlp-proto-http
+greenlet==3.0.3
+    # via sqlalchemy
 griffe==0.44.0
     # via mkdocstrings-python
 h11==0.14.0
@@ -142,10 +144,13 @@ opentelemetry-api==1.24.0
     # via opentelemetry-instrumentation
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-flask
     # via opentelemetry-instrumentation-httpx
+    # via opentelemetry-instrumentation-psycopg
+    # via opentelemetry-instrumentation-psycopg2
     # via opentelemetry-instrumentation-requests
     # via opentelemetry-instrumentation-sqlalchemy
     # via opentelemetry-instrumentation-starlette
@@ -160,10 +165,13 @@ opentelemetry-instrumentation==0.45b0
     # via logfire
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-flask
     # via opentelemetry-instrumentation-httpx
+    # via opentelemetry-instrumentation-psycopg
+    # via opentelemetry-instrumentation-psycopg2
     # via opentelemetry-instrumentation-requests
     # via opentelemetry-instrumentation-sqlalchemy
     # via opentelemetry-instrumentation-starlette
@@ -173,10 +181,15 @@ opentelemetry-instrumentation-aiohttp-client==0.45b0
 opentelemetry-instrumentation-asgi==0.45b0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-starlette
+opentelemetry-instrumentation-dbapi==0.45b0
+    # via opentelemetry-instrumentation-psycopg
+    # via opentelemetry-instrumentation-psycopg2
 opentelemetry-instrumentation-django==0.45b0
 opentelemetry-instrumentation-fastapi==0.45b0
 opentelemetry-instrumentation-flask==0.45b0
 opentelemetry-instrumentation-httpx==0.45b0
+opentelemetry-instrumentation-psycopg==0.45b0
+opentelemetry-instrumentation-psycopg2==0.45b0
 opentelemetry-instrumentation-requests==0.45b0
 opentelemetry-instrumentation-sqlalchemy==0.45b0
 opentelemetry-instrumentation-starlette==0.45b0
@@ -194,6 +207,7 @@ opentelemetry-sdk==1.24.0
 opentelemetry-semantic-conventions==0.45b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-flask
@@ -239,6 +253,10 @@ protobuf==4.25.3
     # via opentelemetry-proto
 psutil==5.9.8
     # via opentelemetry-instrumentation-system-metrics
+psycopg==3.1.18
+psycopg-binary==3.1.18
+    # via psycopg
+psycopg2-binary==2.9.9
 pydantic==2.7.1
     # via fastapi
     # via openai
@@ -310,6 +328,7 @@ typing-extensions==4.11.0
     # via logfire
     # via openai
     # via opentelemetry-sdk
+    # via psycopg
     # via pydantic
     # via pydantic-core
     # via sqlalchemy
@@ -327,6 +346,7 @@ wrapt==1.16.0
     # via deprecated
     # via opentelemetry-instrumentation
     # via opentelemetry-instrumentation-aiohttp-client
+    # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-sqlalchemy
 zipp==3.18.1
     # via importlib-metadata

@@ -831,6 +831,29 @@ class Logfire:
 
         return instrument_openai(self, openai_client, suppress_other_instrumentation)
 
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
+        """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
+
+        Uses the OpenTelemetry instrumentation libraries for
+        [`psycopg`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html)
+        and
+        [`psycopg2`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html).
+
+        Args:
+            conn_or_module: Can be:
+
+                - The `psycopg` (version 3) or `psycopg2` module.
+                - The string `'psycopg'` or `'psycopg2'` to instrument the module.
+                - `None` (the default) to instrument whichever module(s) are installed.
+                - A `psycopg` or `psycopg2` connection.
+
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                particularly `enable_commenter` and `commenter_options`.
+        """
+        from .integrations.psycopg import instrument_psycopg
+
+        return instrument_psycopg(conn_or_module, **kwargs)
+
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
 
