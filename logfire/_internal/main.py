@@ -841,10 +841,12 @@ class Logfire:
 
         Args:
             conn_or_module: Can be:
+
                 - The `psycopg` (version 3) or `psycopg2` module.
                 - The string `'psycopg'` or `'psycopg2'` to instrument the module.
-                - None (the default) to instrument whichever module(s) are installed.
+                - `None` (the default) to instrument whichever module(s) are installed.
                 - A `psycopg` or `psycopg2` connection.
+
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
