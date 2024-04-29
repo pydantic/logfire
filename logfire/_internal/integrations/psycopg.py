@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any
 
 from packaging.requirements import Requirement
 
-PACKAGE_NAMES = ('psycopg', 'psycopg2')
-
 if TYPE_CHECKING:  # pragma: no cover
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
     Instrumentor = PsycopgInstrumentor | Psycopg2Instrumentor
+
+PACKAGE_NAMES = ('psycopg', 'psycopg2')
 
 
 def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
