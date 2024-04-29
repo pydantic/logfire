@@ -25,11 +25,6 @@ To install the latest version of **Logfire**, run:
 
 {{ install_logfire() }}
 
-=== "Conda"
-    ```bash
-    conda install logfire -c conda-forge
-    ```
-
 ## Authentication
 
 Authenticate your local environment with **Logfire** by running:
