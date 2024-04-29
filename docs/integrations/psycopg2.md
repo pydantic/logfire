@@ -10,28 +10,58 @@ Install `logfire` with the `psycopg2` extra:
 
 ## Usage
 
-<!-- TODO: Make sure this works. -->
+Let's setup a PostgreSQL database using Docker and run a Python script that connects to the database using Psycopg2 to
+demonstrate how to use **Logfire** with Psycopg2.
 
-Let's see a minimal example below. You can run it with `python main.py`:
+### Setup a PostgreSQL Database Using Docker
 
-```py title="main.py"
+First, we need to initialize a PostgreSQL database. This can be easily done using Docker with the following command:
+
+```bash
+docker run --name postgres \
+    -e POSTGRES_USER=user \
+    -e POSTGRES_PASSWORD=secret \
+    -e POSTGRES_DB=database \
+    -p 5432:5432 -d postgres
+```
+
+This command accomplishes the following:
+
+- `--name postgres`: This defines the name of the Docker container.
+- `-e POSTGRES_USER=user`: This sets a user for the PostgreSQL server.
+- `-e POSTGRES_PASSWORD=secret`: This sets a password for the PostgreSQL server.
+- `-e POSTGRES_DB=database`: This creates a new database named "database", the same as the one used in your Python script.
+- `-p 5432:5432`: This makes the PostgreSQL instance available on your local machine under port 5432.
+- `-d postgres`: This denotes the Docker image to be used, in this case, "postgres".
+
+### Run the Python script
+
+The following Python script connects to the PostgreSQL database and executes some SQL queries:
+
+```py
 import logfire
 import psycopg2
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
-
 logfire.configure()
 Psycopg2Instrumentor().instrument()
 
-cnx = psycopg2.connect(database='database')
+conn = psycopg2.connect(database='database', user='user', password='secret', host='0.0.0.0', port='5433')
 
-cursor = cnx.cursor()
-cursor.execute("SELECT * FROM Table")
+with logfire.span('Create table and insert data'), conn.cursor() as cursor:
+    cursor.execute('CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);')
 
-cnx.close()
+    # Insert some data
+    cursor.execute('INSERT INTO test (num, data) VALUES (%s, %s)', (100, 'abc'))
+    cursor.execute('INSERT INTO test (num, data) VALUES (%s, %s)', (200, 'def'))
+
+    # Query the data
+    cursor.execute('SELECT * FROM test')
 ```
 
-You can read more about the Psycopg2 OpenTelemetry package [here][opentelemetry-psycopg2].
+If you go to your project on the UI, you will see the span created by the script.
+
+Feel free to read more about the Psycopg2 OpenTelemetry package on the official [documentation][opentelemetry-psycopg2].
 
 !!! bug
     A bug occurs when `opentelemetry-instrumentation-psycopg2` is used with `psycopg2-binary` instead of `psycopg2`.

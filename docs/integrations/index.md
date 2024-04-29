@@ -2,15 +2,6 @@
 
 If a package you are using is not listed here, please let us know on our [Slack][slack]!
 
-## Custom Integrations
-
-Finally, we also have special integration with the Pydantic library and the OpenAI SDK:
-
-| Package                 | Type            |
-|-------------------------|-----------------|
-| [Pydantic](pydantic.md) | Data Validation |
-| [OpenAI](openai.md)     | AI              |
-
 ## OpenTelemetry Integrations
 
 Since **Pydantic Logfire** is [OpenTelemetry][opentelemetry] compatible, it can be used with any OpenTelemetry
@@ -41,9 +32,18 @@ If you are using Logfire with a web application, we also recommend reviewing
 our [Web Frameworks](use_cases/web_frameworks.md)
 documentation.
 
+## Custom Integrations
+
+We have special integration with the Pydantic library and the OpenAI SDK:
+
+| Package                 | Type            |
+|-------------------------|-----------------|
+| [Pydantic](pydantic.md) | Data Validation |
+| [OpenAI](openai.md)     | AI              |
+
 ## Logging Integrations
 
-We also have documentation for how to use Logfire with existing logging libraries:
+Finally, we also have documentation for how to use Logfire with existing logging libraries:
 
 | Package                                | Type    |
 |----------------------------------------|---------|
@@ -52,5 +52,4 @@ We also have documentation for how to use Logfire with existing logging librarie
 | [Structlog](structlog.md)              | Logging |
 
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
-
 [opentelemetry]: https://opentelemetry.io/

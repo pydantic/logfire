@@ -57,7 +57,6 @@ def version_callback() -> None:
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
 
 
-# TODO(Marcelo): Needs to be updated to reflect `logfire auth`.
 def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
