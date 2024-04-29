@@ -65,6 +65,13 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
         # If it matches, we can tell OTEL to skip the check so that it still works and doesn't log a warning.
         mod = importlib.import_module(name)
         skip_dep_check = check_version(name, mod.__version__, instrumentor)
+
+        if kwargs.get('enable_commenter') and name == 'psycopg':
+            import psycopg.pq
+
+            # OTEL looks for __libpq_version__ which only exists in psycopg2.
+            mod.__libpq_version__ = psycopg.pq.version()
+
         instrumentor.instrument(skip_dep_check=skip_dep_check, **kwargs)
     else:
         # instrument_connection doesn't have a skip_dep_check argument.

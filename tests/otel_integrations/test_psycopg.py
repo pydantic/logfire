@@ -8,7 +8,8 @@ import pytest
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
-from logfire._internal.integrations.psycopg import check_version, instrument_psycopg
+from logfire import instrument_psycopg
+from logfire._internal.integrations.psycopg import check_version
 
 
 def test_check_version():
@@ -103,3 +104,8 @@ def test_instrument_connection_kwargs():
 
     pgconn.status = psycopg.pq.ConnStatus.BAD
     conn.close()
+
+
+def test_sql_commenter():
+    instrument_psycopg(psycopg, enable_commenter=True)
+    assert psycopg.__libpq_version__ >= 110000  # type: ignore
