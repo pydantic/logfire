@@ -1,7 +1,17 @@
+/* https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors/#custom-colors */
+:root {
+  --md-primary-fg-color: #1D0214;
+  --md-primary-fg-color--light: #1D0214;
+  --md-primary-fg-color--dark: #1D0214;
+}
+
 /* Revert hue value to that of pre mkdocs-material v9.4.0 */
 [data-md-color-scheme="slate"] {
   --md-hue: 230;
   --md-default-bg-color: hsla(230, 15%, 21%, 1);
+  --md-primary-fg-color: #E520E9;
+  --md-primary-fg-color--light: #E520E9;
+  --md-primary-fg-color--dark: #E520E9;
 }
 
 .custom-login-button {
@@ -14,10 +24,10 @@
 }
 
 /* make David happy - make the padding next to the login button smaller */
-.md-header__source {
+/* .md-header__source {
   width: auto !important;
   margin-left: 1rem !important;
-}
+} */
 
 /* Hide all ToC entries for parameters. */
 li.md-nav__item>a[href*="("] {
