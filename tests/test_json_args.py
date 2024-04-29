@@ -1046,3 +1046,140 @@ def test_log_dicts_and_lists(exporter: TestExporter) -> None:
             },
         }
     ]
+
+
+def test_recursive_objects(exporter: TestExporter) -> None:
+    class Model(BaseModel):
+        lst: list[Any]
+
+    @dataclass
+    class Dataclass:
+        dct: dict[str, Any]
+
+    dct = {}
+    data = Dataclass(dct=dct)
+    lst = [data]
+    model = Model(lst=lst)
+    dct['model'] = model
+
+    logfire.info(
+        'hi',
+        dct=dct,
+        data=data,
+        lst=lst,
+        model=model,
+    )
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_recursive_objects',
+                    'code.lineno': 123,
+                    'dct': IsJson(
+                        # The reason this doesn't see a circular reference sooner
+                        # is that BaseModel.model_dump() returns copies of the objects.
+                        {'model': {'lst': [{'dct': {'model': {'lst': [{'dct': {'model': '<circular reference>'}}]}}}]}}
+                    ),
+                    'data': IsJson(
+                        {'dct': {'model': {'lst': [{'dct': {'model': {'lst': ['<circular reference>']}}}]}}}
+                    ),
+                    'lst': IsJson(
+                        [{'dct': {'model': {'lst': [{'dct': {'model': {'lst': ['<circular reference>']}}}]}}}]
+                    ),
+                    'model': IsJson(
+                        {'lst': [{'dct': {'model': {'lst': [{'dct': {'model': '<circular reference>'}}]}}}]}
+                    ),
+                    'logfire.json_schema': IsJson(
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'dct': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'model': {
+                                            'type': 'object',
+                                            'title': 'Model',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'lst': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'Dataclass',
+                                                        'x-python-datatype': 'dataclass',
+                                                    },
+                                                }
+                                            },
+                                        }
+                                    },
+                                },
+                                'data': {
+                                    'type': 'object',
+                                    'title': 'Dataclass',
+                                    'x-python-datatype': 'dataclass',
+                                    'properties': {
+                                        'dct': {
+                                            'type': 'object',
+                                            'properties': {
+                                                'model': {
+                                                    'type': 'object',
+                                                    'title': 'Model',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                }
+                                            },
+                                        }
+                                    },
+                                },
+                                'lst': {
+                                    'type': 'array',
+                                    'items': {
+                                        'type': 'object',
+                                        'title': 'Dataclass',
+                                        'x-python-datatype': 'dataclass',
+                                        'properties': {
+                                            'dct': {
+                                                'type': 'object',
+                                                'properties': {
+                                                    'model': {
+                                                        'type': 'object',
+                                                        'title': 'Model',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    }
+                                                },
+                                            }
+                                        },
+                                    },
+                                },
+                                'model': {
+                                    'type': 'object',
+                                    'title': 'Model',
+                                    'x-python-datatype': 'PydanticModel',
+                                    'properties': {
+                                        'lst': {
+                                            'type': 'array',
+                                            'items': {
+                                                'type': 'object',
+                                                'title': 'Dataclass',
+                                                'x-python-datatype': 'dataclass',
+                                            },
+                                        }
+                                    },
+                                },
+                            },
+                        }
+                    ),
+                },
+            }
+        ]
+    )
