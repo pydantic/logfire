@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from logging import Handler as LoggingHandler, LogRecord
+import inspect
+from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import Any, ClassVar, Mapping, cast
 
 from logfire import log
@@ -45,12 +46,31 @@ class LogfireLoggingHandler(LoggingHandler):
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
 
+    def __init__(self, level: int | str = NOTSET, fallback: LoggingHandler = StreamHandler()) -> None:
+        super().__init__(level=level)
+        self.fallback = fallback
+
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.
 
         Args:
             record: The log record to send.
         """
+        if record.name.startswith('opentelemetry.'):
+            # This method can lead to OTEL calling logging methods which recursively calls this again.
+            # If we detect recursion, use the fallback handler instead.
+            # TODO find a better way to handle this,
+            #  or document the fallback clearly and nudge the user to configure it.
+            frame = inspect.currentframe()
+            assert frame is not None
+            code_here = frame.f_code
+            frame = frame.f_back
+            while frame:
+                if frame.f_code is code_here:
+                    self.fallback.emit(record)
+                    return
+                frame = frame.f_back
+
         attributes = self.fill_attributes(record)
 
         log(
