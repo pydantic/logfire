@@ -101,19 +101,32 @@ def install_logfire(markdown: str, page: Page) -> str:
     extras = []
     if match:
         arguments = match.group(1).split('=')
-        extras = arguments[1].strip('[]').strip('\'"').split(',') if len(arguments) > 1 else []
+        # Split them and strip quotes for each one separately.
+        extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
 
-    # Build the installation instructions.
     package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
+    extras_arg = ' '.join(f'-E {extra}' for extra in extras)
     instructions = f"""
 === "PIP"
     ```bash
     pip install {package}
     ```
 
+=== "Rye"
+    ```bash
+    rye add logfire {extras_arg}
+    ```
+
 === "Poetry"
     ```bash
-    poetry add {package}
+    poetry add logfire {extras_arg}
+    ```
+"""
+    if not extras:
+        instructions += """
+=== "Conda"
+    ```bash
+    conda install -c conda-forge logfire
     ```
 """
     return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)
