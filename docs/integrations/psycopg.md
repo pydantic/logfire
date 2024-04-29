@@ -1,6 +1,6 @@
 # Psycopg
 
-The [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] function can be used to instrument [Psycopg][psycopg] PostgreSQL driver with **Logfire**. It works with both the `psycopg2` and `psycopg` (i.e. Psycopg 3) packages.
+The [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] function can be used to instrument the [Psycopg][psycopg] PostgreSQL driver with **Logfire**. It works with both the `psycopg2` and `psycopg` (i.e. Psycopg 3) packages.
 
 See the documentation for the [OpenTelemetry Psycopg Instrumentation][opentelemetry-psycopg] or the [OpenTelemetry Psycopg2 Instrumentation][opentelemetry-psycopg2] package for more details.
 
@@ -44,7 +44,7 @@ This command accomplishes the following:
 
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
-```py title="main.py"
+```py
 import logfire
 import psycopg
 
@@ -57,13 +57,17 @@ logfire.instrument_psycopg('psycopg')
 # or just instrument whichever modules (psycopg and/or psycopg2) are installed:
 logfire.instrument_psycopg()
 
-connection = psycopg.connect('dbname=database user=user password=secret host=0.0.0.0 port=5432')
+connection = psycopg.connect(
+    'dbname=database user=user password=secret host=0.0.0.0 port=5432'
+)
 
 # Or instrument just the connection:
 logfire.instrument_psycopg(connection)
 
 with logfire.span('Create table and insert data'), connection.cursor() as cursor:
-    cursor.execute('CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);')
+    cursor.execute(
+        'CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);'
+    )
 
     # Insert some data
     cursor.execute('INSERT INTO test (num, data) VALUES (%s, %s)', (100, 'abc'))
