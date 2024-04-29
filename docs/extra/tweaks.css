@@ -14,21 +14,6 @@
   --md-primary-fg-color--dark: #E520E9;
 }
 
-.custom-login-button {
-  font-size: 0.8rem;
-  font-weight: 700;
-  float: right;
-  border: 2px solid #fff;
-  border-radius: 8px;
-  padding: 6px 12px;
-}
-
-/* make David happy - make the padding next to the login button smaller */
-/* .md-header__source {
-  width: auto !important;
-  margin-left: 1rem !important;
-} */
-
 /* Hide all ToC entries for parameters. */
 li.md-nav__item>a[href*="("] {
   display: none;
