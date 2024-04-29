@@ -13,7 +13,7 @@ Install `logfire` with the `psycopg2` extra:
 Let's setup a PostgreSQL database using Docker and run a Python script that connects to the database using Psycopg2 to
 demonstrate how to use **Logfire** with Psycopg2.
 
-1. Setup a PostgreSQL Database Using Docker
+### Setup a PostgreSQL Database Using Docker
 
 First, we need to initialize a PostgreSQL database. This can be easily done using Docker with the following command:
 
@@ -27,14 +27,14 @@ docker run --name postgres \
 
 This command accomplishes the following:
 
-• `--name postgres`: This defines the name of the Docker container.
-• `-e POSTGRES_USER=user`: This sets a user for the PostgreSQL server.
-• -e `POSTGRES_PASSWORD=secret`: This sets a password for the PostgreSQL server.
-• `-e POSTGRES_DB=database`: This creates a new database named "database", the same as the one used in your Python script.
-• `-p 5432:5432`: This makes the PostgreSQL instance available on your local machine under port 5432.
-• `-d postgres`: This denotes the Docker image to be used, in this case, "postgres".
+- `--name postgres`: This defines the name of the Docker container.
+- `-e POSTGRES_USER=user`: This sets a user for the PostgreSQL server.
+- `-e POSTGRES_PASSWORD=secret`: This sets a password for the PostgreSQL server.
+- `-e POSTGRES_DB=database`: This creates a new database named "database", the same as the one used in your Python script.
+- `-p 5432:5432`: This makes the PostgreSQL instance available on your local machine under port 5432.
+- `-d postgres`: This denotes the Docker image to be used, in this case, "postgres".
 
-2. Run the Python script
+### Run the Python script
 
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
