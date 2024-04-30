@@ -12,38 +12,17 @@ Install `logfire` with the `django` extra:
 
 You need to add the [`DjangoInstrumentor`][django-instrumentor] to your code before your application is started.
 
-In the `manage.py` please add the following lines:
+In the `settings.py` file, add the following lines:
 
-```py hl_lines="6-7 14-15"
-#!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
-import os
-import sys
-
+```py
 import logfire
 from opentelemetry.instrumentation.django import DjangoInstrumentor
 
+# ...All the other settings...
 
-def main():
-    """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.settings")
-
-    logfire.configure()
-    DjangoInstrumentor().instrument()
-
-    try:
-        from django.core.management import execute_from_command_line
-    except ImportError as exc:
-        raise ImportError(
-            "Couldn't import Django. Are you sure it's installed and "
-            "available on your PYTHONPATH environment variable? Did you "
-            "forget to activate a virtual environment?"
-        ) from exc
-    execute_from_command_line(sys.argv)
-
-
-if __name__ == "__main__":
-    main()
+# Add the following lines at the end of the file
+logfire.configure()
+DjangoInstrumentor().instrument()
 ```
 
 You can read more about the Django OpenTelemetry package [here][opentelemetry-django].
