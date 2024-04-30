@@ -1212,7 +1212,7 @@ class LogfireSpan(ReadableSpan):
             value: The value of the attribute.
         """
         self._added_attributes = True
-        self._json_schema_properties[key] = create_json_schema(value)
+        self._json_schema_properties[key] = create_json_schema(value, set())
         key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
