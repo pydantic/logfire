@@ -113,7 +113,7 @@ CONFIG_PARAMS = {
 }
 
 
-@dataclass(**slots_true)
+@dataclass
 class ParamManager:
     """Manage parameters for a Logfire instance."""
 
