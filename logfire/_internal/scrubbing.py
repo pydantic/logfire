@@ -31,7 +31,7 @@ DEFAULT_PATTERNS = [
     'passwd',
     'mysql_pwd',
     'secret',
-    'auth',
+    r'auth(?!ors?\b)',
     'credential',
     'private[._ -]?key',
     'api[._ -]?key',
