@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.27.0"
+version = "0.28.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -59,7 +59,7 @@ flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
 starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
-asyncpg = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0"]
+asyncpg = ["opentelemetry-instrumentation-asyncpg >= 0.42b0"]
 psycopg = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
