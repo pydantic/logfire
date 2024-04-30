@@ -141,7 +141,12 @@ allow-direct-references = true
 packages = ["logfire"]
 
 [tool.hatch.build.targets.sdist]
-packages = ["logfire"]
+include = [
+    "/README.md",
+    "/Makefile",
+    "/logfire",
+    "/tests",
+]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
