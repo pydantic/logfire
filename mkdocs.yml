@@ -72,25 +72,25 @@ nav:
           - First Steps: guides/first_steps/index.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding_checklist/index.md
-          - Create a Project: guides/onboarding_checklist/01_create_a_project.md
-          - Integrate Logfire: guides/onboarding_checklist/02_integrate.md
-          - Add Logfire Manual Tracing: guides/onboarding_checklist/03_add_manual_tracing.md
-          - Add Logfire Auto-Tracing: guides/onboarding_checklist/04_add_auto_tracing.md
-          - Add Logfire Metrics: guides/onboarding_checklist/05_add_metrics.md
+          - Create a Project: guides/onboarding_checklist/create_a_project.md
+          - Integrate Logfire: guides/onboarding_checklist/integrate.md
+          - Add Logfire Manual Tracing: guides/onboarding_checklist/add_manual_tracing.md
+          - Add Logfire Auto-Tracing: guides/onboarding_checklist/add_auto_tracing.md
+          - Add Logfire Metrics: guides/onboarding_checklist/add_metrics.md
       - Web UI:
           - Intro to the Web UI: guides/web_ui/index.md
-          - Live View: guides/web_ui/01_live.md
-          - Dashboards: guides/web_ui/02_dashboards.md
-          - Alerts: guides/web_ui/03_alerts.md
-          - SQL Explorer: guides/web_ui/04_explore.md
+          - Live View: guides/web_ui/live.md
+          - Dashboards: guides/web_ui/dashboards.md
+          - Alerts: guides/web_ui/alerts.md
+          - SQL Explorer: guides/web_ui/explore.md
       - Advanced User Guide:
           - Advanced User Guide: guides/advanced/index.md
-          - Sampling: guides/advanced/01_sampling.md
-          - Scrubbing: guides/advanced/02_scrubbing.md
-          - Testing: guides/advanced/03_testing.md
-          - Backfill: guides/advanced/04_backfill.md
-          - Creating Write Tokens: guides/advanced/05_creating_write_tokens.md
-          - Direct Database Connections: guides/advanced/06_direct_database_connections.md
+          - Sampling: guides/advanced/sampling.md
+          - Scrubbing: guides/advanced/scrubbing.md
+          - Testing: guides/advanced/testing.md
+          - Backfill: guides/advanced/backfill.md
+          - Creating Write Tokens: guides/advanced/creating_write_tokens.md
+          - Direct Database Connections: guides/advanced/direct_database_connections.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
