@@ -1,18 +1,18 @@
 Here are some tutorials to help you get started using Logfire:
 
-## **[First Steps](first_steps/index.md)**
-In this guide, we walk you through installation and authentication in your local environment, sending a log message
+## **First Steps**
+In [this guide](first_steps/index.md), we walk you through installation and authentication in your local environment, sending a log message
 to Logfire, and viewing it in the Logfire Web UI.
 
-## **[⭐️ Onboarding Checklist ⭐️](onboarding_checklist/index.md)**
-In this guide, we provide a checklist with step-by-step instructions to take an existing application and thoroughly
+## **Onboarding Checklist 📋**
+In [this guide](onboarding_checklist/index.md), we provide a checklist with step-by-step instructions to take an existing application and thoroughly
 instrument it to send data to Logfire. In particular, we'll show you how to leverage Logfire's various
 [integrations](../integrations/index.md) to generate as much useful data with as little development effort as possible.
 
 **Following this checklist for your application is _critical_ to getting the most out of Logfire.**
 
-## **[Intro to the Web UI](web_ui/index.md)**
-In this guide, we introduce the various views and features of the Logfire Web UI, and show you how to use them
+## **Intro to the Web UI**
+In [this guide](web_ui/index.md), we introduce the various views and features of the Logfire Web UI, and show you how to use them
 to investigate your projects' data.
 
 [//]: # (When we have more than one, I think it's worth adding the following section:)
@@ -28,7 +28,7 @@ to investigate your projects' data.
 [//]: # (* **[Investigating your data with the Live and Explore views]&#40;...&#41;**)
 
 
-## **[Advanced User Guide](advanced/index.md)**
+## **Advanced User Guide**
 
 We cover additional topics in the **[Advanced User Guide](advanced/index.md)**, including:
 
@@ -40,7 +40,7 @@ database containing your project's data. You can use this for ad-hoc querying, o
 business intelligence tools like Grafana, Tableau, Metabase, etc.
 * ... and more.
 
-## **[Reference](../reference/index.md)**
+## **Integrations and Reference**
 
 * **[Integrations](../integrations/index.md):**
 In this section of the docs we explain what an OpenTelemetry instrumentation is, and offer detailed guidance about how
