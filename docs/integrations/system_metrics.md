@@ -1,5 +1,3 @@
-## System Metrics
-
 By default, **Logfire** does not collect system metrics.
 
 To enable metrics, you need to install the `logfire[system-metrics]` extra:
