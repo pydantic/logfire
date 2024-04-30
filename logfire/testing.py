@@ -19,7 +19,6 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, Sp
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.semconv.trace import SpanAttributes
-from pydantic import BaseModel
 
 import logfire
 
@@ -163,52 +162,6 @@ class TestExporter(SpanExporter):
             if _include_pending_spans is True
             or (span.get('attributes', {}).get(ATTRIBUTES_SPAN_TYPE_KEY, 'span') != 'pending_span')
         ]
-
-    def exported_spans_as_models(
-        self,
-        fixed_line_number: int | None = 123,
-        strip_filepaths: bool = True,
-        include_resources: bool = False,
-        include_package_versions: bool = False,
-        _include_pending_spans: bool = False,
-        _strip_function_qualname: bool = True,
-    ) -> list[ReadableSpanModel]:
-        """Same as exported_spans_as_dict but converts the dicts to pydantic models.
-
-        This allows using the result in exporters that expect `ReadableSpan`s, not dicts.
-        """
-        return [
-            ReadableSpanModel(**span)
-            for span in self.exported_spans_as_dict(
-                fixed_line_number=fixed_line_number,
-                strip_filepaths=strip_filepaths,
-                include_resources=include_resources,
-                include_package_versions=include_package_versions,
-                _include_pending_spans=_include_pending_spans,
-                _strip_function_qualname=_strip_function_qualname,
-            )
-        ]
-
-
-class SpanContextModel(BaseModel):
-    """A pydantic model similar to an opentelemetry SpanContext."""
-
-    trace_id: int
-    span_id: int
-    is_remote: bool
-
-
-class ReadableSpanModel(BaseModel):
-    """A pydantic model similar to an opentelemetry ReadableSpan."""
-
-    name: str
-    context: SpanContextModel
-    parent: SpanContextModel | None
-    start_time: int
-    end_time: int
-    attributes: dict[str, Any] | None
-    events: list[dict[str, Any]] | None = None
-    resource: dict[str, Any] | None = None
 
 
 @dataclass(repr=True)
