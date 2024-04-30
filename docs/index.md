@@ -5,20 +5,18 @@ hide:
 
 # Introducing Pydantic Logfire
 
-From the team behind Pydantic, **Logfire** is a new type of observability platform built on the same belief as our
+From the team behind Pydantic, **Logfire** is an observability platform built on the same belief as our
 open source library — that the most powerful tools can be easy to use.
 
-**Pydantic Logfire** is your window into the inner workings of your application,
-designed with the developer's needs and experience in mind:
+What sets Logfire apart:
 
-- **Uncomplicated Observability**: Logfire's dashboard is simple relative to the power it provides, meaning your whole engineering team will use it
-- **Better insights:** from rich display of Python objects to event-loop telemetry, profiling Python code and database query performance, Pydantic Logfire can give you a view into how your Python code is running that you can't get from any other observability tool
-- **SQL:** query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn. Using Postgres also means every existing tool that can connect to Postgres can query Logfire.
-- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, meaning you can use a wealth of existing tooling and infrastructure, including instrumentation for many common Python packages, it also means you can use Logfire with virtually any language
-- **Pydantic integration:** Logfire lets you understand the data that's passing through your Pydantic models and get analytics on validations out of the box
+- **Simple and Powerful:** Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it.
+- **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
+- **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+- **Pydantic Integration:** Understand the data flowing through your Pydantic models and get built-in analytics on validations.
 
-
-Pydantic Logfire will empower you to quickly instrument your applications using best practices, less code, less time, better understanding.
+Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
 ## Find the needle in a _stacktrace_
 

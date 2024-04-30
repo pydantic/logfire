@@ -6,6 +6,17 @@
 [![license](https://img.shields.io/github/license/pydantic/logfire.svg)](https://github.com/pydantic/logfire/blob/main/LICENSE)
 [![versions](https://img.shields.io/pypi/pyversions/logfire.svg)](https://github.com/pydantic/logfire)
 
+From the team behind Pydantic, **Logfire** is an observability platform built on the same belief as our
+open source library — that the most powerful tools can be easy to use.
+
+What sets Logfire apart:
+
+- **Simple and Powerful:** Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it.
+- **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
+- **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+- **Pydantic Integration:** Understand the data flowing through your Pydantic models and get built-in analytics on validations.
+
 See the [documentation](https://docs.pydantic.dev/logfire/) for more information.
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
