@@ -30,4 +30,4 @@ The [SDK API documentation](api/logfire.md) give reference docs for the **Logfir
 You can also email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
 
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
-[github-discussion]: https://github.com/pydantic/pydantic/discussions/new?category=question
+[github-discussion]: https://github.com/pydantic/logfire/discussions/new/choose
