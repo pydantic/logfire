@@ -14,7 +14,8 @@ from logfire._internal.exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from logfire.testing import ReadableSpanModel, SpanContextModel, TestExporter
+from logfire.testing import TestExporter
+from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
 
 tracer = trace.get_tracer('test')
 
@@ -355,7 +356,7 @@ def test_show_parents_console_exporter_interleaved() -> None:
 def test_verbose_attributes(exporter: TestExporter) -> None:
     d = {'a': 1, 'b': 2}
     logfire.info('Hello {name}!', name='world', d=d)
-    spans = exporter.exported_spans_as_models()
+    spans = exported_spans_as_models(exporter)
     # insert_assert(spans)
     assert spans == [
         ReadableSpanModel(
@@ -422,7 +423,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
 
 def test_tags(exporter: TestExporter):
     logfire.with_tags('tag1', 'tag2').info('Hello')
-    spans = exporter.exported_spans_as_models()
+    spans = exported_spans_as_models(exporter)
     # insert_assert(spans)
     assert spans == [
         ReadableSpanModel(
@@ -465,7 +466,7 @@ def test_levels(exporter: TestExporter):
     logfire.error('error message')
     logfire.fatal('fatal message')
 
-    spans = exporter.exported_spans_as_models()
+    spans = exported_spans_as_models(exporter)
     # insert_assert(spans)
     assert spans == [
         ReadableSpanModel(
