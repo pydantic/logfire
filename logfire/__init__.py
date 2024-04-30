@@ -21,6 +21,7 @@ log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
+instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
