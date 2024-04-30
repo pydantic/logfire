@@ -20,6 +20,7 @@ from typing_extensions import Annotated
 
 import logfire
 from logfire._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from logfire._internal.config_params import default_param_manager
 from logfire.integrations.pydantic import LogfirePydanticPlugin, get_schema_name
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
@@ -1090,6 +1091,8 @@ def test_record_all_env_var(exporter: TestExporter) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'all'}):
+        default_param_manager.cache_clear()
+
         # This model should be instrumented even though logfire.configure() hasn't been called
         # because of the LOGFIRE_PYDANTIC_PLUGIN_RECORD env var.
         class MyModel(BaseModel):
@@ -1137,6 +1140,7 @@ def test_record_failure_env_var(exporter: TestExporter) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'failure'}):
+        default_param_manager.cache_clear()
 
         class MyModel(BaseModel):
             x: int
@@ -1181,6 +1185,7 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'metrics'}):
+        default_param_manager.cache_clear()
 
         class MyModel(BaseModel):
             x: int
