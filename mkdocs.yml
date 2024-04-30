@@ -104,6 +104,7 @@ nav:
           - Requests: integrations/requests.md
           - AIOHTTP: integrations/aiohttp.md
           - SQLAlchemy: integrations/sqlalchemy.md
+          - Asyncpg: integrations/asyncpg.md
           - Psycopg: integrations/psycopg.md
           - PyMongo: integrations/pymongo.md
           - Redis: integrations/redis.md
