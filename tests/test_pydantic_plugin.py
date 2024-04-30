@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.metadata
+import os
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from dirty_equals import IsInt
@@ -18,6 +20,7 @@ from typing_extensions import Annotated
 
 import logfire
 from logfire._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from logfire._internal.config_params import default_param_manager
 from logfire.integrations.pydantic import LogfirePydanticPlugin, get_schema_name
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
@@ -1081,3 +1084,140 @@ def test_function_validator(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_record_all_env_var(exporter: TestExporter) -> None:
+    # Pretend that logfire.configure() hasn't been called yet.
+    GLOBAL_CONFIG._initialized = False  # type: ignore
+
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'all'}):
+        default_param_manager.cache_clear()
+
+        # This model should be instrumented even though logfire.configure() hasn't been called
+        # because of the LOGFIRE_PYDANTIC_PLUGIN_RECORD env var.
+        class MyModel(BaseModel):
+            x: int
+
+        # But validations shouldn't be recorded yet.
+        MyModel(x=1)
+        assert exporter.exported_spans_as_dict() == []
+
+        # Equivalent to calling logfire.configure() with the args in the `config` test fixture.
+        GLOBAL_CONFIG._initialized = True  # type: ignore
+
+        MyModel(x=2)
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'pydantic.validate_python',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 2000000000,
+                    'attributes': {
+                        'code.filepath': 'pydantic.py',
+                        'code.function': '_on_enter',
+                        'code.lineno': 123,
+                        'schema_name': 'MyModel',
+                        'validation_method': 'validate_python',
+                        'input_data': '{"x":2}',
+                        'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                        'logfire.level_num': 9,
+                        'logfire.span_type': 'span',
+                        'success': True,
+                        'result': '{"x":2}',
+                        'logfire.msg': 'Pydantic MyModel validate_python succeeded',
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                    },
+                }
+            ]
+        )
+
+
+def test_record_failure_env_var(exporter: TestExporter) -> None:
+    # Same as test_record_all_env_var but with LOGFIRE_PYDANTIC_PLUGIN_RECORD=failure.
+
+    GLOBAL_CONFIG._initialized = False  # type: ignore
+
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'failure'}):
+        default_param_manager.cache_clear()
+
+        class MyModel(BaseModel):
+            x: int
+
+        with pytest.raises(ValidationError):
+            MyModel(x='a')  # type: ignore
+        assert exporter.exported_spans_as_dict() == []
+
+        GLOBAL_CONFIG._initialized = True  # type: ignore
+
+        with pytest.raises(ValidationError):
+            MyModel(x='b')  # type: ignore
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'Validation on {schema_name} failed',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 1000000000,
+                    'attributes': {
+                        'code.filepath': 'test_pydantic_plugin.py',
+                        'code.function': 'test_record_failure_env_var',
+                        'code.lineno': 123,
+                        'schema_name': 'MyModel',
+                        'logfire.msg_template': 'Validation on {schema_name} failed',
+                        'logfire.level_num': 13,
+                        'error_count': 1,
+                        'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"b"}]',
+                        'logfire.span_type': 'log',
+                        'logfire.msg': 'Validation on MyModel failed',
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    },
+                }
+            ]
+        )
+
+
+def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
+    # Same as test_record_all_env_var but with LOGFIRE_PYDANTIC_PLUGIN_RECORD=metrics.
+
+    GLOBAL_CONFIG._initialized = False  # type: ignore
+
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'metrics'}):
+        default_param_manager.cache_clear()
+
+        class MyModel(BaseModel):
+            x: int
+
+        MyModel(x=1)
+        assert metrics_reader.get_metrics_data() is None  # type: ignore
+
+        GLOBAL_CONFIG._initialized = True  # type: ignore
+
+        MyModel(x=2)
+        assert get_collected_metrics(metrics_reader) == snapshot(
+            [
+                {
+                    'name': 'pydantic.validations',
+                    'description': '',
+                    'unit': '',
+                    'data': {
+                        'data_points': [
+                            {
+                                'attributes': {
+                                    'success': True,
+                                    'schema_name': 'MyModel',
+                                    'validation_method': 'validate_python',
+                                },
+                                'start_time_unix_nano': IsInt(gt=0),
+                                'time_unix_nano': IsInt(gt=0),
+                                'value': 1,
+                            }
+                        ],
+                        'aggregation_temporality': 1,
+                        'is_monotonic': True,
+                    },
+                }
+            ]
+        )
