@@ -239,4 +239,4 @@ To know more about which system metrics are collected, check the [System Metrics
 [counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-counter
 [gauge-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-gauge
 [up-down-counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-updowncounter
-[system-metrics]: /docs/integrations/system_metrics.md
+[system-metrics]: ../../integrations/system_metrics.md
