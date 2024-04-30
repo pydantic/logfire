@@ -8,6 +8,7 @@ Install `logfire` with the `django` extra:
 
 {{ install_logfire(extras=['django']) }}
 
+
 ## Usage
 
 You need to add the [`DjangoInstrumentor`][django-instrumentor] to your code before your application is started.
