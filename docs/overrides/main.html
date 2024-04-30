@@ -1,19 +1,16 @@
 {% extends "base.html" %}
 
 {% block announce %}
-  🔔 Pydantic Logfire is in <strong>closed beta</strong>. 🛠️
-  <br>
-  We are excited for you to try the platform, come join our
-  <a
-    href="https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng"
-  >
-    Slack Channel
-  </a>
-  to ask questions and provide feedback.
-
-  <em>Please keep talk of Logfire off social media for now.</em>
+<strong>Pydantic Logfire</strong> is in open beta. Please learn more and try it <a
+  href="https://pydantic.dev/logfire">here</a>. Feedback is welcome! 🚀
 {% endblock %}
 
 {% block extrahead %}
-  <meta name="robots" content="noindex, nofollow" />
+<meta name="robots" content="noindex, nofollow" />
+{% endblock %}
+
+{% block content %}
+{{ super() }}
+<script src="/flarelytics/client.js"></script>
+{% include 'mkdocs_run_deps.html' ignore missing %}
 {% endblock %}
