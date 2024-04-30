@@ -20,6 +20,7 @@ asgiref==3.8.1
 asttokens==2.4.1
     # via devtools
     # via inline-snapshot
+asyncpg==0.29.0
 attrs==23.2.0
 babel==2.14.0
     # via mkdocs-material
@@ -144,6 +145,7 @@ opentelemetry-api==1.24.0
     # via opentelemetry-instrumentation
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-asyncpg
     # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi
@@ -165,6 +167,7 @@ opentelemetry-instrumentation==0.45b0
     # via logfire
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-asyncpg
     # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi
@@ -181,6 +184,7 @@ opentelemetry-instrumentation-aiohttp-client==0.45b0
 opentelemetry-instrumentation-asgi==0.45b0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-starlette
+opentelemetry-instrumentation-asyncpg==0.45b0
 opentelemetry-instrumentation-dbapi==0.45b0
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
@@ -207,6 +211,7 @@ opentelemetry-sdk==1.24.0
 opentelemetry-semantic-conventions==0.45b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
+    # via opentelemetry-instrumentation-asyncpg
     # via opentelemetry-instrumentation-dbapi
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-fastapi

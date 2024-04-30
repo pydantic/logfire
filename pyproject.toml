@@ -59,6 +59,7 @@ flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
 starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
+asyncpg = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0"]
 psycopg = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
@@ -104,6 +105,7 @@ dev-dependencies = [
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-instrumentation-system-metrics",
+    "opentelemetry-instrumentation-asyncpg",
     "opentelemetry-instrumentation-psycopg",
     "opentelemetry-instrumentation-psycopg2",
     "gitpython",
@@ -123,6 +125,7 @@ dev-dependencies = [
     "coverage[toml]>=7.5.0",
     "psycopg[binary]",
     "psycopg2-binary",
+    "asyncpg",
 ]
 
 [tool.rye.scripts]
