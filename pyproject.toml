@@ -140,6 +140,9 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["logfire"]
 
+[tool.hatch.build.targets.sdist]
+packages = ["logfire"]
+
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
