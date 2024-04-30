@@ -12,7 +12,7 @@ This is what you'll see when you come to the live view of a project with some da
 
 1. **Organization and project labels:** In this example, the organization is `samuelcolvin`, and the project is `logfire-demo-spider`. You can click the organization name to go to the organization overview page; the project name is a link to this page.
 
-2. **Project pages:** These are links to the various project-specific pages, including the Live, [Dashboards](./02_dashboards.md), [Alerts](./03_alerts.md), [Explore](./04_explore.md), and Settings pages.
+2. **Project pages:** These are links to the various project-specific pages, including the Live, [Dashboards](./dashboards.md), [Alerts](./alerts.md), [Explore](./explore.md), and Settings pages.
 
 3. **Feedback and Beta buttons:** Click the feedback button to provide us feedback. The beta button has more information about Logfire's beta status.
 
@@ -22,7 +22,7 @@ This is what you'll see when you come to the live view of a project with some da
 
 6. **Organization selection panel:** Opens a drawer with links to the different organizations you are a member of, and also has links to the Terms and Conditions, Support, Documentation, and a Log Out button.
 
-7. **Query text input:** Enter a SQL query here to find spans that match the query. The query should be in the form of a Postgres-compatible `WHERE` clause on the records table (e.g. to find warnings, enter `level >= level_num('error')`). See the [Explore docs](./04_explore.md) for more detail about the schema here.
+7. **Query text input:** Enter a SQL query here to find spans that match the query. The query should be in the form of a Postgres-compatible `WHERE` clause on the records table (e.g. to find warnings, enter `level >= level_num('error')`). See the [Explore docs](./explore.md) for more detail about the schema here.
 
 8. **Search button:** You can click here to run the query after you've entered it, or just press cmd+enter (or ctrl+enter on windows/linux).
 

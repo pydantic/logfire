@@ -12,19 +12,19 @@ fix bugs, analyze user behavior, and make data-driven decisions.
 
 #### Logfire Onboarding Checklist
 
-* [ ] **[Create a Logfire project for your application](01_create_a_project.md)**: Set up a dedicated project in Logfire
+* [ ] **[Create a Logfire project for your application](create_a_project.md)**: Set up a dedicated project in Logfire
   to organize and manage your application's data.
 
-* [ ] **[Integrate Logfire](02_integrate.md)**: Fully integrate Logfire with your logging system and the packages you are
+* [ ] **[Integrate Logfire](integrate.md)**: Fully integrate Logfire with your logging system and the packages you are
   using.
 
-* [ ] **[Add Logfire manual tracing](03_add_manual_tracing.md)**: Enhance your tracing data by manually adding custom
+* [ ] **[Add Logfire manual tracing](add_manual_tracing.md)**: Enhance your tracing data by manually adding custom
   spans and logs to your code for more targeted data collection.
 
-* [ ] **[Add Logfire auto-tracing](04_add_auto_tracing.md)**: Discover how to leverage Logfire's auto-tracing
+* [ ] **[Add Logfire auto-tracing](add_auto_tracing.md)**: Discover how to leverage Logfire's auto-tracing
   capabilities to automatically instrument your application with minimal code changes.
 
-* [ ] **[Add Logfire metrics](05_add_metrics.md)**: Learn how to create and use metrics to track and measure important
+* [ ] **[Add Logfire metrics](add_metrics.md)**: Learn how to create and use metrics to track and measure important
   aspects of your application's performance and behavior.
 
 We'll walk you through the checklist step by step, introducing relevant features and concepts as we go. While the main
