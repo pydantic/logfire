@@ -93,7 +93,11 @@ def build_environment_variables_table(markdown: str, page: Page) -> str:
 
 def install_logfire(markdown: str, page: Page) -> str:
     """Build the installation instructions for each integration."""
-    if not (page.file.src_uri.startswith('integrations/') or page.file.src_uri.endswith('first_steps/index.md')):
+    if not (
+        page.file.src_uri.startswith('integrations/')
+        or page.file.src_uri.endswith('first_steps/index.md')
+        or page.file.src_uri.endswith('onboarding_checklist/add_metrics.md')
+    ):
         return markdown
 
     # Match instructions like "{{ install_logfire(extras=['fastapi']) }}". Get the extras, if any.
