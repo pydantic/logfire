@@ -22,6 +22,7 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [Requests](requests.md)             | HTTP Client             |
 | [AIOHTTP](aiohttp.md)               | HTTP Client             |
 | [SQLAlchemy](sqlalchemy.md)         | Databases               |
+| [Asyncpg](asyncpg.md)               | Databases               |
 | [Psycopg](psycopg.md)               | Databases               |
 | [PyMongo](pymongo.md)               | Databases               |
 | [Redis](redis.md)                   | Databases               |
