@@ -221,39 +221,17 @@ logfire.metric_up_down_counter_callback(
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-callback-metric].
 
-
 ## System Metrics
 
 By default, **Logfire** does not collect system metrics.
 
-To enable metrics, you need to install the `logfire[system-metrics]` extra:
+To enable metrics, you need just need install the `logfire[system-metrics]` extra:
 
-```bash
-pip install 'logfire[system-metrics]'
-```
+{{ install_logfire(extras=['system-metrics']) }}
 
-### Available Metrics
+**Logfire** will automatically collect system metrics if the `logfire[system-metrics]` extra is installed.
 
-Logfire collects the following system metrics:
-
-* `system.cpu.time`: CPU time spent in different modes.
-* `system.cpu.utilization`: CPU utilization in different modes.
-* `system.memory.usage`: Memory usage.
-* `system.memory.utilization`: Memory utilization in different modes.
-* `system.swap.usage`: Swap usage.
-* `system.swap.utilization`: Swap utilization
-* `system.disk.io`: Disk I/O operations (read/write).
-* `system.disk.operations`: Disk operations (read/write).
-* `system.disk.time`: Disk time (read/write).
-* `system.network.dropped.packets`: Dropped packets (transmit/receive).
-* `system.network.packets`: Packets (transmit/receive).
-* `system.network.errors`: Network errors (transmit/receive).
-* `system.network.io`: Network I/O (transmit/receive).
-* `system.network.connections`: Network connections (family/type).
-* `system.thread_count`: Thread count.
-* `process.runtime.memory`: Process memory usage.
-* `process.runtime.cpu.time`: Process CPU time.
-* `process.runtime.gc_count`: Process garbage collection count.
+To know more about which system metrics are collected, check the [System Metrics][system-metrics] documentation.
 
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram
@@ -261,3 +239,4 @@ Logfire collects the following system metrics:
 [counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-counter
 [gauge-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-gauge
 [up-down-counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-updowncounter
+[system-metrics]: /docs/integrations/system_metrics.md
