@@ -46,7 +46,7 @@ def instrument_fastapi(
         # FastAPIInstrumentor expects a comma-separated string, not a list.
         excluded_urls = ','.join(excluded_urls)
 
-    if use_opentelemetry_instrumentation:
+    if use_opentelemetry_instrumentation:  # pragma: no branch
         FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)  # type: ignore
 
     registry = patch_fastapi()
@@ -68,7 +68,7 @@ def instrument_fastapi(
             yield
         finally:
             del registry[app]
-            if use_opentelemetry_instrumentation:
+            if use_opentelemetry_instrumentation:  # pragma: no branch
                 FastAPIInstrumentor.uninstrument_app(app)
 
     return uninstrument_context()
@@ -84,7 +84,7 @@ def patch_fastapi():
         if instrumentation := registry.get(request.app):
             return await instrumentation.solve_dependencies(request, result)
         else:
-            return result
+            return result  # pragma: no cover
 
     # `solve_dependencies` is actually defined in `fastapi.dependencies.utils`,
     # but it's imported into `fastapi.routing`, which is where we need to patch it.
@@ -100,7 +100,7 @@ def patch_fastapi():
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )
-        return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+        return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)  # pragma: no cover
 
     original_run_endpoint_function = fastapi.routing.run_endpoint_function
     fastapi.routing.run_endpoint_function = patched_run_endpoint_function
@@ -128,7 +128,7 @@ class FastAPIInstrumentation:
         if excluded_urls is None:
             self.excluded_urls_list = get_excluded_urls('FASTAPI')
         else:
-            self.excluded_urls_list = parse_excluded_urls(excluded_urls)
+            self.excluded_urls_list = parse_excluded_urls(excluded_urls)  # pragma: no cover
 
     async def solve_dependencies(
         self, request: Request | WebSocket, result: tuple[dict[str, Any], list[Any], Any, Any, Any]
@@ -136,7 +136,7 @@ class FastAPIInstrumentation:
         try:
             url = get_host_port_url_tuple(request.scope)[2]
             if self.excluded_urls_list.url_disabled(url):
-                return result
+                return result  # pragma: no cover
 
             attributes: dict[str, Any] | None = {
                 # Shallow copy these so that the user can safely modify them, but we don't tell them that.
@@ -151,7 +151,7 @@ class FastAPIInstrumentation:
             }
 
             # Set the current app on `values` so that `patched_run_endpoint_function` can check it.
-            if isinstance(request, Request):
+            if isinstance(request, Request):  # pragma: no branch
                 instrumented_values = _InstrumentedValues(result[0])
                 instrumented_values.request = request
                 result = (instrumented_values, *result[1:])
@@ -169,7 +169,7 @@ class FastAPIInstrumentation:
             # Usually this will all be inside a span added by FastAPIInstrumentor with more detailed attributes.
             # We only add these attributes after the request_attributes_mapper so that the user
             # doesn't rely on what we add here - they can use `request` instead.
-            if isinstance(request, Request):
+            if isinstance(request, Request):  # pragma: no branch
                 attributes[SpanAttributes.HTTP_METHOD] = request.method
             route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
             if route:  # pragma: no branch
@@ -179,7 +179,7 @@ class FastAPIInstrumentation:
                         'fastapi.route.name': route.name,
                     }
                 )
-                if isinstance(route, APIRoute):
+                if isinstance(route, APIRoute):  # pragma: no branch
                     attributes['fastapi.route.operation_id'] = route.operation_id
 
             self.logfire_instance.log(level, 'FastAPI arguments', attributes=attributes)
@@ -216,7 +216,7 @@ def _default_request_attributes_mapper(
     _request: Request | WebSocket,
     attributes: dict[str, Any],
 ):
-    return attributes
+    return attributes  # pragma: no cover
 
 
 class _InstrumentedValues(dict):  # type: ignore

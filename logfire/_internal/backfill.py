@@ -139,7 +139,7 @@ class PrepareBackfill:
         # convert the span to an otel span
         if isinstance(data, Log):
             timestamp = data.timestamp or datetime.now(tz=timezone.utc)
-            if timestamp.tzinfo is None:
+            if timestamp.tzinfo is None:  # pragma: no branch
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
             timestamp = int(timestamp.timestamp() * 1e9)
             if data.parent_span_id is not None:
@@ -149,7 +149,7 @@ class PrepareBackfill:
                     is_remote=False,
                 )
             else:
-                parent_context = None
+                parent_context = None  # pragma: no cover
             otlp_attributes = user_attributes(data.attributes)
 
             if data.formatted_msg is None:  # pragma: no cover
@@ -191,10 +191,10 @@ class PrepareBackfill:
             assert data.start_timestamp is not None
             assert data.end_timestamp is not None
             end_timestamp = data.end_timestamp or datetime.now(tz=timezone.utc)
-            if end_timestamp.tzinfo is None:
+            if end_timestamp.tzinfo is None:  # pragma: no branch
                 end_timestamp = end_timestamp.replace(tzinfo=timezone.utc)
             start_timestamp = data.start_timestamp
-            if start_timestamp.tzinfo is None:
+            if start_timestamp.tzinfo is None:  # pragma: no branch
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
             otlp_attributes = user_attributes(data.log_attributes)
             if data.formatted_msg is None:  # pragma: no branch

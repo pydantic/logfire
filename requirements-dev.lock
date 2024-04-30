@@ -70,8 +70,6 @@ gitdb==4.0.11
 gitpython==3.1.43
 googleapis-common-protos==1.63.0
     # via opentelemetry-exporter-otlp-proto-http
-greenlet==3.0.3
-    # via sqlalchemy
 griffe==0.44.0
     # via mkdocstrings-python
 h11==0.14.0
@@ -118,6 +116,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mergedeep==1.3.4
     # via mkdocs
+    # via mkdocs-material
 mkdocs==1.5.3
     # via mkdocs-autorefs
     # via mkdocs-material
@@ -125,12 +124,12 @@ mkdocs==1.5.3
 mkdocs-autorefs==1.0.1
     # via mkdocstrings
 mkdocs-glightbox==0.3.7
-mkdocs-material==9.5.18
+mkdocs-material==9.5.17+insiders.4.53.5
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocstrings==0.24.3
     # via mkdocstrings-python
-mkdocstrings-python==1.10.0
+mkdocstrings-python==1.8.0.1.6.0
 mypy-extensions==1.0.0
     # via black
 nodeenv==1.8.0
