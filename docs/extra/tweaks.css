@@ -9,13 +9,20 @@
 
 /* Revert hue value to that of pre mkdocs-material v9.4.0 */
 [data-md-color-scheme="slate"] {
-  --md-hue: 230;
-  --md-default-bg-color: #1d0214;
-  --md-primary-fg-color: #e620e9;
-  --md-primary-fg-color--light: #e620e9;
-  --md-primary-fg-color--dark: #e620e9;
-  /* this color is used by the the announce banner: */
-  --md-footer-bg-color: #1d0214;
+  /* Hue taken from hsl of #1d0214, used for bg on website*/
+  --md-hue: 320;
+  /* Increase the lightness by 5%, opacity by 0.2 */
+  --md-default-fg-color: hsla(var(--md-hue),15%,95%,1.0);
+  --md-default-fg-color--light: hsla(var(--md-hue),15%,95%,0.76);
+  --md-default-fg-color--lighter: hsla(var(--md-hue),15%,95%,0.52);
+  --md-default-fg-color--lightest: hsla(var(--md-hue),15%,95%,0.32);
+  /* Change the saturation and lightness to match #1d0214 */
+  --md-default-bg-color: hsla(var(--md-hue),87%,6%,1);
+  --md-default-bg-color--light: hsla(var(--md-hue),87%,6%,0.54);
+  --md-default-bg-color--lighter: hsla(var(--md-hue),87%,6%,0.26);
+  --md-default-bg-color--lightest: hsla(var(--md-hue),87%,6%,0.07);
+  /* Increase the opacity of code to 1.0 */
+  --md-code-fg-color: hsla(var(--md-hue),18%,86%,1.0)
 }
 
 /* Hide all ToC entries for parameters. */
