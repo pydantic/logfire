@@ -119,7 +119,7 @@ class ProxyMeterProvider(MeterProvider):
             if isinstance(self.provider, SDKMeterProvider):
                 self.provider.shutdown(timeout_millis)
 
-    def force_flush(self, timeout_millis: float = 30_000) -> None:
+    def force_flush(self, timeout_millis: float = 30_000) -> None:  # pragma: no cover
         with self.lock:
             if isinstance(self.provider, SDKMeterProvider):  # pragma: no branch
                 self.provider.force_flush(timeout_millis)

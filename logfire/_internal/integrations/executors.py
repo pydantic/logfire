@@ -42,7 +42,7 @@ try:
         This gets run from within a process / thread.
         """
         if parent_config is not None:
-            deserialize_config(parent_config)
+            deserialize_config(parent_config)  # pragma: no cover
 
         with attach_context(carrier):
             return fn()

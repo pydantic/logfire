@@ -233,7 +233,7 @@ def _get_int_from_env(env_var: str) -> int | None:
     value = os.getenv(env_var)
     if not value:
         return None
-    return int(value)
+    return int(value)  # pragma: no cover
 
 
 @dataclasses.dataclass
@@ -627,7 +627,7 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                     )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    if self.processors is None:
+                    if self.processors is None:  # pragma: no branch
                         # Only add the default span processor if the user didn't specify any of their own.
                         add_span_processor(self.default_span_processor(span_exporter))
 

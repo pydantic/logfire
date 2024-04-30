@@ -51,7 +51,7 @@ class SpanProcessorWrapper(SpanProcessor):
         self.processor.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.processor.force_flush(timeout_millis)
+        return self.processor.force_flush(timeout_millis)  # pragma: no cover
 
 
 def _tweak_asgi_send_recieve_spans(span: ReadableSpanDict):

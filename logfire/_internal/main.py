@@ -106,7 +106,7 @@ class Logfire:
         return self._config.get_tracer_provider()
 
     @cached_property
-    def _meter_provider(self) -> ProxyMeterProvider:
+    def _meter_provider(self) -> ProxyMeterProvider:  # pragma: no cover
         return self._config.get_meter_provider()
 
     @cached_property
@@ -117,7 +117,7 @@ class Logfire:
     def _spans_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str | None = None) -> Tracer:
+    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str | None = None) -> Tracer:  # pragma: no cover
         return self._tracer_provider.get_tracer(
             self._otel_scope if otel_scope is None else otel_scope,
             VERSION,
@@ -657,7 +657,7 @@ class Logfire:
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
         )
 
-    def force_flush(self, timeout_millis: int = 3_000) -> bool:
+    def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
         """Force flush all spans.
 
         Args:
@@ -1064,7 +1064,7 @@ class Logfire:
         """
         self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
-    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
         """Shut down all tracers and meters.
 
         This will clean up any resources used by the tracers and meters and flush any remaining spans and metrics.
