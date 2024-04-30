@@ -14,7 +14,7 @@ import logfire
 from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
-from .._internal.config_params import ParamManager
+from .._internal.config_params import default_param_manager
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
@@ -362,7 +362,7 @@ def _pydantic_plugin_config() -> PydanticPlugin:
     if GLOBAL_CONFIG._initialized:  # type: ignore
         return GLOBAL_CONFIG.pydantic_plugin
     else:
-        return ParamManager.create().pydantic_plugin()
+        return default_param_manager().pydantic_plugin
 
 
 def _include_model(schema_type_path: SchemaTypePath) -> bool:

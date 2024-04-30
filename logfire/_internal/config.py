@@ -373,7 +373,7 @@ class _LogfireConfigData:
         if isinstance(pydantic_plugin, dict):
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
-        self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin()
+        self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()

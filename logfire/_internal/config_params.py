@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import os
 import sys
 from dataclasses import dataclass
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Literal, Set, TypeVar
 
@@ -159,6 +160,7 @@ class ParamManager:
 
         return self._cast(param.default, name, param.tp)
 
+    @cached_property
     def pydantic_plugin(self):
         return config.PydanticPlugin(
             record=self.load_param('pydantic_plugin_record'),
@@ -180,6 +182,11 @@ class ParamManager:
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
+
+
+@lru_cache
+def default_param_manager():
+    return ParamManager.create()
 
 
 def _check_literal(value: Any, name: str, tp: type[T]) -> T | None:
