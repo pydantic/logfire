@@ -1,12 +1,12 @@
 name: ❓Question
-description: As a question about any of Pydantic Logfire
+description: Ask a question about any of Pydantic Logfire
 labels: [Question]
 
 body:
   - type: textarea
     id: description
     attributes:
-      label: Description
+      label: Question
       description: How can we help?
     validations:
       required: true

@@ -1,5 +1,5 @@
 name: 🐛 Bug
-description: Report any issue with the Logfire
+description: Report any issue with Logfire — SDK or the Platform
 labels: [Bug]
 
 body:
@@ -14,11 +14,11 @@ body:
   - type: textarea
     id: version
     attributes:
-      label: Python, Logfire & OS Versions, related packages
+      label: Python, Logfire & OS Versions, related packages (not required)
       description: |
-        Which version of Python & Logfire are you using, which Operating System and with which OpenTelemetry packages?
+        Which version of Python and Logfire are you using, which Operating System and with which OpenTelemetry packages?
 
-        Don't worry if you can't run this command or don't have this information, we'll help you if we can.
+        **Don't worry if you can't run this command or don't have this information, we'll help you if we can.**
 
         Please run the following command and copy the output below:
 
