@@ -241,12 +241,12 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
             return {
                 key if isinstance(key, str) else safe_repr(key): to_json_value(value, seen) for key, value in o.items()
             }  # type: ignore
+        elif is_sqlalchemy(o):
+            return _get_sqlalchemy_data(o, seen)
         elif dataclasses.is_dataclass(o):
             return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o)}
         elif is_attrs(o):
             return _get_attrs_data(o, seen)
-        elif is_sqlalchemy(o):
-            return _get_sqlalchemy_data(o, seen)
 
         # Check the class type and its superclasses for a matching encoder
         for base in o.__class__.__mro__[:-1]:
