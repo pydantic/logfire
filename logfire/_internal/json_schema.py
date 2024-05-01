@@ -319,7 +319,15 @@ def _attrs_schema(obj: Any, seen: set[int]) -> JsonDict:
 def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict:
     from sqlalchemy import inspect as sa_inspect
 
-    return _custom_object_schema(obj, 'sqlalchemy', sa_inspect(obj).attrs.keys(), seen)
+    all_keys = sa_inspect(obj).attrs.keys()
+    # Avoid loading relationship attributes, as those may result in additional DB queries
+    relationship_keys = {x.key for x in sa_inspect(type(obj)).relationships}
+    return _custom_object_schema(
+        obj,
+        'sqlalchemy',
+        [key for key in all_keys if not key in relationship_keys],
+        seen,
+    )
 
 
 def _properties(properties: dict[str, Any], seen: set[int]) -> JsonDict:
