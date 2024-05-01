@@ -42,6 +42,15 @@ def request_handler(request: httpx.Request) -> httpx.Response:
         if json_body.get('stream'):
             if json_body['messages'][0]['content'] == 'empty response chunk':
                 return httpx.Response(200, text='data: []\n\n')
+            elif json_body['messages'][0]['content'] == 'empty choices in response chunk':
+                chunk = cc_chunk.ChatCompletionChunk(
+                    id='1',
+                    choices=[],
+                    created=1,
+                    model='gpt-4',
+                    object='chat.completion.chunk',
+                )
+                return httpx.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
             else:
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
@@ -393,6 +402,58 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'code.function': '__stream__',
                     'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"empty response chunk"}],"model":"gpt-4","stream":true}',
+                    'async': False,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r}',
+                    'logfire.msg': "streaming response from 'gpt-4'",
+                    'logfire.span_type': 'span',
+                    'response_data': '{"combined_chunk_content":"","chunk_count":0}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                },
+            },
+        ]
+    )
+
+
+def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'system', 'content': 'empty choices in response chunk'}],
+        stream=True,
+    )
+    combined = [chunk for chunk in response]
+    assert len(combined) == 1
+    assert combined[0].choices == []
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'openai.py',
+                    'code.function': 'instrumented_openai_request',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r}',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'openai.py',
+                    'code.function': '__stream__',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r}',
                     'logfire.msg': "streaming response from 'gpt-4'",
