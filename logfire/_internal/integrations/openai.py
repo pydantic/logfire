@@ -180,14 +180,14 @@ def get_endpoint_config(options: FinalRequestOptions | None) -> EndpointConfig:
             message_template='Chat Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
             on_response=on_chat_response,
-            content_from_stream=lambda chunk: chunk.choices[0].delta.content,
+            content_from_stream=lambda chunk: chunk.choices[0].delta.content if chunk else None,
         )
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
             on_response=on_completion_response,
-            content_from_stream=lambda chunk: chunk.choices[0].text,
+            content_from_stream=lambda chunk: chunk.choices[0].text if chunk else None,
         )
     elif url == '/embeddings':
         return EndpointConfig(
