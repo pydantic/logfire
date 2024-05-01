@@ -1,5 +1,5 @@
 name: ❓Question
-description: Ask a question about any of Pydantic Logfire
+description: Ask a question about anything related to Logfire
 labels: [Question]
 
 body:
