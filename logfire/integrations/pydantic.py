@@ -332,6 +332,7 @@ class LogfirePydanticPlugin:
                 `validate_python`, `validate_json`, `validate_strings` or a tuple of
                 three `None` if recording is `off`.
         """
+        # Patch a bug that occurs even if the plugin is disabled.
         _patch_PluggableSchemaValidator()
 
         logfire_settings = plugin_settings.get('logfire')
@@ -408,13 +409,13 @@ def _patch_build_wrapper():
 def _patch_PluggableSchemaValidator():
     from pydantic.plugin._schema_validator import PluggableSchemaValidator
 
-    if (
+    if (  # pragma: no branch
         inspect.getsource(PluggableSchemaValidator.__getattr__).strip()
         == """
     def __getattr__(self, name: str) -> Any:
         return getattr(self._schema_validator, name)
     """.strip()
-    ):  # pragma: no branch
+    ):
 
         def __getattr__(self, name: str) -> Any:
             if name == '_schema_validator':
