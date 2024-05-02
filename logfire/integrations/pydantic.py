@@ -414,7 +414,7 @@ def _patch_PluggableSchemaValidator():
     def __getattr__(self, name: str) -> Any:
         return getattr(self._schema_validator, name)
     """.strip()
-    ):
+    ):  # pragma: no branch
 
         def __getattr__(self, name: str) -> Any:
             if name == '_schema_validator':
