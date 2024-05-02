@@ -645,7 +645,8 @@ def test_levels(exporter: TestExporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, min_log_level='info').export(spans)  # type: ignore
+    # The `min_log_level` is set to 'info' by default, so only 'info' and higher levels are logged.
+    SimpleConsoleSpanExporter(output=out).export(spans)  # type: ignore
     assert out.getvalue().splitlines() == snapshot(
         [
             '00:00:03.000 info message',

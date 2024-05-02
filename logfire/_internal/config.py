@@ -104,7 +104,10 @@ class ConsoleOptions:
     include_timestamps: bool = True
     """Whether to include timestamps in the console output."""
     verbose: bool = False
-    """Whether to show verbose output."""
+    """Whether to show verbose output.
+
+    It includes the filename, log level, and line number.
+    """
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
 
