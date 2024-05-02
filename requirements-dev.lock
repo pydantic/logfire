@@ -42,6 +42,7 @@ click==8.1.7
     # via inline-snapshot
     # via mkdocs
     # via mkdocstrings
+cloudpickle==3.0.0
 colorama==0.4.6
     # via griffe
     # via mkdocs-material
