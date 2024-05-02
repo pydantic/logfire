@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 
 import pytest
+from inline_snapshot import snapshot
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan
 
@@ -598,7 +599,7 @@ def test_levels(exporter: TestExporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='never').export(spans)  # type: ignore
+    SimpleConsoleSpanExporter(output=out, colors='never', min_log_level='trace').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '00:00:01.000 trace message',
@@ -611,7 +612,7 @@ def test_levels(exporter: TestExporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='never', verbose=True).export(spans)  # type: ignore
+    SimpleConsoleSpanExporter(output=out, colors='never', verbose=True, min_log_level='trace').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '00:00:01.000 trace message',
@@ -631,7 +632,7 @@ def test_levels(exporter: TestExporter):
     ]
 
     out = io.StringIO()
-    SimpleConsoleSpanExporter(output=out, colors='always').export(spans)  # type: ignore
+    SimpleConsoleSpanExporter(output=out, colors='always', min_log_level='trace').export(spans)  # type: ignore
     # insert_assert(out.getvalue().splitlines())
     assert out.getvalue().splitlines() == [
         '\x1b[32m00:00:01.000\x1b[0m trace message',
@@ -642,6 +643,18 @@ def test_levels(exporter: TestExporter):
         '\x1b[32m00:00:06.000\x1b[0m \x1b[31merror message\x1b[0m',
         '\x1b[32m00:00:07.000\x1b[0m \x1b[31mfatal message\x1b[0m',
     ]
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, min_log_level='info').export(spans)  # type: ignore
+    assert out.getvalue().splitlines() == snapshot(
+        [
+            '00:00:03.000 info message',
+            '00:00:04.000 notice message',
+            '00:00:05.000 warn message',
+            '00:00:06.000 error message',
+            '00:00:07.000 fatal message',
+        ]
+    )
 
 
 def test_console_logging_to_stdout(capsys: pytest.CaptureFixture[str]):

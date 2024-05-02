@@ -31,10 +31,12 @@ from ..constants import (
     LEVEL_NUMBERS,
     NUMBER_TO_LEVEL,
     ONE_SECOND_IN_NANOSECONDS,
+    LevelName,
 )
 from ..json_formatter import json_args_value_formatter
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
+_INFO_LEVEL = LEVEL_NUMBERS['info']
 _WARN_LEVEL = LEVEL_NUMBERS['warn']
 _ERROR_LEVEL = LEVEL_NUMBERS['error']
 
@@ -56,6 +58,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
+        min_log_level: LevelName = 'info',
     ) -> None:
         self._output = output or sys.stdout
         if colors == 'auto':
@@ -78,10 +81,15 @@ class SimpleConsoleSpanExporter(SpanExporter):
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
         self._verbose = verbose
+        self._min_log_level_num = LEVEL_NUMBERS[min_log_level]
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
+            if span.attributes:
+                log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
+                if log_level < self._min_log_level_num:
+                    continue
             self._log_span(span)
 
         return SpanExportResult.SUCCESS
@@ -265,8 +273,9 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
+        min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose)
+        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
@@ -312,8 +321,9 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
         verbose: bool = False,
+        min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose)
+        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
 
         # lookup from span_id to `(indent, span message, parent id)`
         self._span_history: dict[int, tuple[int, str, int]] = {}
