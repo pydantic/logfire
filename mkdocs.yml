@@ -172,7 +172,7 @@ markdown_extensions:
       alternate_style: true
   - pymdownx.tasklist:
       custom_checkbox: true
-  - sane_lists # this means you can start a list from any number
+  - sane_lists  # this means you can start a list from any number
 
 watch:
   - logfire
