@@ -12,12 +12,23 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
 def test_scrub_attribute(exporter: TestExporter):
-    logfire.info('Password: {user_password}', user_password=['hunter2'], mode='password', modes='passwords')
+    logfire.info(
+        'Password: {user_password}',
+        user_password=['hunter2'],
+        mode='password',
+        modes='passwords',
+        Author='Alice1',
+        authors='Alice2',
+        authr='Alice3',
+        authorization='Alice4',
+    )
     # We redact:
     # - The `user_password` attribute.
     # - The `modes` attribute.
+    # - `authr` and `authorization` because they contain 'auth' but don't look like 'author(s)'.
     # Things intentionally not redacted even though they contain "password":
     # - The `mode` attribute, because the value 'password' is a full match.
+    # - 'Author' and 'authors': special cases in the regex that looks for 'auth'.
     # - logfire.msg_template
     # - The span name, which is the same as msg_template and shouldn't contain data.
     # - logfire.json_schema
@@ -42,7 +53,11 @@ def test_scrub_attribute(exporter: TestExporter):
                     'user_password': "[Redacted due to 'password']",
                     'mode': 'password',
                     'modes': "[Redacted due to 'password']",
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{}}}',
+                    'Author': 'Alice1',
+                    'authors': 'Alice2',
+                    'authr': "[Redacted due to 'auth']",
+                    'authorization': "[Redacted due to 'auth']",
+                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
                 },
             }
         ]

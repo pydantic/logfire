@@ -18,12 +18,13 @@ import numpy
 import pandas
 import pytest
 from attrs import define
-from dirty_equals import IsJson, IsStr
+from dirty_equals import IsJson
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.orm.decl_api import MappedAsDataclass
 
 import logfire
 from logfire.testing import TestExporter
@@ -829,7 +830,7 @@ def test_log_non_scalar_args(
 
 
 def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
-    class Base(DeclarativeBase):
+    class Base(MappedAsDataclass, DeclarativeBase):
         pass
 
     class Model(Base):
@@ -903,9 +904,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'test message {var=}',
-                    'logfire.msg': IsStr(
-                        regex='test message var=<tests.test_json_args.test_log_sqlalchemy_class.<locals>.Model object at .*'
-                    ),
+                    'logfire.msg': "test message var=test_log_sqlalchemy_class.<locals>.Model(id=1, name='test name')",
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_log_sqlalchemy_class',
                     'code.lineno': 123,
