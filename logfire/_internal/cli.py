@@ -167,7 +167,6 @@ OTEL_PACKAGES: set[str] = {
     'pyramid',
     'remoulade',
     'requests',
-    'sklearn',
     'sqlalchemy',
     'sqlite3',
     'starlette',
@@ -176,7 +175,7 @@ OTEL_PACKAGES: set[str] = {
     'urllib',
     'urllib3',
 }
-OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm'}
+OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
 
 
 def parse_inspect(args: argparse.Namespace) -> None:
