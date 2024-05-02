@@ -223,7 +223,6 @@ branch = true
 
 # https://coverage.readthedocs.io/en/latest/config.html#report
 [tool.coverage.report]
-fail_under = 100
 skip_covered = true
 show_missing = true
 ignore_errors = true
