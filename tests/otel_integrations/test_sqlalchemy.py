@@ -188,3 +188,5 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             },
         },
     ]
+
+    SQLAlchemyInstrumentor().uninstrument()

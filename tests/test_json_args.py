@@ -856,50 +856,11 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'connect',
+                'name': 'test message {var=}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'connect',
-                    'db.name': ':memory:',
-                    'db.system': 'sqlite',
-                },
-            },
-            {
-                'name': 'connect',
-                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'parent': None,
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'connect',
-                    'db.name': ':memory:',
-                    'db.system': 'sqlite',
-                },
-            },
-            {
-                'name': 'connect',
-                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-                'parent': None,
-                'start_time': 5000000000,
-                'end_time': 6000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'connect',
-                    'db.name': ':memory:',
-                    'db.system': 'sqlite',
-                },
-            },
-            {
-                'name': 'test message {var=}',
-                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
-                'parent': None,
-                'start_time': 7000000000,
-                'end_time': 7000000000,
+                'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -911,7 +872,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
                     'var': '{"id":1,"name":"test name"}',
                     'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"Model","x-python-datatype":"sqlalchemy"}}}',
                 },
-            },
+            }
         ]
     )
 
