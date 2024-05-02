@@ -2,7 +2,7 @@
 
 [Mirascope](https://github.com/Mirascope/mirascope) is an intuitive approach to building AI-powered applications using LLMs. Their library is the first third party integration with Logfire to make observability and monitoring for LLMs easy and seamless.
 
-You can enable it using the `@with_logire` decorator, which will work with all of the [model providers that they support](https://docs.mirascope.io/latest/concepts/supported_llm_providers/) (e.g. OpenAI, Anthropic, Groq, and more).
+You can enable it using their [`@with_logire`](https://docs.mirascope.io/latest/integrations/logfire/#how-to-use-logfire-with-mirascope) decorator, which will work with all of the [model providers that they support](https://docs.mirascope.io/latest/concepts/supported_llm_providers/) (e.g. OpenAI, Anthropic, Groq, and more).
 
 ```py hl_lines="1 2 5 8"
 import logfire
