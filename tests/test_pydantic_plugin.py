@@ -5,6 +5,7 @@ import os
 from typing import Any
 from unittest.mock import patch
 
+import cloudpickle
 import pytest
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
@@ -1221,3 +1222,11 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
                 }
             ]
         )
+
+
+def test_cloudpickle():
+    class MyModel(BaseModel):
+        x: int
+
+    m = MyModel(x=1)
+    assert cloudpickle.loads(cloudpickle.dumps(m)).model_dump() == m.model_dump() == {'x': 1}
