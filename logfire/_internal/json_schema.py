@@ -325,7 +325,7 @@ def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return _custom_object_schema(
         obj,
         'sqlalchemy',
-        [key for key in all_keys if not key in relationship_keys],
+        [key for key in all_keys if key not in relationship_keys],
         seen,
     )
 
