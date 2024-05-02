@@ -234,7 +234,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET /with_path_param/{param} http send',
-                    'logfire.level_num': 5,
                     'logfire.pending_parent_id': '0000000000000001',
                 },
             },
@@ -261,7 +260,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET /with_path_param/{param} http send',
-                    'logfire.level_num': 5,
                     'logfire.pending_parent_id': '0000000000000001',
                 },
             },
@@ -423,7 +421,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'attributes': {
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
-                    'logfire.level_num': 5,
                     'logfire.msg': 'GET / http send',
                 },
             },
@@ -450,7 +447,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'attributes': {
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
-                    'logfire.level_num': 5,
                     'logfire.msg': 'GET / http send',
                 },
             },
