@@ -610,7 +610,7 @@ class LogfireConfig(_LogfireConfigData):
                     if credentials is not None:
                         self.project_name = credentials.project_name
 
-                if self.show_summary and credentials is not None:  # pragma: no cover
+                if self.show_summary and credentials is not None:
                     credentials.print_token_summary()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
