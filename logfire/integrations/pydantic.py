@@ -407,10 +407,16 @@ def _patch_build_wrapper():
 
 @lru_cache  # only patch once
 def _patch_PluggableSchemaValidator():
+    """Patch a 'bug' in PluggableSchemaValidator.
+
+    Getting an attribute before proper initializing (e.g. when using cloudpickle)
+    leads to infinite recursion trying to get _schema_validator.
+    """
     from pydantic.plugin._schema_validator import PluggableSchemaValidator
 
     if (  # pragma: no branch
         inspect.getsource(PluggableSchemaValidator.__getattr__).strip()
+        # Check that we're replacing the code that's known to be buggy.
         == """
     def __getattr__(self, name: str) -> Any:
         return getattr(self._schema_validator, name)
@@ -418,8 +424,12 @@ def _patch_PluggableSchemaValidator():
     ):
 
         def __getattr__(self, name: str) -> Any:
+            # Add these two lines to the above.
+            # The exact error or return value is not important, as long as the end result
+            # is an AttributeError rather than infinite recursion.
             if name == '_schema_validator':
                 raise AttributeError(name)
+
             return getattr(self._schema_validator, name)
 
         PluggableSchemaValidator.__getattr__ = __getattr__
