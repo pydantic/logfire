@@ -23,8 +23,9 @@ from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.orm.decl_api import MappedAsDataclass
+from sqlalchemy.sql.schema import ForeignKey
 
 import logfire
 from logfire.testing import TestExporter
@@ -829,34 +830,44 @@ def test_log_non_scalar_args(
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
+class SABase(MappedAsDataclass, DeclarativeBase):
+    pass
+
+
+class SAModel(SABase):
+    __tablename__ = 'model'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(30))
+    models2: Mapped[list[SAModel2]] = relationship(back_populates='model', lazy='dynamic')
+
+
+class SAModel2(SABase):
+    __tablename__ = 'model2'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey('model.id'))
+    model: Mapped[SAModel] = relationship(back_populates='models2')
+
+
 def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
-    class Base(MappedAsDataclass, DeclarativeBase):
-        pass
-
-    class Model(Base):
-        __tablename__ = 'model'
-
-        id: Mapped[int] = mapped_column('user_id', primary_key=True)
-        name: Mapped[str] = mapped_column('user_name', String(30))
-
-        def __init__(self, id: int, name: str):
-            self.id = id
-            self.name = name
-
     engine = create_engine('sqlite:///:memory:')
     session = Session(engine)
-    Model.metadata.create_all(engine)
-    model = Model(1, 'test name')
+    SABase.metadata.create_all(engine)
+    model = SAModel(1, 'test name', [])
+    model2 = SAModel2(1, 1, model)
     session.add(model)
+    session.add(model2)
     session.commit()
 
-    var = session.query(Model).all()[0]
-    logfire.info('test message {var=}', var=var)
+    var = session.query(SAModel).all()[0]
+    var2 = session.query(SAModel2).all()[0]
+    logfire.info('test message', var=var, var2=var2)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'test message {var=}',
+                'name': 'test message',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -864,13 +875,14 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'test message {var=}',
-                    'logfire.msg': "test message var=test_log_sqlalchemy_class.<locals>.Model(id=1, name='test name')",
+                    'logfire.msg_template': 'test message',
+                    'logfire.msg': 'test message',
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_log_sqlalchemy_class',
                     'code.lineno': 123,
-                    'var': '{"id":1,"name":"test name"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"Model","x-python-datatype":"sqlalchemy"}}}',
+                    'var': '{"models2":"<deferred>","id":1,"name":"test name"}',
+                    'var2': '{"model":"<deferred>","id":1,"model_id":1}',
+                    'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"SAModel","x-python-datatype":"sqlalchemy"},"var2":{"type":"object","title":"SAModel2","x-python-datatype":"sqlalchemy"}}}',
                 },
             }
         ]
