@@ -2,7 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: 💬 Join Slack
     url: 'https://docs.pydantic.dev/logfire/help/#slack'
-    about: Join the Pydantic Logfire Slack to ask questions, get help and chat about Logfire
-  - name: 🤔 Ask a Question or give Feedback
-    url: 'https://github.com/pydantic/pydantic/discussions/new?category=question'
-    about: Ask a question about how to use Logfire or give us feedback using GitHub Discussions
+    about: Join the Logfire Slack to ask questions, get help and chat about Logfire
