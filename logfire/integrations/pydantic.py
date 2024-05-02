@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -331,6 +332,8 @@ class LogfirePydanticPlugin:
                 `validate_python`, `validate_json`, `validate_strings` or a tuple of
                 three `None` if recording is `off`.
         """
+        _patch_PluggableSchemaValidator()
+
         logfire_settings = plugin_settings.get('logfire')
         if logfire_settings and 'record' in logfire_settings:
             record = logfire_settings['record']
@@ -399,6 +402,26 @@ def _patch_build_wrapper():
     from pydantic.plugin import _schema_validator
 
     _schema_validator.build_wrapper = _build_wrapper
+
+
+@lru_cache  # only patch once
+def _patch_PluggableSchemaValidator():
+    from pydantic.plugin._schema_validator import PluggableSchemaValidator
+
+    if (
+        inspect.getsource(PluggableSchemaValidator.__getattr__).strip()
+        == """
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._schema_validator, name)
+    """.strip()
+    ):
+
+        def __getattr__(self, name: str) -> Any:
+            if name == '_schema_validator':
+                raise AttributeError(name)
+            return getattr(self._schema_validator, name)
+
+        PluggableSchemaValidator.__getattr__ = __getattr__
 
 
 P = ParamSpec('P')
