@@ -25,30 +25,40 @@ We'll also support adhoc scrubbing of rows.
 
 You'll be able to create **teams** with organization.
 
+See [this GitHub issue][teams-gh-issue] for more information.
+
 ### Alerts & Notifications
 
 The following features are planned for the alerts and notifications system:
 
-- [ ] Slack integration
+- [X] Slack integration
 - [ ] Email integration
 - [X] Webhook integration
 
 Alerts are based on SQL queries (with canned templates for common cases) that are run periodically, and decide if a
 new event has occurred.
 
+See [this GitHub issue][alerts-email-gh-issue] for more information.
+
 ### Links to GitHub code source
 
 You'll be able to go to your GitHub repository directly from the Logfire UI, and see
 the code of a logfire call or exception.
 
+See [this GitHub issue][gh-code-source-gh-issue] for more information.
+
 ### Cross-Project Dashboards
 
 You'll be able to create dashboards with information from multiple projects.
+
+See [this GitHub issue][cross-project-dashboards-gh-issue] for more information.
 
 ### On-Premise Deployment
 
 We are planning to offer an on-premise deployment option for Logfire.
 This will allow you to deploy Logfire on your own infrastructure.
+
+See [this GitHub issue][on-prem-gh-issue] for more information.
 
 ### Schema Catalog
 
@@ -57,7 +67,10 @@ We want to build a catalog of Pydantic Models/Schemas as outlined
 with in Logfire.
 
 The idea is that we'd use the SDK to upload the schema of Pydantic models to Logfire.
-Then allow you to watch how those schemas change as well as view metrics on how validation performed by a specific model is behaving.
+Then allow you to watch how those schemas change as well as view metrics on how validation performed
+by a specific model is behaving.
+
+See [this GitHub issue][schema-catalog-gh-issue] for more information.
 
 ### Language Support
 
@@ -66,9 +79,18 @@ Logfire is built on top of OpenTelemetry, which means that it supports all the l
 Still, we are planning to create custom SDKs for JavaScript, TypeScript, and Rust, and make sure that the
 attributes are displayed in a nice way in the Logfire UI — as they are for Python.
 
+See [this GitHub issue][language-support-gh-issue] for more information.
+
 ### Automatic anomaly detection
 
 We are planning to implement an automatic anomaly detection system, which will be able to detect
 anomalies in the logs, and notify you without the need for you to define specific queries.
 
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
+[on-prem-gh-issue]: https://github.com/pydantic/logfire/issues/78
+[gh-code-source-gh-issue]: https://github.com/pydantic/logfire/issues/79
+[alerts-email-gh-issue]: https://github.com/pydantic/logfire/issues/80
+[teams-gh-issue]: https://github.com/pydantic/logfire/issues/81
+[cross-project-dashboards-gh-issue]: https://github.com/pydantic/logfire/issues/82
+[language-support-gh-issue]: https://github.com/pydantic/logfire/issues/83
+[schema-catalog-gh-issue]: https://github.com/pydantic/logfire/issues/84
