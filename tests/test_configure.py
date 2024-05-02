@@ -963,7 +963,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         )
 
         with pytest.raises(SystemExit):
-            logfire.configure()
+            logfire.configure(data_dir=tmp_path)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
