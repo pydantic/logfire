@@ -38,7 +38,12 @@ jobs:
       - run: uv pip install --system -U mkdocs-material mkdocstrings-python
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-      - run: mkdocs build
+      - run: |
+          if [[ -n "${{ github.head_ref }}" && "${{ github.repository }}" != "${{ github.event.pull_request.head.repo.full_name }}" ]]; then
+            mkdocs build --no-strict
+          else
+            mkdocs build
+          fi
 
   test:
     name: test on ${{ matrix.python-version }}
