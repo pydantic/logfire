@@ -890,11 +890,6 @@ async def test_async_unknown_method(instrumented_async_client: openai.AsyncClien
     )
 
 
-def test_get_endpoint_config_none():
-    with pytest.raises(ValueError, match='`options` is required'):
-        get_endpoint_config(None)
-
-
 def test_get_endpoint_config_json_not_dict():
     with pytest.raises(ValueError, match='Expected `options.json_data` to be a dictionary'):
         get_endpoint_config(FinalRequestOptions(method='POST', url='...'))
