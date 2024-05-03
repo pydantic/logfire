@@ -984,53 +984,34 @@ def test_log_dicts_and_lists(exporter: TestExporter) -> None:
         ],
     )
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'hi',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'hi',
-                'logfire.msg': 'hi',
-                'code.filepath': 'test_json_args.py',
-                'code.function': 'test_log_dicts_and_lists',
-                'code.lineno': 123,
-                'list_of_lists': '[[1,2],[3,4]]',
-                'list_of_dicts': '[{"a":1},{"b":2}]',
-                'dict_of_lists': '{"a":[1,2],"b":[3,4]}',
-                'dict_of_dicts': '{"a":{"a":1},"b":{"b":2}}',
-                'complex_list': '[1,2,{"a":{"b":{"c":["d"]}}},{"b":[2]},true,false,null,"a","b",[1,2]]',
-                'complex_dict': '{"a":1,"b":{"c":{"d":[1,2]}}}',
-                'list_of_objects': '[{"values":[1,2]},{"values":{"a":1,"b":2}},{"values":[{"a":1,"b":2},{"c":3,"d":4}]}]',
-                'logfire.json_schema': IsJson(
-                    {
-                        'type': 'object',
-                        'properties': {
-                            'list_of_lists': {'type': 'array'},
-                            'list_of_dicts': {'type': 'array'},
-                            'dict_of_lists': {'type': 'object'},
-                            'dict_of_dicts': {'type': 'object'},
-                            'complex_list': {'type': 'array'},
-                            'complex_dict': {'type': 'object'},
-                            'list_of_objects': {
-                                'type': 'array',
-                                'prefixItems': [
-                                    {'type': 'object', 'title': 'Model', 'x-python-datatype': 'PydanticModel'},
-                                    {'type': 'object', 'title': 'Dataclass', 'x-python-datatype': 'dataclass'},
-                                    {'type': 'object', 'title': 'PydanticDataclass', 'x-python-datatype': 'dataclass'},
-                                ],
-                            },
-                        },
-                    }
-                ),
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_log_dicts_and_lists',
+                    'code.lineno': 123,
+                    'list_of_lists': '[[1,2],[3,4]]',
+                    'list_of_dicts': '[{"a":1},{"b":2}]',
+                    'dict_of_lists': '{"a":[1,2],"b":[3,4]}',
+                    'dict_of_dicts': '{"a":{"a":1},"b":{"b":2}}',
+                    'complex_list': '[1,2,{"a":{"b":{"c":["d"]}}},{"b":[2]},true,false,null,"a","b",[1,2]]',
+                    'complex_dict': '{"a":1,"b":{"c":{"d":[1,2]}}}',
+                    'list_of_objects': '[{"values":[1,2]},{"values":{"a":1,"b":2}},{"values":[{"a":1,"b":2},{"c":3,"d":4}]}]',
+                    'logfire.json_schema': '{"type":"object","properties":{"list_of_lists":{"type":"array"},"list_of_dicts":{"type":"array"},"dict_of_lists":{"type":"object"},"dict_of_dicts":{"type":"object"},"complex_list":{"type":"array"},"complex_dict":{"type":"object"},"list_of_objects":{"type":"array","prefixItems":[{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},{"type":"object","title":"Dataclass","x-python-datatype":"dataclass"},{"type":"object","title":"PydanticDataclass","x-python-datatype":"dataclass"}]}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_recursive_objects(exporter: TestExporter) -> None:

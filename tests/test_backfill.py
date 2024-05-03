@@ -5,6 +5,7 @@ from datetime import datetime
 from io import BytesIO
 
 import pytest
+from inline_snapshot import snapshot
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 from logfire._internal.backfill import Log, PrepareBackfill, StartSpan
@@ -41,129 +42,130 @@ def test_write_spans_and_logs() -> None:
 
     output.seek(0)
     lines = [json.loads(line) for line in to_json_lines(output)]
-    # insert_assert(lines)
-    assert lines == [
-        {
-            'resourceSpans': [
-                {
-                    'resource': {
-                        'attributes': [
-                            {
-                                'key': 'telemetry.sdk.language',
-                                'value': {'stringValue': 'python'},
-                            },
-                            {
-                                'key': 'telemetry.sdk.name',
-                                'value': {'stringValue': 'opentelemetry'},
-                            },
-                            {
-                                'key': 'telemetry.sdk.version',
-                                'value': {'stringValue': '1.0.0'},
-                            },
-                            {
-                                'key': 'service.name',
-                                'value': {'stringValue': 'docs.pydantic.dev'},
-                            },
-                        ]
-                    },
-                    'scopeSpans': [
-                        {
-                            'scope': {'name': 'logfire'},
-                            'spans': [
+    assert lines == snapshot(
+        [
+            {
+                'resourceSpans': [
+                    {
+                        'resource': {
+                            'attributes': [
                                 {
-                                    'traceId': 'AAAAAAAAAAAAAAAAAAAAAg==',
-                                    'spanId': 'AAAAAAAAAAM=',
-                                    'parentSpanId': 'AAAAAAAAAAE=',
-                                    'name': 'GET {path=}',
-                                    'kind': 'SPAN_KIND_INTERNAL',
-                                    'startTimeUnixNano': '1672531200000000000',
-                                    'endTimeUnixNano': '1672531200000000000',
-                                    'attributes': [
-                                        {
-                                            'key': 'logfire.span_type',
-                                            'value': {'stringValue': 'log'},
-                                        },
-                                        {
-                                            'key': 'logfire.level_num',
-                                            'value': {'intValue': '9'},
-                                        },
-                                        {
-                                            'key': 'logfire.msg_template',
-                                            'value': {'stringValue': 'GET {path=}'},
-                                        },
-                                        {
-                                            'key': 'logfire.msg',
-                                            'value': {'stringValue': 'GET /test'},
-                                        },
-                                        {'key': 'path', 'value': {'stringValue': '/test'}},
-                                    ],
-                                    'status': {'code': 'STATUS_CODE_OK'},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        },
-        {
-            'resourceSpans': [
-                {
-                    'resource': {
-                        'attributes': [
-                            {
-                                'key': 'telemetry.sdk.language',
-                                'value': {'stringValue': 'python'},
-                            },
-                            {
-                                'key': 'telemetry.sdk.name',
-                                'value': {'stringValue': 'opentelemetry'},
-                            },
-                            {
-                                'key': 'telemetry.sdk.version',
-                                'value': {'stringValue': '1.0.0'},
-                            },
-                            {
-                                'key': 'service.name',
-                                'value': {'stringValue': 'docs.pydantic.dev'},
-                            },
-                        ]
-                    },
-                    'scopeSpans': [
-                        {
-                            'scope': {'name': 'logfire'},
-                            'spans': [
+                                    'key': 'telemetry.sdk.language',
+                                    'value': {'stringValue': 'python'},
+                                },
                                 {
-                                    'traceId': 'AAAAAAAAAAAAAAAAAAAAAg==',
-                                    'spanId': 'AAAAAAAAAAE=',
-                                    'name': 'session',
-                                    'kind': 'SPAN_KIND_INTERNAL',
-                                    'startTimeUnixNano': '1672531200000000000',
-                                    'endTimeUnixNano': '1672617601000000000',
-                                    'attributes': [
-                                        {
-                                            'key': 'logfire.span_type',
-                                            'value': {'stringValue': 'log'},
-                                        },
-                                        {
-                                            'key': 'logfire.msg_template',
-                                            'value': {'stringValue': 'session {user_id=} {path=}'},
-                                        },
-                                        {
-                                            'key': 'logfire.msg',
-                                            'value': {'stringValue': 'session user_id=123 path=/test'},
-                                        },
-                                        {'key': 'user_id', 'value': {'stringValue': '123'}},
-                                        {'key': 'path', 'value': {'stringValue': '/test'}},
-                                    ],
-                                    'status': {'code': 'STATUS_CODE_OK'},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        },
-    ]
+                                    'key': 'telemetry.sdk.name',
+                                    'value': {'stringValue': 'opentelemetry'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.version',
+                                    'value': {'stringValue': '1.0.0'},
+                                },
+                                {
+                                    'key': 'service.name',
+                                    'value': {'stringValue': 'docs.pydantic.dev'},
+                                },
+                            ]
+                        },
+                        'scopeSpans': [
+                            {
+                                'scope': {'name': 'logfire'},
+                                'spans': [
+                                    {
+                                        'traceId': 'AAAAAAAAAAAAAAAAAAAAAg==',
+                                        'spanId': 'AAAAAAAAAAM=',
+                                        'parentSpanId': 'AAAAAAAAAAE=',
+                                        'name': 'GET {path=}',
+                                        'kind': 'SPAN_KIND_INTERNAL',
+                                        'startTimeUnixNano': '1672531200000000000',
+                                        'endTimeUnixNano': '1672531200000000000',
+                                        'attributes': [
+                                            {
+                                                'key': 'logfire.span_type',
+                                                'value': {'stringValue': 'log'},
+                                            },
+                                            {
+                                                'key': 'logfire.level_num',
+                                                'value': {'intValue': '9'},
+                                            },
+                                            {
+                                                'key': 'logfire.msg_template',
+                                                'value': {'stringValue': 'GET {path=}'},
+                                            },
+                                            {
+                                                'key': 'logfire.msg',
+                                                'value': {'stringValue': 'GET /test'},
+                                            },
+                                            {'key': 'path', 'value': {'stringValue': '/test'}},
+                                        ],
+                                        'status': {'code': 'STATUS_CODE_OK'},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+            {
+                'resourceSpans': [
+                    {
+                        'resource': {
+                            'attributes': [
+                                {
+                                    'key': 'telemetry.sdk.language',
+                                    'value': {'stringValue': 'python'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.name',
+                                    'value': {'stringValue': 'opentelemetry'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.version',
+                                    'value': {'stringValue': '1.0.0'},
+                                },
+                                {
+                                    'key': 'service.name',
+                                    'value': {'stringValue': 'docs.pydantic.dev'},
+                                },
+                            ]
+                        },
+                        'scopeSpans': [
+                            {
+                                'scope': {'name': 'logfire'},
+                                'spans': [
+                                    {
+                                        'traceId': 'AAAAAAAAAAAAAAAAAAAAAg==',
+                                        'spanId': 'AAAAAAAAAAE=',
+                                        'name': 'session',
+                                        'kind': 'SPAN_KIND_INTERNAL',
+                                        'startTimeUnixNano': '1672531200000000000',
+                                        'endTimeUnixNano': '1672617601000000000',
+                                        'attributes': [
+                                            {
+                                                'key': 'logfire.span_type',
+                                                'value': {'stringValue': 'log'},
+                                            },
+                                            {
+                                                'key': 'logfire.msg_template',
+                                                'value': {'stringValue': 'session {user_id=} {path=}'},
+                                            },
+                                            {
+                                                'key': 'logfire.msg',
+                                                'value': {'stringValue': 'session user_id=123 path=/test'},
+                                            },
+                                            {'key': 'user_id', 'value': {'stringValue': '123'}},
+                                            {'key': 'path', 'value': {'stringValue': '/test'}},
+                                        ],
+                                        'status': {'code': 'STATUS_CODE_OK'},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
 
 
 @pytest.mark.parametrize('read_chunk_size', [1, 10, 100, 1_000, 10_000])

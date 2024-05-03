@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from google.protobuf.json_format import MessageToJson
+from inline_snapshot import snapshot
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.util.instrumentation import (
@@ -51,68 +52,25 @@ def test_export_to_file(tmp_path: str) -> None:
 
     parsed = [json.loads(MessageToJson(message)) for message in messages]
 
-    # insert_assert(parsed)
-    assert parsed == [
-        {
-            'resourceSpans': [
-                {
-                    'resource': {
-                        'attributes': [
-                            {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                            {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                            {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
-                            {'key': 'service.name', 'value': {'stringValue': 'test'}},
-                        ]
-                    },
-                    'scopeSpans': [
-                        {
-                            'scope': {'name': 'test'},
-                            'spans': [
-                                {
-                                    'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
-                                    'spanId': 'AAAAAAAAAAE=',
-                                    'name': 'test',
-                                    'kind': 'SPAN_KIND_INTERNAL',
-                                    'endTimeUnixNano': '1',
-                                    'status': {'code': 'STATUS_CODE_OK'},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
-    ]
-
-
-def test_dont_close_open_file(tmp_path: str) -> None:
-    path = Path(tmp_path) / 'spans.log'
-
-    with open(path, 'wb+') as file:
-        exporter = FileSpanExporter(file)
-
-        exporter.export([TEST_SPAN])
-
-        exporter.shutdown()
-
-        assert path.exists()
-
-        file.seek(0)
-
-        messages = list(logfire.load_spans_from_file(file))
-
-        parsed = [json.loads(MessageToJson(message)) for message in messages]
-
-        # insert_assert(parsed)
-        assert parsed == [
+    assert parsed == snapshot(
+        [
             {
                 'resourceSpans': [
                     {
                         'resource': {
                             'attributes': [
-                                {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                                {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                                {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
+                                {
+                                    'key': 'telemetry.sdk.language',
+                                    'value': {'stringValue': 'python'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.name',
+                                    'value': {'stringValue': 'opentelemetry'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.version',
+                                    'value': {'stringValue': '1.0.0'},
+                                },
                                 {'key': 'service.name', 'value': {'stringValue': 'test'}},
                             ]
                         },
@@ -135,6 +93,69 @@ def test_dont_close_open_file(tmp_path: str) -> None:
                 ]
             }
         ]
+    )
+
+
+def test_dont_close_open_file(tmp_path: str) -> None:
+    path = Path(tmp_path) / 'spans.log'
+
+    with open(path, 'wb+') as file:
+        exporter = FileSpanExporter(file)
+
+        exporter.export([TEST_SPAN])
+
+        exporter.shutdown()
+
+        assert path.exists()
+
+        file.seek(0)
+
+        messages = list(logfire.load_spans_from_file(file))
+
+        parsed = [json.loads(MessageToJson(message)) for message in messages]
+
+        assert parsed == snapshot(
+            [
+                {
+                    'resourceSpans': [
+                        {
+                            'resource': {
+                                'attributes': [
+                                    {
+                                        'key': 'telemetry.sdk.language',
+                                        'value': {'stringValue': 'python'},
+                                    },
+                                    {
+                                        'key': 'telemetry.sdk.name',
+                                        'value': {'stringValue': 'opentelemetry'},
+                                    },
+                                    {
+                                        'key': 'telemetry.sdk.version',
+                                        'value': {'stringValue': '1.0.0'},
+                                    },
+                                    {'key': 'service.name', 'value': {'stringValue': 'test'}},
+                                ]
+                            },
+                            'scopeSpans': [
+                                {
+                                    'scope': {'name': 'test'},
+                                    'spans': [
+                                        {
+                                            'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
+                                            'spanId': 'AAAAAAAAAAE=',
+                                            'name': 'test',
+                                            'kind': 'SPAN_KIND_INTERNAL',
+                                            'endTimeUnixNano': '1',
+                                            'status': {'code': 'STATUS_CODE_OK'},
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ]
+        )
 
 
 def test_export_existing_file(tmp_path: str) -> None:
@@ -157,64 +178,83 @@ def test_export_existing_file(tmp_path: str) -> None:
 
     parsed = [json.loads(MessageToJson(message)) for message in messages]
 
-    # insert_assert(parsed)
-    assert parsed == [
-        {
-            'resourceSpans': [
-                {
-                    'resource': {
-                        'attributes': [
-                            {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                            {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                            {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
-                            {'key': 'service.name', 'value': {'stringValue': 'test'}},
-                        ]
-                    },
-                    'scopeSpans': [
-                        {
-                            'scope': {'name': 'test'},
-                            'spans': [
+    assert parsed == snapshot(
+        [
+            {
+                'resourceSpans': [
+                    {
+                        'resource': {
+                            'attributes': [
                                 {
-                                    'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
-                                    'spanId': 'AAAAAAAAAAE=',
-                                    'name': 'test',
-                                    'kind': 'SPAN_KIND_INTERNAL',
-                                    'endTimeUnixNano': '1',
-                                    'status': {'code': 'STATUS_CODE_OK'},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        },
-        {
-            'resourceSpans': [
-                {
-                    'resource': {
-                        'attributes': [
-                            {'key': 'telemetry.sdk.language', 'value': {'stringValue': 'python'}},
-                            {'key': 'telemetry.sdk.name', 'value': {'stringValue': 'opentelemetry'}},
-                            {'key': 'telemetry.sdk.version', 'value': {'stringValue': '1.0.0'}},
-                            {'key': 'service.name', 'value': {'stringValue': 'test'}},
-                        ]
-                    },
-                    'scopeSpans': [
-                        {
-                            'scope': {'name': 'test'},
-                            'spans': [
+                                    'key': 'telemetry.sdk.language',
+                                    'value': {'stringValue': 'python'},
+                                },
                                 {
-                                    'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
-                                    'spanId': 'AAAAAAAAAAE=',
-                                    'name': 'test',
-                                    'kind': 'SPAN_KIND_INTERNAL',
-                                    'endTimeUnixNano': '1',
-                                    'status': {'code': 'STATUS_CODE_OK'},
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        },
-    ]
+                                    'key': 'telemetry.sdk.name',
+                                    'value': {'stringValue': 'opentelemetry'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.version',
+                                    'value': {'stringValue': '1.0.0'},
+                                },
+                                {'key': 'service.name', 'value': {'stringValue': 'test'}},
+                            ]
+                        },
+                        'scopeSpans': [
+                            {
+                                'scope': {'name': 'test'},
+                                'spans': [
+                                    {
+                                        'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
+                                        'spanId': 'AAAAAAAAAAE=',
+                                        'name': 'test',
+                                        'kind': 'SPAN_KIND_INTERNAL',
+                                        'endTimeUnixNano': '1',
+                                        'status': {'code': 'STATUS_CODE_OK'},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+            {
+                'resourceSpans': [
+                    {
+                        'resource': {
+                            'attributes': [
+                                {
+                                    'key': 'telemetry.sdk.language',
+                                    'value': {'stringValue': 'python'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.name',
+                                    'value': {'stringValue': 'opentelemetry'},
+                                },
+                                {
+                                    'key': 'telemetry.sdk.version',
+                                    'value': {'stringValue': '1.0.0'},
+                                },
+                                {'key': 'service.name', 'value': {'stringValue': 'test'}},
+                            ]
+                        },
+                        'scopeSpans': [
+                            {
+                                'scope': {'name': 'test'},
+                                'spans': [
+                                    {
+                                        'traceId': 'AAAAAAAAAAAAAAAAAAAAAQ==',
+                                        'spanId': 'AAAAAAAAAAE=',
+                                        'name': 'test',
+                                        'kind': 'SPAN_KIND_INTERNAL',
+                                        'endTimeUnixNano': '1',
+                                        'status': {'code': 'STATUS_CODE_OK'},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )

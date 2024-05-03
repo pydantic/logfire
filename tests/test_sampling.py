@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
+from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
@@ -121,11 +122,7 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
                 with logfire.span('3'):
                     pass
 
-    # insert_assert(build_tree(exporter.exported_spans_as_dict()))
-    assert build_tree(exporter.exported_spans_as_dict()) == [
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-    ]
+    assert build_tree(exporter.exported_spans_as_dict()) == snapshot()
 
 
 @pytest.mark.skipif(
@@ -149,17 +146,7 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
                 with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('3'):
                     pass
 
-    # insert_assert(build_tree(exporter.exported_spans_as_dict()))
-    assert build_tree(exporter.exported_spans_as_dict()) == [
-        SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-    ]
+    assert build_tree(exporter.exported_spans_as_dict()) == snapshot()
 
 
 @pytest.mark.skipif(
@@ -183,5 +170,4 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
                 with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(1).span('2'):
                     pass
 
-    # insert_assert(build_tree(exporter.exported_spans_as_dict()))
-    assert build_tree(exporter.exported_spans_as_dict()) == []
+    assert build_tree(exporter.exported_spans_as_dict()) == snapshot()
