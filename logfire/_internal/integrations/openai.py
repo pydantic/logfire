@@ -275,7 +275,7 @@ def record_streaming(
         if chunk_content is not None:
             content.append(chunk_content)
 
-    timer = logfire_openai._config.ns_timestamp_generator
+    timer = logfire_openai._config.ns_timestamp_generator  # type: ignore
     start = timer()
     try:
         yield record_chunk
