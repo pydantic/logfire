@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# import time
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
@@ -107,17 +108,10 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
 
             class LogfireInstrumentedStream(stream_cls):
                 def __stream__(self) -> Iterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
                         for chunk in super().__stream__():
-                            chunk_content = content_from_stream(chunk)
-                            if chunk_content is not None:
-                                content.append(chunk_content)
+                            record_chunk(chunk)
                             yield chunk
-                        stream_span.set_attribute(
-                            'response_data',
-                            {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                        )
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
@@ -158,17 +152,10 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
 
             class LogfireInstrumentedStream(stream_cls):
                 async def __stream__(self) -> AsyncIterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
                         async for chunk in super().__stream__():
-                            chunk_content = content_from_stream(chunk)
-                            if chunk_content is not None:
-                                content.append(chunk_content)
+                            record_chunk(chunk)
                             yield chunk
-                        stream_span.set_attribute(
-                            'response_data',
-                            {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                        )
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
@@ -272,3 +259,29 @@ def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
             context.detach(token)
     else:
         yield
+
+
+@contextmanager
+def record_streaming(
+    logfire_openai: Logfire,
+    span_data: dict[str, Any],
+    content_from_stream: Callable[[Any], str | None],
+):
+    content: list[str] = []
+
+    def record_chunk(chunk: Any) -> Any:
+        chunk_content = content_from_stream(chunk)
+        if chunk_content is not None:
+            content.append(chunk_content)
+
+    # start = time.monotonic()
+    try:
+        yield record_chunk
+    finally:
+        # duration = time.monotonic() - start
+        logfire_openai.info(
+            STEAMING_MSG_TEMPLATE,
+            **span_data,
+            # duration=duration,
+            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+        )
