@@ -109,16 +109,15 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
                 def __stream__(self) -> Iterator[Any]:
                     content: list[str] = []
                     with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            for chunk in super().__stream__():
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                        for chunk in super().__stream__():
+                            chunk_content = content_from_stream(chunk)
+                            if chunk_content is not None:
+                                content.append(chunk_content)
+                            yield chunk
+                        stream_span.set_attribute(
+                            'response_data',
+                            {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+                        )
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
@@ -161,16 +160,15 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
                 async def __stream__(self) -> AsyncIterator[Any]:
                     content: list[str] = []
                     with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            async for chunk in super().__stream__():
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                        async for chunk in super().__stream__():
+                            chunk_content = content_from_stream(chunk)
+                            if chunk_content is not None:
+                                content.append(chunk_content)
+                            yield chunk
+                        stream_span.set_attribute(
+                            'response_data',
+                            {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+                        )
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
