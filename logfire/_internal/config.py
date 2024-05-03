@@ -58,6 +58,7 @@ from .constants import (
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
+    LevelName,
 )
 from .exporters.console import (
     ConsoleColorsValues,
@@ -101,7 +102,14 @@ class ConsoleOptions:
     span_style: Literal['simple', 'indented', 'show-parents'] = 'show-parents'
     """How spans are shown in the console."""
     include_timestamps: bool = True
+    """Whether to include timestamps in the console output."""
     verbose: bool = False
+    """Whether to show verbose output.
+
+    It includes the filename, log level, and line number.
+    """
+    min_log_level: LevelName = 'info'
+    """The minimum log level to show in the console."""
 
 
 @dataclass
@@ -368,6 +376,7 @@ class _LogfireConfigData:
                 span_style=param_manager.load_param('console_span_style'),
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
                 verbose=param_manager.load_param('console_verbose'),
+                min_log_level=param_manager.load_param('console_min_log_level'),
             )
 
         if isinstance(pydantic_plugin, dict):
@@ -586,6 +595,7 @@ class LogfireConfig(_LogfireConfigData):
                             colors=self.console.colors,
                             include_timestamp=self.console.include_timestamps,
                             verbose=self.console.verbose,
+                            min_log_level=self.console.min_log_level,
                         ),
                     )
                 )
