@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
     from ..main import Logfire, LogfireSpan
 
+    # The following typevars are used to use a generic type in the `OpenAIRequest` TypedDict for the sync and async flavors
     _AsyncStreamT = TypeVar('_AsyncStreamT', bound=AsyncStream[Any])
     _StreamT = TypeVar('_StreamT', bound=Stream[Any])
 
@@ -90,7 +91,7 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
         if context.get_value('suppress_instrumentation'):
             return original_request_method(**kwargs)
 
-        options = kwargs.get('options')
+        options = kwargs['options']
         try:
             message_template, span_data, content_from_stream = get_endpoint_config(options)
         except ValueError as exc:
@@ -98,10 +99,10 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
             return original_request_method(**kwargs)
 
         span_data['async'] = False
-        stream = kwargs.get('stream')
+        stream = kwargs['stream']
 
         if stream and content_from_stream:
-            stream_cls = kwargs.get('stream_cls')
+            stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
             class LogfireInstrumentedStream(stream_cls):
@@ -142,7 +143,7 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
         if context.get_value('suppress_instrumentation'):
             return await original_request_method(**kwargs)
 
-        options = kwargs.get('options')
+        options = kwargs['options']
         try:
             message_template, span_data, content_from_stream = get_endpoint_config(options)
         except ValueError as exc:
@@ -150,10 +151,10 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
             return await original_request_method(**kwargs)
 
         span_data['async'] = True
-        stream = kwargs.get('stream')
+        stream = kwargs['stream']
 
         if stream and content_from_stream:
-            stream_cls = kwargs.get('stream_cls')
+            stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
             class LogfireInstrumentedStream(stream_cls):
@@ -229,7 +230,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
 def content_from_completions(chunk: Completion | None) -> str | None:
     if chunk and chunk.choices:
-        return chunk.choices[0].text
+        return chunk.choices[0].text  # pragma: no cover
     return None
 
 
@@ -240,7 +241,7 @@ def content_from_chat_completions(chunk: ChatCompletionChunk | None) -> str | No
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
-    if isinstance(response, LegacyAPIResponse):
+    if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
@@ -257,7 +258,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         )
     elif isinstance(response, CreateEmbeddingResponse):
         span.set_attribute('response_data', {'usage': response.usage})
-    elif isinstance(response, ImagesResponse):
+    elif isinstance(response, ImagesResponse):  # pragma: no branch
         span.set_attribute('response_data', {'images': response.data})
     return response
 
