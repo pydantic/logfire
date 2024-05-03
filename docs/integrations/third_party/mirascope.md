@@ -1,8 +1,6 @@
-# Mirascope
+[Mirascope](https://github.com/Mirascope/mirascope) is an intuitive approach to building AI-powered applications using LLMs. Their library integrates with Logfire to make observability and monitoring for LLMs easy and seamless.
 
-[Mirascope](https://github.com/Mirascope/mirascope) is an intuitive approach to building AI-powered applications using LLMs. Their library is the first third party integration with Logfire to make observability and monitoring for LLMs easy and seamless.
-
-You can enable it using their [`@with_logire`](https://docs.mirascope.io/latest/integrations/logfire/#how-to-use-logfire-with-mirascope) decorator, which will work with all of the [model providers that they support](https://docs.mirascope.io/latest/concepts/supported_llm_providers/) (e.g. OpenAI, Anthropic, Groq, and more).
+You can enable it using their [`@with_logire`][mirascope-logfire] decorator, which will work with all of the [model providers that they support][mirascope-supported-providers] (e.g. OpenAI, Anthropic, Groq, and more).
 
 ```py hl_lines="1 2 5 8"
 import logfire
@@ -38,7 +36,7 @@ This will give you:
 
 Since Mirascope is build on top of [Pydantic][pydantic], you can use the [Pydantic plugin][pydantic-plugin] to track additional logs and metrics about model validation, which you can enable using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
-This can be particularly useful when [extracting structured information](https://docs.mirascope.io/latest/concepts/extracting_structured_information_using_llms/) using LLMs:
+This can be particularly useful when [extracting structured information][mirascope-extracting-structured-information] using LLMs:
 
 ```py hl_lines="3 4 8 17"
 from typing import Literal, Type
@@ -79,5 +77,8 @@ print(task_details)
 
 For more information on Mirascope and what you can do with it, check out their [documentation](https://docs.mirascope.io)
 
+[mirascope-logfire]: https://docs.mirascope.io/latest/integrations/logfire/#how-to-use-logfire-with-mirascope
+[mirascope-supported-providers]: https://docs.mirascope.io/latest/concepts/supported_llm_providers/
+[mirascope-extracting-structured-information]: https://docs.mirascope.io/latest/concepts/extracting_structured_information_using_llms/
 [pydantic]: https://docs.pydantic.dev/latest/
 [pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/
