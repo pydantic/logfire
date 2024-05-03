@@ -13,9 +13,9 @@ If you need help getting started with **Pydantic Logfire** or with advanced usag
 The [Pydantic Logfire Slack][slack] is a great place to ask questions, and get help and chat about Logfire.
 
 
-## :simple-github: GitHub Discussions
+## :simple-github: GitHub Issues
 
-The [Logfire GitHub Discussions][github-discussion] is a great place to ask questions, and give us feedback.
+The [Logfire GitHub Issues][github-issues] are a great place to ask questions, and give us feedback.
 
 ## :material-help: Usage Documentation
 
@@ -30,4 +30,4 @@ The [SDK API documentation](api/logfire.md) give reference docs for the **Logfir
 You can also email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
 
 [slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
-[github-discussion]: https://github.com/pydantic/logfire/discussions/new/choose
+[github-issues]: https://github.com/pydantic/logfire/issues
