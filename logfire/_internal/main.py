@@ -1118,6 +1118,7 @@ class FastLogfireSpan:
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        atexit.unregister(self._atexit)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
         self._span.end()
@@ -1142,6 +1143,7 @@ class LogfireSpan(ReadableSpan):
         self._token: None | object = None
         self._span: None | trace_api.Span = None
         self.end_on_exit = True
+        self._atexit: Callable[[], None] | None = None
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -1166,6 +1168,9 @@ class LogfireSpan(ReadableSpan):
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
+
+        if self._atexit:
+            atexit.unregister(self._atexit)
 
         context_api.detach(self._token)
         self._token = None
