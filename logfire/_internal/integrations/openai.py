@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# import time
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
@@ -23,6 +22,8 @@ from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 from opentelemetry import context
+
+from ..constants import ONE_SECOND_IN_NANOSECONDS
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
@@ -81,7 +82,7 @@ def instrument_openai(
     return uninstrument_context()
 
 
-STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r}'
+STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r} took {duration:.2f}s'
 
 
 def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI, suppress_otel: bool) -> None:
@@ -274,14 +275,15 @@ def record_streaming(
         if chunk_content is not None:
             content.append(chunk_content)
 
-    # start = time.monotonic()
+    timer = logfire_openai._config.ns_timestamp_generator
+    start = timer()
     try:
         yield record_chunk
     finally:
-        # duration = time.monotonic() - start
+        duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
         logfire_openai.info(
             STEAMING_MSG_TEMPLATE,
             **span_data,
-            # duration=duration,
+            duration=duration,
             response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
         )
