@@ -75,6 +75,18 @@ print(task_details)
 #> description='Submit quarterly report' due_date='next Friday' priority='high'
 ```
 
+This will give you:
+
+* Tracking for validation of Pydantic models.
+* A span around the `OpenAIExtractor.extract()` that captures items like the prompt template, templating properties and fields, and input/output attributes.
+* Human-readable display of the conversation with the agent including the function call
+* Details of the response, including the number of tokens used
+
+<figure markdown="span">
+  ![Logfire Mirascope Anthropic call](../../images/logfire-screenshot-mirascope-openai-extractor.png){ width="500" }
+  <figcaption>Mirascope OpenAI Extractor span and OpenAI span and function call</figcaption>
+</figure>
+
 For more information on Mirascope and what you can do with it, check out their [documentation](https://docs.mirascope.io)
 
 [mirascope-logfire]: https://docs.mirascope.io/latest/integrations/logfire/#how-to-use-logfire-with-mirascope
