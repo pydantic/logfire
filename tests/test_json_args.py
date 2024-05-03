@@ -809,6 +809,19 @@ class StrSubclass(str):
             },
             id='dict_of_types_in_list',
         ),
+        pytest.param(
+            [MyDataclass],
+            "[<class 'tests.test_json_args.MyDataclass'>]",
+            '["<class \'tests.test_json_args.MyDataclass\'>"]',
+            {
+                'items': {
+                    'type': 'object',
+                    'x-python-datatype': 'unknown',
+                },
+                'type': 'array',
+            },
+            id='list_of_dataclass_type',
+        ),
     ],
 )
 def test_log_non_scalar_args(

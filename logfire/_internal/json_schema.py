@@ -118,7 +118,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         return _mapping_schema(obj, seen)
     elif is_sqlalchemy(obj):
         return _sqlalchemy_schema(obj, seen)
-    elif dataclasses.is_dataclass(obj):
+    elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         return _dataclass_schema(obj, seen)
     elif is_attrs(obj):
         return _attrs_schema(obj, seen)
