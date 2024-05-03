@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import sys
 import traceback
 import typing
 import warnings
-from functools import cached_property
+from functools import cached_property, partial
 from time import time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
@@ -1105,11 +1106,13 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ('_span', '_token')
+    __slots__ = ('_span', '_token', '_atexit')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+        self._atexit = partial(self.__exit__, None, None, None)
+        atexit.register(self._atexit)
 
     def __enter__(self) -> FastLogfireSpan:
         return self
@@ -1154,6 +1157,10 @@ class LogfireSpan(ReadableSpan):
             )
         if self._token is None:  # pragma: no branch
             self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+
+        self._atexit = partial(self.__exit__, None, None, None)
+        atexit.register(self._atexit)
+
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
