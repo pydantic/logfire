@@ -230,8 +230,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
 def content_from_completions(chunk: Completion | None) -> str | None:
     if chunk and chunk.choices:
-        return chunk.choices[0].text  # pragma: no cover
-    return None
+        return chunk.choices[0].text
+    return None  # pragma: no cover
 
 
 def content_from_chat_completions(chunk: ChatCompletionChunk | None) -> str | None:
