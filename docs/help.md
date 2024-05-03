@@ -15,7 +15,7 @@ The [Pydantic Logfire Slack][slack] is a great place to ask questions, and get h
 
 ## :simple-github: GitHub Issues
 
-The [Logfire GitHub Issues][github-issues] is a great place to ask questions, and give us feedback.
+The [Logfire GitHub Issues][github-issues] are a great place to ask questions, and give us feedback.
 
 ## :material-help: Usage Documentation
 
