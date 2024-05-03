@@ -1169,7 +1169,7 @@ class LogfireSpan(ReadableSpan):
         if self._token is None:  # pragma: no cover
             return
 
-        if self._atexit:
+        if self._atexit:  # pragma: no branch
             atexit.unregister(self._atexit)
 
         context_api.detach(self._token)
