@@ -142,12 +142,7 @@ allow-direct-references = true
 packages = ["logfire"]
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/README.md",
-    "/Makefile",
-    "/logfire",
-    "/tests",
-]
+include = ["/README.md", "/Makefile", "/logfire", "/tests"]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
@@ -221,6 +216,8 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
+# Use this to get the tests that are covering the code. This is disabled by default because it can be slow.
+# dynamic_context = "test_function"
 
 # https://coverage.readthedocs.io/en/latest/config.html#report
 [tool.coverage.report]
