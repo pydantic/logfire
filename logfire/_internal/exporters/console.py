@@ -86,7 +86,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
-            if span.attributes:
+            if span.attributes:  # pragma: no branch
                 log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
                 if log_level < self._min_log_level_num:
                     continue
