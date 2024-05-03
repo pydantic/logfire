@@ -32,7 +32,7 @@ test:
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov: test
 	@echo "building coverage html"
-	@rye run coverage html
+	@rye run coverage html --show-contexts
 
 .PHONY: docs  # Build the documentation
 docs:
