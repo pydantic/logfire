@@ -70,7 +70,7 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
             import psycopg.pq
 
             # OTEL looks for __libpq_version__ which only exists in psycopg2.
-            mod.__libpq_version__ = psycopg.pq.version()
+            mod.__libpq_version__ = psycopg.pq.version()  # type: ignore
 
         instrumentor.instrument(skip_dep_check=skip_dep_check, **kwargs)
     else:

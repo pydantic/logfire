@@ -448,7 +448,7 @@ class StrSubclass(str):
             id='path',
         ),
         pytest.param(
-            FilePath(__file__),
+            FilePath(__file__),  # type: ignore
             __file__,
             f'"{__file__}"',
             {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
@@ -1041,7 +1041,7 @@ def test_recursive_objects(exporter: TestExporter) -> None:
     class Dataclass:
         dct: dict[str, Any]
 
-    dct = {}
+    dct: dict[str, Any] = {}
     data = Dataclass(dct=dct)
     lst = [data]
     model = Model(lst=lst)

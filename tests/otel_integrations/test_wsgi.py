@@ -12,7 +12,7 @@ from logfire.testing import TestExporter
 
 def test_wsgi_middleware(exporter: TestExporter) -> None:
     app = Flask(__name__)
-    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)  # type: ignore
+    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)
 
     @app.route('/')
     def homepage():  # type: ignore

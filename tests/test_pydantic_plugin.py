@@ -1229,4 +1229,4 @@ def test_cloudpickle():
         x: int
 
     m = MyModel(x=1)
-    assert cloudpickle.loads(cloudpickle.dumps(m)).model_dump() == m.model_dump() == {'x': 1}
+    assert cloudpickle.loads(cloudpickle.dumps(m)).model_dump() == m.model_dump() == {'x': 1}  # type: ignore
