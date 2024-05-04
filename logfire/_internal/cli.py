@@ -160,6 +160,7 @@ OTEL_PACKAGES: set[str] = {
     'mysql',
     'mysqlclient',
     'pika',
+    'psycopg',
     'psycopg2',
     'pymemcache',
     'pymongo',
