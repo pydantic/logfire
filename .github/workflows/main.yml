@@ -22,10 +22,8 @@ jobs:
       - uses: eifinger/setup-rye@v2.6
       - run: rye config --set-bool behavior.use-uv=true
       - run: rye sync --no-lock
-      - run: uv pip install pip
-      - uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: --all-files --verbose
+      - run: make lint
+      - run: rye run pyright
 
   docs:
     runs-on: ubuntu-latest
