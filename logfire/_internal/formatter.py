@@ -92,11 +92,10 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
-                    obj, _arg_used = self.get_field(field_name, args, lookup)
+                    obj = lookup[field_name]
                 except KeyError as exc:
                     try:
-                        # fall back to getting a key with the dots in the name
-                        obj = lookup[field_name]
+                        obj, _arg_used = self.get_field(field_name, args, lookup)
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
