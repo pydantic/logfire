@@ -23,6 +23,8 @@ from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 from opentelemetry import context
 
+from ..constants import ONE_SECOND_IN_NANOSECONDS
+
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
     from openai._streaming import AsyncStream, Stream
@@ -80,7 +82,7 @@ def instrument_openai(
     return uninstrument_context()
 
 
-STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r}'
+STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r} took {duration:.2f}s'
 
 
 def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI, suppress_otel: bool) -> None:
@@ -107,18 +109,10 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
 
             class LogfireInstrumentedStream(stream_cls):
                 def __stream__(self) -> Iterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            for chunk in super().__stream__():
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
+                        for chunk in super().__stream__():
+                            record_chunk(chunk)
+                            yield chunk
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
@@ -159,18 +153,10 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
 
             class LogfireInstrumentedStream(stream_cls):
                 async def __stream__(self) -> AsyncIterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            async for chunk in super().__stream__():
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
+                        async for chunk in super().__stream__():
+                            record_chunk(chunk)
+                            yield chunk
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
@@ -274,3 +260,30 @@ def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
             context.detach(token)
     else:
         yield
+
+
+@contextmanager
+def record_streaming(
+    logfire_openai: Logfire,
+    span_data: dict[str, Any],
+    content_from_stream: Callable[[Any], str | None],
+):
+    content: list[str] = []
+
+    def record_chunk(chunk: Any) -> Any:
+        chunk_content = content_from_stream(chunk)
+        if chunk_content is not None:
+            content.append(chunk_content)
+
+    timer = logfire_openai._config.ns_timestamp_generator  # type: ignore
+    start = timer()
+    try:
+        yield record_chunk
+    finally:
+        duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
+        logfire_openai.info(
+            STEAMING_MSG_TEMPLATE,
+            **span_data,
+            duration=duration,
+            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+        )
