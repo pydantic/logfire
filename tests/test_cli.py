@@ -179,6 +179,52 @@ def test_inspect_drop_dependant_packages(
         assert 'opentelemetry-instrumentation-starlette' not in output
 
 
+def test_inspect_only_requirements(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+) -> None:
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    with ExitStack() as stack:
+        find_spec = stack.enter_context(patch('importlib.util.find_spec'))
+        find_spec.side_effect = [True, None] * len(OTEL_PACKAGES)
+
+        main(['inspect', '--only-requirements'])
+        assert capsys.readouterr().out == snapshot("""\
+opentelemetry-instrumentation-pymongo
+opentelemetry-instrumentation-aio-pika
+opentelemetry-instrumentation-elasticsearch
+opentelemetry-instrumentation-falcon
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-httpx
+opentelemetry-instrumentation-celery
+opentelemetry-instrumentation-sqlite3
+opentelemetry-instrumentation-pyramid
+opentelemetry-instrumentation-tortoiseorm
+opentelemetry-instrumentation-django
+opentelemetry-instrumentation-remoulade
+opentelemetry-instrumentation-kafka-python
+opentelemetry-instrumentation-urllib3
+opentelemetry-instrumentation-urllib
+opentelemetry-instrumentation-jinja2
+opentelemetry-instrumentation-mysqlclient
+opentelemetry-instrumentation-pika
+opentelemetry-instrumentation-psycopg2
+opentelemetry-instrumentation-tornado
+opentelemetry-instrumentation-asyncpg
+opentelemetry-instrumentation-aiopg
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-grpc
+opentelemetry-instrumentation-aiohttp-client
+opentelemetry-instrumentation-boto
+opentelemetry-instrumentation-pymysql
+opentelemetry-instrumentation-confluent-kafka
+opentelemetry-instrumentation-psycopg
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-pymemcache
+opentelemetry-instrumentation-mysql
+opentelemetry-instrumentation-sqlalchemy\
+""")
+
+
 @pytest.mark.parametrize('webbrowser_error', [False, True])
 def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
     auth_file = tmp_path / 'default.toml'

@@ -22,6 +22,7 @@ from opentelemetry import trace
 from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
+from typing_extensions import TypedDict
 
 import logfire
 from logfire.exceptions import LogfireConfigError
@@ -180,7 +181,15 @@ OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm',
 
 
 def parse_inspect(args: argparse.Namespace) -> None:
-    """Inspect installed packages and recommend packages that might be useful."""
+    """Inspect installed packages and recommend packages that might be useful.
+
+    Use the `--only-requirements` flag to print only the requirements. This is useful for copy-pasting the requirements.
+    """
+    if args.only_requirements:
+        requirements = [package['package_name'] for package in get_missing_otel_packages().values()]
+        sys.stdout.writelines('\n'.join(requirements))
+        return
+
     console = Console(file=sys.stderr)
     table = Table()
     table.add_column('Package')
@@ -189,26 +198,12 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
-    packages: dict[str, str] = {}
-    for name in OTEL_PACKAGES:
-        # Check if the package can be imported (without actually importing it).
-        if importlib.util.find_spec(name) is None:
-            continue
+    packages = get_missing_otel_packages()
 
-        otel_package = OTEL_PACKAGE_LINK.get(name, name)
-        otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
-
-        if importlib.util.find_spec(otel_package_import) is None:
-            packages[name] = otel_package
-
-    # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):
-        del packages['starlette']
-
-    for name, otel_package in sorted(packages.items()):
-        package_name = otel_package.replace('.', '-')
-        import_name = otel_package.replace('-', '_')
-        link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
+    for name, otel_package in packages.items():
+        import_name = otel_package['import_name']
+        package_name = otel_package['package_name']
+        link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]{package_name}[/link]'
         table.add_row(name, link)
 
     console.print(
@@ -217,14 +212,39 @@ def parse_inspect(args: argparse.Namespace) -> None:
     console.print(table)
 
     if packages:  # pragma: no branch
-        otel_packages_to_install = ' '.join(
-            f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
-        )
+        otel_packages_to_install = ' '.join(package['package_name'] for package in packages.values())
         install_command = f'pip install {otel_packages_to_install}'
         console.print('\n[bold green]To install these packages, run:[/bold green]\n')
         console.print(f'[bold]$[/bold] [cyan]{install_command}[/cyan]', justify='center')
         console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
+
+
+class OTelPackage(TypedDict):
+    package_name: str
+    import_name: str
+
+
+def get_missing_otel_packages() -> dict[str, OTelPackage]:
+    packages: dict[str, OTelPackage] = {}
+    for name in OTEL_PACKAGES:
+        # Check if the package can be imported (without actually importing it).
+        if importlib.util.find_spec(name) is None:
+            continue
+
+        otel_package = OTEL_PACKAGE_LINK.get(name, name)
+        otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
+        package_name = otel_package_import.replace('.', '-').replace('_', '-')
+        import_name = package_name.replace('-', '_')
+
+        if importlib.util.find_spec(otel_package_import) is None:
+            packages[name] = {'package_name': package_name, 'import_name': import_name}
+
+    # Drop packages that are dependencies of other packages.
+    if packages.get('starlette') and packages.get('fastapi'):
+        del packages['starlette']
+
+    return packages
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -416,6 +436,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
+    cmd_inspect.add_argument('--only-requirements', action='store_true', help='print the only the requirements')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
