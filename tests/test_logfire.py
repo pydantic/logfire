@@ -1736,10 +1736,15 @@ def test_frame_vars(exporter: TestExporter):
 
     with logfire.span('span {GLOBAL_VAR} {local_var1} {foo}', foo=3, bar=4):
         logfire.info('log {GLOBAL_VAR} {local_var2} {bar}', foo=5, bar=6)
+        # kwargs override local vars
         logfire.info('log2 {local_var1} {local_var1.real}', local_var1=local_var1 * 10)
+        # kwargs with dots override attributes of local vars
         logfire.info('log3 {local_var1.real} {foo.bar}', **{'local_var1.real': 7, 'foo.bar': 8})  # type: ignore
+        # especially for attributes that don't exist
         logfire.info('log4 {local_var1.foo}', **{'local_var1.foo': 9})  # type: ignore
         logfire.info('log5 {local_var3[foo]}')
+        # kwargs with with square brackets override keys of local vars
+        logfire.info('log6 {local_var3[foo]}', **{'local_var3[foo]': 24})  # type: ignore
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -1838,11 +1843,29 @@ def test_frame_vars(exporter: TestExporter):
                 },
             },
             {
+                'name': 'log6 {local_var3[foo]}',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log6 {local_var3[foo]}',
+                    'logfire.msg': 'log6 24',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_frame_vars',
+                    'code.lineno': 123,
+                    'local_var3[foo]': 24,
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var3[foo]":{}}}',
+                },
+            },
+            {
                 'name': 'span {GLOBAL_VAR} {local_var1} {foo}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 7000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_frame_vars',
