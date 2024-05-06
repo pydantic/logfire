@@ -37,7 +37,7 @@ from .constants import (
     LevelName,
     log_level_attributes,
 )
-from .formatter import logfire_format
+from .formatter import logfire_format, logfire_format_with_frame_vars
 from .instrument import LogfireArgs, instrument
 from .json_encoder import logfire_json_dumps
 from .json_schema import (
@@ -139,7 +139,7 @@ class Logfire:
         stack_info = get_caller_stack_info(_stack_offset)
         merged_attributes = {**stack_info, **attributes}
 
-        log_message, frame_vars = logfire_format(
+        log_message, frame_vars = logfire_format_with_frame_vars(
             msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
         )
         merged_attributes.update(frame_vars)
@@ -191,7 +191,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY], _ = logfire_format(
+        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
             msg_template, function_args, self._config.scrubber, stack_offset=4
         )
         if json_schema_properties := attributes_json_schema_properties(function_args):
@@ -548,7 +548,7 @@ class Logfire:
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg, frame_vars = logfire_format(
+            msg, frame_vars = logfire_format_with_frame_vars(
                 msg_template,
                 merged_attributes,
                 self._config.scrubber,

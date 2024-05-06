@@ -38,6 +38,7 @@ class ChunksFormatter(Formatter):
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
         stack_offset: int = 3,
+        use_frame_vars: bool,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
@@ -48,10 +49,13 @@ class ChunksFormatter(Formatter):
         # We currently don't use positional arguments
         args = ()
 
-        frame = inspect.currentframe()
-        for _ in range(stack_offset - 1):
-            if frame:
-                frame = frame.f_back
+        if use_frame_vars:
+            frame = inspect.currentframe()
+            for _ in range(stack_offset - 1):
+                if frame:
+                    frame = frame.f_back
+        else:
+            frame = None
         lookup = InterceptFrameVars(kwargs, frame)
 
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
@@ -136,16 +140,21 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(
-    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
+    return logfire_format_with_frame_vars(format_string, kwargs, scrubber, stack_offset + 1, use_frame_vars=False)[0]
+
+
+def logfire_format_with_frame_vars(
+    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, use_frame_vars: bool = True
 ) -> tuple[str, dict[str, Any]]:
-    chunks, intercepted = chunks_formatter.chunks(
+    chunks, frame_vars = chunks_formatter.chunks(
         format_string,
         kwargs,
         scrubber=scrubber,
         stack_offset=stack_offset,
+        use_frame_vars=use_frame_vars,
     )
-    return ''.join(chunk['v'] for chunk in chunks), intercepted
+    return ''.join(chunk['v'] for chunk in chunks), frame_vars
 
 
 class InterceptFrameVars(Mapping[str, Any]):

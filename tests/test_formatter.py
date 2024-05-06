@@ -8,7 +8,7 @@ from logfire._internal.scrubbing import Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
-    return chunks_formatter.chunks(format_string, kwargs, scrubber=Scrubber([]))[0]
+    return chunks_formatter.chunks(format_string, kwargs, scrubber=Scrubber([]), use_frame_vars=False)[0]
 
 
 def test_simple_render():
@@ -65,7 +65,7 @@ def test_dict():
 
 
 def test_truncate():
-    message, _ = logfire_format(
+    message = logfire_format(
         '1 {a} 2 {b} 3',
         dict(
             a='a' * 1000,
