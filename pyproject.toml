@@ -45,7 +45,7 @@ dependencies = [
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
-    "typing-extensions >= 4.0.0",
+    "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
 ]
 
