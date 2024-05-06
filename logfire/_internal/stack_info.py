@@ -16,6 +16,11 @@ assert STACK_INFO_KEYS == {'code.filepath', 'code.lineno', 'code.function'}
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
+    path = get_filepath(file)
+    return {'code.filepath': path}
+
+
+def get_filepath(file: str) -> str:
     path = Path(file)
     if path.is_absolute():
         try:
@@ -23,7 +28,7 @@ def get_filepath_attribute(file: str) -> StackInfo:
         except ValueError:  # pragma: no cover
             # happens if filename path is not within CWD
             pass
-    return {'code.filepath': str(path)}
+    return str(path)
 
 
 @lru_cache(maxsize=2048)
@@ -65,3 +70,35 @@ def get_caller_stack_info(stack_offset: int = 3) -> StackInfo:
         return get_stack_info_from_frame(frame)
     except Exception:  # pragma: no cover
         return {}
+
+
+def get_user_stack_offset() -> int:
+    """Get the stack offset of the user code.
+
+    We want to skip the internal code, and third party code, and get the user code stack info.
+
+    Returns:
+        The stack offset of the user code.
+    """
+    stack_offset = 2
+    try:
+        frame = inspect.currentframe()
+        while frame and not is_user_filename(frame.f_code.co_filename):
+            frame = frame.f_back
+            stack_offset += 1
+    except Exception:  # pragma: no cover
+        pass
+    return stack_offset
+
+
+def is_user_filename(filename: str) -> bool:
+    """Check if the filename is a user filename.
+
+    Args:
+        filename: The filename to check.
+
+    Returns:
+        True if the filename is a user filename, False otherwise.
+    """
+    filename = get_filepath(filename)
+    return not (filename.startswith('logfire') or 'site-packages' in filename)

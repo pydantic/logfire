@@ -24,6 +24,7 @@ from openai.types.images_response import ImagesResponse
 from opentelemetry import context
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
+from ..stack_info import get_user_stack_offset
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
@@ -116,7 +117,8 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
-        with logfire_openai.span(message_template, **span_data) as span:
+        user_stack_offset = get_user_stack_offset()
+        with logfire_openai.span(message_template, _stack_offset=user_stack_offset, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return original_request_method(**kwargs)
@@ -160,7 +162,8 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
-        with logfire_openai.span(message_template, **span_data) as span:
+        user_stack_offset = get_user_stack_offset()
+        with logfire_openai.span(message_template, _stack_offset=user_stack_offset, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return await original_request_method(**kwargs)
@@ -281,9 +284,14 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        logfire_openai.info(
+        user_stack_offset = get_user_stack_offset()
+        logfire_openai.log(
+            'info',
             STEAMING_MSG_TEMPLATE,
-            **span_data,
-            duration=duration,
-            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+            stack_offset=user_stack_offset,
+            attributes=dict(
+                **span_data,
+                duration=duration,
+                response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+            ),
         )
