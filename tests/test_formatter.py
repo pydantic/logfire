@@ -8,7 +8,8 @@ from logfire._internal.scrubbing import Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
-    return chunks_formatter.chunks(format_string, kwargs, scrubber=Scrubber([]), use_frame_vars=False)[0]
+    result, _frame_vars = chunks_formatter.chunks(format_string, kwargs, scrubber=Scrubber([]), use_frame_vars=False)
+    return result
 
 
 def test_simple_render():

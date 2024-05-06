@@ -144,7 +144,7 @@ class Logfire:
             msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
         )
         merged_attributes.update(frame_vars)
-        attributes.update(frame_vars)
+        attributes.update(frame_vars)  # for the JSON schema
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
