@@ -20,8 +20,8 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
-    if page.file.src_uri == 'guides/onboarding_checklist/06_add_metrics.md':
-        check_documented_system_metrics(markdown, page)
+    markdown = check_documented_system_metrics(markdown, page)
+    markdown = warning_on_third_party(markdown, page)
     return markdown
 
 
@@ -36,6 +36,9 @@ def check_documented_system_metrics(markdown: str, page: Page) -> str:
 
     This function checks that all the metrics in `DEFAULT_CONFIG` are documented.
     """
+    if page.file.src_uri != 'guides/onboarding_checklist/06_add_metrics.md':
+        return markdown
+
     metrics_documented: set[str] = set()
     for line in markdown.splitlines():
         match = re.search(r'\* `(.*)`: ', line)
@@ -134,3 +137,17 @@ def install_logfire(markdown: str, page: Page) -> str:
     ```
 """
     return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)
+
+
+def warning_on_third_party(markdown: str, page: Page) -> str:
+    if not page.file.src_uri.startswith('integrations/third_party/'):
+        return markdown
+
+    note = """
+!!! note "Third-party integrations"
+    Third-party integrations are not officially supported by **Logfire**.
+
+    They are maintained by the community and may not be as reliable as the integrations developed by **Logfire**.
+"""
+
+    return note + markdown
