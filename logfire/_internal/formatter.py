@@ -158,16 +158,15 @@ class InterceptFrameVars(Mapping[str, Any]):
         if key in self.default:
             return self.default[key]
         if self.frame:
-            for ns in (self.frame.f_locals, self.frame.f_globals, self.frame.f_builtins):
+            for ns in (self.frame.f_locals, self.frame.f_globals):
                 if key in ns:
                     value = ns[key]
-                    if ns is not self.frame.f_builtins:
-                        self.intercepted[key] = value
+                    self.intercepted[key] = value
                     return value
         raise KeyError(key)
 
-    def __iter__(self):
-        return iter(self.default)
+    def __iter__(self) -> Any:  # pragma: no cover
+        raise NotImplementedError
 
-    def __len__(self):
-        return len(self.default)
+    def __len__(self) -> Any:  # pragma: no cover
+        raise NotImplementedError
