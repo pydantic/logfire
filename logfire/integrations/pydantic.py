@@ -423,7 +423,7 @@ def _patch_PluggableSchemaValidator():
     """.strip()
     ):
 
-        def __getattr__(self, name: str) -> Any:
+        def __getattr__(self: Any, name: str) -> Any:
             # Add these two lines to the above.
             # The exact error or return value is not important, as long as the end result
             # is an AttributeError rather than infinite recursion.

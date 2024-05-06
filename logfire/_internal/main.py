@@ -150,7 +150,7 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = (self._tags or ()) + tuple(_tags or ())
+        tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 

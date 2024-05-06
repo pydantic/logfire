@@ -189,4 +189,4 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         },
     ]
 
-    SQLAlchemyInstrumentor().uninstrument()
+    SQLAlchemyInstrumentor().uninstrument()  # type: ignore[reportUnknownMemberType]
