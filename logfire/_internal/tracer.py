@@ -206,7 +206,7 @@ class _ProxyTracer(Tracer):
 
     # This means that `with start_as_current_span(...):`
     # is roughly equivalent to `with use_span(start_span(...)):`
-    start_as_current_span = SDKTracer.start_as_current_span
+    start_as_current_span = SDKTracer.start_as_current_span  # type: ignore
 
 
 @dataclass

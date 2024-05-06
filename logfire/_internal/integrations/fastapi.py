@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from contextlib import contextmanager
 from functools import lru_cache
-from typing import Any, Callable, ContextManager, Iterable, Literal
+from typing import Any, Callable, ContextManager, Iterable, Literal, cast
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
@@ -134,7 +134,7 @@ class FastAPIInstrumentation:
         self, request: Request | WebSocket, result: tuple[dict[str, Any], list[Any], Any, Any, Any]
     ):
         try:
-            url = get_host_port_url_tuple(request.scope)[2]
+            url = cast(str, get_host_port_url_tuple(request.scope)[2])
             if self.excluded_urls_list.url_disabled(url):
                 return result  # pragma: no cover
 

@@ -400,8 +400,8 @@ def _main(args: list[str] | None = None) -> None:
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
-    # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)
+    # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
+    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
     cmd_auth.set_defaults(func=parse_auth)
 
     cmd_backfill = subparsers.add_parser('backfill', help=parse_backfill.__doc__)
