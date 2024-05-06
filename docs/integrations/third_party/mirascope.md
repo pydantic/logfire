@@ -25,7 +25,7 @@ print(response.content)
 
 This will give you:
 
-* A span around the `AnthropicCall.call()` that captures items like the prompt template, templating properties and fields, and input/output attributes.
+* A span around the `AnthropicCall.call()` that captures items like the prompt template, templating properties and fields, and input/output attributes
 * Human-readable display of the conversation with the agent
 * Details of the response, including the number of tokens used
 
@@ -34,7 +34,7 @@ This will give you:
   <figcaption>Mirascope Anthropic Call span and Anthropic span and conversation</figcaption>
 </figure>
 
-Since Mirascope is build on top of [Pydantic][pydantic], you can use the [Pydantic plugin][pydantic-plugin] to track additional logs and metrics about model validation, which you can enable using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
+Since Mirascope is built on top of [Pydantic][pydantic], you can use the [Pydantic plugin][pydantic-plugin] to track additional logs and metrics about model validation, which you can enable using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
 
 This can be particularly useful when [extracting structured information][mirascope-extracting-structured-information] using LLMs:
 
@@ -77,8 +77,8 @@ print(task_details)
 
 This will give you:
 
-* Tracking for validation of Pydantic models.
-* A span around the `OpenAIExtractor.extract()` that captures items like the prompt template, templating properties and fields, and input/output attributes.
+* Tracking for validation of Pydantic models
+* A span around the `OpenAIExtractor.extract()` that captures items like the prompt template, templating properties and fields, and input/output attributes
 * Human-readable display of the conversation with the agent including the function call
 * Details of the response, including the number of tokens used
 
