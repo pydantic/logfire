@@ -96,11 +96,19 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
+                    # First try looking up directly.
+                    # This means that if the fields contain both 'foo.bar' and 'foo' as keys,
+                    # the value of 'foo.bar' takes precedence over the attribute 'bar' of 'foo'
+                    # since the latter was specified more explicitly.
+                    # This is important for the case where 'foo' is the name of a local variable
+                    # that the user may not be expecting to be used at all.
                     obj = lookup[field_name]
-                except KeyError as exc:
+                except KeyError:
                     try:
+                        # Next try handling attribute/key access, e.g. 'foo.bar' or 'foo[bar]'
+                        # where 'foo' is the only field we have.
                         obj, _arg_used = self.get_field(field_name, args, lookup)
-                    except KeyError:
+                    except KeyError as exc:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
                         warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
@@ -141,12 +149,21 @@ chunks_formatter = ChunksFormatter()
 
 
 def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
-    return logfire_format_with_frame_vars(format_string, kwargs, scrubber, stack_offset + 1, use_frame_vars=False)[0]
+    result, _frame_vars = logfire_format_with_frame_vars(
+        format_string,
+        kwargs,
+        scrubber,
+        stack_offset + 1,
+        # This is called from internal code, so we don't want to use frame variables.
+        use_frame_vars=False,
+    )
+    return result
 
 
 def logfire_format_with_frame_vars(
     format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, use_frame_vars: bool = True
 ) -> tuple[str, dict[str, Any]]:
+    """Return the formatted string and any frame variables that were used in the formatting."""
     chunks, frame_vars = chunks_formatter.chunks(
         format_string,
         kwargs,
@@ -158,6 +175,16 @@ def logfire_format_with_frame_vars(
 
 
 class InterceptFrameVars(Mapping[str, Any]):
+    """A mapping that detects when a field needs to be looked up in the frame locals or globals.
+
+    Those fields are then stored in the `intercepted` attribute.
+
+    Args:
+        default: The default source of field values.
+        frame: The frame to look up fields in when not found in default.
+            If this is None, this mapping is mostly equivalent to `default`.
+    """
+
     def __init__(self, default: Mapping[str, Any], frame: types.FrameType | None):
         self.default = default
         self.frame = frame
@@ -166,14 +193,19 @@ class InterceptFrameVars(Mapping[str, Any]):
     def __getitem__(self, key: str) -> Any:
         if key in self.default:
             return self.default[key]
+
         if self.frame:
             for ns in (self.frame.f_locals, self.frame.f_globals):
                 if key in ns:
                     value = ns[key]
                     self.intercepted[key] = value
                     return value
+
         raise KeyError(key)
 
+    # The following methods are required to implement the Mapping interface.
+    # Their meaning is not well defined in this context,
+    # and we don't want/expect them to be called, so we raise NotImplementedError.
     def __iter__(self) -> Any:  # pragma: no cover
         raise NotImplementedError
 
