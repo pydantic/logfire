@@ -803,7 +803,7 @@ class Logfire:
     ) -> ContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
-        The following methods are instrumented for both the sync the async clients:
+        The following methods are instrumented for both the sync and the async clients:
 
         - [`client.chat.completions.create`](https://platform.openai.com/docs/guides/text-generation/chat-completions-api) — with and without `stream=True`
         - [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api) — with and without `stream=True`
