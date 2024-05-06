@@ -1745,6 +1745,8 @@ def test_frame_vars(exporter: TestExporter):
         logfire.info('log5 {local_var3[foo]}')
         # kwargs with with square brackets override keys of local vars
         logfire.info('log6 {local_var3[foo]}', **{'local_var3[foo]': 24})  # type: ignore
+        # especially for keys that don't exist
+        logfire.info('log7 {local_var3[bar]}', **{'local_var3[bar]': 25})  # type: ignore
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -1861,11 +1863,29 @@ def test_frame_vars(exporter: TestExporter):
                 },
             },
             {
+                'name': 'log7 {local_var3[bar]}',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log7 {local_var3[bar]}',
+                    'logfire.msg': 'log7 25',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_frame_vars',
+                    'code.lineno': 123,
+                    'local_var3[bar]': 25,
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var3[bar]":{}}}',
+                },
+            },
+            {
                 'name': 'span {GLOBAL_VAR} {local_var1} {foo}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_frame_vars',
