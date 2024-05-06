@@ -188,41 +188,43 @@ def test_inspect_only_requirements(
         find_spec.side_effect = [True, None] * len(OTEL_PACKAGES)
 
         main(['inspect', '--only-requirements'])
-        assert capsys.readouterr().out == snapshot("""\
-opentelemetry-instrumentation-pymongo
-opentelemetry-instrumentation-aio-pika
-opentelemetry-instrumentation-elasticsearch
-opentelemetry-instrumentation-falcon
-opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-httpx
-opentelemetry-instrumentation-celery
-opentelemetry-instrumentation-sqlite3
-opentelemetry-instrumentation-pyramid
-opentelemetry-instrumentation-tortoiseorm
-opentelemetry-instrumentation-django
-opentelemetry-instrumentation-remoulade
-opentelemetry-instrumentation-kafka-python
-opentelemetry-instrumentation-urllib3
-opentelemetry-instrumentation-urllib
-opentelemetry-instrumentation-jinja2
-opentelemetry-instrumentation-mysqlclient
-opentelemetry-instrumentation-pika
-opentelemetry-instrumentation-psycopg2
-opentelemetry-instrumentation-tornado
-opentelemetry-instrumentation-asyncpg
-opentelemetry-instrumentation-aiopg
-opentelemetry-instrumentation-requests
-opentelemetry-instrumentation-grpc
-opentelemetry-instrumentation-aiohttp-client
-opentelemetry-instrumentation-boto
-opentelemetry-instrumentation-pymysql
-opentelemetry-instrumentation-confluent-kafka
-opentelemetry-instrumentation-psycopg
-opentelemetry-instrumentation-flask
-opentelemetry-instrumentation-pymemcache
-opentelemetry-instrumentation-mysql
-opentelemetry-instrumentation-sqlalchemy\
-""")
+        assert sorted(capsys.readouterr().out.split()) == snapshot(
+            [
+                'opentelemetry-instrumentation-aio-pika',
+                'opentelemetry-instrumentation-aiohttp-client',
+                'opentelemetry-instrumentation-aiopg',
+                'opentelemetry-instrumentation-asyncpg',
+                'opentelemetry-instrumentation-boto',
+                'opentelemetry-instrumentation-celery',
+                'opentelemetry-instrumentation-confluent-kafka',
+                'opentelemetry-instrumentation-django',
+                'opentelemetry-instrumentation-elasticsearch',
+                'opentelemetry-instrumentation-falcon',
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-flask',
+                'opentelemetry-instrumentation-grpc',
+                'opentelemetry-instrumentation-httpx',
+                'opentelemetry-instrumentation-jinja2',
+                'opentelemetry-instrumentation-kafka-python',
+                'opentelemetry-instrumentation-mysql',
+                'opentelemetry-instrumentation-mysqlclient',
+                'opentelemetry-instrumentation-pika',
+                'opentelemetry-instrumentation-psycopg',
+                'opentelemetry-instrumentation-psycopg2',
+                'opentelemetry-instrumentation-pymemcache',
+                'opentelemetry-instrumentation-pymongo',
+                'opentelemetry-instrumentation-pymysql',
+                'opentelemetry-instrumentation-pyramid',
+                'opentelemetry-instrumentation-remoulade',
+                'opentelemetry-instrumentation-requests',
+                'opentelemetry-instrumentation-sqlalchemy',
+                'opentelemetry-instrumentation-sqlite3',
+                'opentelemetry-instrumentation-tornado',
+                'opentelemetry-instrumentation-tortoiseorm',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-urllib3',
+            ]
+        )
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
