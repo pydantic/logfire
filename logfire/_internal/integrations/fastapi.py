@@ -197,8 +197,8 @@ class FastAPIInstrumentation:
         **kwargs: Any,
     ) -> Any:
         callback = inspect.unwrap(dependant.call)
-        code = getattr(callback, '__code__', None)
-        stack_info: StackInfo = get_code_object_info(code) if code else {}
+        code_obj = getattr(callback, '__code__', None)
+        stack_info: StackInfo = get_code_object_info(code_obj) if code_obj else {}
         with self.logfire_instance.span(
             '{method} {http.route} ({code.function})',
             method=request.method,
