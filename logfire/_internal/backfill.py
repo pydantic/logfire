@@ -153,7 +153,7 @@ class PrepareBackfill:
             otlp_attributes = user_attributes(data.attributes)
 
             if data.formatted_msg is None:  # pragma: no cover
-                formatted_message, _ = logfire_format(data.msg_template, data.attributes, self.scrubber, stack_offset=2)
+                formatted_message = logfire_format(data.msg_template, data.attributes, self.scrubber, stack_offset=2)
             else:
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
@@ -198,7 +198,7 @@ class PrepareBackfill:
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
             otlp_attributes = user_attributes(data.log_attributes)
             if data.formatted_msg is None:  # pragma: no branch
-                formatted_message, _ = logfire_format(
+                formatted_message = logfire_format(
                     data.msg_template, data.log_attributes, self.scrubber, stack_offset=2
                 )
             else:  # pragma: no cover
