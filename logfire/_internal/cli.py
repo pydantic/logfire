@@ -160,6 +160,7 @@ OTEL_PACKAGES: set[str] = {
     'mysql',
     'mysqlclient',
     'pika',
+    'psycopg',
     'psycopg2',
     'pymemcache',
     'pymongo',
@@ -221,7 +222,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
         )
         install_command = f'pip install {otel_packages_to_install}'
         console.print('\n[bold green]To install these packages, run:[/bold green]\n')
-        console.print(f'[bold]$[/bold] [cyan]{install_command}[/cyan]', justify='center')
+        console.print(f'[cyan]{install_command}[/cyan]', soft_wrap=True)
         console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
 
@@ -399,8 +400,8 @@ def _main(args: list[str] | None = None) -> None:
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
-    # Note(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)
+    # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
+    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
     cmd_auth.set_defaults(func=parse_auth)
 
     cmd_backfill = subparsers.add_parser('backfill', help=parse_backfill.__doc__)

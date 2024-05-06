@@ -1,21 +1,51 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, NamedTuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    ContextManager,
+    Generic,
+    Iterator,
+    NamedTuple,
+    TypeVar,
+    cast,
+)
 
 import openai
+from openai._legacy_response import LegacyAPIResponse
+from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.completion import Completion
+from openai.types.create_embedding_response import CreateEmbeddingResponse
+from openai.types.images_response import ImagesResponse
 from opentelemetry import context
+
+from ..constants import ONE_SECOND_IN_NANOSECONDS
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
     from openai._streaming import AsyncStream, Stream
-    from openai.types.chat.chat_completion import ChatCompletion
-    from openai.types.completion import Completion
-    from openai.types.create_embedding_response import CreateEmbeddingResponse
-    from openai.types.images_response import ImagesResponse
-    from typing_extensions import LiteralString
+    from openai._types import ResponseT
+    from typing_extensions import LiteralString, TypedDict, Unpack
 
     from ..main import Logfire, LogfireSpan
+
+    # The following typevars are used to use a generic type in the `OpenAIRequest` TypedDict for the sync and async flavors
+    _AsyncStreamT = TypeVar('_AsyncStreamT', bound=AsyncStream[Any])
+    _StreamT = TypeVar('_StreamT', bound=Stream[Any])
+
+    _ResponseType = TypeVar('_ResponseType')
+    _StreamType = TypeVar('_StreamType')
+
+    class OpenAIRequest(TypedDict, Generic[_ResponseType, _StreamType]):
+        cast_to: type[_ResponseType]
+        options: FinalRequestOptions
+        remaining_retries: int | None
+        stream: bool
+        stream_cls: type[_StreamType] | None
 
 
 __all__ = ('instrument_openai',)
@@ -52,55 +82,46 @@ def instrument_openai(
     return uninstrument_context()
 
 
-STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r}'
+STEAMING_MSG_TEMPLATE: LiteralString = 'streaming response from {request_data[model]!r} took {duration:.2f}s'
 
 
 def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI, suppress_otel: bool) -> None:
     # WARNING: this method is vey similar to `instrument_openai_async` below, any changes here should be reflected there
     openai_client._original_request_method = original_request_method = openai_client._request  # type: ignore
 
-    def instrumented_openai_request(**kwargs: Any) -> Any:
+    def instrumented_openai_request(**kwargs: Unpack[OpenAIRequest[ResponseT, _StreamT]]) -> ResponseT | _StreamT:
         if context.get_value('suppress_instrumentation'):
             return original_request_method(**kwargs)
 
-        options: FinalRequestOptions | None = kwargs.get('options')
+        options = kwargs['options']
         try:
-            message_template, span_data, on_response, content_from_stream = get_endpoint_config(options)
+            message_template, span_data, content_from_stream = get_endpoint_config(options)
         except ValueError as exc:
             logfire_openai.warn('Unable to instrument OpenAI API call: {error}', error=str(exc), kwargs=kwargs)
             return original_request_method(**kwargs)
 
         span_data['async'] = False
-        stream = bool(kwargs.get('stream'))
+        stream = kwargs['stream']
 
         if stream and content_from_stream:
-            stream_cls: type[Stream] | None = kwargs.get('stream_cls')  # type: ignore[reportMissingTypeArgument]
+            stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
             class LogfireInstrumentedStream(stream_cls):
                 def __stream__(self) -> Iterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            for chunk in super().__stream__():  # type: ignore
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
+                        for chunk in super().__stream__():
+                            record_chunk(chunk)
+                            yield chunk
 
-            kwargs['stream_cls'] = LogfireInstrumentedStream
+            kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
         with logfire_openai.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return original_request_method(**kwargs)
                 else:
-                    response = original_request_method(**kwargs)
-                    on_response(response, span)
+                    response = on_response(original_request_method(**kwargs), span)
                     return response
 
     openai_client._request = instrumented_openai_request  # type: ignore
@@ -110,48 +131,41 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
     # WARNING: this method is vey similar to `instrument_openai_sync` above, any changes here should be reflected there
     openai_client._original_request_method = original_request_method = openai_client._request  # type: ignore
 
-    async def instrumented_openai_request(**kwargs: Any) -> Any:
+    async def instrumented_openai_request(
+        **kwargs: Unpack[OpenAIRequest[ResponseT, _AsyncStreamT]],
+    ) -> ResponseT | _AsyncStreamT:
         if context.get_value('suppress_instrumentation'):
             return await original_request_method(**kwargs)
 
-        options: FinalRequestOptions | None = kwargs.get('options')
+        options = kwargs['options']
         try:
-            message_template, span_data, on_response, content_from_stream = get_endpoint_config(options)
+            message_template, span_data, content_from_stream = get_endpoint_config(options)
         except ValueError as exc:
             logfire_openai.warn('Unable to instrument OpenAI API call: {error}', error=str(exc), kwargs=kwargs)
             return await original_request_method(**kwargs)
 
         span_data['async'] = True
-        stream = bool(kwargs.get('stream'))
+        stream = kwargs['stream']
 
         if stream and content_from_stream:
-            stream_cls: type[AsyncStream] | None = kwargs.get('stream_cls')  # type: ignore[reportMissingTypeArgument]
+            stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
             class LogfireInstrumentedStream(stream_cls):
                 async def __stream__(self) -> AsyncIterator[Any]:
-                    content: list[str] = []
-                    with logfire_openai.span(STEAMING_MSG_TEMPLATE, **span_data) as stream_span:
-                        with maybe_suppress_instrumentation(suppress_otel):
-                            async for chunk in super().__stream__():  # type: ignore
-                                chunk_content = content_from_stream(chunk)
-                                if chunk_content is not None:
-                                    content.append(chunk_content)
-                                yield chunk
-                            stream_span.set_attribute(
-                                'response_data',
-                                {'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-                            )
+                    with record_streaming(logfire_openai, span_data, content_from_stream) as record_chunk:
+                        async for chunk in super().__stream__():
+                            record_chunk(chunk)
+                            yield chunk
 
-            kwargs['stream_cls'] = LogfireInstrumentedStream
+            kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
         with logfire_openai.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return await original_request_method(**kwargs)
                 else:
-                    response = await original_request_method(**kwargs)
-                    on_response(response, span)
+                    response = on_response(await original_request_method(**kwargs), span)
                     return response
 
     openai_client._request = instrumented_openai_request  # type: ignore
@@ -160,13 +174,10 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
 class EndpointConfig(NamedTuple):
     message_template: LiteralString
     span_data: dict[str, Any]
-    on_response: Callable[[Any, LogfireSpan], None]
     content_from_stream: Callable[[Any], str | None] | None
 
 
-def get_endpoint_config(options: FinalRequestOptions | None) -> EndpointConfig:
-    if options is None:
-        raise ValueError('`options` is required')
+def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     url = options.url
     json_data = options.json_data
     if not isinstance(json_data, dict):
@@ -179,62 +190,63 @@ def get_endpoint_config(options: FinalRequestOptions | None) -> EndpointConfig:
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            on_response=on_chat_response,
-            content_from_stream=lambda chunk: chunk.choices[0].delta.content if chunk and chunk.choices else None,
+            content_from_stream=content_from_chat_completions,
         )
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            on_response=on_completion_response,
-            content_from_stream=lambda chunk: chunk.choices[0].text if chunk and chunk.choices else None,
+            content_from_stream=content_from_completions,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            on_response=on_embedding_response,
             content_from_stream=None,
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            on_response=on_image_response,
             content_from_stream=None,
         )
     else:
         raise ValueError(f'Unknown OpenAI API endpoint: `{url}`')
 
 
-def on_chat_response(response: ChatCompletion, span: LogfireSpan) -> None:
-    span.set_attribute(
-        'response_data',
-        {
-            'message': response.choices[0].message,
-            'usage': response.usage,
-        },
-    )
+def content_from_completions(chunk: Completion | None) -> str | None:
+    if chunk and chunk.choices:
+        return chunk.choices[0].text
+    return None  # pragma: no cover
 
 
-def on_completion_response(response: Completion, span: LogfireSpan) -> None:
-    first_choice = response.choices[0]
-    span.set_attribute(
-        'response_data',
-        {
-            'finish_reason': first_choice.finish_reason,
-            'text': first_choice.text,
-            'usage': response.usage,
-        },
-    )
+def content_from_chat_completions(chunk: ChatCompletionChunk | None) -> str | None:
+    if chunk and chunk.choices:
+        return chunk.choices[0].delta.content
+    return None
 
 
-def on_embedding_response(response: CreateEmbeddingResponse, span: LogfireSpan) -> None:
-    span.set_attribute('response_data', {'usage': response.usage})
+def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
+    if isinstance(response, LegacyAPIResponse):  # pragma: no cover
+        on_response(response.parse(), span)  # type: ignore
+        return cast('ResponseT', response)
 
-
-def on_image_response(response: ImagesResponse, span: LogfireSpan) -> None:
-    span.set_attribute('response_data', {'images': response.data})
+    if isinstance(response, ChatCompletion):
+        span.set_attribute(
+            'response_data',
+            {'message': response.choices[0].message, 'usage': response.usage},
+        )
+    elif isinstance(response, Completion):
+        first_choice = response.choices[0]
+        span.set_attribute(
+            'response_data',
+            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': response.usage},
+        )
+    elif isinstance(response, CreateEmbeddingResponse):
+        span.set_attribute('response_data', {'usage': response.usage})
+    elif isinstance(response, ImagesResponse):  # pragma: no branch
+        span.set_attribute('response_data', {'images': response.data})
+    return response
 
 
 @contextmanager
@@ -248,3 +260,30 @@ def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
             context.detach(token)
     else:
         yield
+
+
+@contextmanager
+def record_streaming(
+    logfire_openai: Logfire,
+    span_data: dict[str, Any],
+    content_from_stream: Callable[[Any], str | None],
+):
+    content: list[str] = []
+
+    def record_chunk(chunk: Any) -> Any:
+        chunk_content = content_from_stream(chunk)
+        if chunk_content is not None:
+            content.append(chunk_content)
+
+    timer = logfire_openai._config.ns_timestamp_generator  # type: ignore
+    start = timer()
+    try:
+        yield record_chunk
+    finally:
+        duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
+        logfire_openai.info(
+            STEAMING_MSG_TEMPLATE,
+            **span_data,
+            duration=duration,
+            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+        )

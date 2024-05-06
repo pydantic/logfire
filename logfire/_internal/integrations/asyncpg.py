@@ -6,4 +6,4 @@ def instrument_asyncpg():
 
     See the `Logfire.instrument_asyncpg` method for details.
     """
-    AsyncPGInstrumentor().instrument()
+    AsyncPGInstrumentor().instrument()  # type: ignore[reportUnknownMemberType]

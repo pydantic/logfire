@@ -239,8 +239,9 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
             return [to_json_value(item, seen) for item in o]  # type: ignore
         elif isinstance(o, Mapping):
             return {
-                key if isinstance(key, str) else safe_repr(key): to_json_value(value, seen) for key, value in o.items()
-            }  # type: ignore
+                key if isinstance(key, str) else safe_repr(key): to_json_value(value, seen)
+                for key, value in o.items()  # type: ignore
+            }
         elif is_sqlalchemy(o):
             return _get_sqlalchemy_data(o, seen)
         elif dataclasses.is_dataclass(o):

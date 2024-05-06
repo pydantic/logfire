@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import sys
 import traceback
 import typing
 import warnings
-from functools import cached_property
+from functools import cached_property, partial
 from time import time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
@@ -149,7 +150,7 @@ class Logfire:
         if json_schema_properties := attributes_json_schema_properties(attributes):
             otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = (self._tags or ()) + tuple(_tags or ())
+        tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
         if tags:
             otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -217,9 +218,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -246,9 +248,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -275,9 +278,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -304,9 +308,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -333,9 +338,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -362,9 +368,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -391,9 +398,10 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
@@ -416,7 +424,7 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             _tags: An optional sequence of tags to include in the log.
-            _exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
         if any(k.startswith('_') for k in attributes):  # pragma: no cover
@@ -449,7 +457,6 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _stack_offset: The stack level offset to use when collecting stack info, defaults to `3`.
-
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -518,16 +525,20 @@ class Logfire:
             msg_template: The message to log.
             attributes: The attributes to bind to the log.
             tags: An optional sequence of tags to include in the log.
-            exc_info: Set to an exception or a tuple as returned by `sys.exc_info()`
+            exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
-                Set to True to use the currently handled exception.
+
+                Set to `True` to use the currently handled exception.
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where `logfire.log` was called.
+                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
-            custom_scope_suffix: A custom suffix to append to `logfire.`, should only be used when you're using
-                logfire to instrument another library like structlog or loguru.
-                See `TraceProvider.get_tracer(instrumenting_module_name)` docstring for more info.
+            custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
+
+                It should only be used when instrumenting another library with Logfire, such as structlog or loguru.
+
+                See the `instrumenting_module_name` parameter on
+                [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
         stack_offset = (self._stack_offset if stack_offset is None else stack_offset) + 2
         stack_info = get_caller_stack_info(stack_offset)
@@ -638,11 +649,14 @@ class Logfire:
             tags: Sequence of tags to include in the log.
             stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
                 message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where `logfire.log` was called.
+                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
-            custom_scope_suffix: A custom suffix to append to `logfire.`, should only be used when you're using
-                logfire to instrument another library like structlog or loguru.
-                See `TraceProvider.get_tracer(instrumenting_module_name)` docstring for more info.
+            custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
+
+                It should only be used when instrumenting another library with Logfire, such as structlog or loguru.
+
+                See the `instrumenting_module_name` parameter on
+                [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
 
         Returns:
             A new Logfire instance with the given settings applied.
@@ -1080,7 +1094,7 @@ class Logfire:
             flush: Whether to flush remaining spans and metrics before shutting down.
 
         Returns:
-            False if the timeout was reached before the shutdown was completed, True otherwise.
+            `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
         start = time()
         if flush:  # pragma: no branch
@@ -1105,16 +1119,19 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ('_span', '_token')
+    __slots__ = ('_span', '_token', '_atexit')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+        self._atexit = partial(self.__exit__, None, None, None)
+        atexit.register(self._atexit)
 
     def __enter__(self) -> FastLogfireSpan:
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        atexit.unregister(self._atexit)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
         self._span.end()
@@ -1139,6 +1156,7 @@ class LogfireSpan(ReadableSpan):
         self._token: None | object = None
         self._span: None | trace_api.Span = None
         self.end_on_exit = True
+        self._atexit: Callable[[], None] | None = None
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -1154,11 +1172,18 @@ class LogfireSpan(ReadableSpan):
             )
         if self._token is None:  # pragma: no branch
             self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+
+        self._atexit = partial(self.__exit__, None, None, None)
+        atexit.register(self._atexit)
+
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
+
+        if self._atexit:  # pragma: no branch
+            atexit.unregister(self._atexit)
 
         context_api.detach(self._token)
         self._token = None

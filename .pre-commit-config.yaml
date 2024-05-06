@@ -23,10 +23,10 @@ repos:
         args: [format]
         language: system
         types: [python]
-      # - id: pyright
-      #   name: pyright
-      #   entry: rye
-      #   language: system
-      #   args: ["run", "typecheck"]
-      #   types: [python]
-      #   pass_filenames: false
+      - id: pyright
+        name: pyright
+        entry: rye
+        language: system
+        args: ["run", "typecheck"]
+        types: [python]
+        pass_filenames: false

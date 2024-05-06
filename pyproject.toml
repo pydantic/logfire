@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.28.3"
+version = "0.30.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -45,7 +45,7 @@ dependencies = [
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
-    "typing-extensions >= 4.0.0",
+    "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
 ]
 
@@ -60,7 +60,7 @@ httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
 starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
 asyncpg = ["opentelemetry-instrumentation-asyncpg >= 0.42b0"]
-psycopg = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
+psycopg = ["opentelemetry-instrumentation-psycopg >= 0.42b0", "packaging"]
 psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
@@ -116,7 +116,7 @@ dev-dependencies = [
     "structlog",
     "loguru",
     "ruff",
-    "pyright",
+    "pyright>=1.1.360",
     "pre-commit>=3.7.0",
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.17",
@@ -184,7 +184,7 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py"]
+exclude = ["docs/**/*.py", "site/**/*.py", ".venv"]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]

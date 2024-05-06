@@ -37,7 +37,7 @@ __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes
 
 @lru_cache
 def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]]:
-    lookup: dict[type[Any], JsonDict | Callable[[Any], JsonDict]] = {
+    lookup: dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
         Enum: _enum_schema,

@@ -448,7 +448,7 @@ class StrSubclass(str):
             id='path',
         ),
         pytest.param(
-            FilePath(__file__),
+            FilePath(__file__),  # type: ignore
             __file__,
             f'"{__file__}"',
             {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
@@ -640,7 +640,7 @@ class StrSubclass(str):
         pytest.param(
             pandas.DataFrame(
                 data={f'col{i}': [i * j for j in range(1, 23)] for i in range(1, 13)},
-                index=[f'i{x}' for x in range(1, 23)],
+                index=[f'i{x}' for x in range(1, 23)],  # type: ignore
             ),
             '     col1  col2  col3  col4  col5  ...  col8  col9  col10  col'
             '...'
@@ -1041,7 +1041,7 @@ def test_recursive_objects(exporter: TestExporter) -> None:
     class Dataclass:
         dct: dict[str, Any]
 
-    dct = {}
+    dct: dict[str, Any] = {}
     data = Dataclass(dct=dct)
     lst = [data]
     model = Model(lst=lst)
