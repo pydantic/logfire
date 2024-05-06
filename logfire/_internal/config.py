@@ -819,7 +819,13 @@ class LogfireCredentials:
             data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
             if is_logged_in(data, logfire_api_url):  # pragma: no branch
                 return data['tokens'][logfire_api_url]['token']
-        raise LogfireConfigError('You are not authenticated. Please run `logfire auth` to authenticate.')
+        raise LogfireConfigError(
+            """You are not authenticated. Please run `logfire auth` to authenticate.
+
+If you are running in production, you can set the `LOGFIRE_TOKEN` environment variable.
+To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advanced/creating_write_tokens/
+"""
+        )
 
     @classmethod
     def get_current_user(cls, session: requests.Session, logfire_api_url: str) -> dict[str, Any] | None:
