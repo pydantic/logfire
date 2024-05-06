@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+import types
 import warnings
 from string import Formatter
 from typing import Any, Final, Literal, Mapping
@@ -36,7 +38,7 @@ class ChunksFormatter(Formatter):
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
         stack_offset: int = 3,
-    ) -> list[LiteralChunk | ArgChunk]:
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
             raise ValueError('Max string recursion exceeded')
@@ -45,6 +47,13 @@ class ChunksFormatter(Formatter):
         used_args: set[str | int] = set()
         # We currently don't use positional arguments
         args = ()
+
+        frame = inspect.currentframe()
+        for _ in range(stack_offset - 1):
+            if frame:
+                frame = frame.f_back
+        lookup = InterceptFrameVars(kwargs, frame)
+
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:
@@ -83,11 +92,11 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
-                    obj, _arg_used = self.get_field(field_name, args, kwargs)
+                    obj, _arg_used = self.get_field(field_name, args, lookup)
                 except KeyError as exc:
                     try:
                         # fall back to getting a key with the dots in the name
-                        obj = kwargs[field_name]
+                        obj = lookup[field_name]
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
@@ -101,7 +110,7 @@ class ChunksFormatter(Formatter):
                 format_spec, auto_arg_index = self._vformat(
                     format_spec,  # type: ignore[arg-type]
                     args,
-                    kwargs,
+                    lookup,
                     used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
                     recursion_depth - 1,
                     auto_arg_index=auto_arg_index,
@@ -122,19 +131,44 @@ class ChunksFormatter(Formatter):
                     d['spec'] = format_spec
                 result.append(d)
 
-        return result
+        return result, lookup.intercepted
 
 
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
-    return ''.join(
-        chunk['v']
-        for chunk in chunks_formatter.chunks(
-            format_string,
-            kwargs,
-            scrubber=scrubber,
-            stack_offset=stack_offset,
-        )
+def logfire_format(
+    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3
+) -> tuple[str, dict[str, Any]]:
+    chunks, intercepted = chunks_formatter.chunks(
+        format_string,
+        kwargs,
+        scrubber=scrubber,
+        stack_offset=stack_offset,
     )
+    return ''.join(chunk['v'] for chunk in chunks), intercepted
+
+
+class InterceptFrameVars(Mapping[str, Any]):
+    def __init__(self, default: Mapping[str, Any], frame: types.FrameType | None):
+        self.default = default
+        self.frame = frame
+        self.intercepted: dict[str, Any] = {}
+
+    def __getitem__(self, key: str) -> Any:
+        if key in self.default:
+            return self.default[key]
+        if self.frame:
+            for ns in (self.frame.f_locals, self.frame.f_globals, self.frame.f_builtins):
+                if key in ns:
+                    value = ns[key]
+                    if ns is not self.frame.f_builtins:
+                        self.intercepted[key] = value
+                    return value
+        raise KeyError(key)
+
+    def __iter__(self):
+        return iter(self.default)
+
+    def __len__(self):
+        return len(self.default)
