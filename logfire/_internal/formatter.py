@@ -52,7 +52,7 @@ class ChunksFormatter(Formatter):
         if use_frame_vars:
             frame = inspect.currentframe()
             for _ in range(stack_offset - 1):
-                if frame:
+                if frame:  # pragma: no branch
                     frame = frame.f_back
         else:
             frame = None
