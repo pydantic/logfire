@@ -35,20 +35,9 @@ class ChunksFormatter(Formatter):
         kwargs: Mapping[str, Any],
         *,
         scrubber: Scrubber,
-        recursion_depth: int = 2,
-        auto_arg_index: int = 0,
         stack_offset: int = 3,
         use_frame_vars: bool,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
-        """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
-        if recursion_depth < 0:  # pragma: no cover
-            raise ValueError('Max string recursion exceeded')
-        result: list[LiteralChunk | ArgChunk] = []
-        # here just to satisfy the call to `_vformat` below
-        used_args: set[str | int] = set()
-        # We currently don't use positional arguments
-        args = ()
-
         if use_frame_vars:
             frame = inspect.currentframe()
             for _ in range(stack_offset - 1):
@@ -57,7 +46,32 @@ class ChunksFormatter(Formatter):
         else:
             frame = None
         lookup = InterceptFrameVars(kwargs, frame)
+        chunks = self._vformat_chunks(
+            format_string,
+            kwargs=lookup,
+            scrubber=scrubber,
+            stack_offset=stack_offset + 1,
+        )
+        return chunks, lookup.intercepted
 
+    def _vformat_chunks(
+        self,
+        format_string: str,
+        kwargs: Mapping[str, Any],
+        *,
+        scrubber: Scrubber,
+        recursion_depth: int = 2,
+        auto_arg_index: int = 0,
+        stack_offset: int = 3,
+    ) -> list[LiteralChunk | ArgChunk]:
+        """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
+        if recursion_depth < 0:  # pragma: no cover
+            raise ValueError('Max string recursion exceeded')
+        result: list[LiteralChunk | ArgChunk] = []
+        # here just to satisfy the call to `_vformat` below
+        used_args: set[str | int] = set()
+        # We currently don't use positional arguments
+        args = ()
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:
@@ -102,12 +116,12 @@ class ChunksFormatter(Formatter):
                     # since the latter was specified more explicitly.
                     # This is important for the case where 'foo' is the name of a local variable
                     # that the user may not be expecting to be used at all.
-                    obj = lookup[field_name]
+                    obj = kwargs[field_name]
                 except KeyError:
                     try:
                         # Next try handling attribute/key access, e.g. 'foo.bar' or 'foo[bar]'
                         # where 'foo' is the only field we have.
-                        obj, _arg_used = self.get_field(field_name, args, lookup)
+                        obj, _arg_used = self.get_field(field_name, args, kwargs)
                     except KeyError as exc:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
@@ -121,7 +135,7 @@ class ChunksFormatter(Formatter):
                 format_spec, auto_arg_index = self._vformat(
                     format_spec,  # type: ignore[arg-type]
                     args,
-                    lookup,
+                    kwargs,
                     used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
                     recursion_depth - 1,
                     auto_arg_index=auto_arg_index,
@@ -142,7 +156,7 @@ class ChunksFormatter(Formatter):
                     d['spec'] = format_spec
                 result.append(d)
 
-        return result, lookup.intercepted
+        return result
 
 
 chunks_formatter = ChunksFormatter()
