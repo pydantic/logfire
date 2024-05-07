@@ -90,7 +90,7 @@ Logfire gives you a view into how your code is running like this:
 
 ## Contributing
 
-We'd love anyone interested to contribute to the Logfire SDK and documentation, see the [contributing guide](./CONTRIBUTING.md).
+We'd love anyone interested to contribute to the Logfire SDK and documentation, see the [contributing guide](https://github.com/pydantic/logfire/blob/main/CONTRIBUTING.md).
 
 ## Reporting a Security Vulnerability
 
