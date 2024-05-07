@@ -26,7 +26,7 @@ except ModuleNotFoundError:
     raise RuntimeError(
         'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
         'You can install this with:\n'
-        '    pip install opentelemetry-instrumentation-fastapi'
+        "    pip install 'logfire[fastapi]'"
     )
 
 

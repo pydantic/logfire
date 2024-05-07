@@ -31,9 +31,9 @@ def test_missing_opentelemetry_dependency() -> None:
             importlib.reload(logfire._internal.integrations.fastapi)
             logfire.instrument_fastapi(FastAPI())
         assert str(exc_info.value) == snapshot("""\
-The `logfire.instrument_fastapi() requires the `opentelemetry-instrumentation-fastapi` package.
+The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.
 You can install this with:
-    pip install opentelemetry-instrumentation-fastapi\
+    pip install 'logfire[fastapi]'\
 """)
 
 
