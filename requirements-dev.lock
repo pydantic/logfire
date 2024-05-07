@@ -18,7 +18,6 @@ asgiref==3.8.1
     # via django
     # via opentelemetry-instrumentation-asgi
 asttokens==2.4.1
-    # via devtools
     # via inline-snapshot
 asyncpg==0.29.0
 attrs==23.2.0
@@ -50,7 +49,6 @@ coverage==7.5.0
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
-devtools==0.12.2
 dirty-equals==0.7.1.post0
 distlib==0.3.8
     # via virtualenv
@@ -59,7 +57,6 @@ distro==1.9.0
 django==5.0.4
 eval-type-backport==0.2.0
 executing==2.0.1
-    # via devtools
     # via inline-snapshot
 fastapi==0.110.2
 filelock==3.13.4
@@ -72,8 +69,6 @@ gitdb==4.0.11
 gitpython==3.1.43
 googleapis-common-protos==1.63.0
     # via opentelemetry-exporter-otlp-proto-http
-greenlet==3.0.3
-    # via sqlalchemy
 griffe==0.44.0
     # via mkdocstrings-python
 h11==0.14.0
@@ -269,7 +264,6 @@ pydantic==2.7.1
 pydantic-core==2.18.2
     # via pydantic
 pygments==2.17.2
-    # via devtools
     # via mkdocs-material
     # via rich
 pymdown-extensions==10.8

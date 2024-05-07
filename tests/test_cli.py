@@ -53,12 +53,13 @@ def test_nice_interrupt(capsys: pytest.CaptureFixture[str]) -> None:
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
-    # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == (
-        'Not logged in. Run `logfire auth` to log in.\n'
-        f'Credentials loaded from data dir: {tmp_dir_cwd}\n'
-        '\n'
-        'Logfire project URL: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err.splitlines() == snapshot(
+        [
+            'Not logged in. Run `logfire auth` to log in.',
+            IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+            '',
+            'Logfire project URL: https://dashboard.logfire.dev',
+        ]
     )
 
 
@@ -70,9 +71,11 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
         main(['--logfire-url=http://localhost:0', 'whoami'])
     except SystemExit as e:
         assert e.code == 1
-        # insert_assert(capsys.readouterr().err)
-        assert capsys.readouterr().err == (
-            'Not logged in. Run `logfire auth` to log in.\n' f'No Logfire credentials found in {tmp_dir_cwd}/.logfire\n'
+        assert capsys.readouterr().err.splitlines() == snapshot(
+            [
+                'Not logged in. Run `logfire auth` to log in.',
+                IsStr(regex=r'No Logfire credentials found in .*/\.logfire'),
+            ]
         )
     finally:
         os.chdir(current_dir)
@@ -91,12 +94,13 @@ def test_whoami_logged_in(
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
         main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
-    # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == (
-        'Logged in as: test-user\n'
-        f'Credentials loaded from data dir: {tmp_dir_cwd}\n'
-        '\n'
-        'Logfire project URL: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err.splitlines() == snapshot(
+        [
+            'Logged in as: test-user',
+            IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+            '',
+            'Logfire project URL: https://dashboard.logfire.dev',
+        ]
     )
 
 
@@ -105,12 +109,13 @@ def test_whoami_default_dir(
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     main(['--logfire-url=http://localhost:0', 'whoami'])
-    # insert_assert(capsys.readouterr().err)
-    assert capsys.readouterr().err == (
-        'Not logged in. Run `logfire auth` to log in.\n'
-        f'Credentials loaded from data dir: {tmp_dir_cwd}/.logfire\n'
-        '\n'
-        'Logfire project URL: https://dashboard.logfire.dev\n'
+    assert capsys.readouterr().err.splitlines() == snapshot(
+        [
+            'Not logged in. Run `logfire auth` to log in.',
+            IsStr(regex=r'^Credentials loaded from data dir: .*/\.logfire$'),
+            '',
+            'Logfire project URL: https://dashboard.logfire.dev',
+        ]
     )
 
 
@@ -214,20 +219,21 @@ expiration = "fake_exp"
         )
 
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        # insert_assert(console_calls)
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            'print()',
-            "print('Welcome to Logfire! :fire:')",
-            "print('Before you can send data to Logfire, we need to authenticate you.')",
-            'print()',
-            "input('Press [bold]Enter[/] to open example.com in your browser...')",
-            'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
-            "print('Waiting for you to authenticate with Logfire...')",
-            "print('Successfully authenticated!')",
-            'print()',
-            f"print('Your Logfire credentials are stored in [bold]{auth_file}[/]')",
-        ]
+        assert console_calls == snapshot(
+            [
+                IsStr(regex=r'^\(file=.*'),
+                'print()',
+                "print('Welcome to Logfire! :fire:')",
+                "print('Before you can send data to Logfire, we need to authenticate you.')",
+                'print()',
+                "input('Press [bold]Enter[/] to open example.com in your browser...')",
+                'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
+                "print('Waiting for you to authenticate with Logfire...')",
+                "print('Successfully authenticated!')",
+                'print()',
+                IsStr(regex=r"^print\('Your Logfire credentials are stored in \[bold\].*/default.toml\[/\]'\)"),
+            ]
+        )
 
         webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 

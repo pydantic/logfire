@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import pytest
+from inline_snapshot import snapshot
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -55,17 +56,18 @@ def test_fallback_on_exception() -> None:
 
     exporter.shutdown()
 
-    # insert_assert(test_exporter.exported_spans_as_dict())
-    assert test_exporter.exported_spans_as_dict() == [
-        {
-            'name': 'test',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 0,
-            'end_time': 1,
-            'attributes': {},
-        }
-    ]
+    assert test_exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 0,
+                'end_time': 1,
+                'attributes': {},
+            }
+        ]
+    )
 
 
 def test_fallback_on_failure() -> None:
@@ -75,14 +77,15 @@ def test_fallback_on_failure() -> None:
     exporter.export([TEST_SPAN])
     exporter.shutdown()
 
-    # insert_assert(test_exporter.exported_spans_as_dict())
-    assert test_exporter.exported_spans_as_dict() == [
-        {
-            'name': 'test',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 0,
-            'end_time': 1,
-            'attributes': {},
-        }
-    ]
+    assert test_exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 0,
+                'end_time': 1,
+                'attributes': {},
+            }
+        ]
+    )
