@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib
 import os
 from typing import Any
+from unittest import mock
 
 import pytest
 from dirty_equals import IsJson
@@ -17,7 +19,22 @@ from starlette.testclient import TestClient
 from typing_extensions import Annotated
 
 import logfire
+import logfire._internal
+import logfire._internal.integrations
+import logfire._internal.integrations.fastapi
 from logfire.testing import TestExporter
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.fastapi': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.fastapi)
+            logfire.instrument_fastapi(FastAPI())
+        assert str(exc_info.value) == snapshot("""\
+The `logfire.instrument_fastapi() requires the `opentelemetry-instrumentation-fastapi` package.
+You can install this with:
+    pip install opentelemetry-instrumentation-fastapi\
+""")
 
 
 async def homepage() -> PlainTextResponse:

@@ -7,19 +7,27 @@ from typing import Any, Callable, ContextManager, Iterable, Literal, cast
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
-from fastapi import BackgroundTasks, FastAPI, Response
+from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.security import SecurityScopes
-from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.util.http import get_excluded_urls, parse_excluded_urls
 from starlette.requests import Request
+from starlette.responses import Response
 from starlette.websockets import WebSocket
 
-from logfire import Logfire
-
+from ..main import Logfire
 from ..stack_info import StackInfo, get_code_object_info
+
+try:
+    from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.semconv.trace import SpanAttributes
+    from opentelemetry.util.http import get_excluded_urls, parse_excluded_urls
+except ModuleNotFoundError:
+    raise RuntimeError(
+        'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
+        'You can install this with:\n'
+        '    pip install opentelemetry-instrumentation-fastapi'
+    )
 
 
 def instrument_fastapi(
