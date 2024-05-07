@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import inspect
-import types
 import warnings
 from functools import lru_cache
 from string import Formatter
@@ -59,16 +58,13 @@ class ChunksFormatter(Formatter):
                 else:
                     # TODO
                     pass
-        else:
-            frame = None
-        lookup = InterceptFrameVars(kwargs, frame)
         chunks = self._vformat_chunks(
             format_string,
-            kwargs=lookup,
+            kwargs=kwargs,
             scrubber=scrubber,
             stack_offset=stack_offset + 1,
         )
-        return chunks, lookup.intercepted, format_string
+        return chunks, {}, format_string
 
     def _fstring_chunks(
         self,
@@ -164,19 +160,12 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
-                    # First try looking up directly.
-                    # This means that if the fields contain both 'foo.bar' and 'foo' as keys,
-                    # the value of 'foo.bar' takes precedence over the attribute 'bar' of 'foo'
-                    # since the latter was specified more explicitly.
-                    # This is important for the case where 'foo' is the name of a local variable
-                    # that the user may not be expecting to be used at all.
-                    obj = kwargs[field_name]
-                except KeyError:
+                    obj, _arg_used = self.get_field(field_name, args, kwargs)
+                except KeyError as exc:
                     try:
-                        # Next try handling attribute/key access, e.g. 'foo.bar' or 'foo[bar]'
-                        # where 'foo' is the only field we have.
-                        obj, _arg_used = self.get_field(field_name, args, kwargs)
-                    except KeyError as exc:
+                        # fall back to getting a key with the dots in the name
+                        obj = kwargs[field_name]
+                    except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
                         warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
@@ -243,45 +232,6 @@ def logfire_format_with_magic(
         use_frame_vars=use_frame_vars,
     )
     return ''.join(chunk['v'] for chunk in chunks), extra_attrs, cast(LiteralString, new_template)
-
-
-class InterceptFrameVars(Mapping[str, Any]):
-    """A mapping that detects when a field needs to be looked up in the frame locals or globals.
-
-    Those fields are then stored in the `intercepted` attribute.
-
-    Args:
-        default: The default source of field values.
-        frame: The frame to look up fields in when not found in default.
-            If this is None, this mapping is mostly equivalent to `default`.
-    """
-
-    def __init__(self, default: Mapping[str, Any], frame: types.FrameType | None):
-        self.default = default
-        self.frame = frame
-        self.intercepted: dict[str, Any] = {}
-
-    def __getitem__(self, key: str) -> Any:
-        if key in self.default:
-            return self.default[key]
-
-        if self.frame:
-            for ns in (self.frame.f_locals, self.frame.f_globals):
-                if key in ns:
-                    value = ns[key]
-                    self.intercepted[key] = value
-                    return value
-
-        raise KeyError(key)
-
-    # The following methods are required to implement the Mapping interface.
-    # Their meaning is not well defined in this context,
-    # and we don't want/expect them to be called, so we raise NotImplementedError.
-    def __iter__(self) -> Any:  # pragma: no cover
-        raise NotImplementedError
-
-    def __len__(self) -> Any:  # pragma: no cover
-        raise NotImplementedError
 
 
 @lru_cache
