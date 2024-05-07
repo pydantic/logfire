@@ -11,11 +11,13 @@ from typing import Any, Final, Literal, LiteralString, Mapping, cast
 import executing
 from typing_extensions import NotRequired, TypedDict
 
-__all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
+import logfire
 
 from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import Scrubber
 from .utils import truncate_string
+
+__all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
 
 class LiteralChunk(TypedDict):
@@ -43,15 +45,30 @@ class ChunksFormatter(Formatter):
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         if use_frame_vars:
             frame = inspect.currentframe()
-            for _ in range(stack_offset - 1):
+            for _ in range(stack_offset - 2):
                 if frame:  # pragma: no branch
                     frame = frame.f_back
 
-            if frame:
+            is_log_call = False
+            if frame:  # pragma: no branch
+                is_log_call = frame.f_code == logfire.Logfire.log.__code__
+                frame = frame.f_back
+
+            if frame:  # pragma: no branch
                 ex = executing.Source.executing(frame)
                 if isinstance(ex.node, ast.Call):
-                    # TODO for logfire.log, it's the second positional argument, and it can be named.
-                    arg_node = ex.node.args[0]
+                    arg_node = None
+                    if is_log_call:
+                        if len(ex.node.args) >= 2:
+                            arg_node = ex.node.args[1]
+                        else:
+                            # Find the arg named 'msg_template'
+                            for keyword in ex.node.keywords:
+                                if keyword.arg == 'msg_template':
+                                    arg_node = keyword.value
+                                    break
+                    elif ex.node.args:
+                        arg_node = ex.node.args[0]
                     if isinstance(arg_node, ast.JoinedStr):
                         chunks, extra_attrs, new_template = self._fstring_chunks(arg_node, kwargs, scrubber, ex)
                         return chunks, extra_attrs, new_template
