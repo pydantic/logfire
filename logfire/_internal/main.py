@@ -37,7 +37,7 @@ from .constants import (
     LevelName,
     log_level_attributes,
 )
-from .formatter import logfire_format, logfire_format_with_frame_vars
+from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import LogfireArgs, instrument
 from .json_encoder import logfire_json_dumps
 from .json_schema import (
@@ -140,11 +140,11 @@ class Logfire:
         stack_info = get_caller_stack_info(_stack_offset)
         merged_attributes = {**stack_info, **attributes}
 
-        log_message, frame_vars = logfire_format_with_frame_vars(
+        log_message, extra_attrs, msg_template = logfire_format_with_magic(
             msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
         )
-        merged_attributes.update(frame_vars)
-        attributes.update(frame_vars)  # for the JSON schema
+        merged_attributes.update(extra_attrs)
+        attributes.update(extra_attrs)  # for the JSON schema
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -549,15 +549,15 @@ class Logfire:
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg, frame_vars = logfire_format_with_frame_vars(
+            msg, extra_attrs, msg_template = logfire_format_with_magic(
                 msg_template,
                 merged_attributes,
                 self._config.scrubber,
                 stack_offset=stack_offset + 2,
             )
-            if frame_vars:
-                merged_attributes.update(frame_vars)
-                attributes = {**attributes, **frame_vars}
+            if extra_attrs:
+                merged_attributes.update(extra_attrs)
+                attributes = {**attributes, **extra_attrs}
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',

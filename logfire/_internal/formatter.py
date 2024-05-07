@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import ast
 import inspect
 import types
 import warnings
+from functools import lru_cache
 from string import Formatter
-from typing import Any, Final, Literal, Mapping
+from types import CodeType
+from typing import Any, Final, Literal, LiteralString, Mapping, cast
 
+import executing
 from typing_extensions import NotRequired, TypedDict
 
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
@@ -37,12 +41,24 @@ class ChunksFormatter(Formatter):
         scrubber: Scrubber,
         stack_offset: int = 3,
         use_frame_vars: bool,
-    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         if use_frame_vars:
             frame = inspect.currentframe()
             for _ in range(stack_offset - 1):
                 if frame:  # pragma: no branch
                     frame = frame.f_back
+
+            if frame:
+                ex = executing.Source.executing(frame)
+                if isinstance(ex.node, ast.Call):
+                    # TODO for logfire.log, it's the second positional argument, and it can be named.
+                    arg_node = ex.node.args[0]
+                    if isinstance(arg_node, ast.JoinedStr):
+                        chunks, extra_attrs, new_template = self._fstring_chunks(arg_node, kwargs, scrubber, ex)
+                        return chunks, extra_attrs, new_template
+                else:
+                    # TODO
+                    pass
         else:
             frame = None
         lookup = InterceptFrameVars(kwargs, frame)
@@ -52,7 +68,45 @@ class ChunksFormatter(Formatter):
             scrubber=scrubber,
             stack_offset=stack_offset + 1,
         )
-        return chunks, lookup.intercepted
+        return chunks, lookup.intercepted, format_string
+
+    def _fstring_chunks(
+        self,
+        node: ast.JoinedStr,
+        kwargs: Mapping[str, Any],
+        scrubber: Scrubber,
+        ex: executing.Executing,  # type: ignore[reportPrivateImportUsage]
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+        result: list[LiteralChunk | ArgChunk] = []
+        new_template = ''
+        extra_attrs: dict[str, Any] = {}
+        globs = ex.frame.f_globals
+        locs = {**ex.frame.f_locals}
+        for k, v in kwargs.items():
+            for ns in (locs, globs):
+                if k in ns:
+                    if ns[k] is not v:
+                        # TODO
+                        warnings.warn('...')
+                    break
+            locs[k] = v
+
+        locs = {**ex.frame.f_locals, **kwargs}
+        for node_value in node.values:
+            if isinstance(node_value, ast.Constant):
+                assert isinstance(node_value.value, str)
+                result.append({'v': node_value.value, 't': 'lit'})
+                new_template += node_value.value
+            elif isinstance(node_value, ast.FormattedValue):
+                source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
+                value = eval(value_code, globs, locs)
+                formatted = eval(formatted_code, globs, {**locs, '@fvalue': value})
+                formatted = self._clean_value(source, formatted, scrubber)
+                result.append({'v': formatted, 't': 'arg'})
+                new_template += '{' + source + '}'
+                extra_attrs[source] = value
+
+        return result, extra_attrs, new_template
 
     def _vformat_chunks(
         self,
@@ -145,12 +199,7 @@ class ChunksFormatter(Formatter):
                     value = self.NONE_REPR
                 else:
                     value = self.format_field(obj, format_spec)
-                    # Scrub before truncating so that the scrubber can see the full value.
-                    # For example, if the value contains 'password=123' and 'password' is replaced by '...'
-                    # because of truncation, then that leaves '=123' in the message, which is not good.
-                    if field_name not in scrubber.SAFE_KEYS:
-                        value = scrubber.scrub(('message', field_name), value)
-                    value = truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+                    value = self._clean_value(field_name, value, scrubber)
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
@@ -158,12 +207,20 @@ class ChunksFormatter(Formatter):
 
         return result
 
+    def _clean_value(self, field_name: str, value: str, scrubber: Scrubber) -> str:
+        # Scrub before truncating so that the scrubber can see the full value.
+        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+        # because of truncation, then that leaves '=123' in the message, which is not good.
+        if field_name not in scrubber.SAFE_KEYS:
+            value = scrubber.scrub(('message', field_name), value)
+        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+
 
 chunks_formatter = ChunksFormatter()
 
 
 def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
-    result, _frame_vars = logfire_format_with_frame_vars(
+    result, _frame_vars, _span_name = logfire_format_with_magic(
         format_string,
         kwargs,
         scrubber,
@@ -174,18 +231,18 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubbe
     return result
 
 
-def logfire_format_with_frame_vars(
+def logfire_format_with_magic(
     format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, use_frame_vars: bool = True
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Any], LiteralString]:
     """Return the formatted string and any frame variables that were used in the formatting."""
-    chunks, frame_vars = chunks_formatter.chunks(
+    chunks, extra_attrs, new_template = chunks_formatter.chunks(
         format_string,
         kwargs,
         scrubber=scrubber,
         stack_offset=stack_offset,
         use_frame_vars=use_frame_vars,
     )
-    return ''.join(chunk['v'] for chunk in chunks), frame_vars
+    return ''.join(chunk['v'] for chunk in chunks), extra_attrs, cast(LiteralString, new_template)
 
 
 class InterceptFrameVars(Mapping[str, Any]):
@@ -225,3 +282,50 @@ class InterceptFrameVars(Mapping[str, Any]):
 
     def __len__(self) -> Any:  # pragma: no cover
         raise NotImplementedError
+
+
+@lru_cache
+def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
+    """Returns three things that can be expensive to compute.
+
+    1. Source code corresponding to the node value.
+    2. A compiled code object which can be evaluated to calculate the value.
+    3. Another code object which formats the value.
+    """
+    source = get_node_source_text(node.value, ex_source)
+    value_code = compile(source, '<fvalue1>', 'eval')
+    expr = ast.Expression(
+        ast.JoinedStr(
+            values=[
+                # Similar to the original FormattedValue node,
+                # but replace the actual expression with a simple variable lookup.
+                # Use @ in the variable name so that it can't possibly conflict
+                # with a normal variable.
+                # The value of this variable will be provided in the eval() call
+                # and will come from evaluating value_code above.
+                ast.FormattedValue(
+                    value=ast.Name(id='@fvalue', ctx=ast.Load()),
+                    conversion=node.conversion,
+                    format_spec=node.format_spec,
+                )
+            ]
+        )
+    )
+    ast.fix_missing_locations(expr)
+    formatted_code = compile(expr, '<fvalue2>', 'eval')
+    return source, value_code, formatted_code
+
+
+def get_node_source_text(node: ast.AST, ex_source: executing.Source):
+    """Returns some Python source code representing `node`.
+
+    Preferably the actual original code given by `ast.get_source_segment`,
+    but falling back to `ast.unparse(node)` if the former is incorrect.
+    """
+    source_unparsed = ast.unparse(node)
+    source_segment = ast.get_source_segment(ex_source.text, node) or ''
+    try:
+        source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
+    except Exception:
+        source_segment_unparsed = ''
+    return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
