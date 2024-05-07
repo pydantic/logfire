@@ -846,13 +846,13 @@ class Logfire:
 
         return instrument_openai(self, openai_client, suppress_other_instrumentation)
 
-    def instrument_asyncpg(self):
+    def instrument_asyncpg(self) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
         return instrument_asyncpg()
 
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for

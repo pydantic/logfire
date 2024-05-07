@@ -126,6 +126,7 @@ dev-dependencies = [
     "psycopg2-binary",
     "asyncpg",
     "cloudpickle>=3.0.0",
+    "libcst>=1.3.1",
 ]
 
 [tool.rye.scripts]
