@@ -821,7 +821,8 @@ class Logfire:
         """
 
 
-class LogfireSpan: ...
+class LogfireSpan:
+    """The span class."""
 
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()

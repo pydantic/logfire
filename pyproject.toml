@@ -175,6 +175,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
 "docs/**/*.py" = ["D"]
+"logfire-noop/update_version.py" = ["D"]
 
 [tool.ruff.format]
 docstring-code-format = true

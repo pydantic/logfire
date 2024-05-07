@@ -1,10 +1,21 @@
 [project]
 name = "logfire-noop"
-version = "0.1.0"
+# The version is updated by the `update_version.py` script.
+version = "0.30.0"
 description = "Add your description here"
-authors = [{ name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }]
+authors = [
+    { name = "Pydantic Team", email = "engineering@pydantic.dev" },
+    { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
+    { name = "Hasan Ramezani", email = "hasan@pydantic.dev" },
+    { name = "Adrian Garcia Badaracco", email = "adrian@pydantic.dev" },
+    { name = "David Montague", email = "david@pydantic.dev" },
+    { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
+    { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
+    { name = "Alex Hall", email = "alex@pydantic.dev" },
+]
 dependencies = []
 readme = "README.md"
+license = "MIT"
 requires-python = ">= 3.8"
 
 [build-system]
@@ -19,4 +30,4 @@ dev-dependencies = []
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/logfire_noop"]
+packages = ["logfire_noop"]
