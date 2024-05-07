@@ -48,26 +48,27 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
         return x * 2
 
     assert foo(2) == 4
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
-        {
-            'name': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument_with_no_args.<locals>.foo',
-                'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
-                'x': 2,
-                'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_with_no_args.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
+                    'x': 2,
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_without_kwargs():
@@ -102,48 +103,49 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
     assert s.start_time < s.end_time
     assert len(s.events) == 0
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test span (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_kwargs',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test span (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_kwargs',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.msg': 'test name=foo 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_kwargs',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test name=foo 3',
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_kwargs',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test name=foo 3',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_span_with_parent(exporter: TestExporter) -> None:
@@ -163,79 +165,80 @@ def test_span_with_parent(exporter: TestExporter) -> None:
     assert c.attributes is not None
     assert ATTRIBUTES_TAGS_KEY not in c.attributes
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test parent span (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_parent',
-                'type': 'parent',
-                'logfire.msg_template': '{type} span',
-                'logfire.msg': 'parent span',
-                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test parent span (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_parent',
+                    'type': 'parent',
+                    'logfire.msg_template': '{type} span',
+                    'logfire.msg': 'parent span',
+                    'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test child span (pending)',
-            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_parent',
-                'type': 'child',
-                'logfire.msg_template': '{type} span',
-                'logfire.msg': 'child span',
-                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000001',
+            {
+                'name': 'test child span (pending)',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_parent',
+                    'type': 'child',
+                    'logfire.msg_template': '{type} span',
+                    'logfire.msg': 'child span',
+                    'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                },
             },
-        },
-        {
-            'name': 'test child span',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_parent',
-                'type': 'child',
-                'logfire.msg_template': '{type} span',
-                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'child span',
+            {
+                'name': 'test child span',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_parent',
+                    'type': 'child',
+                    'logfire.msg_template': '{type} span',
+                    'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'child span',
+                },
             },
-        },
-        {
-            'name': 'test parent span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_parent',
-                'type': 'parent',
-                'logfire.msg_template': '{type} span',
-                'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'parent span',
+            {
+                'name': 'test parent span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_parent',
+                    'type': 'parent',
+                    'logfire.msg_template': '{type} span',
+                    'logfire.json_schema': '{"type":"object","properties":{"type":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'parent span',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_span_with_tags(exporter: TestExporter) -> None:
@@ -252,50 +255,51 @@ def test_span_with_tags(exporter: TestExporter) -> None:
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2')
     assert len(s.events) == 0
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test span (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_tags',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name} {number}',
-                'logfire.msg': 'test foo 3',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.tags': ('tag1', 'tag2'),
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test span (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_tags',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name} {number}',
+                    'logfire.msg': 'test foo 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.tags': ('tag1', 'tag2'),
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_with_tags',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name} {number}',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.tags': ('tag1', 'tag2'),
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test foo 3',
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_with_tags',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name} {number}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.tags': ('tag1', 'tag2'),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test foo 3',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_span_without_span_name(exporter: TestExporter) -> None:
@@ -315,48 +319,49 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     assert len(exporter.exported_spans) == 2
     # # because both spans have been ended
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name=} {number} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_without_span_name',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name=} {number} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_without_span_name',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.msg': 'test name=foo 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test {name=} {number}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_without_span_name',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test name=foo 3',
+            {
+                'name': 'test {name=} {number}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_without_span_name',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test name=foo 3',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_span_end_on_exit_false(exporter: TestExporter) -> None:
@@ -377,29 +382,30 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
     assert span.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'pending_span'
     # because the real span hasn't ended yet
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name=} {number} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_end_on_exit_false',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name=} {number} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_end_on_exit_false',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.msg': 'test name=foo 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            }
+        ]
+    )
 
     with s:
         pass
@@ -411,48 +417,49 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
     assert span.attributes is not None
     assert span.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'span'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name=} {number} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_end_on_exit_false',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.msg': 'test name=foo 3',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name=} {number} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_end_on_exit_false',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.msg': 'test name=foo 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test {name=} {number}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_end_on_exit_false',
-                'name': 'foo',
-                'number': 3,
-                'extra': 'extra',
-                'logfire.msg_template': 'test {name=} {number}',
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test name=foo 3',
+            {
+                'name': 'test {name=} {number}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_end_on_exit_false',
+                    'name': 'foo',
+                    'number': 3,
+                    'extra': 'extra',
+                    'logfire.msg_template': 'test {name=} {number}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"extra":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test name=foo 3',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 @pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'trace'))
@@ -507,28 +514,29 @@ def test_log_equals(exporter: TestExporter) -> None:
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test message {foo=} {bar=}'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test message {foo=} {bar=}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'test message {foo=} {bar=}',
-                'logfire.msg': 'test message foo=foo bar=3',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_log_equals',
-                'foo': 'foo',
-                'bar': 3,
-                'logfire.json_schema': '{"type":"object","properties":{"foo":{},"bar":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test message {foo=} {bar=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test message {foo=} {bar=}',
+                    'logfire.msg': 'test message foo=foo bar=3',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_log_equals',
+                    'foo': 'foo',
+                    'bar': 3,
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{},"bar":{}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_log_with_tags(exporter: TestExporter):
@@ -543,29 +551,30 @@ def test_log_with_tags(exporter: TestExporter):
     assert s.attributes['number'] == 2
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name} {number}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'test {name} {number}',
-                'logfire.msg': 'test foo 2',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_log_with_tags',
-                'name': 'foo',
-                'number': 2,
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{}}}',
-                'logfire.tags': ('tag1', 'tag2'),
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name} {number}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test {name} {number}',
+                    'logfire.msg': 'test foo 2',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_log_with_tags',
+                    'name': 'foo',
+                    'number': 2,
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{}}}',
+                    'logfire.tags': ('tag1', 'tag2'),
+                },
+            }
+        ]
+    )
 
 
 def test_log_with_multiple_tags(exporter: TestExporter):
@@ -591,44 +600,45 @@ def test_instrument(exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == [
-        {
-            'name': 'hello-world {a=} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument.<locals>.hello_world',
-                'a': 123,
-                'logfire.msg_template': 'hello-world {a=}',
-                'logfire.msg': 'hello-world a=123',
-                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello-world {a=} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument.<locals>.hello_world',
+                    'a': 123,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=123',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'hello-world {a=}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument.<locals>.hello_world',
-                'a': 123,
-                'logfire.msg_template': 'hello-world {a=}',
-                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'hello-world a=123',
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument.<locals>.hello_world',
+                    'a': 123,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'hello-world a=123',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_instrument_extract_false(exporter: TestExporter):
@@ -638,24 +648,25 @@ def test_instrument_extract_false(exporter: TestExporter):
 
     assert hello_world(123) == 'hello 123'
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
-        {
-            'name': 'hello {a}!',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument_extract_false.<locals>.hello_world',
-                'logfire.msg_template': 'hello {a}!',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'hello {a}!',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello {a}!',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_extract_false.<locals>.hello_world',
+                    'logfire.msg_template': 'hello {a}!',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'hello {a}!',
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_complex_args(exporter: TestExporter):
@@ -665,26 +676,27 @@ def test_instrument_complex_args(exporter: TestExporter):
 
     assert hello_world({'a': 123}) == "hello {'a': 123}"
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
-        {
-            'name': 'hello {thing}!',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_instrument_complex_args.<locals>.hello_world',
-                'logfire.msg_template': 'hello {thing}!',
-                'logfire.msg': "hello {'a': 123}!",
-                'logfire.json_schema': '{"type":"object","properties":{"thing":{"type":"object"}}}',
-                'thing': '{"a":123}',
-                'logfire.span_type': 'span',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello {thing}!',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_complex_args.<locals>.hello_world',
+                    'logfire.msg_template': 'hello {thing}!',
+                    'logfire.msg': "hello {'a': 123}!",
+                    'logfire.json_schema': '{"type":"object","properties":{"thing":{"type":"object"}}}',
+                    'thing': '{"a":123}',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
 
 
 def test_validation_error_on_instrument(exporter: TestExporter):
@@ -698,65 +710,66 @@ def test_validation_error_on_instrument(exporter: TestExporter):
     with pytest.raises(ValidationError):
         run('haha')
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == [
-        {
-            'name': 'hello-world {a=}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_validation_error_on_instrument.<locals>.run',
-                'logfire.msg_template': 'hello-world {a=}',
-                'logfire.msg': 'hello-world a=haha',
-                'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
-                'a': 'haha',
-                'logfire.span_type': 'span',
-                'logfire.level_num': 17,
-                'exception.logfire.data': IsJson(
-                    [
-                        {
-                            'type': 'int_parsing',
-                            'loc': ['a'],
-                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                            'input': 'haha',
-                        }
-                    ]
-                ),
-            },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 2000000000,
-                    'attributes': {
-                        'exception.type': 'ValidationError',
-                        'exception.message': IsStr(
-                            regex='1 validation error for Model\na\n  '
-                            'Input should be a valid integer, unable to parse string as an integer .+',
-                            regex_flags=re.DOTALL,
-                        ),
-                        'exception.stacktrace': IsStr(
-                            regex='For further information visit https://errors.pydantic.dev/.+'
-                        ),
-                        'exception.escaped': 'True',
-                        'exception.logfire.data': IsJson(
-                            [
-                                {
-                                    'type': 'int_parsing',
-                                    'loc': ['a'],
-                                    'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                                    'input': 'haha',
-                                }
-                            ]
-                        ),
-                    },
-                }
-            ],
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_validation_error_on_instrument.<locals>.run',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=haha',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'a': 'haha',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'exception.logfire.data': IsJson(
+                        [
+                            {
+                                'type': 'int_parsing',
+                                'loc': ['a'],
+                                'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                'input': 'haha',
+                            }
+                        ]
+                    ),
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValidationError',
+                            'exception.message': IsStr(
+                                regex='1 validation error for Model\na\n  '
+                                'Input should be a valid integer, unable to parse string as an integer .+',
+                                regex_flags=re.DOTALL,
+                            ),
+                            'exception.stacktrace': IsStr(
+                                regex='For further information visit https://errors.pydantic.dev/.+'
+                            ),
+                            'exception.escaped': 'True',
+                            'exception.logfire.data': IsJson(
+                                [
+                                    {
+                                        'type': 'int_parsing',
+                                        'loc': ['a'],
+                                        'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                        'input': 'haha',
+                                    }
+                                ]
+                            ),
+                        },
+                    }
+                ],
+            }
+        ]
+    )
 
 
 def test_validation_error_on_span(exporter: TestExporter) -> None:
@@ -770,63 +783,64 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
     with pytest.raises(ValidationError):
         run('haha')
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'test span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.function': 'run',
-                'code.lineno': 123,
-                'logfire.msg_template': 'test',
-                'logfire.msg': 'test',
-                'logfire.span_type': 'span',
-                'logfire.level_num': 17,
-                'exception.logfire.data': IsJson(
-                    [
-                        {
-                            'type': 'int_parsing',
-                            'loc': ['a'],
-                            'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                            'input': 'haha',
-                        }
-                    ]
-                ),
-            },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 2000000000,
-                    'attributes': {
-                        'exception.type': 'ValidationError',
-                        'exception.message': IsStr(
-                            regex='1 validation error for Model\na\n  '
-                            'Input should be a valid integer, unable to parse string as an integer .+',
-                            regex_flags=re.DOTALL,
-                        ),
-                        'exception.stacktrace': IsStr(
-                            regex='For further information visit https://errors.pydantic.dev/.+'
-                        ),
-                        'exception.escaped': 'True',
-                        'exception.logfire.data': IsJson(
-                            [
-                                {
-                                    'type': 'int_parsing',
-                                    'loc': ['a'],
-                                    'msg': 'Input should be a valid integer, unable to parse string as an integer',
-                                    'input': 'haha',
-                                }
-                            ]
-                        ),
-                    },
-                }
-            ],
-        }
-    ]
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'run',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'exception.logfire.data': IsJson(
+                        [
+                            {
+                                'type': 'int_parsing',
+                                'loc': ['a'],
+                                'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                'input': 'haha',
+                            }
+                        ]
+                    ),
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValidationError',
+                            'exception.message': IsStr(
+                                regex='1 validation error for Model\na\n  '
+                                'Input should be a valid integer, unable to parse string as an integer .+',
+                                regex_flags=re.DOTALL,
+                            ),
+                            'exception.stacktrace': IsStr(
+                                regex='For further information visit https://errors.pydantic.dev/.+'
+                            ),
+                            'exception.escaped': 'True',
+                            'exception.logfire.data': IsJson(
+                                [
+                                    {
+                                        'type': 'int_parsing',
+                                        'loc': ['a'],
+                                        'msg': 'Input should be a valid integer, unable to parse string as an integer',
+                                        'input': 'haha',
+                                    }
+                                ]
+                            ),
+                        },
+                    }
+                ],
+            }
+        ]
+    )
 
 
 @dataclass
@@ -882,107 +896,107 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
             logfire.info('test1')
             logfire1.info('test2')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
 
-    # insert_assert(exporter1.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'root (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
-                'logfire.msg_template': 'root',
-                'logfire.msg': 'root',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'root (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'child (pending)',
-            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
-                'logfire.msg_template': 'child',
-                'logfire.msg': 'child',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000001',
+            {
+                'name': 'child (pending)',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                    'logfire.msg_template': 'child',
+                    'logfire.msg': 'child',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                },
             },
-        },
-        {
-            'name': 'test1',
-            'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 3000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'test1',
-                'logfire.msg': 'test1',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                },
             },
-        },
-        {
-            'name': 'test2',
-            'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 4000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'test2',
-                'logfire.msg': 'test2',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
-                'logfire.tags': ('tag1', 'tag2'),
+            {
+                'name': 'test2',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                    'logfire.tags': ('tag1', 'tag2'),
+                },
             },
-        },
-        {
-            'name': 'child',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 5000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
-                'logfire.msg_template': 'child',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'child',
+            {
+                'name': 'child',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                    'logfire.msg_template': 'child',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'child',
+                },
             },
-        },
-        {
-            'name': 'root',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 6000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_logfire_with_its_own_config',
-                'logfire.msg_template': 'root',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'root',
+            {
+                'name': 'root',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_logfire_with_its_own_config',
+                    'logfire.msg_template': 'root',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'root',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def do_work() -> None:
@@ -1003,71 +1017,72 @@ def test_span_in_executor(
             executor.submit(do_work)
             executor.shutdown(wait=True)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'main (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_in_executor',
-                'logfire.msg_template': 'main',
-                'logfire.msg': 'main',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'main (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_in_executor',
+                    'logfire.msg_template': 'main',
+                    'logfire.msg': 'main',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'child (pending)',
-            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'do_work',
-                'logfire.msg_template': 'child',
-                'logfire.msg': 'child',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000001',
+            {
+                'name': 'child (pending)',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'do_work',
+                    'logfire.msg_template': 'child',
+                    'logfire.msg': 'child',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                },
             },
-        },
-        {
-            'name': 'child',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
-            'start_time': 2000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'do_work',
-                'logfire.msg_template': 'child',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'child',
+            {
+                'name': 'child',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'do_work',
+                    'logfire.msg_template': 'child',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'child',
+                },
             },
-        },
-        {
-            'name': 'main',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_span_in_executor',
-                'logfire.msg_template': 'main',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'main',
+            {
+                'name': 'main',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_span_in_executor',
+                    'logfire.msg_template': 'main',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'main',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_span_in_executor_args(exporter: TestExporter) -> None:
@@ -1075,44 +1090,45 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
         exec.submit(do_work_with_arg, 'foo')
         exec.shutdown(wait=True)
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'child {within} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'do_work_with_arg',
-                'within': 'foo',
-                'logfire.msg_template': 'child {within}',
-                'logfire.msg': 'child foo',
-                'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'child {within} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'do_work_with_arg',
+                    'within': 'foo',
+                    'logfire.msg_template': 'child {within}',
+                    'logfire.msg': 'child foo',
+                    'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'child {within}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'do_work_with_arg',
-                'within': 'foo',
-                'logfire.msg_template': 'child {within}',
-                'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'child foo',
+            {
+                'name': 'child {within}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'do_work_with_arg',
+                    'within': 'foo',
+                    'logfire.msg_template': 'child {within}',
+                    'logfire.json_schema': '{"type":"object","properties":{"within":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'child foo',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> None:
@@ -1121,28 +1137,29 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
         span.set_attribute('e', None)
         span.set_attribute('f', None)
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'hi',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.function': 'test_complex_attribute_added_after_span_started',
-                'code.lineno': 123,
-                'a': '{"b":1}',
-                'logfire.msg_template': 'hi',
-                'logfire.msg': 'hi',
-                'logfire.span_type': 'span',
-                'c': '{"d":2}',
-                'logfire.null_args': ('e', 'f'),
-                'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{},"f":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_complex_attribute_added_after_span_started',
+                    'code.lineno': 123,
+                    'a': '{"b":1}',
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'logfire.span_type': 'span',
+                    'c': '{"d":2}',
+                    'logfire.null_args': ('e', 'f'),
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{},"f":{}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
@@ -1156,45 +1173,46 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
         # Previously the message was reformatted with this attribute, not any more
         span.set_attribute('missing', 'value')
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': '{present} {missing} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_format_attribute_added_after_pending_span_sent',
-                'present': 'here',
-                'logfire.msg_template': '{present} {missing}',
-                'logfire.msg': 'here {missing}',
-                'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': '{present} {missing} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_format_attribute_added_after_pending_span_sent',
+                    'present': 'here',
+                    'logfire.msg_template': '{present} {missing}',
+                    'logfire.msg': 'here {missing}',
+                    'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': '{present} {missing}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_format_attribute_added_after_pending_span_sent',
-                'present': 'here',
-                'logfire.msg_template': '{present} {missing}',
-                'logfire.msg': 'here {missing}',
-                'logfire.json_schema': '{"type":"object","properties":{"present":{},"missing":{}}}',
-                'logfire.span_type': 'span',
-                'missing': 'value',
+            {
+                'name': '{present} {missing}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_format_attribute_added_after_pending_span_sent',
+                    'present': 'here',
+                    'logfire.msg_template': '{present} {missing}',
+                    'logfire.msg': 'here {missing}',
+                    'logfire.json_schema': '{"type":"object","properties":{"present":{},"missing":{}}}',
+                    'logfire.span_type': 'span',
+                    'missing': 'value',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def check_project_name(expected_project_name: str) -> None:
@@ -1229,71 +1247,73 @@ def test_config_preserved_across_thread_or_process(
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     logfire.info('{http.status}', **{'http.status': 123})  # type: ignore
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': '{http.status}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': '{http.status}',
-                'logfire.msg': '123',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_kwarg_with_dot_in_name',
-                'http.status': 123,
-                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': '{http.status}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': '{http.status}',
+                    'logfire.msg': '123',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_kwarg_with_dot_in_name',
+                    'http.status': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
+                },
+            }
+        ]
+    )
 
     exporter.exported_spans.clear()
 
     with logfire.span('{http.status} - {code.lineno}', **{'http.status': 123}):  # type: ignore
         pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': '{http.status} - {code.lineno} (pending)',
-            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_kwarg_with_dot_in_name',
-                'http.status': 123,
-                'logfire.msg_template': '{http.status} - {code.lineno}',
-                'logfire.msg': IsStr(regex=r'123 - \d+'),
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
-                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': '{http.status} - {code.lineno} (pending)',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_kwarg_with_dot_in_name',
+                    'http.status': 123,
+                    'logfire.msg_template': '{http.status} - {code.lineno}',
+                    'logfire.msg': IsStr(regex=r'123 - \d+'),
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
+                },
             },
-        },
-        {
-            'name': '{http.status} - {code.lineno}',
-            'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
-            'parent': None,
-            'start_time': 2000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_kwarg_with_dot_in_name',
-                'http.status': 123,
-                'logfire.msg_template': '{http.status} - {code.lineno}',
-                'logfire.msg': IsStr(regex=r'123 - \d+'),
-                'logfire.span_type': 'span',
-                'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
+            {
+                'name': '{http.status} - {code.lineno}',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_kwarg_with_dot_in_name',
+                    'http.status': 123,
+                    'logfire.msg_template': '{http.status} - {code.lineno}',
+                    'logfire.msg': IsStr(regex=r'123 - \d+'),
+                    'logfire.span_type': 'span',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.status":{}}}',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 @pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal', 'span'))
@@ -1308,27 +1328,28 @@ def test_forbid_methods_with_leading_underscore_on_attributes(method: str) -> No
 def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> None:
     logfire.log('info', 'test {_foo=}', attributes={'_foo': 'bar'})
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {_foo=}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'test {_foo=}',
-                'logfire.msg': 'test _foo=bar',
-                'code.filepath': 'test_logfire.py',
-                'code.function': 'test_log_with_leading_underscore_on_attributes',
-                'code.lineno': 123,
-                '_foo': 'bar',
-                'logfire.json_schema': '{"type":"object","properties":{"_foo":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {_foo=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test {_foo=}',
+                    'logfire.msg': 'test _foo=bar',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_with_leading_underscore_on_attributes',
+                    'code.lineno': 123,
+                    '_foo': 'bar',
+                    'logfire.json_schema': '{"type":"object","properties":{"_foo":{}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_large_int(exporter: TestExporter) -> None:
@@ -1336,131 +1357,134 @@ def test_large_int(exporter: TestExporter) -> None:
         with logfire.span('test {value=}', value=2**63 + 1):
             pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {value=} (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': '9223372036854775809',
-                'logfire.msg_template': 'test {value=}',
-                'logfire.msg': 'test value=9223372036854775809',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {value=} (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': '9223372036854775809',
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.msg': 'test value=9223372036854775809',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test {value=}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': '9223372036854775809',
-                'logfire.msg_template': 'test {value=}',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test value=9223372036854775809',
+            {
+                'name': 'test {value=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': '9223372036854775809',
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test value=9223372036854775809',
+                },
             },
-        },
-    ]
+        ]
+    )
     exporter.exported_spans.clear()
 
     with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
         with logfire.span('test {value=}', value=2**63):
             pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {value=} (pending)',
-            'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-            'start_time': 3000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': '9223372036854775808',
-                'logfire.msg_template': 'test {value=}',
-                'logfire.msg': 'test value=9223372036854775808',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {value=} (pending)',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': '9223372036854775808',
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.msg': 'test value=9223372036854775808',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test {value=}',
-            'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-            'parent': None,
-            'start_time': 3000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': '9223372036854775808',
-                'logfire.msg_template': 'test {value=}',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test value=9223372036854775808',
+            {
+                'name': 'test {value=}',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': '9223372036854775808',
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test value=9223372036854775808',
+                },
             },
-        },
-    ]
+        ]
+    )
     exporter.exported_spans.clear()
 
     with logfire.span('test {value=}', value=2**63 - 1):
         pass
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {value=} (pending)',
-            'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
-            'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-            'start_time': 5000000000,
-            'end_time': 5000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': 9223372036854775807,
-                'logfire.msg_template': 'test {value=}',
-                'logfire.msg': 'test value=9223372036854775807',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'pending_span',
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {value=} (pending)',
+                'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': 9223372036854775807,
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.msg': 'test value=9223372036854775807',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'test {value=}',
-            'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-            'parent': None,
-            'start_time': 5000000000,
-            'end_time': 6000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_large_int',
-                'value': 9223372036854775807,
-                'logfire.msg_template': 'test {value=}',
-                'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'test value=9223372036854775807',
+            {
+                'name': 'test {value=}',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_large_int',
+                    'value': 9223372036854775807,
+                    'logfire.msg_template': 'test {value=}',
+                    'logfire.json_schema': '{"type":"object","properties":{"value":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test value=9223372036854775807',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_readable_span_signature():
@@ -1497,42 +1521,43 @@ def test_tags(exporter: TestExporter) -> None:
     with lf.span('a span', _tags=('tag2', 'tag3')):
         lf.info('a log', _tags=('tag4', 'tag1'))
 
-    # insert_assert(exporter.exported_spans_as_dict())
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'a log',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'a log',
-                'logfire.msg': 'a log',
-                'code.filepath': 'test_logfire.py',
-                'code.function': 'test_tags',
-                'code.lineno': 123,
-                'logfire.tags': ('tag1', 'tag2', 'tag4'),
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'a log',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'a log',
+                    'logfire.msg': 'a log',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_tags',
+                    'code.lineno': 123,
+                    'logfire.tags': ('tag1', 'tag2', 'tag4'),
+                },
             },
-        },
-        {
-            'name': 'a span',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'test_logfire.py',
-                'code.function': 'test_tags',
-                'code.lineno': 123,
-                'logfire.msg_template': 'a span',
-                'logfire.msg': 'a span',
-                'logfire.tags': ('tag1', 'tag2', 'tag3'),
-                'logfire.span_type': 'span',
+            {
+                'name': 'a span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_tags',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'a span',
+                    'logfire.msg': 'a span',
+                    'logfire.tags': ('tag1', 'tag2', 'tag3'),
+                    'logfire.span_type': 'span',
+                },
             },
-        },
-    ]
+        ]
+    )
 
 
 def test_exc_info(exporter: TestExporter):

@@ -47,119 +47,120 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
 
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
-            'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'bar',
-                'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
-                'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
-                'logfire.span_type': 'pending_span',
-                'logfire.tags': ('auto-trace',),
-                'logfire.pending_parent_id': '0000000000000000',
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'bar',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
             },
-        },
-        {
-            'name': 'Calling async_gen via @instrument (pending)',
-            'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'async_gen',
-                'logfire.msg_template': 'Calling async_gen via @instrument',
-                'logfire.span_type': 'pending_span',
-                'logfire.msg': 'Calling async_gen via @instrument',
-                'logfire.pending_parent_id': '0000000000000001',
+            {
+                'name': 'Calling async_gen via @instrument (pending)',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'async_gen',
+                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.msg': 'Calling async_gen via @instrument',
+                    'logfire.pending_parent_id': '0000000000000001',
+                },
             },
-        },
-        {
-            'name': 'Calling tests.auto_trace_samples.foo.gen (pending)',
-            'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-            'start_time': 3000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'gen',
-                'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
-                'logfire.span_type': 'pending_span',
-                'logfire.tags': ('auto-trace',),
-                'logfire.pending_parent_id': '0000000000000003',
+            {
+                'name': 'Calling tests.auto_trace_samples.foo.gen (pending)',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'gen',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.pending_parent_id': '0000000000000003',
+                },
             },
-        },
-        {
-            'name': 'Calling tests.auto_trace_samples.foo.gen',
-            'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'start_time': 3000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'gen',
-                'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                'logfire.span_type': 'span',
-                'logfire.tags': ('auto-trace',),
-                'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
+            {
+                'name': 'Calling tests.auto_trace_samples.foo.gen',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'gen',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
+                },
             },
-        },
-        {
-            'name': 'Calling async_gen via @instrument',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 5000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'async_gen',
-                'logfire.msg_template': 'Calling async_gen via @instrument',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'Calling async_gen via @instrument',
+            {
+                'name': 'Calling async_gen via @instrument',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'async_gen',
+                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling async_gen via @instrument',
+                },
             },
-        },
-        {
-            'name': 'Calling tests.auto_trace_samples.foo.bar',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 7000000000,
-            'attributes': {
-                'code.filepath': 'foo.py',
-                'code.lineno': 123,
-                'code.function': 'bar',
-                'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
-                'logfire.span_type': 'span',
-                'logfire.tags': ('auto-trace',),
-                'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
-                'logfire.level_num': 17,
+            {
+                'name': 'Calling tests.auto_trace_samples.foo.bar',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'foo.py',
+                    'code.lineno': 123,
+                    'code.function': 'bar',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('auto-trace',),
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 6000000000,
+                        'attributes': {
+                            'exception.type': 'IndexError',
+                            'exception.message': 'list index out of range',
+                            'exception.stacktrace': 'IndexError: list index out of range',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
             },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 6000000000,
-                    'attributes': {
-                        'exception.type': 'IndexError',
-                        'exception.message': 'list index out of range',
-                        'exception.stacktrace': 'IndexError: list index out of range',
-                        'exception.escaped': 'True',
-                    },
-                }
-            ],
-        },
-    ]
+        ]
+    )
 
 
 def test_default_modules() -> None:
@@ -431,7 +432,6 @@ def test_no_auto_trace():
         'Calling module.name.TracedClass.traced_method',
     }
 
-    # insert_assert(get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '')))
     all_calling_strings = {
         'Calling module.name.not_traced_func',
         'Calling module.name.TracedClass.traced_method',
