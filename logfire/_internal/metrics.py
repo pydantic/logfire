@@ -215,6 +215,13 @@ class _ProxyMeter(Meter):
         unit: str = '',
         description: str = '',
     ) -> Gauge:  # pragma: no cover
+        if not GAUGE_IMPORTED:
+            # This only exists in opentelemetry-sdk>=1.23.0
+            raise RuntimeError(
+                'Gauge is not available in this version of OpenTelemetry SDK.\n'
+                'You should upgrade to 1.23.0 or newer:\n'
+                '   pip install opentelemetry-sdk>=1.23.0'
+            )
         with self._lock:
             proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
             self._instruments.add(proxy)
@@ -355,9 +362,9 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if not GAUGE_IMPORTED:  # pragma: no branch
+if GAUGE_IMPORTED:
 
-    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
+    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):  # type: ignore
         def set(
             self,
             amount: int | float,
