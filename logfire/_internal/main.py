@@ -129,7 +129,7 @@ class Logfire:
     # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.
     def _span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         attributes: dict[str, Any],
         *,
         _tags: Sequence[str] | None = None,
@@ -202,7 +202,7 @@ class Logfire:
 
     def trace(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -232,7 +232,7 @@ class Logfire:
 
     def debug(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -262,7 +262,7 @@ class Logfire:
 
     def info(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -292,7 +292,7 @@ class Logfire:
 
     def notice(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -322,7 +322,7 @@ class Logfire:
 
     def warn(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -352,7 +352,7 @@ class Logfire:
 
     def error(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -382,7 +382,7 @@ class Logfire:
 
     def fatal(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -412,7 +412,7 @@ class Logfire:
 
     def exception(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -436,7 +436,7 @@ class Logfire:
 
     def span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -507,7 +507,7 @@ class Logfire:
     def log(
         self,
         level: LevelName,
-        msg_template: LiteralString,
+        msg_template: str,
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,

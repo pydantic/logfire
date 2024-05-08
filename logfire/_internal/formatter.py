@@ -6,7 +6,7 @@ import warnings
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import Any, Final, Literal, LiteralString, Mapping, cast
+from typing import Any, Final, Literal, Mapping
 
 import executing
 from typing_extensions import NotRequired, TypedDict
@@ -100,7 +100,7 @@ class ChunksFormatter(Formatter):
                 if k in ns:
                     if ns[k] is not v:
                         # TODO
-                        warnings.warn('...')
+                        warnings.warn('TODO')
                     break
             locs[k] = v
 
@@ -239,7 +239,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubbe
 
 def logfire_format_with_magic(
     format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, use_frame_vars: bool = True
-) -> tuple[str, dict[str, Any], LiteralString]:
+) -> tuple[str, dict[str, Any], str]:
     """Return the formatted string and any frame variables that were used in the formatting."""
     chunks, extra_attrs, new_template = chunks_formatter.chunks(
         format_string,
@@ -248,7 +248,7 @@ def logfire_format_with_magic(
         stack_offset=stack_offset,
         use_frame_vars=use_frame_vars,
     )
-    return ''.join(chunk['v'] for chunk in chunks), extra_attrs, cast(LiteralString, new_template)
+    return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
 
 
 @lru_cache
