@@ -72,54 +72,28 @@ def test_source_code_extraction_function(exporter: TestExporter) -> None:
 def test_source_code_extraction_method(exporter: TestExporter) -> None:
     AClass().method()
 
-    if sys.version_info >= (3, 11):
-        assert normalize_filepaths(
-            exporter.exported_spans_as_dict(
-                strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False
-            )
-        ) == snapshot(
-            [
-                {
-                    'name': 'from method',
-                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'parent': None,
-                    'start_time': 1000000000,
-                    'end_time': 2000000000,
-                    'attributes': {
-                        'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 19,
-                        'code.function': 'AClass.method',
-                        'logfire.msg_template': 'from method',
-                        'logfire.span_type': 'span',
-                        'logfire.msg': 'from method',
-                    },
-                }
-            ]
-        )
-    else:  # pragma: no cover
-        assert normalize_filepaths(
-            exporter.exported_spans_as_dict(
-                strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False
-            )
-        ) == snapshot(
-            [
-                {
-                    'name': 'from method',
-                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'parent': None,
-                    'start_time': 1000000000,
-                    'end_time': 2000000000,
-                    'attributes': {
-                        'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 17,
-                        'code.function': 'method',
-                        'logfire.msg_template': 'from method',
-                        'logfire.span_type': 'span',
-                        'logfire.msg': 'from method',
-                    },
-                }
-            ]
-        )
+    code_function = 'AClass.method' if sys.version_info >= (3, 11) else 'method'
+    assert normalize_filepaths(
+        exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
+    ) == snapshot(
+        [
+            {
+                'name': 'from method',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'tests/test_source_code_extraction.py',
+                    'code.lineno': 19,
+                    'code.function': code_function,
+                    'logfire.msg_template': 'from method',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'from method',
+                },
+            }
+        ]
+    )
 
 
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
@@ -155,51 +129,25 @@ with logfire.span('from module'):
 def test_source_code_extraction_nested(exporter: TestExporter) -> None:
     nested()
 
-    if sys.version_info >= (3, 11):  # pragma: no branch
-        assert normalize_filepaths(
-            exporter.exported_spans_as_dict(
-                strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False
-            )
-        ) == snapshot(
-            [
-                {
-                    'name': 'hi!',
-                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'parent': None,
-                    'start_time': 1000000000,
-                    'end_time': 2000000000,
-                    'attributes': {
-                        'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 27,
-                        'code.function': 'nested.<locals>.bar.<locals>.AClass.method',
-                        'logfire.msg_template': 'hi!',
-                        'logfire.span_type': 'span',
-                        'logfire.msg': 'hi!',
-                    },
-                }
-            ]
-        )
-    else:  # pragma: no cover
-        assert normalize_filepaths(
-            exporter.exported_spans_as_dict(
-                strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False
-            )
-        ) == snapshot(
-            [
-                {
-                    'name': 'hi!',
-                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'parent': None,
-                    'start_time': 1000000000,
-                    'end_time': 2000000000,
-                    'attributes': {
-                        'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 25,
-                        'code.function': 'method',
-                        'logfire.msg_template': 'hi!',
-                        'logfire.span_type': 'span',
-                        'logfire.msg': 'hi!',
-                    },
-                }
-            ]
-        )
+    code_function = 'nested.<locals>.bar.<locals>.AClass.method' if sys.version_info >= (3, 11) else 'method'
+    assert normalize_filepaths(
+        exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
+    ) == snapshot(
+        [
+            {
+                'name': 'hi!',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'tests/test_source_code_extraction.py',
+                    'code.lineno': 27,
+                    'code.function': code_function,
+                    'logfire.msg_template': 'hi!',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'hi!',
+                },
+            }
+        ]
+    )
