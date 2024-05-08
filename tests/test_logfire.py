@@ -1738,8 +1738,15 @@ def test_fstring_magic(exporter: TestExporter):
         with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
             logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
-        with pytest.warns(UserWarning, match='TODO'):
+        with pytest.warns(UserWarning) as warnings:
             logfire.info(f'log2 {local_var}', local_var=3)
+        assert str(warnings[0].message) == snapshot(
+            "The attribute 'local_var' has the same name as a variable with a different value. Using the attribute."
+        )
+        assert warnings[0].filename == __file__
+        frame = inspect.currentframe()
+        assert frame is not None
+        assert warnings[0].lineno == frame.f_lineno - 7
 
         logfire.log('error', f'log3 {GLOBAL_VAR}')
         logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')

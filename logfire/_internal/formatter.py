@@ -70,7 +70,9 @@ class ChunksFormatter(Formatter):
                     elif ex.node.args:
                         arg_node = ex.node.args[0]
                     if isinstance(arg_node, ast.JoinedStr):
-                        chunks, extra_attrs, new_template = self._fstring_chunks(arg_node, kwargs, scrubber, ex)
+                        chunks, extra_attrs, new_template = self._fstring_chunks(
+                            arg_node, kwargs, scrubber, ex, stack_offset
+                        )
                         return chunks, extra_attrs, new_template
                 else:
                     # TODO
@@ -89,6 +91,7 @@ class ChunksFormatter(Formatter):
         kwargs: Mapping[str, Any],
         scrubber: Scrubber,
         ex: executing.Executing,  # type: ignore[reportPrivateImportUsage]
+        stack_offset: int,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         result: list[LiteralChunk | ArgChunk] = []
         new_template = ''
@@ -99,8 +102,11 @@ class ChunksFormatter(Formatter):
             for ns in (locs, globs):
                 if k in ns:
                     if ns[k] is not v:
-                        # TODO
-                        warnings.warn('TODO')
+                        warnings.warn(
+                            f'The attribute {k!r} has the same name as a variable with a different value. '
+                            f'Using the attribute.',
+                            stacklevel=stack_offset + 1,
+                        )
                     break
             locs[k] = v
 
