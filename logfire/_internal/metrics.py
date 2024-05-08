@@ -25,8 +25,10 @@ from opentelemetry.util.types import Attributes
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
     from opentelemetry.metrics import _Gauge as Gauge
+
+    GAUGE_IMPORTED = True
 except ImportError:  # pragma: no cover
-    Gauge = None
+    GAUGE_IMPORTED = False  # type: ignore
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
@@ -212,7 +214,7 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = '',
         description: str = '',
-    ):  # pragma: no cover
+    ) -> Gauge:  # pragma: no cover
         with self._lock:
             proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
             self._instruments.add(proxy)
@@ -353,7 +355,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if Gauge is not None:  # pragma: no branch
+if not GAUGE_IMPORTED:  # pragma: no branch
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         def set(
