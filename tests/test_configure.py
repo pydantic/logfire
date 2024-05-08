@@ -530,6 +530,7 @@ def test_configure_fallback_path(tmp_path: str) -> None:
     with request_mocker:
         data_dir = Path(tmp_path) / 'logfire_data'
         logfire.configure(
+            send_to_logfire=True,
             data_dir=data_dir,
             token='abc',
             default_span_processor=default_span_processor,
@@ -836,7 +837,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         }
         request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
 
-        logfire.configure()
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('The project will be created in the organization "fake_org". Continue?', default=True),
@@ -871,7 +872,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             [create_project_response],
         )
 
-        logfire.configure()
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -928,7 +929,7 @@ def test_initialize_project_not_using_existing_project(
             [create_project_response],
         )
 
-        logfire.configure()
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -968,7 +969,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         )
 
         with pytest.raises(SystemExit):
-            logfire.configure(data_dir=tmp_path)
+            logfire.configure(data_dir=tmp_path, send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -1045,7 +1046,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             ],
         )
 
-        logfire.configure()
+        logfire.configure(send_to_logfire=True)
 
         for request in request_mocker.request_history:
             assert request.headers['Authorization'] == 'fake_user_token'
@@ -1128,7 +1129,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             [create_project_response],
         )
 
-        logfire.configure()
+        logfire.configure(send_to_logfire=True)
 
         assert prompt_mock.mock_calls == [
             call(
@@ -1278,3 +1279,12 @@ def test_initialize_credentials_from_token_unhealthy():
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     logfire.configure(send_to_logfire=False)
     assert not caplog.messages
+
+
+def test_send_to_logfire_under_pytest():
+    """
+    Test that the `send_to_logfire` parameter is set to False when running under pytest.
+    """
+    assert 'PYTEST_CURRENT_TEST' in os.environ
+    logfire.configure()
+    assert GLOBAL_CONFIG.send_to_logfire is False
