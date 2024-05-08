@@ -71,7 +71,7 @@ jobs:
       - name: Pin python-version ${{ matrix.python-version }}
         run: rye pin ${{ matrix.python-version }}
       - run: rye config --set-bool behavior.use-uv=true
-      - run: rye sync --no-lock
+      - run: rye sync
       - run: rye show
       - run: mkdir coverage
       - run: make test
