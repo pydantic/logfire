@@ -1730,109 +1730,113 @@ GLOBAL_VAR = 1
 
 
 def test_fstring_magic(exporter: TestExporter):
-    local_var = 2
+    @logfire.instrument()
+    def foo():
+        local_var = 2
 
-    with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
-        logfire.info(f'log {GLOBAL_VAR} {local_var}')
+        with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
+            logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
-    with pytest.warns(UserWarning, match='TODO'):
-        logfire.info(f'log2 {local_var}', local_var=3)
+        with pytest.warns(UserWarning, match='TODO'):
+            logfire.info(f'log2 {local_var}', local_var=3)
 
-    logfire.log('error', f'log3 {GLOBAL_VAR}')
-    logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
+        logfire.log('error', f'log3 {GLOBAL_VAR}')
+        logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'log {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'local_var': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'log {GLOBAL_VAR} {local_var}',
+                    'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                    'start_time': 3000000000,
+                    'end_time': 3000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 9,
+                        'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
+                        'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'GLOBAL_VAR': 1,
+                        'local_var': 2,
+                        'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                    },
                 },
-            },
-            {
-                'name': 'span {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'GLOBAL_VAR': 1,
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic',
-                    'code.lineno': 123,
-                    'local_var': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                {
+                    'name': 'span {GLOBAL_VAR} {local_var}',
+                    'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 2000000000,
+                    'end_time': 4000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
+                        'GLOBAL_VAR': 1,
+                        'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'local_var': 2,
+                        'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                    },
                 },
-            },
-            {
-                'name': 'log2 {local_var}',
-                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
-                'parent': None,
-                'start_time': 4000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'logfire.level_num': 9,
-                    'code.function': 'test_fstring_magic',
-                    'code.lineno': 123,
-                    'local_var': 3,
-                    'logfire.msg_template': 'log2 {local_var}',
-                    'logfire.msg': 'log2 3',
-                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
-                    'logfire.span_type': 'log',
+                {
+                    'name': 'log2 {local_var}',
+                    'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 5000000000,
+                    'end_time': 5000000000,
+                    'attributes': {
+                        'code.filepath': 'test_logfire.py',
+                        'logfire.level_num': 9,
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'local_var': 3,
+                        'logfire.msg_template': 'log2 {local_var}',
+                        'logfire.msg': 'log2 3',
+                        'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                        'logfire.span_type': 'log',
+                    },
                 },
-            },
-            {
-                'name': 'log3 {GLOBAL_VAR}',
-                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
-                'parent': None,
-                'start_time': 5000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 17,
-                    'logfire.msg_template': 'log3 {GLOBAL_VAR}',
-                    'logfire.msg': f'log3 {GLOBAL_VAR}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                {
+                    'name': 'log3 {GLOBAL_VAR}',
+                    'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 6000000000,
+                    'end_time': 6000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 17,
+                        'logfire.msg_template': 'log3 {GLOBAL_VAR}',
+                        'logfire.msg': f'log3 {GLOBAL_VAR}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'GLOBAL_VAR': 1,
+                        'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                    },
                 },
-            },
-            {
-                'name': 'log4 {GLOBAL_VAR}',
-                'context': {'trace_id': 4, 'span_id': 6, 'is_remote': False},
-                'parent': None,
-                'start_time': 6000000000,
-                'end_time': 6000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 17,
-                    'logfire.msg_template': 'log4 {GLOBAL_VAR}',
-                    'logfire.msg': f'log4 {GLOBAL_VAR}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                {
+                    'name': 'log4 {GLOBAL_VAR}',
+                    'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 7000000000,
+                    'end_time': 7000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 17,
+                        'logfire.msg_template': 'log4 {GLOBAL_VAR}',
+                        'logfire.msg': f'log4 {GLOBAL_VAR}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'GLOBAL_VAR': 1,
+                        'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                    },
                 },
-            },
-        ]
-    )
+            ]
+        )
+
+    foo()
