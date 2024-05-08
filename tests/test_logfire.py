@@ -1735,8 +1735,8 @@ def test_fstring_magic(exporter: TestExporter):
     def foo():
         local_var = 2
 
-        with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
-            logfire.info(f'log {GLOBAL_VAR} {local_var}')
+        with logfire.span(f'span {GLOBAL_VAR} {local_var}'), logfire.span(f'span2 {local_var}'):
+            _ = logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
         with pytest.warns(UserWarning) as warnings:
             logfire.info(f'log2 {local_var}', local_var=3)
@@ -1748,7 +1748,7 @@ def test_fstring_magic(exporter: TestExporter):
         assert frame is not None
         assert warnings[0].lineno == frame.f_lineno - 7
 
-        logfire.log('error', f'log3 {GLOBAL_VAR}')
+        str(logfire.log('error', f'log3 {GLOBAL_VAR}'))
         logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
         logfire.info(f'log5 {local_var = }')
@@ -1762,10 +1762,10 @@ def test_fstring_magic(exporter: TestExporter):
             [
                 {
                     'name': 'log {GLOBAL_VAR} {local_var}',
-                    'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                    'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                    'start_time': 3000000000,
-                    'end_time': 3000000000,
+                    'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                    'start_time': 4000000000,
+                    'end_time': 4000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 9,
@@ -1780,11 +1780,28 @@ def test_fstring_magic(exporter: TestExporter):
                     },
                 },
                 {
+                    'name': 'span2 {local_var}',
+                    'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                    'start_time': 3000000000,
+                    'end_time': 5000000000,
+                    'attributes': {
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'local_var': 2,
+                        'logfire.msg_template': 'span2 {local_var}',
+                        'logfire.msg': f'span2 {local_var}',
+                        'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                        'logfire.span_type': 'span',
+                    },
+                },
+                {
                     'name': 'span {GLOBAL_VAR} {local_var}',
                     'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                     'start_time': 2000000000,
-                    'end_time': 4000000000,
+                    'end_time': 6000000000,
                     'attributes': {
                         'logfire.span_type': 'span',
                         'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
@@ -1799,10 +1816,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log2 {local_var}',
-                    'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 5000000000,
-                    'end_time': 5000000000,
+                    'start_time': 7000000000,
+                    'end_time': 7000000000,
                     'attributes': {
                         'code.filepath': 'test_logfire.py',
                         'logfire.level_num': 9,
@@ -1817,10 +1834,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log3 {GLOBAL_VAR}',
-                    'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 6000000000,
-                    'end_time': 6000000000,
+                    'start_time': 8000000000,
+                    'end_time': 8000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 17,
@@ -1835,10 +1852,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log4 {GLOBAL_VAR}',
-                    'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 7000000000,
-                    'end_time': 7000000000,
+                    'start_time': 9000000000,
+                    'end_time': 9000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 17,
@@ -1853,10 +1870,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log5 local_var = {local_var}',
-                    'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 8000000000,
-                    'end_time': 8000000000,
+                    'start_time': 10000000000,
+                    'end_time': 10000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 9,
@@ -1871,10 +1888,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log6 {x}',
-                    'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 12, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 9000000000,
-                    'end_time': 9000000000,
+                    'start_time': 11000000000,
+                    'end_time': 11000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 9,
@@ -1889,10 +1906,10 @@ def test_fstring_magic(exporter: TestExporter):
                 },
                 {
                     'name': 'log7 {str(local_var)}',
-                    'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                    'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                     'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                    'start_time': 10000000000,
-                    'end_time': 10000000000,
+                    'start_time': 12000000000,
+                    'end_time': 12000000000,
                     'attributes': {
                         'logfire.span_type': 'log',
                         'logfire.level_num': 9,
