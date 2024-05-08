@@ -171,7 +171,7 @@ def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue:
     )
 
 
-EncoderFunction = Callable[[Any, set[int]], JsonValue]
+EncoderFunction = Callable[[Any, 'set[int]'], JsonValue]
 
 
 @lru_cache(maxsize=None)

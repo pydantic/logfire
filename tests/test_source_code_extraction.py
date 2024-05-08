@@ -111,7 +111,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                     'end_time': 2000000000,
                     'attributes': {
                         'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 17,
+                        'code.lineno': 19,
                         'code.function': 'method',
                         'logfire.msg_template': 'from method',
                         'logfire.span_type': 'span',
@@ -194,7 +194,7 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                     'end_time': 2000000000,
                     'attributes': {
                         'code.filepath': 'tests/test_source_code_extraction.py',
-                        'code.lineno': 25,
+                        'code.lineno': 27,
                         'code.function': 'method',
                         'logfire.msg_template': 'hi!',
                         'logfire.span_type': 'span',
