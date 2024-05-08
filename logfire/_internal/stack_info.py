@@ -7,6 +7,10 @@ from pathlib import Path
 from types import CodeType, FrameType
 from typing import TypedDict
 
+import opentelemetry.sdk.trace
+
+import logfire
+
 _CWD = Path('.').resolve()
 
 StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'code.function': str}, total=False)
@@ -14,13 +18,12 @@ StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'c
 STACK_INFO_KEYS = set(StackInfo.__annotations__.keys())
 assert STACK_INFO_KEYS == {'code.filepath', 'code.lineno', 'code.function'}
 
+SITE_PACKAGES_DIR = str(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent.absolute())
+LOGFIRE_DIR = str(Path(logfire.__file__).parent.absolute())
+PREFIXES = (SITE_PACKAGES_DIR, LOGFIRE_DIR)
+
 
 def get_filepath_attribute(file: str) -> StackInfo:
-    path = get_filepath(file)
-    return {'code.filepath': path}
-
-
-def get_filepath(file: str) -> str:
     path = Path(file)
     if path.is_absolute():
         try:
@@ -28,7 +31,7 @@ def get_filepath(file: str) -> str:
         except ValueError:  # pragma: no cover
             # happens if filename path is not within CWD
             pass
-    return str(path)
+    return {'code.filepath': str(path)}
 
 
 @lru_cache(maxsize=2048)
@@ -91,6 +94,7 @@ def get_user_stack_offset() -> int:
     return stack_offset
 
 
+@lru_cache(maxsize=2048)
 def is_user_filename(filename: str) -> bool:
     """Check if the filename is a user filename.
 
@@ -100,5 +104,4 @@ def is_user_filename(filename: str) -> bool:
     Returns:
         True if the filename is a user filename, False otherwise.
     """
-    filename = get_filepath(filename)
-    return not (filename.startswith('logfire') or 'site-packages' in filename)
+    return not filename.startswith(PREFIXES)
