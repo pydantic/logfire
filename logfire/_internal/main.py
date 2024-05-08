@@ -141,7 +141,11 @@ class Logfire:
         merged_attributes = {**stack_info, **attributes}
 
         log_message, extra_attrs, msg_template = logfire_format_with_magic(
-            msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
+            msg_template,
+            merged_attributes,
+            self._config.scrubber,
+            stack_offset=_stack_offset + 2,
+            fstring_magic=self._config.fstring_magic,
         )
         merged_attributes.update(extra_attrs)
         attributes.update(extra_attrs)  # for the JSON schema
@@ -554,6 +558,7 @@ class Logfire:
                 merged_attributes,
                 self._config.scrubber,
                 stack_offset=stack_offset + 2,
+                fstring_magic=self._config.fstring_magic,
             )
             if extra_attrs:
                 merged_attributes.update(extra_attrs)

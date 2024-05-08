@@ -104,6 +104,8 @@ PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
 """Default sampling ratio for traces. Can be overridden by the `logfire.sample_rate` attribute of a span."""
+FSTRING_MAGIC = ConfigParam(env_vars=['LOGFIRE_FSTRING_MAGIC'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
+"""Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -126,6 +128,7 @@ CONFIG_PARAMS = {
     'pydantic_plugin_record': PYDANTIC_PLUGIN_RECORD,
     'pydantic_plugin_include': PYDANTIC_PLUGIN_INCLUDE,
     'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
+    'fstring_magic': FSTRING_MAGIC,
 }
 
 

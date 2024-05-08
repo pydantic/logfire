@@ -41,9 +41,9 @@ class ChunksFormatter(Formatter):
         *,
         scrubber: Scrubber,
         stack_offset: int = 3,
-        use_frame_vars: bool,
+        fstring_magic: bool,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
-        if use_frame_vars:
+        if fstring_magic:
             frame = inspect.currentframe()
             for _ in range(stack_offset - 2):
                 if frame:  # pragma: no branch
@@ -232,13 +232,13 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubbe
         scrubber,
         stack_offset + 1,
         # This is called from internal code, so we don't want to use frame variables.
-        use_frame_vars=False,
+        fstring_magic=False,
     )
     return result
 
 
 def logfire_format_with_magic(
-    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, use_frame_vars: bool = True
+    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, fstring_magic: bool = True
 ) -> tuple[str, dict[str, Any], str]:
     """Return the formatted string and any frame variables that were used in the formatting."""
     chunks, extra_attrs, new_template = chunks_formatter.chunks(
@@ -246,7 +246,7 @@ def logfire_format_with_magic(
         kwargs,
         scrubber=scrubber,
         stack_offset=stack_offset,
-        use_frame_vars=use_frame_vars,
+        fstring_magic=fstring_magic,
     )
     return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
 
