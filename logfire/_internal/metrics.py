@@ -24,11 +24,11 @@ from opentelemetry.util.types import Attributes
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
-    from opentelemetry.metrics import _Gauge as Gauge
+    from opentelemetry.metrics import _Gauge
 
-    GAUGE_IMPORTED = True
+    Gauge = _Gauge
 except ImportError:  # pragma: no cover
-    GAUGE_IMPORTED = False  # type: ignore
+    Gauge = None
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
@@ -208,14 +208,13 @@ class _ProxyMeter(Meter):
             self._instruments.add(proxy)
             return proxy
 
-    # TODO(Marcelo): We should test this method.
     def create_gauge(
         self,
         name: str,
         unit: str = '',
         description: str = '',
-    ) -> Gauge:  # pragma: no cover
-        if not GAUGE_IMPORTED:
+    ) -> _Gauge:  # pragma: no cover
+        if Gauge is None:
             # This only exists in opentelemetry-sdk>=1.23.0
             raise RuntimeError(
                 'Gauge is not available in this version of OpenTelemetry SDK.\n'
@@ -362,9 +361,9 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if GAUGE_IMPORTED:
+if Gauge is not None:  # pragma: no cover
 
-    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):  # type: ignore
+    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         def set(
             self,
             amount: int | float,
