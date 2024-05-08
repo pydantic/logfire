@@ -1738,6 +1738,9 @@ def test_fstring_magic(exporter: TestExporter):
     with pytest.warns(UserWarning, match='TODO'):
         logfire.info(f'log2 {local_var}', local_var=3)
 
+    logfire.log('error', f'log3 {GLOBAL_VAR}')
+    logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
+
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -1793,6 +1796,42 @@ def test_fstring_magic(exporter: TestExporter):
                     'logfire.msg': 'log2 3',
                     'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
                     'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'log3 {GLOBAL_VAR}',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'log3 {GLOBAL_VAR}',
+                    'logfire.msg': f'log3 {GLOBAL_VAR}',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic',
+                    'code.lineno': 123,
+                    'GLOBAL_VAR': 1,
+                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                },
+            },
+            {
+                'name': 'log4 {GLOBAL_VAR}',
+                'context': {'trace_id': 4, 'span_id': 6, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'log4 {GLOBAL_VAR}',
+                    'logfire.msg': f'log4 {GLOBAL_VAR}',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic',
+                    'code.lineno': 123,
+                    'GLOBAL_VAR': 1,
+                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
                 },
             },
         ]
