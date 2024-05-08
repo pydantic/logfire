@@ -44,39 +44,10 @@ class ChunksFormatter(Formatter):
         fstring_magic: bool,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         if fstring_magic:
-            frame = inspect.currentframe()
-            for _ in range(stack_offset - 2):
-                if frame:  # pragma: no branch
-                    frame = frame.f_back
+            result = self._fstring_chunks(kwargs, scrubber, stack_offset)
+            if result:
+                return result
 
-            is_log_call = False
-            if frame:  # pragma: no branch
-                is_log_call = frame.f_code == logfire.Logfire.log.__code__
-                frame = frame.f_back
-
-            if frame:  # pragma: no branch
-                ex = executing.Source.executing(frame)
-                if isinstance(ex.node, ast.Call):
-                    arg_node = None
-                    if is_log_call:
-                        if len(ex.node.args) >= 2:
-                            arg_node = ex.node.args[1]
-                        else:
-                            # Find the arg named 'msg_template'
-                            for keyword in ex.node.keywords:
-                                if keyword.arg == 'msg_template':
-                                    arg_node = keyword.value
-                                    break
-                    elif ex.node.args:
-                        arg_node = ex.node.args[0]
-                    if isinstance(arg_node, ast.JoinedStr):
-                        chunks, extra_attrs, new_template = self._fstring_chunks(
-                            arg_node, kwargs, scrubber, ex, stack_offset
-                        )
-                        return chunks, extra_attrs, new_template
-                else:
-                    # TODO
-                    pass
         chunks = self._vformat_chunks(
             format_string,
             kwargs=kwargs,
@@ -87,12 +58,54 @@ class ChunksFormatter(Formatter):
 
     def _fstring_chunks(
         self,
-        node: ast.JoinedStr,
         kwargs: Mapping[str, Any],
         scrubber: Scrubber,
-        ex: executing.Executing,  # type: ignore[reportPrivateImportUsage]
         stack_offset: int,
-    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
+        frame = inspect.currentframe()
+        for _ in range(stack_offset - 1):
+            if not frame:
+                return None
+            frame = frame.f_back
+
+        if not frame:
+            return None
+
+        called_code = frame.f_code
+        if called_code.co_filename != logfire.Logfire.log.__code__.co_filename:
+            return None
+        frame = frame.f_back
+        # TODO check if we're still in logfire code
+
+        if not frame:
+            return None
+
+        ex = executing.Source.executing(frame)
+        if not ex.source.tree:
+            return None
+
+        if not isinstance(ex.node, ast.Call):
+            return None
+
+        if called_code == logfire.Logfire.log.__code__:
+            if len(ex.node.args) >= 2:
+                arg_node = ex.node.args[1]
+            else:
+                # Find the arg named 'msg_template'
+                for keyword in ex.node.keywords:
+                    if keyword.arg == 'msg_template':
+                        arg_node = keyword.value
+                        break
+                else:
+                    return None
+        elif ex.node.args:
+            arg_node = ex.node.args[0]
+        else:
+            return None
+
+        if not isinstance(arg_node, ast.JoinedStr):
+            return None
+
         result: list[LiteralChunk | ArgChunk] = []
         new_template = ''
         extra_attrs: dict[str, Any] = {}
@@ -111,7 +124,7 @@ class ChunksFormatter(Formatter):
             locs[k] = v
 
         locs = {**ex.frame.f_locals, **kwargs}
-        for node_value in node.values:
+        for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 assert isinstance(node_value.value, str)
                 result.append({'v': node_value.value, 't': 'lit'})
