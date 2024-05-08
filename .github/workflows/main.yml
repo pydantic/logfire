@@ -68,6 +68,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: eifinger/setup-rye@v2.6
+      - name: Pin python-version ${{ matrix.python-version }}
+        run: rye pin ${{ matrix.python-version }}
       - run: rye config --set-bool behavior.use-uv=true
       - run: rye sync --no-lock
       - run: rye show
