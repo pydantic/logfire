@@ -182,8 +182,7 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
 def test_create_metric_gauge_old_opentelemetry_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(logfire._internal.metrics, 'GAUGE_IMPORTED', False)
     with pytest.raises(RuntimeError) as exc_info:
-        temperature = logfire.metric_gauge('temperature')
-        temperature.set(1)
+        logfire.metric_gauge('gauge')
     assert str(exc_info.value) == snapshot("""\
 Gauge is not available in this version of OpenTelemetry SDK.
 You should upgrade to 1.23.0 or newer:
