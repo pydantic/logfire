@@ -1744,6 +1744,8 @@ def test_fstring_magic(exporter: TestExporter):
         logfire.log('error', f'log3 {GLOBAL_VAR}')
         logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
+        logfire.info(f'log5 {local_var = }')
+
         assert exporter.exported_spans_as_dict() == snapshot(
             [
                 {
@@ -1835,6 +1837,24 @@ def test_fstring_magic(exporter: TestExporter):
                         'code.lineno': 123,
                         'GLOBAL_VAR': 1,
                         'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
+                    },
+                },
+                {
+                    'name': 'log5 local_var = {local_var}',
+                    'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 8000000000,
+                    'end_time': 8000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 9,
+                        'logfire.msg_template': 'log5 local_var = {local_var}',
+                        'logfire.msg': f'log5 {local_var = }',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'local_var': 2,
+                        'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
                     },
                 },
             ]
