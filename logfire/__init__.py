@@ -43,6 +43,7 @@ exception = DEFAULT_LOGFIRE_INSTANCE.exception
 metric_counter = DEFAULT_LOGFIRE_INSTANCE.metric_counter
 metric_histogram = DEFAULT_LOGFIRE_INSTANCE.metric_histogram
 metric_up_down_counter = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter
+metric_gauge = DEFAULT_LOGFIRE_INSTANCE.metric_gauge
 metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback

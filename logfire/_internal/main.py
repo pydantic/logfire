@@ -54,6 +54,7 @@ from .utils import uniquify_sequence
 if TYPE_CHECKING:
     import openai
     from fastapi import FastAPI
+    from opentelemetry.metrics import _Gauge as Gauge
     from starlette.requests import Request
     from starlette.websockets import WebSocket
 
@@ -929,6 +930,33 @@ class Logfire:
             The histogram metric.
         """
         return self._config.meter.create_histogram(name, unit, description)
+
+    def metric_gauge(self, name: str, *, unit: str = '', description: str = '') -> Gauge:
+        """Create a gauge metric.
+
+        Gauge is a synchronous instrument which can be used to record non-additive measurements.
+
+        ```py
+        import logfire
+
+        gauge = logfire.metric_gauge('system.cpu_usage', unit='%', description='CPU usage')
+
+
+        def update_cpu_usage(cpu_percent):
+            gauge.set(cpu_percent)
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#gauge) about gauges.
+
+        Args:
+            name: The name of the metric.
+            unit: The unit of the metric.
+            description: The description of the metric.
+
+        Returns:
+            The gauge metric.
+        """
+        return self._config.meter.create_gauge(name, unit, description)
 
     def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
         """Create an up-down counter metric.
