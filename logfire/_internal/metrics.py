@@ -361,7 +361,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(self._name, self._unit, self._description)
 
 
-if Gauge is not None:  # pragma: no cover
+if Gauge is not None:  # pragma: no branch
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         def set(
