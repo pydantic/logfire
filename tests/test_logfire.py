@@ -1746,6 +1746,11 @@ def test_fstring_magic(exporter: TestExporter):
 
         logfire.info(f'log5 {local_var = }')
 
+        x = 1.2345
+        logfire.info(f'log6 {x:.{local_var}f}')
+
+        logfire.info(f'log7 {str(local_var)!r}')
+
         assert exporter.exported_spans_as_dict() == snapshot(
             [
                 {
@@ -1855,6 +1860,42 @@ def test_fstring_magic(exporter: TestExporter):
                         'code.lineno': 123,
                         'local_var': 2,
                         'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                    },
+                },
+                {
+                    'name': 'log6 {x}',
+                    'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 9000000000,
+                    'end_time': 9000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 9,
+                        'logfire.msg_template': 'log6 {x}',
+                        'logfire.msg': f'log6 {x:.{local_var}f}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'x': 1.2345,
+                        'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                    },
+                },
+                {
+                    'name': 'log7 {str(local_var)}',
+                    'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': 10000000000,
+                    'end_time': 10000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 9,
+                        'logfire.msg_template': 'log7 {str(local_var)}',
+                        'logfire.msg': f'log7 {str(local_var)!r}',
+                        'code.filepath': 'test_logfire.py',
+                        'code.function': 'foo',
+                        'code.lineno': 123,
+                        'str(local_var)': '2',
+                        'logfire.json_schema': '{"type":"object","properties":{"str(local_var)":{}}}',
                     },
                 },
             ]
