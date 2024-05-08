@@ -88,14 +88,12 @@ class Logfire:
         config: LogfireConfig = GLOBAL_CONFIG,
         sample_rate: float | None = None,
         tags: Sequence[str] = (),
-        stack_offset: int = 0,
         console_log: bool = True,
         otel_scope: str = 'logfire',
     ) -> None:
         self._tags = tuple(tags)
         self._config = config
         self._sample_rate = sample_rate
-        self._stack_offset = stack_offset
         self._console_log = console_log
         self._otel_scope = otel_scope
 
@@ -547,7 +545,7 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        stack_offset = (self._stack_offset if stack_offset is None else stack_offset) + 2
+        stack_offset = (0 if stack_offset is None else stack_offset) + 2
         stack_info = get_caller_stack_info(stack_offset)
 
         attributes = attributes or {}
@@ -682,7 +680,6 @@ class Logfire:
             config=self._config,
             tags=self._tags + tuple(tags),
             sample_rate=self._sample_rate,
-            stack_offset=self._stack_offset if stack_offset is None else stack_offset,
             console_log=self._console_log if console_log is None else console_log,
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
         )
