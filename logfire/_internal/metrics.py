@@ -24,7 +24,9 @@ from opentelemetry.util.types import Attributes
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
-    from opentelemetry.metrics import _Gauge as Gauge
+    from opentelemetry.metrics import _Gauge
+
+    Gauge = _Gauge
 except ImportError:  # pragma: no cover
     Gauge = None
 
@@ -206,13 +208,19 @@ class _ProxyMeter(Meter):
             self._instruments.add(proxy)
             return proxy
 
-    # TODO(Marcelo): We should test this method.
     def create_gauge(
         self,
         name: str,
         unit: str = '',
         description: str = '',
-    ):  # pragma: no cover
+    ) -> _Gauge:
+        if Gauge is None:
+            # This only exists in opentelemetry-sdk>=1.23.0
+            raise RuntimeError(
+                'Gauge is not available in this version of OpenTelemetry SDK.\n'
+                'You should upgrade to 1.23.0 or newer:\n'
+                '   pip install opentelemetry-sdk>=1.23.0'
+            )
         with self._lock:
             proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
             self._instruments.add(proxy)
