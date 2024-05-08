@@ -213,7 +213,7 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = '',
         description: str = '',
-    ) -> _Gauge:  # pragma: no cover
+    ) -> _Gauge:
         if Gauge is None:
             # This only exists in opentelemetry-sdk>=1.23.0
             raise RuntimeError(
