@@ -109,8 +109,8 @@ class ChunksFormatter(Formatter):
         result: list[LiteralChunk | ArgChunk] = []
         new_template = ''
         extra_attrs: dict[str, Any] = {}
-        globs = ex.frame.f_globals
-        locs = {**ex.frame.f_locals}
+        globs = frame.f_globals
+        locs = {**frame.f_locals}
         for k, v in kwargs.items():
             for ns in (locs, globs):
                 if k in ns:
@@ -123,7 +123,7 @@ class ChunksFormatter(Formatter):
                     break
             locs[k] = v
 
-        locs = {**ex.frame.f_locals, **kwargs}
+        locs = {**frame.f_locals, **kwargs}
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 assert isinstance(node_value.value, str)
