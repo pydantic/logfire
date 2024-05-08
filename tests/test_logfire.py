@@ -1729,6 +1729,7 @@ def test_invalid_log_level(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='f-string magic is only enabled in Python 3.11+')
 def test_fstring_magic(exporter: TestExporter):
     @logfire.instrument()
     def foo():
