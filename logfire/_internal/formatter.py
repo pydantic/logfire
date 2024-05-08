@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import types
 import warnings
 from functools import lru_cache
 from string import Formatter
@@ -41,10 +42,10 @@ class ChunksFormatter(Formatter):
         *,
         scrubber: Scrubber,
         stack_offset: int = 3,
-        fstring_magic: bool,
+        fstring_frame: types.FrameType | None = None,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
-        if fstring_magic:
-            result = self._fstring_chunks(kwargs, scrubber, stack_offset)
+        if fstring_frame:
+            result = self._fstring_chunks(kwargs, scrubber, fstring_frame)
             if result:
                 return result
 
@@ -60,25 +61,11 @@ class ChunksFormatter(Formatter):
         self,
         kwargs: Mapping[str, Any],
         scrubber: Scrubber,
-        stack_offset: int,
+        frame: types.FrameType,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
-        frame = inspect.currentframe()
-        for _ in range(stack_offset - 1):
-            if not frame:
-                return None
-            frame = frame.f_back
-
-        if not frame:
-            return None
-
         called_code = frame.f_code
-        if called_code.co_filename != logfire.Logfire.log.__code__.co_filename:
-            return None
-        frame = frame.f_back
-        # TODO check if we're still in logfire code
-
-        if not frame:
-            return None
+        frame = frame.f_back  # type: ignore
+        assert frame is not None
 
         ex = executing.Source.executing(frame)
         if not ex.source.tree:
@@ -133,7 +120,7 @@ class ChunksFormatter(Formatter):
                         warnings.warn(
                             f'The attribute {k!r} has the same name as a variable with a different value. '
                             f'Using the attribute.',
-                            stacklevel=stack_offset + 1,
+                            stacklevel=get_stacklevel(frame),
                         )
                     break
             locs[k] = v
@@ -265,14 +252,16 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubbe
         kwargs,
         scrubber,
         stack_offset + 1,
-        # This is called from internal code, so we don't want to use frame variables.
-        fstring_magic=False,
     )
     return result
 
 
 def logfire_format_with_magic(
-    format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3, fstring_magic: bool = True
+    format_string: str,
+    kwargs: dict[str, Any],
+    scrubber: Scrubber,
+    stack_offset: int = 3,
+    fstring_frame: types.FrameType | None = None,
 ) -> tuple[str, dict[str, Any], str]:
     """Return the formatted string and any frame variables that were used in the formatting."""
     chunks, extra_attrs, new_template = chunks_formatter.chunks(
@@ -280,7 +269,7 @@ def logfire_format_with_magic(
         kwargs,
         scrubber=scrubber,
         stack_offset=stack_offset,
-        fstring_magic=fstring_magic,
+        fstring_frame=fstring_frame,
     )
     return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
 
@@ -330,3 +319,14 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     except Exception:
         source_segment_unparsed = ''
     return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
+
+
+def get_stacklevel(frame: types.FrameType):
+    current_frame = inspect.currentframe()
+    stacklevel = 0
+    while current_frame:
+        if current_frame == frame:
+            break
+        stacklevel += 1
+        current_frame = current_frame.f_back
+    return stacklevel

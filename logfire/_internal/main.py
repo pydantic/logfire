@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import inspect
 import sys
 import traceback
 import typing
@@ -138,12 +139,17 @@ class Logfire:
         stack_info = get_caller_stack_info(_stack_offset)
         merged_attributes = {**stack_info, **attributes}
 
+        if self._config.fstring_magic and _stack_offset == 3:
+            fstring_frame = inspect.currentframe().f_back  # type: ignore
+        else:
+            fstring_frame = None
+
         log_message, extra_attrs, msg_template = logfire_format_with_magic(
             msg_template,
             merged_attributes,
             self._config.scrubber,
             stack_offset=_stack_offset + 2,
-            fstring_magic=self._config.fstring_magic,
+            fstring_frame=fstring_frame,
         )
         merged_attributes.update(extra_attrs)
         attributes.update(extra_attrs)  # for the JSON schema
@@ -551,12 +557,22 @@ class Logfire:
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+            fstring_frame = None
+            if self._config.fstring_magic and stack_offset in (2, 3):
+                fstring_frame = inspect.currentframe()
+                assert fstring_frame is not None
+                if stack_offset == 3:
+                    fstring_frame = fstring_frame.f_back
+                    assert fstring_frame is not None
+                    if fstring_frame.f_code.co_filename != Logfire.log.__code__.co_filename:
+                        fstring_frame = None
+
             msg, extra_attrs, msg_template = logfire_format_with_magic(
                 msg_template,
                 merged_attributes,
                 self._config.scrubber,
                 stack_offset=stack_offset + 2,
-                fstring_magic=self._config.fstring_magic,
+                fstring_frame=fstring_frame,
             )
             if extra_attrs:
                 merged_attributes.update(extra_attrs)
