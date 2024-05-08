@@ -12,7 +12,7 @@ sources = pydantic tests docs/plugins
 .PHONY: install  # Install the package, dependencies, and pre-commit for local development
 install: .rye .pre-commit
 	rye show
-	rye sync --no-lock
+	rye sync
 	pre-commit install --install-hooks
 
 .PHONY: format  # Format the code
