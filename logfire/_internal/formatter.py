@@ -84,22 +84,37 @@ class ChunksFormatter(Formatter):
         if not ex.source.tree:
             return None
 
-        if not isinstance(ex.node, ast.Call):
+        call_node = ex.node
+        if call_node is None:  # type: ignore[reportUnnecessaryComparison]
+            if len(ex.statements) != 1:
+                return None
+
+            [statement] = ex.statements
+            if isinstance(statement, ast.Expr):
+                call_node = statement.value
+            elif isinstance(statement, ast.With) and len(statement.items) == 1:
+                call_node = statement.items[0].context_expr
+            if not (
+                call_node and [child for child in ast.walk(call_node) if isinstance(child, ast.Call)] == [call_node]
+            ):
+                return None
+
+        if not isinstance(call_node, ast.Call):
             return None
 
         if called_code == logfire.Logfire.log.__code__:
-            if len(ex.node.args) >= 2:
-                arg_node = ex.node.args[1]
+            if len(call_node.args) >= 2:
+                arg_node = call_node.args[1]
             else:
                 # Find the arg named 'msg_template'
-                for keyword in ex.node.keywords:
+                for keyword in call_node.keywords:
                     if keyword.arg == 'msg_template':
                         arg_node = keyword.value
                         break
                 else:
                     return None
-        elif ex.node.args:
-            arg_node = ex.node.args[0]
+        elif call_node.args:
+            arg_node = call_node.args[0]
         else:
             return None
 

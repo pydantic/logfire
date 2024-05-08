@@ -1909,3 +1909,108 @@ def test_fstring_magic(exporter: TestExporter):
         )
 
     foo()
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='f-string magic is only enabled in Python 3.11+')
+def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    expected_spans = snapshot(
+        [
+            {
+                'name': 'good log {local_var}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'good log {local_var}',
+                    'logfire.msg': 'good log 3',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                    'local_var': 3,
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                },
+            },
+            {
+                'name': 'bad log 3',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'bad log 3',
+                    'logfire.msg': 'bad log 3',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'good span {local_var}',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                    'local_var': 3,
+                    'logfire.msg_template': 'good span {local_var}',
+                    'logfire.msg': 'good span 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'bad span 2 3',
+                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 5, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'bad span 2 3',
+                    'logfire.msg': 'bad span 2 3',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'bad span 1 3',
+                'context': {'trace_id': 4, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'bad span 1 3',
+                    'logfire.msg': 'bad span 1 3',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+    import executing._position_node_finder
+
+    monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore
+
+    local_var = 3
+    logfire.info(f'good log {local_var}')
+
+    _ = logfire.info(f'bad log {local_var}')
+
+    with logfire.span(f'good span {local_var}'):
+        pass
+
+    with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
+        pass
+
+    assert exporter.exported_spans_as_dict() == expected_spans
