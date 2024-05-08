@@ -11,7 +11,6 @@ from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
 
 import logfire
-import logfire._internal
 import logfire._internal.metrics
 
 
