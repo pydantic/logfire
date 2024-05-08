@@ -1278,3 +1278,12 @@ def test_initialize_credentials_from_token_unhealthy():
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     logfire.configure(send_to_logfire=False)
     assert not caplog.messages
+
+
+def test_send_to_logfire_under_pytest():
+    """
+    Test that the `send_to_logfire` parameter is set to False when running under pytest.
+    """
+    assert 'PYTEST_CURRENT_TEST' in os.environ
+    logfire.configure()
+    assert GLOBAL_CONFIG.send_to_logfire is False

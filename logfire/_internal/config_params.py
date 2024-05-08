@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Any, Literal, Set, TypeVar
+from typing import Any, Callable, Literal, Set, TypeVar
 
 from opentelemetry.sdk.environment_variables import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
@@ -47,10 +47,23 @@ class ConfigParam:
     """Type of the parameter."""
 
 
+@dataclass
+class _DefaultCallback:
+    """A default value that is computed at runtime.
+
+    A good example is when we want to check if we are running under pytest and set a default value based on that.
+    """
+
+    callback: Callable[[], Any]
+
+
+_send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_CURRENT_TEST' not in os.environ)
+"""When running under pytest, don't send spans to Logfire by default."""
+
 # fmt: off
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL', OTEL_EXPORTER_OTLP_ENDPOINT], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """Use to set the base URL of the Logfire backend."""
-SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=True, tp=bool)
+SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool)
 """Whether to send spans to Logfire."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
@@ -161,6 +174,8 @@ class ParamManager:
             if value is not None:
                 return self._cast(value, name, param.tp)
 
+        if isinstance(param.default, _DefaultCallback):
+            return self._cast(param.default.callback(), name, param.tp)
         return self._cast(param.default, name, param.tp)
 
     @cached_property
