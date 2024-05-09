@@ -2246,8 +2246,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
 )
 def test_find_arg_failure(exporter: TestExporter):
-    log = partial(logfire.info, 'log')
+    info = partial(logfire.info, 'info')
+    log = partial(logfire.log, 'error', 'log')
     span = partial(logfire.span, 'span')
+    with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
+        info()
     with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
         log()
     with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
@@ -2282,7 +2285,7 @@ Couldn't identify the `msg_template` argument in the call.\
                 },
             },
             {
-                'name': 'log',
+                'name': 'info',
                 'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': 2000000000,
@@ -2290,8 +2293,8 @@ Couldn't identify the `msg_template` argument in the call.\
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'log',
-                    'logfire.msg': 'log',
+                    'logfire.msg_template': 'info',
+                    'logfire.msg': 'info',
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_find_arg_failure',
                     'code.lineno': 123,
@@ -2323,11 +2326,52 @@ Couldn't identify the `msg_template` argument in the call.\
                 },
             },
             {
-                'name': 'span',
+                'name': 'log',
                 'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'log',
+                    'logfire.msg': 'log',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_find_arg_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                'context': {'trace_id': 5, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
                 'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_find_arg_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'span',
+                'context': {'trace_id': 6, 'span_id': 6, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_find_arg_failure',
