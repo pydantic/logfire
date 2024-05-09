@@ -409,10 +409,14 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
 
     Preferably the actual original code given by `ast.get_source_segment`,
     but falling back to `ast.unparse(node)` if the former is incorrect.
+    This happens sometimes due to Python bugs (especially for older Python versions)
+    in the source positions of AST nodes inside f-strings.
     """
+    # ast.unparse is not available in Python 3.8, which is why fstring_magic is forbidden in 3.8.
     source_unparsed = ast.unparse(node)
     source_segment = ast.get_source_segment(ex_source.text, node) or ''
     try:
+        # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
         source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
     except Exception:
         source_segment_unparsed = ''
@@ -420,6 +424,8 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
 
 
 def get_stacklevel(frame: types.FrameType):
+    # Get a stacklevel which can be passed to warn_fstring_magic
+    # which points at the given frame, where the f-string was found.
     current_frame = inspect.currentframe()
     stacklevel = 0
     while current_frame:  # pragma: no branch
