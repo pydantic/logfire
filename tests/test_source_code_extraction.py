@@ -59,7 +59,7 @@ def test_source_code_extraction_function(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_source_code_extraction.py',
+                    'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.lineno': 15,
                     'code.function': 'func',
                     'logfire.msg_template': 'from function',
@@ -86,7 +86,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_source_code_extraction.py',
+                    'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.lineno': 21,
                     'code.function': code_function,
                     'logfire.msg_template': 'from method',
@@ -112,19 +112,43 @@ with logfire.span('from module'):
     ) == snapshot(
         [
             {
-                'name': 'from module',
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
+""",
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 2000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
+""",
+                    'code.filepath': '<string>',
+                    'code.lineno': 2,
+                },
+            },
+            {
+                'name': 'from module',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': '<string>',
                     'code.lineno': 2,
                     'logfire.msg_template': 'from module',
-                    'logfire.span_type': 'span',
                     'logfire.msg': 'from module',
+                    'logfire.span_type': 'span',
                 },
-            }
+            },
         ]
     )
 
@@ -144,7 +168,7 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_source_code_extraction.py',
+                    'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.lineno': 29,
                     'code.function': code_function,
                     'logfire.msg_template': 'hi!',

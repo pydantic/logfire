@@ -101,7 +101,7 @@ class ChunksFormatter(Formatter):
                 warn_fstring_magic(msg, get_stacklevel(frame))
                 return None
 
-        if not isinstance(call_node, ast.Call):
+        if not isinstance(call_node, ast.Call):  # pragma: no cover
             warn_fstring_magic(
                 '`executing` unexpectedly identified a non-Call node.',
                 get_stacklevel(frame),
@@ -365,12 +365,13 @@ class FStringMagicFailedWarning(Warning):
 
 
 def warn_fstring_magic(msg: str, stacklevel: int):
-    prefix = (
+    msg = (
         'Failed to introspect calling code. '
         'Please report this issue to Logfire. '
         'Falling back to normal message formatting '
         'which may result in loss of information if using an f-string. '
         'Set fstring_magic=False in logfire.configure() to suppress this warning. '
         'The problem was:\n'
-    )
-    warnings.warn(prefix + msg, FStringMagicFailedWarning, stacklevel=stacklevel)
+    ) + msg
+    warnings.warn(msg, FStringMagicFailedWarning, stacklevel=stacklevel)
+    logfire.log('warn', msg, stack_offset=stacklevel)

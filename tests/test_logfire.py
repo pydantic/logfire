@@ -1966,11 +1966,36 @@ def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.Monke
                 },
             },
             {
-                'name': 'bad log 3',
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
                 'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': 2000000000,
                 'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'bad log 3',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -1983,10 +2008,10 @@ def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.Monke
             },
             {
                 'name': 'good span {local_var}',
-                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
                 'parent': None,
-                'start_time': 3000000000,
-                'end_time': 4000000000,
+                'start_time': 4000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_fstring_magic_failure',
@@ -1999,11 +2024,61 @@ def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.Monke
                 },
             },
             {
-                'name': 'bad span 2 3',
-                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 4, 'span_id': 5, 'is_remote': False},
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                'context': {'trace_id': 5, 'span_id': 6, 'is_remote': False},
+                'parent': None,
                 'start_time': 6000000000,
-                'end_time': 7000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                'context': {'trace_id': 6, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 6, 'span_id': 7, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_fstring_magic_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'bad span 2 3',
+                'context': {'trace_id': 6, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 6, 'span_id': 7, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_fstring_magic_failure',
@@ -2015,10 +2090,10 @@ def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.Monke
             },
             {
                 'name': 'bad span 1 3',
-                'context': {'trace_id': 4, 'span_id': 5, 'is_remote': False},
+                'context': {'trace_id': 6, 'span_id': 7, 'is_remote': False},
                 'parent': None,
-                'start_time': 5000000000,
-                'end_time': 8000000000,
+                'start_time': 7000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_fstring_magic_failure',
