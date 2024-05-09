@@ -561,6 +561,8 @@ class Logfire:
             if self._config.fstring_magic:
                 fstring_frame = inspect.currentframe()
                 if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    # fstring_frame.f_back should be the user's frame.
+                    # The user called logfire.info or a similar method rather than calling logfire.log directly.
                     fstring_frame = fstring_frame.f_back  # type: ignore
 
             msg, extra_attrs, msg_template = logfire_format_with_magic(
@@ -572,7 +574,10 @@ class Logfire:
             )
             if extra_attrs:
                 merged_attributes.update(extra_attrs)
+                # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
+                # We update both because attributes_json_schema_properties looks at `attributes`.
                 attributes = {**attributes, **extra_attrs}
+
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
