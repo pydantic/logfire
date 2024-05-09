@@ -45,9 +45,14 @@ class ChunksFormatter(Formatter):
         stack_offset: int = 3,
         fstring_frame: types.FrameType | None = None,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+        # Returns
+        # 1. A list of chunks
+        # 2. A dictionary of extra attributes to add to the span/log.
+        #      These can come from evaluating values in f-strings.
+        # 3. The final message template, which may differ from `format_string` if it was an f-string.
         if fstring_frame:
             result = self._fstring_chunks(kwargs, scrubber, fstring_frame)
-            if result:
+            if result:  # returns None if failed
                 return result
 
         chunks = self._vformat_chunks(
@@ -56,6 +61,7 @@ class ChunksFormatter(Formatter):
             scrubber=scrubber,
             stack_offset=stack_offset + 1,
         )
+        # When there's no f-string magic, there's no extra attributes or changes in the template string.
         return chunks, {}, format_string
 
     def _fstring_chunks(
@@ -64,14 +70,24 @@ class ChunksFormatter(Formatter):
         scrubber: Scrubber,
         frame: types.FrameType,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
+        # `frame` is the frame of the method that's being called by the user,
+        # so that we can tell if `logfire.log` is being called.
         called_code = frame.f_code
         frame = frame.f_back  # type: ignore
+        # Now `frame` is the frame where the user called a logfire method.
         assert frame is not None
 
+        # This is where the magic happens. It has caching.
         ex = executing.Source.executing(frame)
+
         call_node = ex.node
         if call_node is None:  # type: ignore[reportUnnecessaryComparison]
+            # `executing` failed to find a node.
+            # This shouldn't happen in most cases, but it's best not to rely on it always working.
             if not ex.source.text:
+                # This is a very likely cause.
+                # There's nothing we could possibly do to make magic work here,
+                # and it's a clear case where the user should turn the magic off.
                 warn_fstring_magic(
                     'No source code available. '
                     'This happens when running in an interactive shell, '
@@ -82,26 +98,41 @@ class ChunksFormatter(Formatter):
 
             msg = '`executing` failed to find a node.'
             if sys.version_info[:2] < (3, 11):
+                # fstring_magic is only on be default for 3.11+ for this reason.
+                # The AST modifications made by auto-tracing and @instrument
+                # mean that the bytecode doesn't match the source code seen by `executing`.
+                # In 3.11+, a different algorithm is used by `executing` which can deal with this.
                 msg += (
                     ' This may be caused by a combination of using Python < 3.11 '
                     'and auto-tracing or @logfire.instrument.'
                 )
+
+            # Try a simple fallback heuristic to find the node which should work in most cases.
+            # First get the statement node, which executing should still be able to do reliably.
             if len(ex.statements) != 1:  # pragma: no cover
+                # Multiple statements should only be possible if semicolons are being used.
                 warn_fstring_magic(msg, get_stacklevel(frame))
                 return None
 
             [statement] = ex.statements
             if isinstance(statement, ast.Expr):
+                # Handle the call being the full statement, e.g.
+                # `logfire.info(...)`
                 call_node = statement.value
             elif isinstance(statement, ast.With) and len(statement.items) == 1:
+                # Handle `with logfire.span(...):` where there's only one context manager.
                 call_node = statement.items[0].context_expr
+            # Check that `call_node` really is a call, and that it doesn't contain any other calls.
             if not (
                 call_node and [child for child in ast.walk(call_node) if isinstance(child, ast.Call)] == [call_node]
             ):
+                # The user did something a bit more ambiguous, e.g. `span = logfire.span(...)`
+                # We could maybe add more heuristics here but that's what `executing` is for.
                 warn_fstring_magic(msg, get_stacklevel(frame))
                 return None
 
         if not isinstance(call_node, ast.Call):  # pragma: no cover
+            # Very unlikely.
             warn_fstring_magic(
                 '`executing` unexpectedly identified a non-Call node.',
                 get_stacklevel(frame),
@@ -109,6 +140,8 @@ class ChunksFormatter(Formatter):
             return None
 
         if called_code == logfire.Logfire.log.__code__:
+            # The `log` method is a bit different from the others:
+            # the argument that might be the f-string is the second argument and it can be named.
             if len(call_node.args) >= 2:
                 arg_node = call_node.args[1]
             else:
@@ -126,6 +159,7 @@ class ChunksFormatter(Formatter):
         elif call_node.args:
             arg_node = call_node.args[0]
         else:
+            # Very unlikely.
             warn_fstring_magic(
                 "Couldn't identify the `msg_template` argument in the call.",
                 get_stacklevel(frame),
@@ -134,40 +168,70 @@ class ChunksFormatter(Formatter):
 
         if not isinstance(arg_node, ast.JoinedStr):
             # Not an f-string, not a problem.
+            # Just use normal formatting.
             return None
 
-        result: list[LiteralChunk | ArgChunk] = []
-        new_template = ''
-        extra_attrs: dict[str, Any] = {}
-        globs = frame.f_globals
-        locs = {**frame.f_locals}
-        for k, v in kwargs.items():
-            for ns in (locs, globs):
-                if k in ns:
-                    if ns[k] is not v:
+        # We have an f-string AST node.
+        # Now prepare the namespaces that we will use to evaluate the components.
+        global_vars = frame.f_globals
+        local_vars = {**frame.f_locals}
+        # Add any values in kwargs (i.e. attributes) to `local_vars` so that they take precedence.
+        # Warn the user if there's a conflict.
+        for kwarg_name, kwarg_value in kwargs.items():
+            # Check the same namespaces that Python uses, in the same order.
+            for namespace in (local_vars, global_vars, frame.f_builtins):
+                if kwarg_name in namespace:
+                    # No need to warn if they just passed the same value as an attribute, e.g. `foo=foo`.
+                    if namespace[kwarg_name] is not kwarg_value:
                         warnings.warn(
-                            f'The attribute {k!r} has the same name as a variable with a different value. '
+                            f'The attribute {kwarg_name!r} has the same name as a variable with a different value. '
                             f'Using the attribute.',
                             stacklevel=get_stacklevel(frame),
                         )
+                    # No need to check the other namespaces either way,
+                    # since the earlier namespaces take precedence even in normal variable lookups.
                     break
-            locs[k] = v
+            # Set the attribute value regardless of whether it's also an existing variable.
+            local_vars[kwarg_name] = kwarg_value
 
-        locs = {**frame.f_locals, **kwargs}
+        # Now for the actual formatting!
+        result: list[LiteralChunk | ArgChunk] = []
+
+        # We construct the message template (i.e. the span name) from the AST.
+        # We don't use the source code of the f-string because that gets messy
+        # if there's escaped quotes or implicit joining of adjacent strings.
+        new_template = ''
+
+        extra_attrs: dict[str, Any] = {}
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
-                assert isinstance(node_value.value, str)
-                result.append({'v': node_value.value, 't': 'lit'})
-                new_template += node_value.value
+                # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
+                value = node_value.value
+                assert type(value) is str  # noqa
+                result.append({'v': value, 't': 'lit'})
+                new_template += value
             else:
+                # These are the parts of the f-string enclosed by `{}`, e.g. 'bar' in f'foo {bar}'
                 assert isinstance(node_value, ast.FormattedValue)
+
+                # This is cached.
                 source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
-                value = eval(value_code, globs, locs)
-                formatted = eval(formatted_code, globs, {**locs, '@fvalue': value})
+
+                # Note that this doesn't include:
+                # - The format spec, e.g. `:0.2f`
+                # - The conversion, e.g. `!r`
+                # - The '=' sign within the braces, e.g. `{bar=}`.
+                #     The AST represents f'{bar = }' as f'bar = {bar}' which is how the template will look.
+                new_template += '{' + source + '}'
+
+                # The actual value of the expression.
+                value = eval(value_code, global_vars, local_vars)
+                extra_attrs[source] = value
+
+                # Format the value according to the format spec, converting to a string.
+                formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
                 formatted = self._clean_value(source, formatted, scrubber)
                 result.append({'v': formatted, 't': 'arg'})
-                new_template += '{' + source + '}'
-                extra_attrs[source] = value
 
         return result, extra_attrs, new_template
 
