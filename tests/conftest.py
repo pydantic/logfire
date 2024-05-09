@@ -1,4 +1,6 @@
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from typing import Any
