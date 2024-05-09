@@ -1955,6 +1955,7 @@ def test_fstring_magic(exporter: TestExporter):
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(
         [
             {
@@ -2117,18 +2118,23 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     )
     import executing._position_node_finder
 
+    # Test what happens when `executing` fails.
     monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore  # pragma: no cover  (coverage being weird)
 
     local_var = 3
+    # The simple heuristic works when there's only one call that's the whole statement.
     logfire.info(f'good log {local_var}')
 
     with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+        # Putting the call in an assignment breaks the heuristic, just because that's unusual and suspicious.
         _ = logfire.info(f'bad log {local_var}')
 
+    # The simple heuristic works when there's one context manager containing one call.
     with logfire.span(f'good span {local_var}'):
         pass
 
     with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+        # Multiple context managers break the heuristic.
         with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
             pass
 
@@ -2141,15 +2147,19 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 def test_executing_failure_old_python(exporter: TestExporter):
     local_var = 2
 
+    # For older versions, the AST modification done by `@instrument` interferes with `executing`.
     @logfire.instrument()
     def foo():  # pragma: no cover  (coverage being weird)
+        # For these cases, the simple heuristic still works.
         with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
             logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
+        # But here it doesn't, see the previous test.
         with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.'):
             _ = logfire.info(f'bad log {local_var}')
 
     foo()
+
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -2162,7 +2172,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': 'log 1 2',
+                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -2184,7 +2194,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
                     'GLOBAL_VAR': 1,
                     'local_var': 2,
                     'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': 'span 1 2',
+                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
                     'logfire.span_type': 'span',
                 },
@@ -2395,6 +2405,8 @@ Couldn't identify the `msg_template` argument in the call.\
 @pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
+    # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
+    # in some Python versions, hence the fallback to `ast.unparse` (so this still works).
     logfire.info(
         f"""
         Hello {name}
@@ -2438,6 +2450,9 @@ def test_wrong_fstring_source_segment(exporter: TestExporter):
 
 @pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_fstring_magic_stack_offset(exporter: TestExporter):
+    # Ensure that `stack_offset` doesn't affect which frame is used for f-string magic.
+    # This is obvious from the current code, just enforcing it.
+
     def foo():
         logfire.log('info', f'log1 {GLOBAL_VAR}')
         logfire.log('info', f'log2 {GLOBAL_VAR}', stack_offset=1)
