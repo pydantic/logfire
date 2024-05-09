@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +55,7 @@ def config_kwargs(
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
-        fstring_magic=True,
+        fstring_magic=sys.version_info[:2] >= (3, 9),
     )
 
 
