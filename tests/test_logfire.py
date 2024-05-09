@@ -1959,7 +1959,7 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
                     'logfire.msg_template': 'good log {local_var}',
                     'logfire.msg': 'good log 3',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                     'local_var': 3,
                     'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
@@ -1986,7 +1986,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                 },
             },
@@ -2002,7 +2002,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.msg_template': 'bad log 3',
                     'logfire.msg': 'bad log 3',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                 },
             },
@@ -2014,7 +2014,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                 'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                     'local_var': 3,
                     'logfire.msg_template': 'good span {local_var}',
@@ -2044,7 +2044,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                 },
             },
@@ -2069,7 +2069,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                 },
             },
@@ -2081,7 +2081,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                 'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                     'logfire.msg_template': 'bad span 2 3',
                     'logfire.msg': 'bad span 2 3',
@@ -2096,7 +2096,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                 'end_time': 11000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_failure',
+                    'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                     'logfire.msg_template': 'bad span 1 3',
                     'logfire.msg': 'bad span 1 3',
