@@ -139,7 +139,7 @@ class Logfire:
         stack_info = get_caller_stack_info(_stack_offset)
         merged_attributes = {**stack_info, **attributes}
 
-        if self._config.fstring_magic and _stack_offset == 3:
+        if self._config.fstring_magic:
             fstring_frame = inspect.currentframe().f_back  # type: ignore
         else:
             fstring_frame = None
@@ -558,14 +558,10 @@ class Logfire:
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
             fstring_frame = None
-            if self._config.fstring_magic and stack_offset in (2, 3):
+            if self._config.fstring_magic:
                 fstring_frame = inspect.currentframe()
-                assert fstring_frame is not None
-                if stack_offset == 3:
-                    fstring_frame = fstring_frame.f_back
-                    assert fstring_frame is not None
-                    if fstring_frame.f_code.co_filename != Logfire.log.__code__.co_filename:
-                        fstring_frame = None
+                if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    fstring_frame = fstring_frame.f_back  # type: ignore
 
             msg, extra_attrs, msg_template = logfire_format_with_magic(
                 msg_template,
