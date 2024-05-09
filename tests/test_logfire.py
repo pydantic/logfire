@@ -6,7 +6,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Callable
+from typing import Any, Callable
 
 import pytest
 from dirty_equals import IsJson, IsStr
@@ -1943,8 +1943,8 @@ def test_fstring_magic(exporter: TestExporter):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='f-string magic is only enabled in Python 3.11+')
-def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
+def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     expected_spans = snapshot(
         [
             {
@@ -2123,3 +2123,116 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
             pass
 
     assert exporter.exported_spans_as_dict() == expected_spans
+
+
+@pytest.mark.skipif(sys.version_info > (3, 10), reason='Testing behaviour before Python 3.11')
+def test_executing_failure_old_python(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, fstring_magic=True)
+    local_var = 2
+
+    @logfire.instrument()
+    def foo():
+        with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
+            logfire.info(f'log {GLOBAL_VAR} {local_var}')
+
+        with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.'):
+            _ = logfire.info(f'bad log {local_var}')
+
+    foo()
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'log {GLOBAL_VAR} {local_var}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': 'log 1 2',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'foo',
+                    'code.lineno': 123,
+                    'GLOBAL_VAR': 1,
+                    'local_var': 2,
+                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                },
+            },
+            {
+                'name': 'span {GLOBAL_VAR} {local_var}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'foo',
+                    'code.lineno': 123,
+                    'GLOBAL_VAR': 1,
+                    'local_var': 2,
+                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': 'span 1 2',
+                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
+""",
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'foo',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'bad log 2',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'bad log 2',
+                    'logfire.msg': 'bad log 2',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'foo',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_executing_failure_old_python.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
