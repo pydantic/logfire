@@ -345,8 +345,7 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     source_segment = ast.get_source_segment(ex_source.text, node) or ''
     try:
         source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
-    except Exception:  # pragma: no cover
-        # TODO combine coverage from Python versions
+    except Exception:
         source_segment_unparsed = ''
     return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
 

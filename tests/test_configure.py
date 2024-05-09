@@ -1291,8 +1291,7 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
-# TODO combine coverage from Python versions
-@pytest.mark.skipif(sys.version_info > (3, 8), reason='Testing an error only raised in Python 3.8+')
+@pytest.mark.skipif(sys.version_info[:2] >= (3, 9), reason='Testing an error only raised in Python 3.8+')
 def test_configure_fstring_python_38():
     with pytest.raises(
         LogfireConfigError,
