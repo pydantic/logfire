@@ -86,11 +86,8 @@ class ChunksFormatter(Formatter):
                     ' This may be caused by a combination of using Python < 3.11 '
                     'and auto-tracing or @logfire.instrument.'
                 )
-            if len(ex.statements) != 1:
-                warn_fstring_magic(
-                    msg + ' Fallback failed due to multiple statements on one line.',
-                    get_stacklevel(frame),
-                )
+            if len(ex.statements) != 1:  # pragma: no cover
+                warn_fstring_magic(msg, get_stacklevel(frame))
                 return None
 
             [statement] = ex.statements
