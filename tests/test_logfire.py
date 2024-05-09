@@ -2111,7 +2111,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     )
     import executing._position_node_finder
 
-    monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore
+    monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore  # pragma: no cover  (coverage being weird)
 
     local_var = 3
     logfire.info(f'good log {local_var}')
@@ -2136,7 +2136,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
     local_var = 2
 
     @logfire.instrument()
-    def foo():
+    def foo():  # pragma: no cover  (coverage being weird)
         with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
             logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
