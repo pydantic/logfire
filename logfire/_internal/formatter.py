@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import sys
 import types
 import warnings
 from functools import lru_cache
@@ -68,12 +69,28 @@ class ChunksFormatter(Formatter):
         assert frame is not None
 
         ex = executing.Source.executing(frame)
-        if not ex.source.tree:
-            return None
-
         call_node = ex.node
         if call_node is None:  # type: ignore[reportUnnecessaryComparison]
+            if not ex.source.tree:
+                warn_fstring_magic(
+                    'No source code available. '
+                    'This happens when running in an interactive shell, '
+                    'using exec(), or running .pyc files without the source .py files.',
+                    get_stacklevel(frame),
+                )
+                return None
+
+            msg = '`executing` failed to find a node.'
+            if sys.version_info[:2] < (3, 11):
+                msg += (
+                    ' This may be caused by a combination of using Python < 3.11 '
+                    'and auto-tracing or @logfire.instrument.'
+                )
             if len(ex.statements) != 1:
+                warn_fstring_magic(
+                    msg + ' Fallback failed due to multiple statements on one line.',
+                    get_stacklevel(frame),
+                )
                 return None
 
             [statement] = ex.statements
@@ -84,9 +101,14 @@ class ChunksFormatter(Formatter):
             if not (
                 call_node and [child for child in ast.walk(call_node) if isinstance(child, ast.Call)] == [call_node]
             ):
+                warn_fstring_magic(msg, get_stacklevel(frame))
                 return None
 
         if not isinstance(call_node, ast.Call):
+            warn_fstring_magic(
+                '`executing` unexpectedly identified a non-Call node.',
+                get_stacklevel(frame),
+            )
             return None
 
         if called_code == logfire.Logfire.log.__code__:
@@ -99,13 +121,22 @@ class ChunksFormatter(Formatter):
                         arg_node = keyword.value
                         break
                 else:
+                    warn_fstring_magic(
+                        "Couldn't identify the `msg_template` argument in the call.",
+                        get_stacklevel(frame),
+                    )
                     return None
         elif call_node.args:
             arg_node = call_node.args[0]
         else:
+            warn_fstring_magic(
+                "Couldn't identify the `msg_template` argument in the call.",
+                get_stacklevel(frame),
+            )
             return None
 
         if not isinstance(arg_node, ast.JoinedStr):
+            # Not an f-string, not a problem.
             return None
 
         result: list[LiteralChunk | ArgChunk] = []
@@ -330,3 +361,19 @@ def get_stacklevel(frame: types.FrameType):
         stacklevel += 1
         current_frame = current_frame.f_back
     return stacklevel
+
+
+class FStringMagicFailedWarning(Warning):
+    pass
+
+
+def warn_fstring_magic(msg: str, stacklevel: int):
+    prefix = (
+        'Failed to introspect calling code. '
+        'Please report this issue to Logfire. '
+        'Falling back to normal message formatting '
+        'which may result in loss of information if using an f-string. '
+        'Set fstring_magic=False in logfire.configure() to suppress this warning. '
+        'The problem was:\n'
+    )
+    warnings.warn(prefix + msg, FStringMagicFailedWarning, stacklevel=stacklevel)
