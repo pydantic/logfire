@@ -364,6 +364,10 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
         self.fstring_magic = param_manager.load_param('fstring_magic', fstring_magic)
+        if self.fstring_magic and sys.version_info[:2] <= (3, 8):
+            raise LogfireConfigError(
+                'f-string magic is only supported in Python 3.9+ and only recommended in Python 3.11+.'
+            )
 
         # We save `scrubbing_patterns` and `scrubbing_callback` just so that they can be serialized and deserialized.
         self.scrubbing_patterns = scrubbing_patterns

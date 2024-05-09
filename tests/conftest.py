@@ -1,5 +1,6 @@
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
 import os
+import sys
 from pathlib import Path
 
 import anyio._backends._asyncio  # noqa  # type: ignore
@@ -53,7 +54,7 @@ def config(
         processors=[SimpleSpanProcessor(exporter)],
         metric_readers=[metrics_reader],
         collect_system_metrics=False,
-        fstring_magic=True,
+        fstring_magic=sys.version_info[:2] >= (3, 9),
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them
