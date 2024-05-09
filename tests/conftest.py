@@ -48,6 +48,11 @@ def config_kwargs(
     id_generator: IncrementalIdGenerator,
     time_generator: TimeGenerator,
 ) -> dict[str, Any]:
+    """
+    Use this when you want to `logfire.configure()` with a variation of the default configuration.
+
+    Note that this doesn't set `metric_readers` because `metrics_reader` can't be used twice.
+    """
     return dict(
         send_to_logfire=False,
         console=False,
@@ -55,6 +60,8 @@ def config_kwargs(
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
+        # Ensure that fstring_magic doesn't break things in most versions
+        # (it's off by default for <3.11) but it's completely forbidden for 3.8.
         fstring_magic=sys.version_info[:2] >= (3, 9),
     )
 
