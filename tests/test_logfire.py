@@ -2128,7 +2128,9 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     assert exporter.exported_spans_as_dict() == expected_spans
 
 
-@pytest.mark.skipif(sys.version_info > (3, 10), reason='Testing behaviour before Python 3.11')
+@pytest.mark.skipif(
+    sys.version_info > (3, 10) or sys.version_info < (3, 9), reason='Testing behaviour for Python < 3.11 but > 3.8'
+)
 def test_executing_failure_old_python(exporter: TestExporter):
     local_var = 2
 
@@ -2240,6 +2242,9 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     )
 
 
+@pytest.mark.skipif(
+    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
+)
 def test_find_arg_failure(exporter: TestExporter):
     log = partial(logfire.info, 'log')
     span = partial(logfire.span, 'span')

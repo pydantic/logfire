@@ -98,6 +98,9 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
     )
 
 
+@pytest.mark.skipif(
+    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
+)
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
     with pytest.warns(FStringMagicFailedWarning, match='No source code available'):
         exec(
@@ -149,6 +152,38 @@ No source code available. This happens when running in an interactive shell, usi
                     'logfire.span_type': 'span',
                 },
             },
+        ]
+    )
+
+
+def test_source_code_extraction_exec_no_fstring_magic(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['fstring_magic'] = False
+    logfire.configure(**config_kwargs)
+    exec(
+        """import logfire
+with logfire.span('from module'):
+    pass
+"""
+    )
+
+    assert normalize_filepaths(
+        exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
+    ) == snapshot(
+        [
+            {
+                'name': 'from module',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': '<string>',
+                    'code.lineno': 2,
+                    'logfire.msg_template': 'from module',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'from module',
+                },
+            }
         ]
     )
 
