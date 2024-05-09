@@ -97,6 +97,7 @@ jinja2==3.1.3
     # via mkdocs-material
     # via mkdocstrings
 libcst==1.3.1
+logfire-noop @ file:logfire-noop
 loguru==0.7.2
 markdown==3.6
     # via mkdocs

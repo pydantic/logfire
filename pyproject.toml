@@ -127,6 +127,7 @@ dev-dependencies = [
     "asyncpg",
     "cloudpickle>=3.0.0",
     "libcst>=1.3.1",
+    "logfire-noop @ file:logfire-noop",
 ]
 
 [tool.rye.scripts]
@@ -159,7 +160,10 @@ extend-select = [
     "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
 ] # add "T" to disallow prints
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
-isort = { combine-as-imports = true, known-first-party = ["logfire"] }
+isort = { combine-as-imports = true, known-first-party = [
+    "logfire",
+    "logfire_noop",
+] }
 mccabe = { max-complexity = 14 }
 ignore = [
     "D107", # ignore missing docstring in __init__ methods

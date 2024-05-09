@@ -6,28 +6,21 @@ import contextlib
 import typing
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union
-
-from fastapi import FastAPI
-from git import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union
 
 from .version import VERSION
 
 if TYPE_CHECKING:
     import openai
     from fastapi import FastAPI
-    from opentelemetry.metrics import (
-        CallbackT,
-        Counter,
-        Histogram,
-        NoOpCounter,
-        NoOpHistogram,
-        NoOpUpDownCounter,
-        UpDownCounter,
-    )
+    from opentelemetry.metrics import CallbackT
+    from opentelemetry.trace import Tracer
+    from opentelemetry.util import types as otel_types
     from starlette.requests import Request
     from starlette.websockets import WebSocket
-    from typing_extensions import LiteralString, ParamSpec, TypeAlias
+    from typing_extensions import LiteralString, ParamSpec, Self, TypeAlias
+
+    from logfire._internal.json_schema import JsonSchemaProperties
 
     _PARAMS = ParamSpec('_PARAMS')
     _RETURN = TypeVar('_RETURN')
@@ -42,6 +35,30 @@ ExcInfo: TypeAlias = Union[
     bool,
     None,
 ]
+
+
+class Counter:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def add(self, value: int) -> None: ...
+
+
+class Histogram:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def record(self, value: int) -> None: ...
+
+
+class UpDownCounter:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def add(self, value: int) -> None: ...
+
+
+class Gauge:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def set(self, value: int) -> None: ...
 
 
 class Logfire:
@@ -76,7 +93,7 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-        return LogfireSpan()
+        return LogfireSpan(msg_template, {}, None, {})  # type: ignore
 
     def instrument(
         self,
@@ -640,7 +657,7 @@ class Logfire:
         Returns:
             The counter metric.
         """
-        return NoOpCounter(name=name, unit=unit, description=description)
+        return Counter(name=name, unit=unit, description=description)
 
     def metric_histogram(self, name: str, *, unit: str = '', description: str = '') -> Histogram:
         """Create a histogram metric.
@@ -667,7 +684,7 @@ class Logfire:
         Returns:
             The histogram metric.
         """
-        return NoOpHistogram(name, unit, description)
+        return Histogram(name, unit, description)
 
     def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
         """Create an up-down counter metric.
@@ -700,7 +717,34 @@ class Logfire:
         Returns:
             The up-down counter metric.
         """
-        return NoOpUpDownCounter(name, unit, description)
+        return UpDownCounter(name, unit, description)
+
+    def metric_gauge(self, name: str, *, unit: str = '', description: str = '') -> Gauge:
+        """Create a gauge metric.
+
+        Gauge is a synchronous instrument which can be used to record non-additive measurements.
+
+        ```py
+        import logfire
+
+        gauge = logfire.metric_gauge('system.cpu_usage', unit='%', description='CPU usage')
+
+
+        def update_cpu_usage(cpu_percent):
+            gauge.set(cpu_percent)
+        ```
+
+        See the [Opentelemetry documentation](https://opentelemetry.io/docs/specs/otel/metrics/api/#gauge) about gauges.
+
+        Args:
+            name: The name of the metric.
+            unit: The unit of the metric.
+            description: The description of the metric.
+
+        Returns:
+            The gauge metric.
+        """
+        return Gauge(name, unit, description)
 
     def metric_counter_callback(
         self,
@@ -823,6 +867,73 @@ class Logfire:
 
 class LogfireSpan:
     """The span class."""
+
+    def __init__(
+        self,
+        span_name: str,
+        otlp_attributes: dict[str, otel_types.AttributeValue],
+        tracer: Tracer,
+        json_schema_properties: JsonSchemaProperties,
+    ) -> None: ...
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType) -> None: ...
+
+    @property
+    def message_template(self) -> str | None:
+        return None
+
+    @property
+    def tags(self) -> Sequence[str]:
+        return []
+
+    @property
+    def message(self) -> str:
+        return ''
+
+    @message.setter
+    def message(self, message: str) -> None: ...
+
+    def end(self) -> None:
+        """Sets the current time as the span's end time.
+
+        The span's end time is the wall time at which the operation finished.
+
+        Only the first call to this method is recorded, further calls are ignored so you
+        can call this within the span's context manager to end it before the context manager
+        exits.
+        """
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        """Sets an attribute on the span.
+
+        Args:
+            key: The key of the attribute.
+            value: The value of the attribute.
+        """
+
+    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+        """Sets the given attributes on the span."""
+
+    def record_exception(
+        self,
+        exception: BaseException,
+        attributes: otel_types.Attributes = None,
+        timestamp: int | None = None,
+        escaped: bool = False,
+    ) -> None:  # pragma: no cover
+        """Records an exception as a span event.
+
+        Delegates to the OpenTelemetry SDK `Span.record_exception` method.
+        """
+
+    def is_recording(self) -> bool:
+        return True
+
+    def set_level(self, level_name: LevelName) -> None:
+        """Set the log level of this span."""
 
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()

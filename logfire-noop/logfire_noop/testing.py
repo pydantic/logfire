@@ -7,18 +7,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    import pytest
-    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-    from opentelemetry.sdk.trace import ReadableSpan
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
-    from opentelemetry.sdk.trace.id_generator import IdGenerator
-
+import pytest
 
 import logfire
 
+if TYPE_CHECKING:
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-class TestExporter(SpanExporter):
+
+class TestExporter:
     """A SpanExporter that stores exported spans in a list for asserting in tests."""
 
     # NOTE: Avoid test discovery by pytest.
@@ -26,9 +25,9 @@ class TestExporter(SpanExporter):
 
     def __init__(self) -> None: ...
 
-    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+    def export(self, spans: Sequence[ReadableSpan]) -> int:
         """Exports a batch of telemetry data."""
-        return SpanExportResult.SUCCESS
+        return 0
 
     def clear(self) -> None:
         """Clears the collected spans."""
@@ -59,7 +58,7 @@ class TestExporter(SpanExporter):
 
 
 @dataclass(repr=True)
-class IncrementalIdGenerator(IdGenerator):
+class IncrementalIdGenerator:
     """Generate sequentially incrementing span/trace IDs for testing.
 
     Trace IDs start at 1 and increment by 1 each time.
@@ -82,7 +81,7 @@ class IncrementalIdGenerator(IdGenerator):
 
 
 @dataclass(repr=True)
-class SeededRandomIdGenerator(IdGenerator):
+class SeededRandomIdGenerator:
     """Generate random span/trace IDs from a random seed for deterministic tests.
 
     Trace IDs are 64-bit integers.
