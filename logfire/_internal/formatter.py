@@ -353,7 +353,7 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
 def get_stacklevel(frame: types.FrameType):
     current_frame = inspect.currentframe()
     stacklevel = 0
-    while current_frame:
+    while current_frame:  # pragma: no branch
         if current_frame == frame:
             break
         stacklevel += 1
