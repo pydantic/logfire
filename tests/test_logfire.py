@@ -6,7 +6,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Callable
+from typing import Callable
 
 import pytest
 from dirty_equals import IsJson, IsStr
@@ -1730,7 +1730,9 @@ def test_invalid_log_level(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='f-string magic is only enabled in Python 3.11+')
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason='f-string magic clashes with @logfire.instrument() in Python < 3.11'
+)
 def test_fstring_magic(exporter: TestExporter):
     local_var = 2
     x = 1.2345
@@ -2126,8 +2128,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 
 
 @pytest.mark.skipif(sys.version_info > (3, 10), reason='Testing behaviour before Python 3.11')
-def test_executing_failure_old_python(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    logfire.configure(**config_kwargs, fstring_magic=True)
+def test_executing_failure_old_python(exporter: TestExporter):
     local_var = 2
 
     @logfire.instrument()

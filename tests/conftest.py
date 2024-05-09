@@ -1,7 +1,6 @@
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
 import os
 from pathlib import Path
-from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
@@ -39,27 +38,22 @@ def metrics_reader() -> InMemoryMetricReader:
     return InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
 
 
-@pytest.fixture
-def config_kwargs(
+@pytest.fixture(autouse=True)
+def config(
     exporter: TestExporter,
+    metrics_reader: InMemoryMetricReader,
     id_generator: IncrementalIdGenerator,
     time_generator: TimeGenerator,
-) -> dict[str, Any]:
-    return dict(
+) -> None:
+    configure(
         send_to_logfire=False,
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
-        collect_system_metrics=False,
-    )
-
-
-@pytest.fixture(autouse=True)
-def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
-    configure(
-        **config_kwargs,
         metric_readers=[metrics_reader],
+        collect_system_metrics=False,
+        fstring_magic=True,
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them
