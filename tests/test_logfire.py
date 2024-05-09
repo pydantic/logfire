@@ -2386,6 +2386,7 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
+@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     logfire.info(
