@@ -1293,7 +1293,7 @@ def test_send_to_logfire_under_pytest():
 
 @pytest.mark.skipif(sys.version_info[:2] >= (3, 9), reason='Testing an error only raised in Python 3.8+')
 def test_configure_fstring_python_38():
-    with pytest.raises(
+    with pytest.raises(  # pragma: no branch
         LogfireConfigError,
         match=r'f-string magic is only supported in Python 3.9\+ and only recommended in Python 3.11\+.',
     ):
