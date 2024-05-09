@@ -1833,7 +1833,8 @@ def test_fstring_magic(exporter: TestExporter):
                     'local_var': 3,
                     'logfire.msg_template': 'log2 {local_var}',
                     'logfire.msg': 'log2 3',
-                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{},"x":{}}}',
+                    'x': 1.2345,
                     'logfire.span_type': 'log',
                 },
             },
@@ -2381,5 +2382,48 @@ Couldn't identify the `msg_template` argument in the call.\
                     'logfire.span_type': 'span',
                 },
             },
+        ]
+    )
+
+
+def test_wrong_fstring_source_segment(exporter: TestExporter):
+    name = 'me'
+    logfire.info(
+        f"""
+        Hello {name}
+        """
+    )
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': """\
+
+        Hello {name}
+        \
+""",
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': """\
+
+        Hello {name}
+        \
+""",
+                    'logfire.msg': """\
+
+        Hello me
+        \
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_wrong_fstring_source_segment',
+                    'code.lineno': 123,
+                    'name': 'me',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
+                },
+            }
         ]
     )
