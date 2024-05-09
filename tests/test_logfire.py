@@ -1744,7 +1744,7 @@ def test_fstring_magic(exporter: TestExporter):
             _ = logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
         with pytest.warns(UserWarning) as warnings:
-            logfire.info(f'log2 {local_var}', local_var=3)
+            logfire.info(f'log2 {local_var}', local_var=3, x=x)
         assert str(warnings[0].message) == snapshot(
             "The attribute 'local_var' has the same name as a variable with a different value. Using the attribute."
         )

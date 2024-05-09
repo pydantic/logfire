@@ -159,7 +159,8 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value.value, str)
                 result.append({'v': node_value.value, 't': 'lit'})
                 new_template += node_value.value
-            elif isinstance(node_value, ast.FormattedValue):
+            else:
+                assert isinstance(node_value, ast.FormattedValue)
                 source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
                 value = eval(value_code, globs, locs)
                 formatted = eval(formatted_code, globs, {**locs, '@fvalue': value})
