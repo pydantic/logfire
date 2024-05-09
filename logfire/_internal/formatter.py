@@ -340,7 +340,7 @@ chunks_formatter = ChunksFormatter()
 
 
 def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
-    result, _frame_vars, _span_name = logfire_format_with_magic(
+    result, _extra_attrs, _new_template = logfire_format_with_magic(
         format_string,
         kwargs,
         scrubber,
@@ -356,7 +356,11 @@ def logfire_format_with_magic(
     stack_offset: int = 3,
     fstring_frame: types.FrameType | None = None,
 ) -> tuple[str, dict[str, Any], str]:
-    """Return the formatted string and any frame variables that were used in the formatting."""
+    # Returns
+    # 1. The formatted message.
+    # 2. A dictionary of extra attributes to add to the span/log.
+    #      These can come from evaluating values in f-strings.
+    # 3. The final message template, which may differ from `format_string` if it was an f-string.
     chunks, extra_attrs, new_template = chunks_formatter.chunks(
         format_string,
         kwargs,
@@ -371,7 +375,7 @@ def logfire_format_with_magic(
 def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
     """Returns three things that can be expensive to compute.
 
-    1. Source code corresponding to the node value.
+    1. Source code corresponding to the node value (excluding the format spec).
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
     """
@@ -381,7 +385,8 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
         ast.JoinedStr(
             values=[
                 # Similar to the original FormattedValue node,
-                # but replace the actual expression with a simple variable lookup.
+                # but replace the actual expression with a simple variable lookup
+                # so that it the expression doesn't need to be evaluated again.
                 # Use @ in the variable name so that it can't possibly conflict
                 # with a normal variable.
                 # The value of this variable will be provided in the eval() call
