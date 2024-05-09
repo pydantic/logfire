@@ -83,14 +83,11 @@ def get_user_stack_offset() -> int:
     Returns:
         The stack offset of the user code.
     """
-    stack_offset = 2
-    try:
-        frame = inspect.currentframe()
-        while frame and not is_user_filename(frame.f_code.co_filename):
-            frame = frame.f_back
-            stack_offset += 1
-    except Exception:  # pragma: no cover
-        pass
+    stack_offset = 1
+    frame = inspect.currentframe()
+    while frame and not is_user_filename(frame.f_code.co_filename):
+        frame = frame.f_back
+        stack_offset += 1
     return stack_offset
 
 
