@@ -5,7 +5,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from types import CodeType, FrameType
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import opentelemetry.sdk.trace
 
@@ -50,10 +50,8 @@ def get_stack_info_from_frame(frame: FrameType) -> StackInfo:
     }
 
 
-def get_caller_stack_info(stack_offset: int = 3) -> StackInfo:
+def get_caller_stack_info() -> StackInfo:
     """Get the stack info of the caller.
-
-    This is used to bind the caller's stack info to logs and spans.
 
     Args:
         stack_offset: The stack level to get the info from.
@@ -61,31 +59,26 @@ def get_caller_stack_info(stack_offset: int = 3) -> StackInfo:
     Returns:
         A dictionary of stack info attributes.
     """
-    try:
-        frame = inspect.currentframe()
-        if frame is None:  # pragma: no cover
-            return {}
-        # traverse stack_level frames up
-        for _ in range(stack_offset):
-            frame = frame.f_back
-            if frame is None:  # pragma: no cover
-                return {}
-        return get_stack_info_from_frame(frame)
-    except Exception:  # pragma: no cover
-        return {}
+    frame = cast(FrameType, inspect.currentframe())
+    while frame and frame.f_back and not is_user_filename(frame.f_code.co_filename):
+        frame = frame.f_back
+    return get_stack_info_from_frame(frame)
 
 
-def get_user_stack_offset() -> int:
-    """Get the stack offset of the user code.
+def get_caller_stack_offset(caller_stack_info: StackInfo) -> int:
+    """Get the stack offset of the caller.
 
-    We want to skip the internal code, and third party code, and get the user code stack info.
+    Args:
+        caller_stack_info: The stack info of the caller.
 
     Returns:
-        The stack offset of the user code.
+        The stack offset of the caller.
     """
-    stack_offset = 1
     frame = inspect.currentframe()
-    while frame and not is_user_filename(frame.f_code.co_filename):
+    stack_offset = 0
+    while frame:
+        if get_stack_info_from_frame(frame) == caller_stack_info:
+            break
         frame = frame.f_back
         stack_offset += 1
     return stack_offset
@@ -101,4 +94,4 @@ def is_user_filename(filename: str) -> bool:
     Returns:
         True if the filename is a user filename, False otherwise.
     """
-    return not filename.startswith(PREFIXES)
+    return not str(Path(filename).absolute()).startswith(PREFIXES)

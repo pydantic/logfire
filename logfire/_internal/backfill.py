@@ -14,6 +14,8 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
 from opentelemetry.trace.status import Status, StatusCode
 
+from logfire._internal.stack_info import get_caller_stack_info
+
 from .constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -153,7 +155,10 @@ class PrepareBackfill:
             otlp_attributes = user_attributes(data.attributes)
 
             if data.formatted_msg is None:  # pragma: no cover
-                formatted_message = logfire_format(data.msg_template, data.attributes, self.scrubber, stack_offset=2)
+                stack_info = get_caller_stack_info()
+                formatted_message = logfire_format(
+                    data.msg_template, data.attributes, self.scrubber, stack_info=stack_info
+                )
             else:
                 formatted_message = data.formatted_msg
             otlp_attributes: dict[str, Any] = {
@@ -198,8 +203,9 @@ class PrepareBackfill:
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
             otlp_attributes = user_attributes(data.log_attributes)
             if data.formatted_msg is None:  # pragma: no branch
+                stack_info = get_caller_stack_info()
                 formatted_message = logfire_format(
-                    data.msg_template, data.log_attributes, self.scrubber, stack_offset=2
+                    data.msg_template, data.log_attributes, self.scrubber, stack_info=stack_info
                 )
             else:  # pragma: no cover
                 formatted_message = data.formatted_msg

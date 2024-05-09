@@ -3,7 +3,6 @@
 from structlog.types import EventDict, WrappedLogger
 
 import logfire
-from logfire._internal.stack_info import get_user_stack_offset
 
 from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
@@ -24,12 +23,10 @@ class LogfireProcessor:
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         msg_template = event_dict.get('event') or 'structlog event'
         # NOTE: We remove 2 from the stack offset, because the `logfire.log` adds 2 to the stack offset.
-        user_stack_offset = get_user_stack_offset() - 2
         logfire.log(
             level=level,  # type: ignore
             msg_template=msg_template,
             attributes=attributes,
-            stack_offset=user_stack_offset,
             console_log=self.console_log,
             custom_scope_suffix='structlog',
         )

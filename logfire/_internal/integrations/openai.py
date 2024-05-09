@@ -24,7 +24,6 @@ from openai.types.images_response import ImagesResponse
 from opentelemetry import context
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
-from ..stack_info import get_user_stack_offset
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
@@ -117,9 +116,7 @@ def instrument_openai_sync(logfire_openai: Logfire, openai_client: openai.OpenAI
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
-        # The stack offset is increased by 1 because of this function call.
-        user_stack_offset = get_user_stack_offset() + 1
-        with logfire_openai.span(message_template, _stack_offset=user_stack_offset, **span_data) as span:
+        with logfire_openai.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return original_request_method(**kwargs)
@@ -163,9 +160,7 @@ def instrument_openai_async(logfire_openai: Logfire, openai_client: openai.Async
 
             kwargs['stream_cls'] = LogfireInstrumentedStream  # type: ignore
 
-        # The stack offset is increased by 1 because of this function call.
-        user_stack_offset = get_user_stack_offset() + 1
-        with logfire_openai.span(message_template, _stack_offset=user_stack_offset, **span_data) as span:
+        with logfire_openai.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
                     return await original_request_method(**kwargs)
@@ -286,12 +281,9 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        # We need to add 2 to the stack offset because the `record_chunk` function is called from the `with` block.
-        user_stack_offset = get_user_stack_offset() + 2
         logfire_openai.log(
             'info',
             STEAMING_MSG_TEMPLATE,
-            stack_offset=user_stack_offset,
             attributes=dict(
                 **span_data,
                 duration=duration,
