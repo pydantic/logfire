@@ -37,30 +37,6 @@ ExcInfo: TypeAlias = Union[
 ]
 
 
-class Counter:
-    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
-
-    def add(self, value: int) -> None: ...
-
-
-class Histogram:
-    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
-
-    def record(self, value: int) -> None: ...
-
-
-class UpDownCounter:
-    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
-
-    def add(self, value: int) -> None: ...
-
-
-class Gauge:
-    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
-
-    def set(self, value: int) -> None: ...
-
-
 class Logfire:
     """The main logfire class."""
 
@@ -1038,3 +1014,27 @@ class AutoTraceModule:
         then it will be treated as a regular expression.
         """
         return True
+
+
+class Counter:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def add(self, value: int) -> None: ...
+
+
+class Histogram:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def record(self, value: int) -> None: ...
+
+
+class UpDownCounter:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def add(self, value: int) -> None: ...
+
+
+class Gauge:
+    def __init__(self, name: str, unit: str = '', description: str = '') -> None: ...
+
+    def set(self, value: int) -> None: ...
