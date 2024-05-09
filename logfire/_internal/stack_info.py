@@ -76,7 +76,7 @@ def get_caller_stack_offset(caller_stack_info: StackInfo) -> int:
     """
     frame = inspect.currentframe()
     stack_offset = 0
-    while frame:
+    while frame:  # pragma: no branch
         if get_stack_info_from_frame(frame) == caller_stack_info:
             break
         frame = frame.f_back
