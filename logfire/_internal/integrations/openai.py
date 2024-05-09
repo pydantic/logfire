@@ -286,8 +286,8 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        # We need to subtract 2 from the stack offset, because the `logfire_openai.log` adds 2 to the stack offset.
-        user_stack_offset = get_user_stack_offset() - 2
+        # We need to add 2 to the stack offset because the `record_chunk` function is called from the `with` block.
+        user_stack_offset = get_user_stack_offset() + 2
         logfire_openai.log(
             'info',
             STEAMING_MSG_TEMPLATE,
