@@ -5,6 +5,7 @@ import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 from logging import getLogger
 from typing import Callable
 
@@ -2233,6 +2234,58 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.msg_template': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
                     'logfire.msg': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
                     'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_find_arg_failure(exporter: TestExporter):
+    log = partial(logfire.info, 'hello')
+    with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
+        log()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Couldn't identify the `msg_template` argument in the call.\
+""",
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_find_arg_failure',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'hello',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_find_arg_failure',
+                    'code.lineno': 123,
                 },
             },
         ]
