@@ -29,6 +29,7 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
+from logfire._internal.formatter import FStringMagicFailedWarning
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -2036,12 +2037,14 @@ def test_fstring_magic_failure(exporter: TestExporter, monkeypatch: pytest.Monke
     local_var = 3
     logfire.info(f'good log {local_var}')
 
-    _ = logfire.info(f'bad log {local_var}')
+    with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+        _ = logfire.info(f'bad log {local_var}')
 
     with logfire.span(f'good span {local_var}'):
         pass
 
-    with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
-        pass
+    with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+        with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
+            pass
 
     assert exporter.exported_spans_as_dict() == expected_spans

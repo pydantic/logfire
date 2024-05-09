@@ -71,7 +71,7 @@ class ChunksFormatter(Formatter):
         ex = executing.Source.executing(frame)
         call_node = ex.node
         if call_node is None:  # type: ignore[reportUnnecessaryComparison]
-            if not ex.source.tree:
+            if not ex.source.text:
                 warn_fstring_magic(
                     'No source code available. '
                     'This happens when running in an interactive shell, '

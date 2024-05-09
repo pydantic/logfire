@@ -3,9 +3,11 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.formatter import FStringMagicFailedWarning
 from logfire.testing import TestExporter
 
 
@@ -97,12 +99,13 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
 
 
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
-    exec(
-        """import logfire
+    with pytest.warns(FStringMagicFailedWarning, match='No source code available'):
+        exec(
+            """import logfire
 with logfire.span('from module'):
     pass
-"""
-    )
+    """
+        )
 
     assert normalize_filepaths(
         exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
