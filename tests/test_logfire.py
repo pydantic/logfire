@@ -1738,8 +1738,11 @@ def test_fstring_magic(exporter: TestExporter):
     local_var = 2
     x = 1.2345
 
+    # Test that `executing` still works in instrumented functions for Python 3.11+.
     @logfire.instrument()
     def foo():
+        # Test some cases that require `executing` (i.e. the simple fallback heuristics can't handle)
+        # particularly two `span` calls in one line.
         with logfire.span(f'span {GLOBAL_VAR} {local_var}'), logfire.span(f'span2 {local_var}'):
             _ = logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
@@ -1753,16 +1756,19 @@ def test_fstring_magic(exporter: TestExporter):
         assert frame is not None
         assert warnings[0].lineno == frame.f_lineno - 7
 
+        # Test the .log method which has the argument in a different place from the other methods.
+        # wrapping in another call (i.e. str()) is another case that requires `executing`
         str(logfire.log('error', f'log3 {GLOBAL_VAR}'))
         logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
+        # Test putting exotic things inside braces.
+        # Note that the span name / message template differ slightly from the f-string in these cases.
         logfire.info(f'log5 {local_var = }')
-
         logfire.info(f'log6 {x:.{local_var}f}')
-
         logfire.info(f'log7 {str(local_var)!r}')
 
     foo()
+
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
