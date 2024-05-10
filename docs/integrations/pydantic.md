@@ -11,6 +11,11 @@ import logfire
 logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))
 ```
 
+!!! info
+
+    Please note that logfire requires pydantic in version >= `2.7.0`.
+
+
 ## Third party modules
 
 By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
