@@ -47,7 +47,7 @@ from .json_schema import (
     create_json_schema,
 )
 from .metrics import ProxyMeterProvider
-from .stack_info import get_caller_stack_info
+from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
 from .utils import uniquify_sequence
 
@@ -134,7 +134,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
     ) -> LogfireSpan:
-        stack_info = get_caller_stack_info()
+        stack_info = get_user_stack_info()
         merged_attributes = {**stack_info, **attributes}
 
         log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber)
@@ -531,7 +531,7 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        stack_info = get_caller_stack_info()
+        stack_info = get_user_stack_info()
 
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}

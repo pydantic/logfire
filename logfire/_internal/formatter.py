@@ -6,7 +6,7 @@ from typing import Any, Final, Literal, Mapping
 
 from typing_extensions import NotRequired, TypedDict
 
-from logfire._internal.stack_info import get_user_frame
+from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
@@ -92,8 +92,8 @@ class ChunksFormatter(Formatter):
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
-                        _frame, stack_offset = get_user_frame()
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
+                        _frame, stacklevel = get_user_frame_and_stacklevel()
+                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
