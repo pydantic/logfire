@@ -137,7 +137,7 @@ class Logfire:
         stack_info = get_caller_stack_info()
         merged_attributes = {**stack_info, **attributes}
 
-        log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber, stack_info=stack_info)
+        log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber)
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -185,9 +185,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
-            msg_template, function_args, self._config.scrubber, stack_info=get_caller_stack_info()
-        )
+        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
         if json_schema_properties := attributes_json_schema_properties(function_args):
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
         attributes.update(user_attributes(function_args))
@@ -538,7 +536,7 @@ class Logfire:
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stack_info=stack_info)
+            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber)
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',

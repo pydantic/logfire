@@ -5,7 +5,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from types import CodeType, FrameType
-from typing import TypedDict, cast
+from typing import TypedDict
 
 import opentelemetry.sdk.trace
 
@@ -51,37 +51,21 @@ def get_stack_info_from_frame(frame: FrameType) -> StackInfo:
 
 
 def get_caller_stack_info() -> StackInfo:
-    """Get the stack info of the caller.
-
-    Args:
-        stack_offset: The stack level to get the info from.
-
-    Returns:
-        A dictionary of stack info attributes.
-    """
-    frame = cast(FrameType, inspect.currentframe())
-    while frame and frame.f_back and not is_user_filename(frame.f_code.co_filename):
-        frame = frame.f_back
-    return get_stack_info_from_frame(frame)
+    frame, _offset = get_user_frame()
+    if frame:
+        return get_stack_info_from_frame(frame)
+    return {}
 
 
-def get_caller_stack_offset(caller_stack_info: StackInfo) -> int:
-    """Get the stack offset of the caller.
-
-    Args:
-        caller_stack_info: The stack info of the caller.
-
-    Returns:
-        The stack offset of the caller.
-    """
+def get_user_frame() -> tuple[FrameType | None, int]:
     frame = inspect.currentframe()
-    stack_offset = 0
-    while frame:  # pragma: no branch
-        if get_stack_info_from_frame(frame) == caller_stack_info:
-            break
+    offset = 0
+    while frame:
+        if is_user_filename(frame.f_code.co_filename):
+            return frame, offset
         frame = frame.f_back
-        stack_offset += 1
-    return stack_offset
+        offset += 1
+    return None, 0
 
 
 @lru_cache(maxsize=2048)
