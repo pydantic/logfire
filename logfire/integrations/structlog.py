@@ -6,9 +6,6 @@ import logfire
 
 from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
-_STRUCTLOG_CALL_OFFSET = 5
-"""The offset to the stack to find the caller of the structlog event."""
-
 RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
 """Attributes to strip from the event before sending to Logfire."""
 
@@ -29,7 +26,6 @@ class LogfireProcessor:
             level=level,  # type: ignore
             msg_template=msg_template,
             attributes=attributes,
-            stack_offset=_STRUCTLOG_CALL_OFFSET,
             console_log=self.console_log,
             custom_scope_suffix='structlog',
         )

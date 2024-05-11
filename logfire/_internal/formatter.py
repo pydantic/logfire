@@ -14,6 +14,7 @@ import executing
 from typing_extensions import NotRequired, TypedDict
 
 import logfire
+from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import Scrubber
@@ -42,7 +43,6 @@ class ChunksFormatter(Formatter):
         kwargs: Mapping[str, Any],
         *,
         scrubber: Scrubber,
-        stack_offset: int = 3,
         fstring_frame: types.FrameType | None = None,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         # Returns
@@ -59,7 +59,6 @@ class ChunksFormatter(Formatter):
             format_string,
             kwargs=kwargs,
             scrubber=scrubber,
-            stack_offset=stack_offset + 1,
         )
         # When there's no f-string magic, there's no extra attributes or changes in the template string.
         return chunks, {}, format_string
@@ -243,7 +242,6 @@ class ChunksFormatter(Formatter):
         scrubber: Scrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
-        stack_offset: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
@@ -299,7 +297,8 @@ class ChunksFormatter(Formatter):
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
+                        _frame, stacklevel = get_user_frame_and_stacklevel()
+                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -339,12 +338,11 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber) -> str:
     result, _extra_attrs, _new_template = logfire_format_with_magic(
         format_string,
         kwargs,
         scrubber,
-        stack_offset + 1,
     )
     return result
 
@@ -353,7 +351,6 @@ def logfire_format_with_magic(
     format_string: str,
     kwargs: dict[str, Any],
     scrubber: Scrubber,
-    stack_offset: int = 3,
     fstring_frame: types.FrameType | None = None,
 ) -> tuple[str, dict[str, Any], str]:
     # Returns
@@ -365,7 +362,6 @@ def logfire_format_with_magic(
         format_string,
         kwargs,
         scrubber=scrubber,
-        stack_offset=stack_offset,
         fstring_frame=fstring_frame,
     )
     return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
@@ -450,4 +446,4 @@ def warn_fstring_magic(msg: str, stacklevel: int):
         'The problem was:\n'
     ) + msg
     warnings.warn(msg, FStringMagicFailedWarning, stacklevel=stacklevel)
-    logfire.log('warn', msg, stack_offset=stacklevel)
+    logfire.log('warn', msg)

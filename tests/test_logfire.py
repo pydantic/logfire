@@ -1170,6 +1170,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
 
     assert len(warnings) == 1
     assert warnings[0].filename == __file__
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     with span:
         # Previously the message was reformatted with this attribute, not any more
@@ -2444,58 +2445,5 @@ def test_wrong_fstring_source_segment(exporter: TestExporter):
                     'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
                 },
             }
-        ]
-    )
-
-
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
-def test_fstring_magic_stack_offset(exporter: TestExporter):
-    # Ensure that `stack_offset` doesn't affect which frame is used for f-string magic.
-    # This is obvious from the current code, just enforcing it.
-
-    def foo():
-        logfire.log('info', f'log1 {GLOBAL_VAR}')
-        logfire.log('info', f'log2 {GLOBAL_VAR}', stack_offset=1)
-
-    foo()
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'log1 {GLOBAL_VAR}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'log1 {GLOBAL_VAR}',
-                    'logfire.msg': 'log1 1',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
-                },
-            },
-            {
-                'name': 'log2 {GLOBAL_VAR}',
-                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
-                'parent': None,
-                'start_time': 2000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'log2 {GLOBAL_VAR}',
-                    'logfire.msg': 'log2 1',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_fstring_magic_stack_offset',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
-                },
-            },
         ]
     )
