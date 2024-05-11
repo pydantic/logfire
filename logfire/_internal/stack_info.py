@@ -62,21 +62,16 @@ def get_user_frame() -> tuple[FrameType | None, int]:
     frame = inspect.currentframe()
     offset = 0
     while frame:
-        if is_user_filename(frame.f_code.co_filename):
+        if is_user_code(frame.f_code):
             return frame, offset
         frame = frame.f_back
         offset += 1
     return None, 0
 
 
-@lru_cache(maxsize=2048)
-def is_user_filename(filename: str) -> bool:
-    """Check if the filename is a user filename.
-
-    Args:
-        filename: The filename to check.
-
-    Returns:
-        True if the filename is a user filename, False otherwise.
-    """
-    return not str(Path(filename).absolute()).startswith(PREFIXES)
+@lru_cache(maxsize=8192)
+def is_user_code(code: CodeType) -> bool:
+    return not (
+        str(Path(code.co_filename).absolute()).startswith(PREFIXES)
+        or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
+    )
