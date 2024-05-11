@@ -6,6 +6,8 @@ from typing import Any, Final, Literal, Mapping
 
 from typing_extensions import NotRequired, TypedDict
 
+from logfire._internal.stack_info import get_user_frame_and_stacklevel
+
 __all__ = 'chunks_formatter', 'LiteralChunk', 'ArgChunk', 'logfire_format'
 
 from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
@@ -35,7 +37,6 @@ class ChunksFormatter(Formatter):
         scrubber: Scrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
-        stack_offset: int = 3,
     ) -> list[LiteralChunk | ArgChunk]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
@@ -91,7 +92,8 @@ class ChunksFormatter(Formatter):
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stack_offset)
+                        _frame, stacklevel = get_user_frame_and_stacklevel()
+                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -128,13 +130,12 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber, stack_offset: int = 3) -> str:
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber) -> str:
     return ''.join(
         chunk['v']
         for chunk in chunks_formatter.chunks(
             format_string,
             kwargs,
             scrubber=scrubber,
-            stack_offset=stack_offset,
         )
     )

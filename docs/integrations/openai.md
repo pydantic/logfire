@@ -19,7 +19,7 @@ response = client.chat.completions.create(
         {'role': 'user', 'content': 'Please write me a limerick about Python logging.'},
     ],
 )
-print(response.choices[0].text)
+print(response.choices[0].message)
 ```
 
 1. In general, `logfire.instrument_openai()` should be all you need.

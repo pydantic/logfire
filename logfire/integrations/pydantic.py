@@ -68,10 +68,6 @@ class LogfireSettings(TypedDict, total=False):
     """
 
 
-_USER_STACK_OFFSET = 3
-"""The number of frames to skip when logging from user code."""
-
-
 class _ValidateWrapper:
     """Decorator factory for one schema validator method."""
 
@@ -215,7 +211,6 @@ class _ValidateWrapper:
                 'error_count': error.error_count(),
                 'errors': error.errors(include_url=False),
             },
-            stack_offset=_USER_STACK_OFFSET,
         )
 
     def _on_error_span(self, span: LogfireSpan, error: ValidationError):
@@ -237,7 +232,6 @@ class _ValidateWrapper:
                 'schema_name': self.schema_name,
                 'exception_type': type(exception).__name__,
             },
-            stack_offset=_USER_STACK_OFFSET,
             exc_info=exception,
         )
 

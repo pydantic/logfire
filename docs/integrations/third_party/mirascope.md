@@ -87,7 +87,7 @@ This will give you:
   <figcaption>Mirascope OpenAI Extractor span and OpenAI span and function call</figcaption>
 </figure>
 
-For more information on Mirascope and what you can do with it, check out their [documentation](https://docs.mirascope.io)
+For more information on Mirascope and what you can do with it, check out their [documentation](https://docs.mirascope.io).
 
 [mirascope-logfire]: https://docs.mirascope.io/latest/integrations/logfire/#how-to-use-logfire-with-mirascope
 [mirascope-supported-providers]: https://docs.mirascope.io/latest/concepts/supported_llm_providers/
