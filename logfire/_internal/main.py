@@ -499,7 +499,6 @@ class Logfire:
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
-        stack_offset: int | None = None,
         console_log: bool | None = None,
         custom_scope_suffix: str | None = None,
     ) -> None:
@@ -520,9 +519,6 @@ class Logfire:
                 to record a traceback with the log message.
 
                 Set to `True` to use the currently handled exception.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
