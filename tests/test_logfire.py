@@ -1168,6 +1168,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
 
     assert len(warnings) == 1
     assert warnings[0].filename == __file__
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     with span:
         # Previously the message was reformatted with this attribute, not any more
