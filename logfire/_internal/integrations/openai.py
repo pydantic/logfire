@@ -281,12 +281,9 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        logfire_openai.log(
-            'info',
+        logfire_openai.info(
             STEAMING_MSG_TEMPLATE,
-            attributes=dict(
-                **span_data,
-                duration=duration,
-                response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
-            ),
+            **span_data,
+            duration=duration,
+            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
         )
