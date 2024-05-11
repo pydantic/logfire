@@ -22,7 +22,6 @@ class LogfireProcessor:
         level = event_dict.get('level', 'info').lower()
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         msg_template = event_dict.get('event') or 'structlog event'
-        # NOTE: We remove 2 from the stack offset, because the `logfire.log` adds 2 to the stack offset.
         logfire.log(
             level=level,  # type: ignore
             msg_template=msg_template,
