@@ -153,7 +153,12 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     import pydantic
 
     assert isinstance(o, pydantic.BaseModel)
-    return to_json_value(o.model_dump(), seen)
+    try:
+        dump = o.model_dump()
+    except AttributeError:  # pragma: no cover
+        # pydantic v1
+        dump = o.dict()  # type: ignore
+    return to_json_value(dump, seen)
 
 
 def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue:
