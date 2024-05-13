@@ -107,28 +107,18 @@ class ChunksFormatter(Formatter):
                 )
 
             # Try a simple fallback heuristic to find the node which should work in most cases.
-            # First get the statement node, which executing should still be able to do reliably.
-            if len(ex.statements) != 1:  # pragma: no cover
-                # Multiple statements should only be possible if semicolons are being used.
+            call_nodes = [
+                node
+                for statement in ex.statements
+                for node in ast.walk(statement)
+                if isinstance(node, ast.Call)
+                if node.args or node.keywords
+            ]
+            if len(call_nodes) != 1:
                 warn_inspect_arguments(msg, get_stacklevel(frame))
                 return None
 
-            [statement] = ex.statements
-            if isinstance(statement, ast.Expr):
-                # Handle the call being the full statement, e.g.
-                # `logfire.info(...)`
-                call_node = statement.value
-            elif isinstance(statement, ast.With) and len(statement.items) == 1:
-                # Handle `with logfire.span(...):` where there's only one context manager.
-                call_node = statement.items[0].context_expr
-            # Check that `call_node` really is a call, and that it doesn't contain any other calls.
-            if not (
-                call_node and [child for child in ast.walk(call_node) if isinstance(child, ast.Call)] == [call_node]
-            ):
-                # The user did something a bit more ambiguous, e.g. `span = logfire.span(...)`
-                # We could maybe add more heuristics here but that's what `executing` is for.
-                warn_inspect_arguments(msg, get_stacklevel(frame))
-                return None
+            [call_node] = call_nodes
 
         if not isinstance(call_node, ast.Call):  # pragma: no cover
             # Very unlikely.

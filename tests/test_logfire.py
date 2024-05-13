@@ -1745,7 +1745,7 @@ def test_inspect_arguments(exporter: TestExporter):
         # Test some cases that require `executing` (i.e. the simple fallback heuristics can't handle)
         # particularly two `span` calls in one line.
         with logfire.span(f'span {GLOBAL_VAR} {local_var}'), logfire.span(f'span2 {local_var}'):
-            _ = logfire.info(f'log {GLOBAL_VAR} {local_var}')
+            str(logfire.info(f'log {GLOBAL_VAR} {local_var}'))
 
         with pytest.warns(UserWarning) as warnings:
             logfire.info(f'log2 {local_var}', local_var=3, x=x)
@@ -1758,8 +1758,7 @@ def test_inspect_arguments(exporter: TestExporter):
         assert warnings[0].lineno == frame.f_lineno - 7
 
         # Test the .log method which has the argument in a different place from the other methods.
-        # wrapping in another call (i.e. str()) is another case that requires `executing`
-        str(logfire.log('error', f'log3 {GLOBAL_VAR}'))
+        logfire.log('error', f'log3 {GLOBAL_VAR}')
         logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
         # Test putting exotic things inside braces.
@@ -1973,8 +1972,9 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_executing_failure',
                     'code.lineno': 123,
+                    'things': '[]',
                     'local_var': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"things":{"type":"array","x-python-datatype":"set"},"local_var":{}}}',
                 },
             },
             {
@@ -2123,19 +2123,19 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore  # pragma: no cover  (coverage being weird)
 
     local_var = 3
-    # The simple heuristic works when there's only one call that's the whole statement.
-    logfire.info(f'good log {local_var}')
+    # The simple heuristic works when there's only one call with arguments in the whole statement.
+    logfire.info(f'good log {local_var}', things=set())
 
     with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
-        # Putting the call in an assignment breaks the heuristic, just because that's unusual and suspicious.
-        _ = logfire.info(f'bad log {local_var}')
+        # Two calls with arguments breaks the heuristic
+        str(logfire.info(f'bad log {local_var}'))
 
-    # The simple heuristic works when there's one context manager containing one call.
+    # Works:
     with logfire.span(f'good span {local_var}'):
         pass
 
     with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
-        # Multiple context managers break the heuristic.
+        # Multiple calls break the heuristic.
         with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
             pass
 
