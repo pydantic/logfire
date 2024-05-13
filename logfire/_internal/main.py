@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import inspect
 import sys
 import traceback
 import typing
@@ -37,7 +38,7 @@ from .constants import (
     LevelName,
     log_level_attributes,
 )
-from .formatter import logfire_format
+from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import LogfireArgs, instrument
 from .json_encoder import logfire_json_dumps
 from .json_schema import (
@@ -127,7 +128,7 @@ class Logfire:
     # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.
     def _span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         attributes: dict[str, Any],
         *,
         _tags: Sequence[str] | None = None,
@@ -137,7 +138,19 @@ class Logfire:
         stack_info = get_user_stack_info()
         merged_attributes = {**stack_info, **attributes}
 
-        log_message = logfire_format(msg_template, merged_attributes, self._config.scrubber)
+        if self._config.inspect_arguments:
+            fstring_frame = inspect.currentframe().f_back  # type: ignore
+        else:
+            fstring_frame = None
+
+        log_message, extra_attrs, msg_template = logfire_format_with_magic(
+            msg_template,
+            merged_attributes,
+            self._config.scrubber,
+            fstring_frame=fstring_frame,
+        )
+        merged_attributes.update(extra_attrs)
+        attributes.update(extra_attrs)  # for the JSON schema
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -193,7 +206,7 @@ class Logfire:
 
     def trace(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -223,7 +236,7 @@ class Logfire:
 
     def debug(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -253,7 +266,7 @@ class Logfire:
 
     def info(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -283,7 +296,7 @@ class Logfire:
 
     def notice(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -313,7 +326,7 @@ class Logfire:
 
     def warn(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -343,7 +356,7 @@ class Logfire:
 
     def error(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -373,7 +386,7 @@ class Logfire:
 
     def fatal(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -403,7 +416,7 @@ class Logfire:
 
     def exception(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -427,7 +440,7 @@ class Logfire:
 
     def span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -495,7 +508,7 @@ class Logfire:
     def log(
         self,
         level: LevelName | int,
-        msg_template: LiteralString,
+        msg_template: str,
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
@@ -532,7 +545,26 @@ class Logfire:
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber)
+            fstring_frame = None
+            if self._config.inspect_arguments:
+                fstring_frame = inspect.currentframe()
+                if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    # fstring_frame.f_back should be the user's frame.
+                    # The user called logfire.info or a similar method rather than calling logfire.log directly.
+                    fstring_frame = fstring_frame.f_back  # type: ignore
+
+            msg, extra_attrs, msg_template = logfire_format_with_magic(
+                msg_template,
+                merged_attributes,
+                self._config.scrubber,
+                fstring_frame=fstring_frame,
+            )
+            if extra_attrs:
+                merged_attributes.update(extra_attrs)
+                # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
+                # We update both because attributes_json_schema_properties looks at `attributes`.
+                attributes = {**attributes, **extra_attrs}
+
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',

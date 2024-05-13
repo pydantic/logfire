@@ -10,9 +10,10 @@ import os
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from textwrap import indent as indent_text
 from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
 
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util import types as otel_types
 from rich.columns import Columns
@@ -124,6 +125,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
         # This uses a separate system for color vs no-color because it's not simple text:
         # in the rich case it uses syntax highlighting and columns for layout.
         self._print_arguments(span, indent_str)
+
+        exc_event = next((event for event in span.events or [] if event.name == 'exception'), None)
+        self._print_exc_info(exc_event, indent_str)
 
     def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
         """Return the formatted message or span name and parts containing basic span information.
@@ -254,6 +258,27 @@ class SimpleConsoleSpanExporter(SpanExporter):
             for line in value_lines[1:]:
                 out += [f'{prefix}{line}']
         print('\n'.join(out), file=self._output)
+
+    def _print_exc_info(self, exc_event: Event | None, indent_str: str) -> None:
+        """Print exception information if an exception event is present."""
+        if exc_event is None or not exc_event.attributes:
+            return
+
+        exc_type = cast(str, exc_event.attributes.get('exception.type'))
+        exc_msg = cast(str, exc_event.attributes.get('exception.message'))
+        exc_tb = cast(str, exc_event.attributes.get('exception.stacktrace'))
+
+        if self._console:
+            barrier = Text(indent_str + '│ ', style='blue', end='')
+            exc_type = Text(f'{exc_type}: ', end='', style='bold red')
+            exc_msg = Text(exc_msg)
+            indented_code = indent_text(exc_tb, indent_str + '│ ')
+            exc_tb = Syntax(indented_code, 'python', background_color='default')
+            self._console.print(Group(barrier, exc_type, exc_msg), exc_tb)
+        else:
+            out = [f'{indent_str}│ {exc_type}: {exc_msg}']
+            out += [indent_text(exc_tb, indent_str + '│ ')]
+            print('\n'.join(out), file=self._output)
 
     def force_flush(self, timeout_millis: int = 0) -> bool:  # pragma: no cover
         """Force flush all spans, does nothing for this exporter."""
