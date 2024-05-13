@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan
@@ -687,5 +688,64 @@ def test_console_logging_to_stdout(capsys: pytest.CaptureFixture[str]):
             '  inner span',
             '    inner span log message',
             '  outer span log message',
+        ]
+    )
+
+
+def test_exception(exporter: TestExporter) -> None:
+    try:
+        1 / 0  # type: ignore
+    except ZeroDivisionError:
+        logfire.exception('error!!! {a}', a='test')
+
+    spans = exported_spans_as_models(exporter)
+    assert spans == snapshot(
+        [
+            ReadableSpanModel(
+                name='error!!! {a}',
+                context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
+                parent=None,
+                start_time=1000000000,
+                end_time=1000000000,
+                attributes={
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'error!!! {a}',
+                    'logfire.msg': 'error!!! test',
+                    'code.filepath': 'test_console_exporter.py',
+                    'code.function': 'test_exception',
+                    'code.lineno': 123,
+                    'a': 'test',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                },
+                events=[
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ZeroDivisionError',
+                            'exception.message': 'division by zero',
+                            'exception.stacktrace': 'ZeroDivisionError: division by zero',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+                resource=None,
+            )
+        ]
+    )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
+    assert out.getvalue().splitlines() == snapshot(
+        [
+            '00:00:01.000 error!!! test',
+            '             │ ZeroDivisionError: division by zero',
+            '             │ Traceback (most recent call last):',
+            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+            '             │     1 / 0  # type: ignore',
+            '             │     ~~^~~',
+            '             │ ZeroDivisionError: division by zero',
+            '',
         ]
     )
