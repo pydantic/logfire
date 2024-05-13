@@ -56,7 +56,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     dob = date.fromisoformat(user_input)
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/03_add_manual_tracing/)
+[_(learn more)_](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/)
 
 ### Integration
 
