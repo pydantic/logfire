@@ -65,7 +65,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     cc_chunk.ChatCompletionChunk(
                         id='2',
                         choices=[
-                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is Nine', role='assistant'))
+                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
                         ],
                         created=1,
                         model='gpt-4',
@@ -480,7 +480,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
         stream=True,
     )
     combined = ''.join(chunk.choices[0].delta.content for chunk in response if chunk.choices[0].delta.content)
-    assert combined == 'The answer is Nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -518,7 +518,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -539,7 +539,7 @@ async def test_async_chat_completions_stream(
     )
     chunk_content = [chunk.choices[0].delta.content async for chunk in response if chunk.choices[0].delta.content]
     combined = ''.join(chunk_content)
-    assert combined == 'The answer is Nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -577,7 +577,7 @@ async def test_async_chat_completions_stream(
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
