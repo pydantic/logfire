@@ -19,10 +19,7 @@ from .._internal.config_params import default_param_manager
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
-    from pydantic.plugin import (
-        SchemaKind,
-        SchemaTypePath,
-    )
+    from pydantic.plugin import SchemaKind, SchemaTypePath
     from pydantic_core import CoreConfig, CoreSchema
 
 

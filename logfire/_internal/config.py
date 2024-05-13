@@ -383,6 +383,14 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
         self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin
+        if self.pydantic_plugin.record != 'off':
+            import pydantic
+
+            # setuptools is a dependency of opentelemetry-instrumentation, we use it instead of adding "packaging" as a dependency.
+            from setuptools._vendor.packaging.version import Version
+
+            if Version(pydantic.__version__) < Version('2.5.0'):  # pragma: no cover
+                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
