@@ -2143,7 +2143,8 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 
 
 @pytest.mark.skipif(
-    sys.version_info > (3, 10) or sys.version_info < (3, 9), reason='Testing behaviour for Python < 3.11 but > 3.8'
+    sys.version_info[:2] > (3, 10) or sys.version_info[:2] < (3, 9),
+    reason='Testing behaviour for Python < 3.11 but > 3.8',
 )
 def test_executing_failure_old_python(exporter: TestExporter):
     local_var = 2
@@ -2157,7 +2158,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
 
         # But here it doesn't, see the previous test.
         with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.'):
-            _ = logfire.info(f'bad log {local_var}')
+            str(logfire.info(f'bad log {local_var}'))
 
     foo()
 

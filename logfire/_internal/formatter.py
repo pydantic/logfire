@@ -107,10 +107,17 @@ class ChunksFormatter(Formatter):
                 )
 
             # Try a simple fallback heuristic to find the node which should work in most cases.
+            main_nodes: list[ast.AST] = []
+            for statement in ex.statements:
+                if isinstance(statement, ast.With):
+                    # Only look at the 'header' of a with statement, not its body.
+                    main_nodes += statement.items
+                else:
+                    main_nodes.append(statement)
             call_nodes = [
                 node
-                for statement in ex.statements
-                for node in ast.walk(statement)
+                for main_node in main_nodes
+                for node in ast.walk(main_node)
                 if isinstance(node, ast.Call)
                 if node.args or node.keywords
             ]
