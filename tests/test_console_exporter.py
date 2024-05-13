@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import sys
 
 import pytest
 from dirty_equals import IsStr
@@ -735,6 +736,11 @@ def test_exception(exporter: TestExporter) -> None:
         ]
     )
 
+    issue_lines = (
+        ['             │     1 / 0  # type: ignore', '             │     ~~^~~']
+        if sys.version_info >= (3, 11)
+        else ['             │     1 / 0  # type: ignore']
+    )
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
     assert out.getvalue().splitlines() == snapshot(
@@ -743,8 +749,7 @@ def test_exception(exporter: TestExporter) -> None:
             '             │ ZeroDivisionError: division by zero',
             '             │ Traceback (most recent call last):',
             IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-            '             │     1 / 0  # type: ignore',
-            '             │     ~~^~~',
+            *issue_lines,
             '             │ ZeroDivisionError: division by zero',
             '',
         ]
