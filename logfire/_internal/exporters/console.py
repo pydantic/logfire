@@ -270,7 +270,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         if self._console:
             barrier = Text(indent_str + '│ ', style='blue', end='')
-            exc_type = Text(f'{exc_type}' + ': ', end='', style='bold red')
+            exc_type = Text(f'{exc_type}: ', end='', style='bold red')
             exc_msg = Text(exc_msg)
             indented_code = indent_text(exc_tb, indent_str + '│ ')
             exc_tb = Syntax(indented_code, 'python', background_color='default')
