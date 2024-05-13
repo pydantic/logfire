@@ -761,7 +761,7 @@ def test_exception(exporter: TestExporter) -> None:
             '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
         ]
         if sys.version_info >= (3, 11)
-        else ['\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     ']
+        else []
     )
 
     out = io.StringIO()
