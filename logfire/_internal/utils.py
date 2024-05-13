@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource
@@ -12,6 +12,9 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.status import Status
 from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
+
+if TYPE_CHECKING:
+    from packaging.version import Version
 
 T = TypeVar('T')
 
@@ -168,3 +171,16 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     gitignore = data_dir / '.gitignore'
     gitignore.write_text('*')
+
+
+def get_version(version: str) -> Version:
+    """Return a packaging.version.Version object from a version string.
+
+    We check if `packaging` is available, falling back to `setuptools._vendor.packaging` if it's not.
+    """
+    try:
+        from packaging.version import Version
+
+    except ImportError:  # pragma: no cover
+        from setuptools._vendor.packaging.version import Version
+    return Version(version)  # type: ignore

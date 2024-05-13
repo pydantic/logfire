@@ -10,7 +10,6 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, TypeVar
 
 import pydantic
-from setuptools._vendor.packaging.version import Version
 from typing_extensions import ParamSpec
 
 import logfire
@@ -18,6 +17,7 @@ from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
 from .._internal.config_params import default_param_manager
+from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
@@ -293,10 +293,11 @@ class LogfirePydanticPlugin:
 
     Patches Pydantic to accept this new API shape.
 
-    Set the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable to `true` to disable the plugin.
+    Set the `LOGFIRE_PYDANTIC_RECORD` environment variable to `"off"` to disable the plugin, or
+    `PYDANTIC_DISABLE_PLUGINS` to `true` to disable all Pydantic plugins.
     """
 
-    if Version(pydantic.__version__) < Version('2.5.0'):  # pragma: no cover
+    if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
 
         def new_schema_validator(  # type: ignore[reportRedeclaration]
             self, schema: CoreSchema, config: CoreConfig | None, plugin_settings: dict[str, Any]
