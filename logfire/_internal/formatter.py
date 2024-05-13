@@ -409,7 +409,7 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     try:
         # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
         source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
-    except Exception:
+    except Exception:  # probably SyntaxError, but ast.parse can raise other exceptions too
         source_segment_unparsed = ''
     return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
 
