@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import io
+import sys
 
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan
@@ -689,3 +691,100 @@ def test_console_logging_to_stdout(capsys: pytest.CaptureFixture[str]):
             '  outer span log message',
         ]
     )
+
+
+def test_exception(exporter: TestExporter) -> None:
+    try:
+        1 / 0  # type: ignore
+    except ZeroDivisionError:
+        logfire.exception('error!!! {a}', a='test')
+
+    spans = exported_spans_as_models(exporter)
+    assert spans == snapshot(
+        [
+            ReadableSpanModel(
+                name='error!!! {a}',
+                context=SpanContextModel(trace_id=1, span_id=1, is_remote=False),
+                parent=None,
+                start_time=1000000000,
+                end_time=1000000000,
+                attributes={
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'error!!! {a}',
+                    'logfire.msg': 'error!!! test',
+                    'code.filepath': 'test_console_exporter.py',
+                    'code.function': 'test_exception',
+                    'code.lineno': 123,
+                    'a': 'test',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                },
+                events=[
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ZeroDivisionError',
+                            'exception.message': 'division by zero',
+                            'exception.stacktrace': 'ZeroDivisionError: division by zero',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+                resource=None,
+            )
+        ]
+    )
+
+    issue_lines = (
+        ['             │     1 / 0  # type: ignore', '             │     ~~^~~']
+        if sys.version_info >= (3, 11)
+        else ['             │     1 / 0  # type: ignore']
+    )
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
+    assert out.getvalue().splitlines() == snapshot(
+        [
+            '00:00:01.000 error!!! test',
+            '             │ ZeroDivisionError: division by zero',
+            '             │ Traceback (most recent call last):',
+            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+            *issue_lines,
+            '             │ ZeroDivisionError: division by zero',
+            '',
+        ]
+    )
+
+    issue_lines = (
+        [
+            '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+            '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
+        ]
+        if sys.version_info >= (3, 11)
+        else []
+    )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='always').export(exporter.exported_spans)
+    assert out.getvalue().splitlines() == [
+        '\x1b[32m00:00:01.000\x1b[0m \x1b[31merror!!! test\x1b[0m',
+        '\x1b[34m             │ \x1b[0m\x1b[1;31mZeroDivisionError: ' '\x1b[0mdivision by zero',
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mTraceback\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49m(\x1b[0m\x1b[97;49mmost\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mrecent\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mcall\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mlast\x1b[0m\x1b[97;49m)\x1b[0m\x1b[97;49m:\x1b[0m',
+        IsStr(),
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+        '\x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[91;49m/\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[37;49m0\x1b[0m\x1b[97;49m  \x1b[0m\x1b[37;49m# type: '
+        'ignore\x1b[0m',
+        *issue_lines,
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[92;49mZeroDivisionError\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mdivision\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mby\x1b[0m\x1b[97;49m \x1b[0m\x1b[97;49mzero\x1b[0m',
+        '',
+    ]
