@@ -754,3 +754,29 @@ def test_exception(exporter: TestExporter) -> None:
             '',
         ]
     )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, colors='always').export(exporter.exported_spans)
+    assert out.getvalue().splitlines() == [
+        '\x1b[32m00:00:01.000\x1b[0m \x1b[31merror!!! test\x1b[0m',
+        '\x1b[34m             │ \x1b[0m\x1b[1;31mZeroDivisionError: ' '\x1b[0mdivision by zero',
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mTraceback\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49m(\x1b[0m\x1b[97;49mmost\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mrecent\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mcall\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mlast\x1b[0m\x1b[97;49m)\x1b[0m\x1b[97;49m:\x1b[0m',
+        IsStr(),
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+        '\x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[91;49m/\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[37;49m0\x1b[0m\x1b[97;49m  \x1b[0m\x1b[37;49m# type: '
+        'ignore\x1b[0m',
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+        '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[92;49mZeroDivisionError\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mdivision\x1b[0m\x1b[97;49m '
+        '\x1b[0m\x1b[97;49mby\x1b[0m\x1b[97;49m \x1b[0m\x1b[97;49mzero\x1b[0m',
+        '',
+    ]
