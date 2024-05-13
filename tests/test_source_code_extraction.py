@@ -7,7 +7,7 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.formatter import FStringMagicFailedWarning
+from logfire._internal.formatter import InspectArgumentsFailedWarning
 from logfire.testing import TestExporter
 
 
@@ -102,7 +102,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
     sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
 )
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
-    with pytest.warns(FStringMagicFailedWarning, match='No source code available'):
+    with pytest.warns(InspectArgumentsFailedWarning, match='No source code available'):
         exec(
             """import logfire
 with logfire.span('from module'):

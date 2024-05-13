@@ -30,7 +30,7 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
-from logfire._internal.formatter import FStringMagicFailedWarning
+from logfire._internal.formatter import InspectArgumentsFailedWarning
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -2126,7 +2126,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     # The simple heuristic works when there's only one call with arguments in the whole statement.
     logfire.info(f'good log {local_var}', things=set())
 
-    with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+    with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.$'):
         # Two calls with arguments breaks the heuristic
         str(logfire.info(f'bad log {local_var}'))
 
@@ -2134,7 +2134,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     with logfire.span(f'good span {local_var}'):
         pass
 
-    with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.$'):
+    with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.$'):
         # Multiple calls break the heuristic.
         with logfire.span(f'bad span 1 {local_var}'), logfire.span(f'bad span 2 {local_var}'):
             pass
@@ -2157,7 +2157,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
             logfire.info(f'log {GLOBAL_VAR} {local_var}')
 
         # But here it doesn't, see the previous test.
-        with pytest.warns(FStringMagicFailedWarning, match='`executing` failed to find a node.'):
+        with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.'):
             str(logfire.info(f'bad log {local_var}'))
 
     foo()
@@ -2268,11 +2268,17 @@ def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
     span = partial(logfire.span, 'span')
-    with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
+    with pytest.warns(
+        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+    ):
         info()
-    with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
+    with pytest.warns(
+        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+    ):
         log()
-    with pytest.warns(FStringMagicFailedWarning, match="Couldn't identify the `msg_template` argument in the call."):
+    with pytest.warns(
+        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+    ):
         with span():
             pass
 

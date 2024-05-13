@@ -429,7 +429,7 @@ def get_stacklevel(frame: types.FrameType):
     return stacklevel
 
 
-class FStringMagicFailedWarning(Warning):
+class InspectArgumentsFailedWarning(Warning):
     pass
 
 
@@ -442,5 +442,5 @@ def warn_inspect_arguments(msg: str, stacklevel: int):
         'Set inspect_arguments=False in logfire.configure() to suppress this warning. '
         'The problem was:\n'
     ) + msg
-    warnings.warn(msg, FStringMagicFailedWarning, stacklevel=stacklevel)
+    warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=stacklevel)
     logfire.log('warn', msg)
