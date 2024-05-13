@@ -300,7 +300,7 @@ class LogfirePydanticPlugin:
     if get_version(pydantic.__version__) < get_version('2.5.0') or os.environ.get('LOGFIRE_PYDANTIC_RECORD') == 'off':  # pragma: no cover
 
         def new_schema_validator(  # type: ignore[reportRedeclaration]
-            self, *_: Any, *__: Any
+            self, *_: Any, **__: Any
         ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
             """Backwards compatibility for Pydantic < 2.5.0.
 
