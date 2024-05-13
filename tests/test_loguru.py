@@ -17,7 +17,7 @@ def configure_logger() -> Any:
 
 
 def test_loguru(exporter: TestExporter) -> None:
-    logger.info('Positional arguments are merged to the message: {}', 'positional')
+    logger.success('Positional arguments are merged to the message: {}', 'positional')
     logger.info('Keyword arguments are stored in the "extra", we extra them from there: {name}', name='named')
 
     try:
@@ -35,7 +35,7 @@ def test_loguru(exporter: TestExporter) -> None:
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
+                    'logfire.level_num': 11,
                     'logfire.msg_template': 'Positional arguments are merged to the message: {}',
                     'logfire.msg': 'Positional arguments are merged to the message: positional',
                     'code.filepath': 'test_loguru.py',

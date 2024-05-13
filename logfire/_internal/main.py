@@ -133,7 +133,7 @@ class Logfire:
         *,
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
-        _level: LevelName | None = None,
+        _level: LevelName | int | None = None,
     ) -> LogfireSpan:
         stack_info = get_user_stack_info()
         merged_attributes = {**stack_info, **attributes}
@@ -507,7 +507,7 @@ class Logfire:
 
     def log(
         self,
-        level: LevelName,
+        level: LevelName | int,
         msg_template: str,
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
@@ -1327,9 +1327,9 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
-    def set_level(self, level_name: LevelName):
+    def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
-        attributes = log_level_attributes(level_name)
+        attributes = log_level_attributes(level)
         if self._span is None:
             self._otlp_attributes.update(attributes)
         else:
