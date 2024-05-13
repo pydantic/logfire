@@ -40,7 +40,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
+from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -73,6 +73,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
+from .sampling import AttributeBasedSampler
 from .scrubbing import Scrubber, ScrubCallback
 from .stack_info import get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
@@ -603,11 +604,14 @@ class LogfireConfig(_LogfireConfigData):
 
             # Avoid using the usual sampler if we're using tail-based sampling.
             # The TailSamplingProcessor will handle the random sampling part as well.
-            sampler = (
-                ParentBasedTraceIdRatio(self.trace_sample_rate)
-                if self.trace_sample_rate < 1 and self.tail_sampling is None
-                else None
-            )
+            if self.trace_sample_rate < 1:
+                sampler = ParentBased(
+                    root=TraceIdRatioBased(self.trace_sample_rate),
+                    remote_parent_sampled=AttributeBasedSampler(),
+                    local_parent_sampled=AttributeBasedSampler(),
+                )
+            else:
+                sampler = None
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,

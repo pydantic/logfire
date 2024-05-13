@@ -44,7 +44,6 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
-# with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 
 # Logging
@@ -103,7 +102,6 @@ __all__ = (
     'instrument_fastapi',
     'AutoTraceModule',
     'with_tags',
-    # 'with_trace_sample_rate',
     'load_spans_from_file',
     'no_auto_trace',
     'METRICS_PREFERRED_TEMPORALITY',

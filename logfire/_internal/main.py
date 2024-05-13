@@ -31,6 +31,8 @@ from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
+from logfire._internal.sampling import SAMPLE_RATE, sample
+
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
@@ -180,12 +182,8 @@ class Logfire:
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-            sample_rate = (
-                self._sample_rate
-                if self._sample_rate is not None
-                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-            )
-            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+            sample_rate = SAMPLE_RATE.get()
+            if sample_rate != 1:
                 otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
             if _level is not None:
@@ -634,12 +632,8 @@ class Logfire:
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-            sample_rate = (
-                self._sample_rate
-                if self._sample_rate is not None
-                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-            )
-            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+            sample_rate = SAMPLE_RATE.get()
+            if sample_rate != 1:
                 otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
             if not (self._console_log if console_log is None else console_log):
@@ -691,23 +685,6 @@ class Logfire:
             A new Logfire instance with the `tags` added to any existing tags.
         """
         return self.with_settings(tags=tags)
-
-    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:  # pragma: no cover
-        """A new Logfire instance with the given sampling ratio applied.
-
-        Args:
-            sample_rate: The sampling ratio to use.
-
-        Returns:
-            A new Logfire instance with the sampling ratio applied.
-        """
-        if sample_rate > 1 or sample_rate < 0:
-            raise ValueError('sample_rate must be between 0 and 1')
-        return Logfire(
-            config=self._config,
-            tags=self._tags,
-            sample_rate=sample_rate,
-        )
 
     def with_settings(
         self,
@@ -1481,7 +1458,7 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ('_span', '_token', '_atexit')
+    __slots__ = ('_span', '_token', '_atexit', '_sample_rate_cm')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
@@ -1490,10 +1467,13 @@ class FastLogfireSpan:
         atexit.register(self._atexit)
 
     def __enter__(self) -> FastLogfireSpan:
+        self._sample_rate_cm = sample(1)
+        self._sample_rate_cm.__enter__()
         return self
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        self._sample_rate_cm.__exit__(None, None, None)
         atexit.unregister(self._atexit)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
@@ -1539,11 +1519,15 @@ class LogfireSpan(ReadableSpan):
 
             self._atexit = partial(self.__exit__, None, None, None)
             atexit.register(self._atexit)
+            self._sample_rate_cm = sample(1)
+            self._sample_rate_cm.__enter__()
 
         return self
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        self._sample_rate_cm.__exit__(None, None, None)
+
         if self._token is None:  # pragma: no cover
             return
 
@@ -1619,6 +1603,14 @@ class LogfireSpan(ReadableSpan):
         """Sets the given attributes on the span."""
         for key, value in attributes.items():
             self.set_attribute(key, value)
+
+    def sample(self, rate: float) -> None:
+        """Set the sampling rate of this span.
+
+        Args:
+            rate: The sampling rate to use.
+        """
+        self._otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = rate
 
     # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(
