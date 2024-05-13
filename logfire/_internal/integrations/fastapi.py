@@ -141,8 +141,14 @@ class FastAPIInstrumentation:
     async def solve_dependencies(
         self, request: Request | WebSocket, original: Awaitable[tuple[dict[str, Any], list[Any], Any, Any, Any]]
     ):
-        url = cast(str, get_host_port_url_tuple(request.scope)[2])
-        if self.excluded_urls_list.url_disabled(url):
+        try:
+            url = cast(str, get_host_port_url_tuple(request.scope)[2])
+            excluded = self.excluded_urls_list.url_disabled(url)
+        except Exception:  # pragma: no cover
+            excluded = False
+            self.logfire_instance.exception('Error checking if URL is excluded from instrumentation')
+
+        if excluded:
             return await original  # pragma: no cover
 
         with self.logfire_instance.span('FastAPI arguments') as span:
