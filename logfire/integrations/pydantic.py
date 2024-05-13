@@ -296,7 +296,7 @@ class LogfirePydanticPlugin:
     Set the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable to `true` to disable the plugin.
     """
 
-    if Version(pydantic.__version__) < Version('2.5.0'):  # pragma: no branch
+    if Version(pydantic.__version__) < Version('2.5.0'):  # pragma: no cover
 
         def new_schema_validator(  # type: ignore[reportRedeclaration]
             self, schema: CoreSchema, config: CoreConfig | None, plugin_settings: dict[str, Any]
