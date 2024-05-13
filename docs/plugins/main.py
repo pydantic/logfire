@@ -126,7 +126,7 @@ def install_logfire(markdown: str, page: Page) -> str:
 
 === "Poetry"
     ```bash
-    poetry add logfire {extras_arg}
+    poetry add {package}
     ```
 """
     if not extras:
