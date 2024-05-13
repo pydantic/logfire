@@ -87,7 +87,7 @@ class ChunksFormatter(Formatter):
                 # This is a very likely cause.
                 # There's nothing we could possibly do to make magic work here,
                 # and it's a clear case where the user should turn the magic off.
-                warn_fstring_magic(
+                warn_inspect_arguments(
                     'No source code available. '
                     'This happens when running in an interactive shell, '
                     'using exec(), or running .pyc files without the source .py files.',
@@ -97,7 +97,7 @@ class ChunksFormatter(Formatter):
 
             msg = '`executing` failed to find a node.'
             if sys.version_info[:2] < (3, 11):
-                # fstring_magic is only on be default for 3.11+ for this reason.
+                # inspect_arguments is only on be default for 3.11+ for this reason.
                 # The AST modifications made by auto-tracing and @instrument
                 # mean that the bytecode doesn't match the source code seen by `executing`.
                 # In 3.11+, a different algorithm is used by `executing` which can deal with this.
@@ -110,7 +110,7 @@ class ChunksFormatter(Formatter):
             # First get the statement node, which executing should still be able to do reliably.
             if len(ex.statements) != 1:  # pragma: no cover
                 # Multiple statements should only be possible if semicolons are being used.
-                warn_fstring_magic(msg, get_stacklevel(frame))
+                warn_inspect_arguments(msg, get_stacklevel(frame))
                 return None
 
             [statement] = ex.statements
@@ -127,12 +127,12 @@ class ChunksFormatter(Formatter):
             ):
                 # The user did something a bit more ambiguous, e.g. `span = logfire.span(...)`
                 # We could maybe add more heuristics here but that's what `executing` is for.
-                warn_fstring_magic(msg, get_stacklevel(frame))
+                warn_inspect_arguments(msg, get_stacklevel(frame))
                 return None
 
         if not isinstance(call_node, ast.Call):  # pragma: no cover
             # Very unlikely.
-            warn_fstring_magic(
+            warn_inspect_arguments(
                 '`executing` unexpectedly identified a non-Call node.',
                 get_stacklevel(frame),
             )
@@ -150,7 +150,7 @@ class ChunksFormatter(Formatter):
                         arg_node = keyword.value
                         break
                 else:
-                    warn_fstring_magic(
+                    warn_inspect_arguments(
                         "Couldn't identify the `msg_template` argument in the call.",
                         get_stacklevel(frame),
                     )
@@ -159,7 +159,7 @@ class ChunksFormatter(Formatter):
             arg_node = call_node.args[0]
         else:
             # Very unlikely.
-            warn_fstring_magic(
+            warn_inspect_arguments(
                 "Couldn't identify the `msg_template` argument in the call.",
                 get_stacklevel(frame),
             )
@@ -408,7 +408,7 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     This happens sometimes due to Python bugs (especially for older Python versions)
     in the source positions of AST nodes inside f-strings.
     """
-    # ast.unparse is not available in Python 3.8, which is why fstring_magic is forbidden in 3.8.
+    # ast.unparse is not available in Python 3.8, which is why inspect_arguments is forbidden in 3.8.
     source_unparsed = ast.unparse(node)
     source_segment = ast.get_source_segment(ex_source.text, node) or ''
     try:
@@ -420,7 +420,7 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
 
 
 def get_stacklevel(frame: types.FrameType):
-    # Get a stacklevel which can be passed to warn_fstring_magic
+    # Get a stacklevel which can be passed to warn_inspect_arguments
     # which points at the given frame, where the f-string was found.
     current_frame = inspect.currentframe()
     stacklevel = 0
@@ -436,13 +436,13 @@ class FStringMagicFailedWarning(Warning):
     pass
 
 
-def warn_fstring_magic(msg: str, stacklevel: int):
+def warn_inspect_arguments(msg: str, stacklevel: int):
     msg = (
         'Failed to introspect calling code. '
         'Please report this issue to Logfire. '
         'Falling back to normal message formatting '
         'which may result in loss of information if using an f-string. '
-        'Set fstring_magic=False in logfire.configure() to suppress this warning. '
+        'Set inspect_arguments=False in logfire.configure() to suppress this warning. '
         'The problem was:\n'
     ) + msg
     warnings.warn(msg, FStringMagicFailedWarning, stacklevel=stacklevel)

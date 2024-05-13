@@ -1297,4 +1297,4 @@ def test_configure_fstring_python_38():
         LogfireConfigError,
         match=r'f-string magic is only supported in Python 3.9\+ and only recommended in Python 3.11\+.',
     ):
-        logfire.configure(send_to_logfire=False, fstring_magic=True)
+        logfire.configure(send_to_logfire=False, inspect_arguments=True)

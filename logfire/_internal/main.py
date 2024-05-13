@@ -138,7 +138,7 @@ class Logfire:
         stack_info = get_user_stack_info()
         merged_attributes = {**stack_info, **attributes}
 
-        if self._config.fstring_magic:
+        if self._config.inspect_arguments:
             fstring_frame = inspect.currentframe().f_back  # type: ignore
         else:
             fstring_frame = None
@@ -546,7 +546,7 @@ class Logfire:
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
             fstring_frame = None
-            if self._config.fstring_magic:
+            if self._config.inspect_arguments:
                 fstring_frame = inspect.currentframe()
                 if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
                     # fstring_frame.f_back should be the user's frame.

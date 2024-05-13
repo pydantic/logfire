@@ -1735,7 +1735,7 @@ GLOBAL_VAR = 1
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason='f-string magic clashes with @logfire.instrument() in Python < 3.11'
 )
-def test_fstring_magic(exporter: TestExporter):
+def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
 
@@ -1936,7 +1936,7 @@ def test_fstring_magic(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Calling tests.test_logfire.test_fstring_magic.<locals>.foo',
+                'name': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1945,8 +1945,8 @@ def test_fstring_magic(exporter: TestExporter):
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
                     'code.function': 'foo',
-                    'logfire.msg_template': 'Calling tests.test_logfire.test_fstring_magic.<locals>.foo',
-                    'logfire.msg': 'Calling tests.test_logfire.test_fstring_magic.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                     'logfire.span_type': 'span',
                 },
             },
@@ -1979,7 +1979,7 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                 'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
@@ -1990,11 +1990,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2037,7 +2037,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                 'context': {'trace_id': 5, 'span_id': 6, 'is_remote': False},
@@ -2048,11 +2048,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2062,7 +2062,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                 'context': {'trace_id': 6, 'span_id': 9, 'is_remote': False},
@@ -2073,11 +2073,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2202,7 +2202,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
 """,
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
@@ -2213,11 +2213,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 `executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2279,7 +2279,7 @@ def test_find_arg_failure(exporter: TestExporter):
         [
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -2290,11 +2290,11 @@ Couldn't identify the `msg_template` argument in the call.\
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2320,7 +2320,7 @@ Couldn't identify the `msg_template` argument in the call.\
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                 'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
@@ -2331,11 +2331,11 @@ Couldn't identify the `msg_template` argument in the call.\
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'code.filepath': 'test_logfire.py',
@@ -2361,7 +2361,7 @@ Couldn't identify the `msg_template` argument in the call.\
             },
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                 'context': {'trace_id': 5, 'span_id': 5, 'is_remote': False},
@@ -2372,11 +2372,11 @@ Couldn't identify the `msg_template` argument in the call.\
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 Couldn't identify the `msg_template` argument in the call.\
 """,
                     'code.filepath': 'test_logfire.py',

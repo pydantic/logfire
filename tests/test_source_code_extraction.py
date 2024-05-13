@@ -116,7 +116,7 @@ with logfire.span('from module'):
         [
             {
                 'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
 """,
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -127,11 +127,11 @@ No source code available. This happens when running in an interactive shell, usi
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
 """,
                     'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set fstring_magic=False in logfire.configure() to suppress this warning. The problem was:
+Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
 """,
                     'code.filepath': '<string>',
@@ -156,8 +156,10 @@ No source code available. This happens when running in an interactive shell, usi
     )
 
 
-def test_source_code_extraction_exec_no_fstring_magic(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
-    config_kwargs['fstring_magic'] = False
+def test_source_code_extraction_exec_no_inspect_arguments(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['inspect_arguments'] = False
     logfire.configure(**config_kwargs)
     exec(
         """import logfire

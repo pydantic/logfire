@@ -156,7 +156,7 @@ def configure(
     fast_shutdown: bool = False,
     scrubbing_patterns: Sequence[str] | None = None,
     scrubbing_callback: ScrubCallback | None = None,
-    fstring_magic: bool | None = None,
+    inspect_arguments: bool | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -211,8 +211,8 @@ def configure(
             If it returns `None`, the value is redacted.
             Otherwise, the returned value replaces the matched value.
             The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
-        fstring_magic: Whether to enable f-string magic.
-            If `None` uses the `LOGFIRE_FSTRING_MAGIC` environment variable.
+        inspect_arguments: Whether to enable f-string magic.
+            If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
     """
     GLOBAL_CONFIG.configure(
@@ -238,7 +238,7 @@ def configure(
         fast_shutdown=fast_shutdown,
         scrubbing_patterns=scrubbing_patterns,
         scrubbing_callback=scrubbing_callback,
-        fstring_magic=fstring_magic,
+        inspect_arguments=inspect_arguments,
     )
 
 
@@ -345,7 +345,7 @@ class _LogfireConfigData:
         fast_shutdown: bool,
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
-        fstring_magic: bool | None,
+        inspect_arguments: bool | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -363,8 +363,8 @@ class _LogfireConfigData:
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
-        self.fstring_magic = param_manager.load_param('fstring_magic', fstring_magic)
-        if self.fstring_magic and sys.version_info[:2] <= (3, 8):
+        self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
+        if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
             raise LogfireConfigError(
                 'f-string magic is only supported in Python 3.9+ and only recommended in Python 3.11+.'
             )
@@ -436,7 +436,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool = False,
         scrubbing_patterns: Sequence[str] | None = None,
         scrubbing_callback: ScrubCallback | None = None,
-        fstring_magic: bool | None = None,
+        inspect_arguments: bool | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -469,7 +469,7 @@ class LogfireConfig(_LogfireConfigData):
             fast_shutdown=fast_shutdown,
             scrubbing_patterns=scrubbing_patterns,
             scrubbing_callback=scrubbing_callback,
-            fstring_magic=fstring_magic,
+            inspect_arguments=inspect_arguments,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -506,7 +506,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool,
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
-        fstring_magic: bool | None,
+        inspect_arguments: bool | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -533,7 +533,7 @@ class LogfireConfig(_LogfireConfigData):
                 fast_shutdown,
                 scrubbing_patterns,
                 scrubbing_callback,
-                fstring_magic,
+                inspect_arguments,
             )
             self.initialize()
 

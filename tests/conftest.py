@@ -60,9 +60,9 @@ def config_kwargs(
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
-        # Ensure that fstring_magic doesn't break things in most versions
+        # Ensure that inspect_arguments doesn't break things in most versions
         # (it's off by default for <3.11) but it's completely forbidden for 3.8.
-        fstring_magic=sys.version_info[:2] >= (3, 9),
+        inspect_arguments=sys.version_info[:2] >= (3, 9),
     )
 
 
