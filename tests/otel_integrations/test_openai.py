@@ -27,7 +27,7 @@ from opentelemetry import context
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
-from logfire._internal.integrations.openai import get_endpoint_config
+from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 from logfire.testing import TestExporter
 
 
@@ -850,7 +850,7 @@ def test_unknown_method(instrumented_client: openai.Client, exporter: TestExport
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Unable to instrument OpenAI API call: {error}',
+                'name': 'Unable to instrument {suffix} API call: {error}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -858,8 +858,8 @@ def test_unknown_method(instrumented_client: openai.Client, exporter: TestExport
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument OpenAI API call: {error}',
-                    'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
+                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
+                    'logfire.msg': 'Unable to instrument openai API call: `model` not found in request data',
                     'code.filepath': 'openai.py',
                     'code.function': 'instrumented_openai_request',
                     'code.lineno': 123,
