@@ -1,6 +1,10 @@
 # Import this anyio backend early to prevent weird bug caused by concurrent calls to ast.parse
+from __future__ import annotations
+
 import os
+import sys
 from pathlib import Path
+from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
@@ -38,21 +42,35 @@ def metrics_reader() -> InMemoryMetricReader:
     return InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
 
 
-@pytest.fixture(autouse=True)
-def config(
+@pytest.fixture
+def config_kwargs(
     exporter: TestExporter,
-    metrics_reader: InMemoryMetricReader,
     id_generator: IncrementalIdGenerator,
     time_generator: TimeGenerator,
-) -> None:
-    configure(
+) -> dict[str, Any]:
+    """
+    Use this when you want to `logfire.configure()` with a variation of the default configuration.
+
+    Note that this doesn't set `metric_readers` because `metrics_reader` can't be used twice.
+    """
+    return dict(
         send_to_logfire=False,
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         processors=[SimpleSpanProcessor(exporter)],
-        metric_readers=[metrics_reader],
         collect_system_metrics=False,
+        # Ensure that inspect_arguments doesn't break things in most versions
+        # (it's off by default for <3.11) but it's completely forbidden for 3.8.
+        inspect_arguments=sys.version_info[:2] >= (3, 9),
+    )
+
+
+@pytest.fixture(autouse=True)
+def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    configure(
+        **config_kwargs,
+        metric_readers=[metrics_reader],
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

@@ -65,7 +65,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     cc_chunk.ChatCompletionChunk(
                         id='2',
                         choices=[
-                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is Nine', role='assistant'))
+                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
                         ],
                         created=1,
                         model='gpt-4',
@@ -231,8 +231,8 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions',
                     'code.lineno': 123,
                     'request_data': IsJson(
                         {
@@ -306,8 +306,8 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_completions',
                     'code.lineno': 123,
                     'request_data': IsJson(
                         {
@@ -380,8 +380,8 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_empty_response_chunk',
                     'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"empty response chunk"}],"model":"gpt-4","stream":true}',
                     'async': False,
@@ -398,13 +398,13 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                 'start_time': 5000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
                     'logfire.level_num': 9,
-                    'code.function': 'record_streaming',
-                    'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"empty response chunk"}],"model":"gpt-4","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_empty_response_chunk',
+                    'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
@@ -434,8 +434,8 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_empty_response_choices',
                     'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
                     'async': False,
@@ -452,13 +452,13 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                 'start_time': 5000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
                     'logfire.level_num': 9,
-                    'code.function': 'record_streaming',
-                    'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_empty_response_choices',
+                    'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
@@ -480,7 +480,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
         stream=True,
     )
     combined = ''.join(chunk.choices[0].delta.content for chunk in response if chunk.choices[0].delta.content)
-    assert combined == 'The answer is Nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -490,8 +490,8 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions_stream',
                     'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
                     'async': False,
@@ -508,17 +508,17 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                 'start_time': 5000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
                     'logfire.level_num': 9,
-                    'code.function': 'record_streaming',
-                    'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -539,7 +539,7 @@ async def test_async_chat_completions_stream(
     )
     chunk_content = [chunk.choices[0].delta.content async for chunk in response if chunk.choices[0].delta.content]
     combined = ''.join(chunk_content)
-    assert combined == 'The answer is Nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -549,8 +549,8 @@ async def test_async_chat_completions_stream(
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_completions_stream',
                     'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
                     'async': True,
@@ -567,17 +567,17 @@ async def test_async_chat_completions_stream(
                 'start_time': 5000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
                     'logfire.level_num': 9,
-                    'code.function': 'record_streaming',
-                    'code.lineno': 123,
                     'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
                     'async': True,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_completions_stream',
+                    'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -600,8 +600,8 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions',
                     'code.lineno': 123,
                     'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?"}',
                     'async': False,
@@ -633,8 +633,8 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions_stream',
                     'code.lineno': 123,
                     'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?","stream":true}',
                     'async': False,
@@ -651,13 +651,13 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                 'start_time': 5000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
                     'logfire.level_num': 9,
-                    'code.function': 'record_streaming',
-                    'code.lineno': 123,
                     'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
                     'logfire.span_type': 'log',
                     'duration': 1.0,
@@ -684,8 +684,8 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_embeddings',
                     'code.lineno': 123,
                     'request_data': '{"input":"This is a sentence to embed.","model":"text-embedding-3-small","encoding_format":"base64"}',
                     'async': False,
@@ -716,8 +716,8 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_images',
                     'code.lineno': 123,
                     'request_data': '{"prompt":"A picture of a cat.","model":"dall-e-3"}',
                     'async': False,
@@ -768,8 +768,8 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                 'end_time': 4000000000,
                 'instrumentation_scope': 'logfire.openai',
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_dont_suppress_httpx',
                     'code.lineno': 123,
                     'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"xxx"}',
                     'async': False,
@@ -804,8 +804,8 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'instrumentation_scope': 'logfire.openai',
                 'attributes': {
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_suppress_httpx',
                     'code.lineno': 123,
                     'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"xxx"}',
                     'async': False,
@@ -858,10 +858,10 @@ def test_unknown_method(instrumented_client: openai.Client, exporter: TestExport
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
-                    'logfire.msg': 'Unable to instrument openai API call: `model` not found in request data',
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'logfire.msg_template': 'Unable to instrument OpenAI API call: {error}',
+                    'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_unknown_method',
                     'code.lineno': 123,
                     'error': '`model` not found in request data',
                     'kwargs': IsStr(),
@@ -888,8 +888,8 @@ async def test_async_unknown_method(instrumented_async_client: openai.AsyncClien
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Unable to instrument OpenAI API call: {error}',
                     'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
-                    'code.filepath': 'openai.py',
-                    'code.function': 'instrumented_openai_request',
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_unknown_method',
                     'code.lineno': 123,
                     'error': '`model` not found in request data',
                     'kwargs': IsStr(),

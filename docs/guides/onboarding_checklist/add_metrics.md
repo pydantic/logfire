@@ -118,6 +118,35 @@ def user_logged_out():
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-metric].
 
+### Gauge
+
+The Gauge metric is particularly useful when you want to measure the current value of a certain state
+or event in your application. Unlike the counter metric, the gauge metric does not accumulate values over time.
+
+You can use this metric for measuring things like:
+
+* The current temperature.
+* The current memory usage.
+* The current number of active connections.
+* The current number of users online.
+
+To create a gauge metric, use the [`logfire.metric_gauge`][logfire.Logfire.metric_gauge] function:
+
+```py
+import logfire
+
+temperature = logfire.metric_gauge(
+    'temperature',
+    unit='°C',
+    description='Temperature'
+)
+
+def set_temperature(value: float):
+    temperature.set(value)
+```
+
+You can read more about the Gauge metric in the [OpenTelemetry documentation][gauge-metric].
+
 ### Callback Metrics
 
 Callback metrics, or observable metrics, are a way to create metrics that are automatically updated based on a time interval.
@@ -236,6 +265,7 @@ To know more about which system metrics are collected, check the [System Metrics
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram
 [up-down-counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#updowncounter
+[gauge-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#gauge
 [counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-counter
 [gauge-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-gauge
 [up-down-counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-updowncounter

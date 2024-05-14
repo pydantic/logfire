@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import inspect
 import sys
 import traceback
 import typing
@@ -37,7 +38,7 @@ from .constants import (
     LevelName,
     log_level_attributes,
 )
-from .formatter import logfire_format
+from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import LogfireArgs, instrument
 from .json_encoder import logfire_json_dumps
 from .json_schema import (
@@ -47,7 +48,7 @@ from .json_schema import (
     create_json_schema,
 )
 from .metrics import ProxyMeterProvider
-from .stack_info import get_caller_stack_info
+from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
 from .utils import uniquify_sequence
 
@@ -89,14 +90,12 @@ class Logfire:
         config: LogfireConfig = GLOBAL_CONFIG,
         sample_rate: float | None = None,
         tags: Sequence[str] = (),
-        stack_offset: int = 0,
         console_log: bool = True,
         otel_scope: str = 'logfire',
     ) -> None:
         self._tags = tuple(tags)
         self._config = config
         self._sample_rate = sample_rate
-        self._stack_offset = stack_offset
         self._console_log = console_log
         self._otel_scope = otel_scope
 
@@ -130,20 +129,29 @@ class Logfire:
     # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.
     def _span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         attributes: dict[str, Any],
         *,
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
-        _level: LevelName | None = None,
-        _stack_offset: int = 3,
+        _level: LevelName | int | None = None,
     ) -> LogfireSpan:
-        stack_info = get_caller_stack_info(_stack_offset)
+        stack_info = get_user_stack_info()
         merged_attributes = {**stack_info, **attributes}
 
-        log_message = logfire_format(
-            msg_template, merged_attributes, self._config.scrubber, stack_offset=_stack_offset + 2
+        if self._config.inspect_arguments:
+            fstring_frame = inspect.currentframe().f_back  # type: ignore
+        else:
+            fstring_frame = None
+
+        log_message, extra_attrs, msg_template = logfire_format_with_magic(
+            msg_template,
+            merged_attributes,
+            self._config.scrubber,
+            fstring_frame=fstring_frame,
         )
+        merged_attributes.update(extra_attrs)
+        attributes.update(extra_attrs)  # for the JSON schema
         merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
         merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
@@ -191,9 +199,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
-            msg_template, function_args, self._config.scrubber, stack_offset=4
-        )
+        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
         if json_schema_properties := attributes_json_schema_properties(function_args):
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
         attributes.update(user_attributes(function_args))
@@ -201,7 +207,7 @@ class Logfire:
 
     def trace(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -227,11 +233,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('trace', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('trace', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def debug(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -257,11 +263,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('debug', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('debug', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def info(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -287,11 +293,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('info', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('info', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def notice(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -317,11 +323,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('notice', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('notice', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def warn(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -347,11 +353,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('warn', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('warn', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def error(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -377,11 +383,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('error', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def fatal(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -407,11 +413,11 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('fatal', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('fatal', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def exception(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
@@ -431,17 +437,16 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):  # pragma: no cover
             raise ValueError('Attribute keys cannot start with an underscore.')
-        self.log('error', msg_template, attributes, stack_offset=1, tags=_tags, exc_info=_exc_info)
+        self.log('error', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def span(
         self,
-        msg_template: LiteralString,
+        msg_template: str,
         /,
         *,
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
-        _stack_offset: int = 3,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -458,7 +463,6 @@ class Logfire:
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
-            _stack_offset: The stack level offset to use when collecting stack info, defaults to `3`.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -470,7 +474,6 @@ class Logfire:
             _tags=_tags,
             _span_name=_span_name,
             _level=_level,
-            _stack_offset=_stack_offset,
         )
 
     def instrument(
@@ -505,12 +508,11 @@ class Logfire:
 
     def log(
         self,
-        level: LevelName,
-        msg_template: LiteralString,
+        level: LevelName | int,
+        msg_template: str,
         attributes: dict[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
-        stack_offset: int | None = None,
         console_log: bool | None = None,
         custom_scope_suffix: str | None = None,
     ) -> None:
@@ -531,9 +533,6 @@ class Logfire:
                 to record a traceback with the log message.
 
                 Set to `True` to use the currently handled exception.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
@@ -542,13 +541,31 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        stack_offset = (self._stack_offset if stack_offset is None else stack_offset) + 2
-        stack_info = get_caller_stack_info(stack_offset)
+        stack_info = get_user_stack_info()
 
         attributes = attributes or {}
         merged_attributes = {**stack_info, **attributes}
         if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            msg = logfire_format(msg_template, merged_attributes, self._config.scrubber, stack_offset=stack_offset + 2)
+            fstring_frame = None
+            if self._config.inspect_arguments:
+                fstring_frame = inspect.currentframe()
+                if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    # fstring_frame.f_back should be the user's frame.
+                    # The user called logfire.info or a similar method rather than calling logfire.log directly.
+                    fstring_frame = fstring_frame.f_back  # type: ignore
+
+            msg, extra_attrs, msg_template = logfire_format_with_magic(
+                msg_template,
+                merged_attributes,
+                self._config.scrubber,
+                fstring_frame=fstring_frame,
+            )
+            if extra_attrs:
+                merged_attributes.update(extra_attrs)
+                # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
+                # We update both because attributes_json_schema_properties looks at `attributes`.
+                attributes = {**attributes, **extra_attrs}
+
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
@@ -668,7 +685,6 @@ class Logfire:
             config=self._config,
             tags=self._tags + tuple(tags),
             sample_rate=self._sample_rate,
-            stack_offset=self._stack_offset if stack_offset is None else stack_offset,
             console_log=self._console_log if console_log is None else console_log,
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
         )
@@ -1378,9 +1394,9 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
-    def set_level(self, level_name: LevelName):
+    def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
-        attributes = log_level_attributes(level_name)
+        attributes = log_level_attributes(level)
         if self._span is None:
             self._otlp_attributes.update(attributes)
         else:

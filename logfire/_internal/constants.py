@@ -26,6 +26,62 @@ LEVEL_NUMBERS = {
 
 NUMBER_TO_LEVEL = {v: k for k, v in LEVEL_NUMBERS.items()}
 
+LOGGING_TO_OTEL_LEVEL_NUMBERS = {
+    0: 9,  # logging.NOTSET: default to info
+    1: 1,  # OTEL trace
+    2: 1,
+    3: 2,
+    4: 2,
+    5: 3,
+    6: 3,
+    7: 4,
+    8: 4,
+    9: 5,
+    10: 5,  # debug
+    11: 5,
+    12: 5,
+    13: 6,
+    14: 6,
+    15: 7,
+    16: 7,
+    17: 8,
+    18: 8,
+    19: 9,
+    20: 9,  # info
+    21: 9,
+    22: 9,
+    23: 10,  # notice
+    24: 10,
+    25: 11,  # 25 = success in loguru
+    26: 11,
+    27: 12,
+    28: 12,
+    29: 13,
+    30: 13,  # warning
+    31: 13,
+    32: 13,
+    33: 14,
+    34: 14,
+    35: 15,
+    36: 15,
+    37: 16,
+    38: 16,
+    39: 17,
+    40: 17,  # error
+    41: 17,
+    42: 17,
+    43: 18,
+    44: 18,
+    45: 19,
+    46: 19,
+    47: 20,
+    48: 20,
+    49: 21,
+    50: 21,  # fatal/critical
+}
+"""Mapping from standard library logging level numbers to OTEL/logfire level numbers.
+Based on feeling rather than hard maths."""
+
 ATTRIBUTES_LOG_LEVEL_NAME_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_name'
 """Deprecated, use only ATTRIBUTES_LOG_LEVEL_NUM_KEY."""
 
@@ -34,13 +90,15 @@ ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 
 
 # This is in this file to encourage using it instead of setting these attributes manually.
-def log_level_attributes(level: LevelName) -> dict[str, otel_types.AttributeValue]:
-    if level not in LEVEL_NUMBERS:
-        warnings.warn(f'Invalid log level name: {level!r}')
-        level = 'error'
+def log_level_attributes(level: LevelName | int) -> dict[str, otel_types.AttributeValue]:
+    if isinstance(level, str):
+        if level not in LEVEL_NUMBERS:
+            warnings.warn(f'Invalid log level name: {level!r}')
+            level = 'error'
+        level = LEVEL_NUMBERS[level]
 
     return {
-        ATTRIBUTES_LOG_LEVEL_NUM_KEY: LEVEL_NUMBERS[level],
+        ATTRIBUTES_LOG_LEVEL_NUM_KEY: level,
     }
 
 

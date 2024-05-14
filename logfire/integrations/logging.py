@@ -8,7 +8,12 @@ from typing import Any, ClassVar, Mapping, cast
 
 from logfire import log
 
-from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
+from .._internal.constants import (
+    ATTRIBUTES_LOGGING_ARGS_KEY,
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    LOGGING_TO_OTEL_LEVEL_NUMBERS,
+)
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes
@@ -75,7 +80,7 @@ class LogfireLoggingHandler(LoggingHandler):
 
         log(
             msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
-            level=record.levelname.lower(),  # type: ignore
+            level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
             attributes=attributes,
             custom_scope_suffix=self.custom_scope_suffix,
             exc_info=record.exc_info,

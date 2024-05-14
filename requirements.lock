@@ -15,6 +15,8 @@ charset-normalizer==3.3.2
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
+executing==2.0.1
+    # via logfire
 googleapis-common-protos==1.63.0
     # via opentelemetry-exporter-otlp-proto-http
 idna==3.7
