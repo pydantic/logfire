@@ -363,6 +363,8 @@ def parse_info(_args: argparse.Namespace) -> None:
         'typing-extensions': 7,
         # dependencies
         'tomli': 8,
+        # dependencies
+        'executing': 9,
     }
     otel_index = max(package_names.values(), default=0) + 1
     related_packages: list[tuple[int, str, str]] = []
