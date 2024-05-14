@@ -247,6 +247,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': IsJson(
                         {
                             'message': {
@@ -322,6 +323,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': IsJson(
                         {
                             'message': {
@@ -389,6 +391,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                 },
             },
             {
@@ -407,6 +410,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"","chunk_count":0}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -443,6 +447,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                 },
             },
             {
@@ -461,6 +466,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"","chunk_count":0}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -499,6 +505,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                 },
             },
             {
@@ -517,6 +524,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -558,6 +566,7 @@ async def test_async_chat_completions_stream(
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                 },
             },
             {
@@ -576,6 +585,7 @@ async def test_async_chat_completions_stream(
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -608,6 +618,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
                 },
@@ -642,6 +653,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                 },
             },
             {
@@ -660,6 +672,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":3}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -692,6 +705,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'logfire.msg_template': 'Embedding Creation with {request_data[model]!r}',
                     'logfire.msg': "Embedding Creation with 'text-embedding-3-small'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': '{"usage":{"prompt_tokens":1,"total_tokens":2}}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
                 },
@@ -724,6 +738,7 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                     'logfire.msg_template': 'Image Generation with {request_data[model]!r}',
                     'logfire.msg': "Image Generation with 'dall-e-3'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': '{"images":[{"b64_json":null,"revised_prompt":"revised prompt","url":"https://example.com/image.jpg"}]}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"images":{"type":"array","items":{"type":"object","title":"Image","x-python-datatype":"PydanticModel"}}}}}}',
                 },
@@ -776,6 +791,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
                 },
@@ -812,6 +828,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
+                    'logfire.tags': ('llm',),
                     'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
                 },
@@ -857,8 +874,10 @@ def test_unknown_method(instrumented_client: openai.Client, exporter: TestExport
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
+                    'suffix': 'OpenAI',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument OpenAI API call: {error}',
+                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
                     'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_unknown_method',
@@ -878,15 +897,16 @@ async def test_async_unknown_method(instrumented_async_client: openai.AsyncClien
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Unable to instrument OpenAI API call: {error}',
+                'name': 'Unable to instrument {suffix} API call: {error}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
+                    'logfire.tags': ('llm',),
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument OpenAI API call: {error}',
+                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
                     'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_unknown_method',
@@ -894,6 +914,7 @@ async def test_async_unknown_method(instrumented_async_client: openai.AsyncClien
                     'error': '`model` not found in request data',
                     'kwargs': IsStr(),
                     'logfire.json_schema': IsStr(),
+                    'suffix': 'OpenAI',
                 },
             }
         ]

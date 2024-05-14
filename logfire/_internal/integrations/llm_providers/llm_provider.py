@@ -25,7 +25,7 @@ def instrument_llm_provider(
     is_async_client_fn: Callable[[Any], bool],
 ) -> ContextManager[None]:
     """Instruments the provided `client` with `logfire`."""
-    logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix, tags=['llm'])
+    logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['llm'])
 
     client._is_instrumented_by_logfire = True
     client._original_request_method = original_request_method = client._request
@@ -34,7 +34,7 @@ def instrument_llm_provider(
 
     def _instrumentation_setup(**kwargs: Any) -> Any:
         if context.get_value('suppress_instrumentation'):
-            return original_request_method(**kwargs)
+            return None, None, kwargs
 
         options = kwargs['options']
         try:
@@ -89,7 +89,7 @@ def instrument_llm_provider(
     async def instrumented_llm_request_async(**kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
         if message_template is None:
-            return original_request_method(**kwargs)
+            return await original_request_method(**kwargs)
         stream = kwargs['stream']
         with logfire_llm.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
