@@ -913,7 +913,7 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             project_name: Name of project that has to be used.
 
         Returns:
-            The configured project informations.
+            The configured project information.
 
         Raises:
             LogfireConfigError: If there was an error configuring the project.
@@ -1142,10 +1142,7 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
 
         projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
         if projects:
-            use_existing_projects = Confirm.ask(
-                'Do you want to use one of your existing projects? ',
-                default=True,
-            )
+            use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(
                     session=session, logfire_api_url=logfire_api_url, projects=projects
