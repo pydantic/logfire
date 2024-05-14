@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 from logging import Logger, getLogger
 from typing import Sequence
@@ -275,5 +276,35 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                 },
             },
+        ]
+    )
+
+
+def test_logging_non_string(exporter: TestExporter, logger: Logger):
+    with pytest.warns(logfire.NonStringMessageWarning) as warnings:
+        logger.error(123)
+    [warning] = warnings
+    assert warning.lineno == inspect.currentframe().f_lineno - 2  # type: ignore
+    assert str(warning.message) == 'Message (template) should be a string, converting.'
+    assert warning.filename == __file__
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': '123',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': '123',
+                    'logfire.msg': '123',
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_logging_non_string',
+                    'code.lineno': 123,
+                },
+            }
         ]
     )

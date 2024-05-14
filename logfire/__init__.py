@@ -9,7 +9,7 @@ from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
-from ._internal.main import Logfire, LogfireSpan
+from ._internal.main import Logfire, LogfireSpan, NonStringMessageWarning
 from ._internal.scrubbing import ScrubMatch
 from .version import VERSION
 
@@ -90,4 +90,5 @@ __all__ = (
     'METRICS_PREFERRED_TEMPORALITY',
     'ScrubMatch',
     'VERSION',
+    'NonStringMessageWarning',
 )
