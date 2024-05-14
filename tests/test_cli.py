@@ -809,7 +809,7 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
             [create_project_response],
         )
 
-        main(['projects', 'use', '--project', 'myproject'])
+        main(['projects', 'use', 'myproject'])
 
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
         assert console_calls == [
@@ -904,7 +904,7 @@ def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> 
             [create_project_response],
         )
 
-        main(['projects', 'use', '--project', 'myproject'])
+        main(['projects', 'use', 'myproject'])
 
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
         assert console_calls == [
@@ -962,7 +962,7 @@ def test_projects_use_multiple_with_org(tmp_dir_cwd: Path, default_credentials: 
             [create_project_response],
         )
 
-        main(['projects', 'use', '--project', 'myproject', '--org', 'fake_org'])
+        main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
         assert console_calls == [
@@ -1000,7 +1000,7 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
             [create_project_response],
         )
 
-        main(['projects', 'use', '--project', 'wrong-project', '--org', 'fake_org'])
+        main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
 
         assert prompt_mock.mock_calls == [
             call(
@@ -1040,7 +1040,7 @@ def test_projects_use_wrong_project_give_up(tmp_dir_cwd: Path, default_credentia
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
 
-        main(['projects', 'use', '--project', 'wrong-project', '--org', 'fake_org'])
+        main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
 
         assert prompt_mock.mock_calls == [
             call(
@@ -1071,7 +1071,7 @@ def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.Capture
             json=[],
         )
 
-        main(['projects', 'use', '--project', 'myproject'])
+        main(['projects', 'use', 'myproject'])
 
         assert (
             re.sub(r'\s+', ' ', capsys.readouterr().err).strip()
@@ -1104,7 +1104,7 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
         )
 
         with pytest.raises(LogfireConfigError, match='Invalid credentials, when initializing project:'):
-            main(['projects', 'use', '--project', 'myproject', '--org', 'fake_org'])
+            main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
 
 def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
@@ -1126,7 +1126,7 @@ def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: 
         )
 
         with pytest.raises(LogfireConfigError, match='Error creating project write token.'):
-            main(['projects', 'use', '--project', 'myproject', '--org', 'fake_org'])
+            main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
 
 def test_info(capsys: pytest.CaptureFixture[str]) -> None:

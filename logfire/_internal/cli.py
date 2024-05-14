@@ -322,7 +322,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
     logfire_url = args.logfire_url
-    project_name = args.project
+    project_name = args.project_name
     organization = args.org
     console = Console(file=sys.stderr)
 
@@ -438,7 +438,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects_new.set_defaults(func=parse_create_new_project)
 
     cmd_projects_use = projects_subparsers.add_parser('use', help='use a project')
-    cmd_projects_use.add_argument('--project', help='project name')
+    cmd_projects_use.add_argument('project_name', nargs='?', help='project name')
     cmd_projects_use.add_argument('--org', help='project organization')
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
     cmd_projects_use.set_defaults(func=parse_use_project)
