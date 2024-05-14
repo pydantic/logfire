@@ -823,6 +823,59 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
         }
 
 
+def test_projects_use_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-api.pydantic.dev/v1/projects/',
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'fake_org', 'project_name': 'otherproject'},
+            ],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                (
+                    'Please select one of the following projects by number:\n'
+                    '1. fake_org/myproject\n'
+                    '2. fake_org/otherproject\n'
+                ),
+                choices=['1', '2'],
+                default='1',
+            )
+        ]
+
+        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
+        assert console_calls == [
+            IsStr(regex=r'^\(file=.*'),
+            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
+        ]
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
 def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
