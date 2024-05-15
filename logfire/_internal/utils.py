@@ -14,7 +14,7 @@ from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
 
 if TYPE_CHECKING:
-    from packaging.version import Version
+    pass
 
 T = TypeVar('T')
 
@@ -171,16 +171,3 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     gitignore = data_dir / '.gitignore'
     gitignore.write_text('*')
-
-
-def get_version(version: str) -> Version:
-    """Return a packaging.version.Version object from a version string.
-
-    We check if `packaging` is available, falling back to `setuptools._vendor.packaging` if it's not.
-    """
-    try:
-        from packaging.version import Version
-
-    except ImportError:  # pragma: no cover
-        from setuptools._vendor.packaging.version import Version
-    return Version(version)  # type: ignore

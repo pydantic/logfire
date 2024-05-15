@@ -15,10 +15,10 @@ from typing_extensions import ParamSpec
 
 import logfire
 from logfire import LogfireSpan
+from logfire._vendor.packaging.version import Version
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
 from .._internal.config_params import default_param_manager
-from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
@@ -299,7 +299,7 @@ class LogfirePydanticPlugin:
     """
 
     if (
-        get_version(pydantic.__version__) < get_version('2.5.0') or os.environ.get('LOGFIRE_PYDANTIC_RECORD') == 'off'
+        Version(pydantic.__version__) < Version('2.5.0') or os.environ.get('LOGFIRE_PYDANTIC_RECORD') == 'off'
     ):  # pragma: no cover
 
         def new_schema_validator(  # type: ignore[reportRedeclaration]

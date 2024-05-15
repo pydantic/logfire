@@ -47,6 +47,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self
 
+from logfire._vendor.packaging.version import Version
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
@@ -75,7 +76,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
-from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file
+from .utils import UnexpectedResponse, ensure_data_dir_exists, read_toml_file
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -397,7 +398,7 @@ class _LogfireConfigData:
         if self.pydantic_plugin.record != 'off':
             import pydantic
 
-            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
+            if Version(pydantic.__version__) < Version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
         self.fast_shutdown = fast_shutdown
 
