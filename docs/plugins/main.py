@@ -104,16 +104,15 @@ def install_logfire(markdown: str, page: Page) -> str:
         return markdown
 
     # Match instructions like "{{ install_logfire(extras=['fastapi']) }}". Get the extras, if any.
-    match = re.search(r'{{ *install_logfire\((.*)\) *}}', markdown)
+    matches = re.findall(r'{{ *install_logfire\((.*)\) *}}', markdown)
     extras = []
-    if match:
-        arguments = match.group(1).split('=')
+    for match in matches:
+        arguments = match.split('=')
         # Split them and strip quotes for each one separately.
         extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
-
-    package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
-    extras_arg = ' '.join(f'-E {extra}' for extra in extras)
-    instructions = f"""
+        package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
+        extras_arg = ' '.join(f'-E {extra}' for extra in extras)
+        instructions = f"""
 === "PIP"
     ```bash
     pip install {package}
@@ -129,14 +128,15 @@ def install_logfire(markdown: str, page: Page) -> str:
     poetry add {package}
     ```
 """
-    if not extras:
-        instructions += """
+        if not extras:
+            instructions += """
 === "Conda"
     ```bash
     conda install -c conda-forge logfire
     ```
 """
-    return re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown)
+        markdown = re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown, count=1)
+    return markdown
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
