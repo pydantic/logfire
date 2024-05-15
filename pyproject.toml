@@ -144,6 +144,9 @@ packages = ["logfire"]
 [tool.hatch.build.targets.sdist]
 include = ["/README.md", "/Makefile", "/logfire", "/tests"]
 
+[tool.pyright]
+exclude = ["logfire/_vendor/*"]
+
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
