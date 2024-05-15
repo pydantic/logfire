@@ -1375,7 +1375,11 @@ def _record_exception(
     attributes = {**(attributes or {})}
     if ValidationError is not None and isinstance(exception, ValidationError):
         # insert a more detailed breakdown of pydantic errors
-        err_json = exception.json(include_url=False)
+        try:
+            err_json = exception.json(include_url=False)
+        except TypeError:  # pragma: no cover
+            # pydantic v1
+            err_json = exception.json()
         span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
         attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
 
