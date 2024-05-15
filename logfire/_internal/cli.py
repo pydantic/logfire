@@ -270,7 +270,6 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     console.print()
     console.print(f'Your Logfire credentials are stored in [bold]{DEFAULT_FILE}[/]')
-    # TODO(Marcelo): Add a message to inform which commands can be used.
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
@@ -326,6 +325,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
     project_name = args.project_name
     organization = args.org
     console = Console(file=sys.stderr)
+
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     project_info = LogfireCredentials.use_existing_project(
         session=args._session,
@@ -363,6 +363,8 @@ def parse_info(_args: argparse.Namespace) -> None:
         'typing-extensions': 7,
         # dependencies
         'tomli': 8,
+        # dependencies
+        'executing': 9,
     }
     otel_index = max(package_names.values(), default=0) + 1
     related_packages: list[tuple[int, str, str]] = []
@@ -438,7 +440,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects_new.set_defaults(func=parse_create_new_project)
 
     cmd_projects_use = projects_subparsers.add_parser('use', help='use a project')
-    cmd_projects_use.add_argument('project_name', help='project name')
+    cmd_projects_use.add_argument('project_name', nargs='?', help='project name')
     cmd_projects_use.add_argument('--org', help='project organization')
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
     cmd_projects_use.set_defaults(func=parse_use_project)

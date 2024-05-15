@@ -75,7 +75,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
-from .utils import UnexpectedResponse, ensure_data_dir_exists, read_toml_file
+from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -394,6 +394,11 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
         self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin
+        if self.pydantic_plugin.record != 'off':
+            import pydantic
+
+            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
+                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -908,7 +913,7 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             project_name: Name of project that has to be used.
 
         Returns:
-            The configured project informations.
+            The configured project information.
 
         Raises:
             LogfireConfigError: If there was an error configuring the project.
@@ -1137,10 +1142,7 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
 
         projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
         if projects:
-            use_existing_projects = Confirm.ask(
-                'Do you want to use one of your existing projects? ',
-                default=True,
-            )
+            use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(
                     session=session, logfire_api_url=logfire_api_url, projects=projects

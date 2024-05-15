@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import functools
 import inspect
+import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, TypeVar
 
+import pydantic
 from typing_extensions import ParamSpec
 
 import logfire
@@ -16,13 +18,11 @@ from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
 from .._internal.config_params import default_param_manager
+from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
-    from pydantic.plugin import (
-        SchemaKind,
-        SchemaTypePath,
-    )
+    from pydantic.plugin import SchemaKind, SchemaTypePath
     from pydantic_core import CoreConfig, CoreSchema
 
 
@@ -292,61 +292,71 @@ def get_schema_name(schema: CoreSchema) -> str:
 class LogfirePydanticPlugin:
     """Implements a new API for pydantic plugins.
 
-    Patches pydantic to accept this new API shape.
+    Patches Pydantic to accept this new API shape.
 
-    Set the `LOGFIRE_DISABLE_PYDANTIC_PLUGIN` environment variable to `true` to disable the plugin.
-
-    Note:
-        In the future, you'll be able to use the `PYDANTIC_DISABLE_PLUGINS` instead.
-
-        See [pydantic/pydantic#7709](https://github.com/pydantic/pydantic/issues/7709) for more information.
+    Set the `LOGFIRE_PYDANTIC_RECORD` environment variable to `"off"` to disable the plugin, or
+    `PYDANTIC_DISABLE_PLUGINS` to `true` to disable all Pydantic plugins.
     """
 
-    def new_schema_validator(
-        self,
-        schema: CoreSchema,
-        schema_type: Any,
-        schema_type_path: SchemaTypePath,
-        schema_kind: SchemaKind,
-        config: CoreConfig | None,
-        plugin_settings: dict[str, Any],
-    ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
-        """This method is called every time a new `SchemaValidator` is created.
+    if (
+        get_version(pydantic.__version__) < get_version('2.5.0') or os.environ.get('LOGFIRE_PYDANTIC_RECORD') == 'off'
+    ):  # pragma: no cover
 
-        Args:
-            schema: The schema to validate against.
-            schema_type: The original type which the schema was created from, e.g. the model class.
-            schema_type_path: Path defining where `schema_type` was defined, or where `TypeAdapter` was called.
-            schema_kind: The kind of schema to validate against.
-            config: The config to use for validation.
-            plugin_settings: The plugin settings.
+        def new_schema_validator(  # type: ignore[reportRedeclaration]
+            self, *_: Any, **__: Any
+        ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
+            """Backwards compatibility for Pydantic < 2.5.0.
 
-        Returns:
-            A tuple of decorator factories for each of the three validation methods -
-                `validate_python`, `validate_json`, `validate_strings` or a tuple of
-                three `None` if recording is `off`.
-        """
-        # Patch a bug that occurs even if the plugin is disabled.
-        _patch_PluggableSchemaValidator()
-
-        logfire_settings = plugin_settings.get('logfire')
-        if logfire_settings and 'record' in logfire_settings:
-            record = logfire_settings['record']
-        else:
-            record = _pydantic_plugin_config().record
-
-        if record == 'off':
+            This method is called every time a new `SchemaValidator` is created, and is a NO-OP for Pydantic < 2.5.0.
+            """
             return None, None, None
+    else:
 
-        if _include_model(schema_type_path):
-            _patch_build_wrapper()
-            return (
-                _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record),
-                _ValidateWrapper('validate_json', schema, config, plugin_settings, schema_type_path, record),
-                _ValidateWrapper('validate_strings', schema, config, plugin_settings, schema_type_path, record),
-            )
+        def new_schema_validator(
+            self,
+            schema: CoreSchema,
+            schema_type: Any,
+            schema_type_path: SchemaTypePath,
+            schema_kind: SchemaKind,
+            config: CoreConfig | None,
+            plugin_settings: dict[str, Any],
+        ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
+            """This method is called every time a new `SchemaValidator` is created.
 
-        return None, None, None
+            Args:
+                schema: The schema to validate against.
+                schema_type: The original type which the schema was created from, e.g. the model class.
+                schema_type_path: Path defining where `schema_type` was defined, or where `TypeAdapter` was called.
+                schema_kind: The kind of schema to validate against.
+                config: The config to use for validation.
+                plugin_settings: The plugin settings.
+
+            Returns:
+                A tuple of decorator factories for each of the three validation methods -
+                    `validate_python`, `validate_json`, `validate_strings` or a tuple of
+                    three `None` if recording is `off`.
+            """
+            # Patch a bug that occurs even if the plugin is disabled.
+            _patch_PluggableSchemaValidator()
+
+            logfire_settings = plugin_settings.get('logfire')
+            if logfire_settings and 'record' in logfire_settings:
+                record = logfire_settings['record']
+            else:
+                record = _pydantic_plugin_config().record
+
+            if record == 'off':
+                return None, None, None
+
+            if _include_model(schema_type_path):
+                _patch_build_wrapper()
+                return (
+                    _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record),
+                    _ValidateWrapper('validate_json', schema, config, plugin_settings, schema_type_path, record),
+                    _ValidateWrapper('validate_strings', schema, config, plugin_settings, schema_type_path, record),
+                )
+
+            return None, None, None
 
 
 plugin = LogfirePydanticPlugin()
