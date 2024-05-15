@@ -28,27 +28,29 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     json_data = options.json_data
     if not isinstance(json_data, dict):
         raise ValueError('Expected `options.json_data` to be a dictionary')
-    if 'model' not in json_data:
-        # all Anthropic API calls have a model AFAIK
-        raise ValueError('`model` not found in request data')
 
-    if url == '/v1/messages':
+    if url == '/v1/messages' or url == '/v1/messages?beta=tools':
+        # Note: this enables the UI to display the system message; however, it also shows
+        # the system message in the messages array, which isn't actually what's being sent.
+        # Likely better to enable the UI separately so the request data actually matches
+        # what is sent but the system message still shows up pretty in the UI.
+        request_data = json_data.copy()  # type: ignore
+        system_message = {'role': 'system', 'content': request_data['system']}  # type: ignore
+        request_data['messages'] = [system_message] + request_data['messages']
         return EndpointConfig(
-            message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            message_template='Message with {request_data[model]!r}',
+            span_data={'request_data': request_data},
             content_from_stream=content_from_messages,
         )
     else:
         raise ValueError(f'Unknown Anthropic API endpoint: `{url}`')
 
 
-def content_from_messages(chunk: anthropic.types.MessageStreamEvent | None) -> str | None:
-    if chunk:
-        if isinstance(chunk, ContentBlockStartEvent):
-            return chunk.content_block.text
-        if isinstance(chunk, ContentBlockDeltaEvent):
-            return chunk.delta.text
-        return None
+def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
+    if isinstance(chunk, ContentBlockStartEvent):
+        return chunk.content_block.text
+    if isinstance(chunk, ContentBlockDeltaEvent):
+        return chunk.delta.text
     return None
 
 
