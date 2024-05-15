@@ -56,7 +56,7 @@ def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | No
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
-    if isinstance(response, (Message, ToolsBetaMessage)):
+    if isinstance(response, (Message, ToolsBetaMessage)):  # pragma: no cover
         block = response.content[0]
         message: dict[str, Any] = {'role': 'assistant'}
         if block.type == 'text':
