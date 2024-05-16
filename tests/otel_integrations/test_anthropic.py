@@ -39,86 +39,84 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
     """
     assert request.method == 'POST'
-    if (
-        request.url == 'https://api.anthropic.com/v1/messages'
-        or request.url == 'https://api.anthropic.com/v1/messages?beta=tools'
-    ):
-        json_body = json.loads(request.content)
-        if json_body.get('stream'):
-            if json_body['system'] == 'empty response chunk':
-                return httpx.Response(200, text='data: []\n\n')
-            else:
-                chunks = [
-                    MessageStartEvent(
-                        message=Message(
-                            id='test_id',
-                            content=[],
-                            model='claude-3-haiku-20240307',
-                            role='assistant',
-                            stop_reason=None,
-                            stop_sequence=None,
-                            type='message',
-                            usage=Usage(input_tokens=25, output_tokens=25),
-                        ),
-                        type='message_start',
-                    ),
-                    ContentBlockStartEvent(
-                        content_block=TextBlock(text='', type='text'), index=0, type='content_block_start'
-                    ),
-                    ContentBlockDeltaEvent(
-                        delta=TextDelta(text='The answer', type='text_delta'), index=0, type='content_block_delta'
-                    ),
-                    ContentBlockDeltaEvent(
-                        delta=TextDelta(text=' is nine', type='text_delta'), index=0, type='content_block_delta'
-                    ),
-                    ContentBlockStopEvent(index=0, type='content_block_stop'),
-                    MessageDeltaEvent(
-                        delta=Delta(stop_reason='end_turn', stop_sequence=None),
-                        type='message_delta',
-                        usage=MessageDeltaUsage(output_tokens=55),
-                    ),
-                    MessageStopEvent(type='message_stop'),
-                ]
-                return httpx.Response(
-                    200, text=''.join(f'event: {chunk.type}\ndata: {chunk.model_dump_json()}\n\n' for chunk in chunks)
-                )
-        else:
-            if json_body['system'] == 'tool response':
-                return httpx.Response(
-                    200,
-                    json=ToolsBetaMessage(
-                        id='test_id',
-                        content=[ToolUseBlock(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
-                        model='claude-3-haiku-20240307',
-                        role='assistant',
-                        type='message',
-                        usage=Usage(input_tokens=2, output_tokens=3),
-                    ).model_dump(mode='json'),
-                )
-            else:
-                return httpx.Response(
-                    200,
-                    json=Message(
-                        id='test_id',
-                        content=[
-                            TextBlock(
-                                text='Nine',
-                                type='text',
-                            )
-                        ],
-                        model='claude-3-haiku-20240307',
-                        role='assistant',
-                        type='message',
-                        usage=Usage(input_tokens=2, output_tokens=3),
-                    ).model_dump(mode='json'),
-                )
-    else:
-        assert request.url == 'https://api.anthropic.com/v1/complete', f'Unexpected URL: {request.url}'
+    if request.url == 'https://api.anthropic.com/v1/complete':
         return httpx.Response(
             200,
             json=Completion(id='test_id', completion='completion', model='claude-2.1', type='completion').model_dump(
                 mode='json'
             ),
+        )
+    assert request.url in [
+        'https://api.anthropic.com/v1/messages',
+        'https://api.anthropic.com/v1/messages?beta=tools',
+    ], f'Unexpected URL: {request.url}'
+    json_body = json.loads(request.content)
+    if json_body.get('stream'):
+        if json_body['system'] == 'empty response chunk':
+            return httpx.Response(200, text='data: []\n\n')
+        else:
+            chunks = [
+                MessageStartEvent(
+                    message=Message(
+                        id='test_id',
+                        content=[],
+                        model='claude-3-haiku-20240307',
+                        role='assistant',
+                        stop_reason=None,
+                        stop_sequence=None,
+                        type='message',
+                        usage=Usage(input_tokens=25, output_tokens=25),
+                    ),
+                    type='message_start',
+                ),
+                ContentBlockStartEvent(
+                    content_block=TextBlock(text='', type='text'), index=0, type='content_block_start'
+                ),
+                ContentBlockDeltaEvent(
+                    delta=TextDelta(text='The answer', type='text_delta'), index=0, type='content_block_delta'
+                ),
+                ContentBlockDeltaEvent(
+                    delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'
+                ),
+                ContentBlockStopEvent(index=0, type='content_block_stop'),
+                MessageDeltaEvent(
+                    delta=Delta(stop_reason='end_turn', stop_sequence=None),
+                    type='message_delta',
+                    usage=MessageDeltaUsage(output_tokens=55),
+                ),
+                MessageStopEvent(type='message_stop'),
+            ]
+            return httpx.Response(
+                200, text=''.join(f'event: {chunk.type}\ndata: {chunk.model_dump_json()}\n\n' for chunk in chunks)
+            )
+    elif json_body['system'] == 'tool response':
+        return httpx.Response(
+            200,
+            json=ToolsBetaMessage(
+                id='test_id',
+                content=[ToolUseBlock(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
+    else:
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[
+                    TextBlock(
+                        text='Nine',
+                        type='text',
+                    )
+                ],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
         )
 
 
@@ -348,7 +346,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     )
     with response as stream:
         combined = ''.join(chunk.delta.text for chunk in stream if isinstance(chunk, ContentBlockDeltaEvent))
-    assert combined == 'The answer is nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -388,7 +386,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.span_type': 'log',
                     'logfire.tags': ('llm',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is nine","chunk_count":3}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -409,7 +407,7 @@ async def test_async_messages_stream(
     async with response as stream:
         chunk_content = [chunk.delta.text async for chunk in stream if isinstance(chunk, ContentBlockDeltaEvent)]
         combined = ''.join(chunk_content)
-    assert combined == 'The answer is nine'
+    assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -449,7 +447,7 @@ async def test_async_messages_stream(
                     'logfire.span_type': 'log',
                     'logfire.tags': ('llm',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is nine","chunk_count":3}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },

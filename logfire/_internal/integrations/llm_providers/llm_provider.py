@@ -46,29 +46,32 @@ def instrument_llm_provider(
             return None, None, kwargs
 
         span_data['async'] = is_async
+
         stream = kwargs['stream']
 
         if stream and content_from_stream:
             stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
-            class LogfireInstrumentedStream(stream_cls):
-                def __stream__(self) -> Iterator[Any]:
-                    with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
-                        for chunk in super().__stream__():  # type: ignore
-                            record_chunk(chunk)
-                            yield chunk
-
-            class LogfireInstrumentedAsyncStream(stream_cls):
-                async def __stream__(self) -> AsyncIterator[Any]:
-                    with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
-                        async for chunk in super().__stream__():  # type: ignore
-                            record_chunk(chunk)
-                            yield chunk
-
             if is_async:
+
+                class LogfireInstrumentedAsyncStream(stream_cls):
+                    async def __stream__(self) -> AsyncIterator[Any]:
+                        with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
+                            async for chunk in super().__stream__():  # type: ignore
+                                record_chunk(chunk)
+                                yield chunk
+
                 kwargs['stream_cls'] = LogfireInstrumentedAsyncStream
             else:
+
+                class LogfireInstrumentedStream(stream_cls):
+                    def __stream__(self) -> Iterator[Any]:
+                        with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
+                            for chunk in super().__stream__():  # type: ignore
+                                record_chunk(chunk)
+                                yield chunk
+
                 kwargs['stream_cls'] = LogfireInstrumentedStream
 
         return message_template, span_data, kwargs
