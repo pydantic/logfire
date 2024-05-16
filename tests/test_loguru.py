@@ -22,8 +22,10 @@ def test_loguru(exporter: TestExporter) -> None:
 
     try:
         raise ValueError('This is a test exception')
-    except ValueError:
+    except ValueError as e:
         logger.exception('An exception was raised: {foo}', foo='bar')
+        # Test logging a non-string message.
+        logger.warning(e)
 
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
         [
@@ -92,6 +94,22 @@ def test_loguru(exporter: TestExporter) -> None:
                         },
                     }
                 ],
+            },
+            {
+                'name': 'This is a test exception',
+                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': 'This is a test exception',
+                    'logfire.msg': 'This is a test exception',
+                    'code.filepath': 'test_loguru.py',
+                    'code.function': 'test_loguru',
+                    'code.lineno': 28,
+                },
             },
         ]
     )
