@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import logging
 from logging import Logger, getLogger
 from typing import Sequence
@@ -281,12 +280,7 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
 
 
 def test_logging_non_string(exporter: TestExporter, logger: Logger):
-    with pytest.warns(logfire.NonStringMessageWarning) as warnings:
-        logger.error(123)
-    [warning] = warnings
-    assert warning.lineno == inspect.currentframe().f_lineno - 2  # type: ignore
-    assert str(warning.message) == 'Message (template) should be a string, converting.'
-    assert warning.filename == __file__
+    logger.error(123)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

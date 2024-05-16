@@ -48,7 +48,7 @@ from .json_schema import (
     create_json_schema,
 )
 from .metrics import ProxyMeterProvider
-from .stack_info import get_user_frame_and_stacklevel, get_user_stack_info
+from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
 from .utils import uniquify_sequence
 
@@ -564,12 +564,7 @@ class Logfire:
                 # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
                 # We update both because attributes_json_schema_properties looks at `attributes`.
                 attributes = {**attributes, **extra_attrs}
-        elif not (isinstance(msg, str) and isinstance(msg_template, str)):  # type: ignore
-            warnings.warn(
-                'Message (template) should be a string, converting.',
-                category=NonStringMessageWarning,
-                stacklevel=get_user_frame_and_stacklevel()[1],
-            )
+        else:
             msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
             msg_template = str(msg_template)
 
