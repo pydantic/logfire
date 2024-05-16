@@ -565,6 +565,8 @@ class Logfire:
                 # We update both because attributes_json_schema_properties looks at `attributes`.
                 attributes = {**attributes, **extra_attrs}
         else:
+            # The message has already been filled in, presumably by a logging integration.
+            # Make sure it's a string.
             msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
             msg_template = str(msg_template)
 
