@@ -1444,7 +1444,3 @@ def set_user_attribute(
 
 _PARAMS = ParamSpec('_PARAMS')
 _RETURN = TypeVar('_RETURN')
-
-
-class NonStringMessageWarning(UserWarning):
-    pass
