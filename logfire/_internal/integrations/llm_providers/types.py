@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple
+from typing import Any, Callable, NamedTuple
 
-if TYPE_CHECKING:
-    from typing_extensions import LiteralString
-
-
-__all__ = ('EndpointConfig',)
+from typing_extensions import LiteralString
 
 
 class EndpointConfig(NamedTuple):
