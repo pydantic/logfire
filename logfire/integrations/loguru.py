@@ -38,7 +38,7 @@ class LogfireHandler(LogfireLoggingHandler):
             while frame:  # pragma: no branch
                 if frame.f_code is _LOG_METHOD_CODE:
                     msg_template = frame.f_locals.get('message')
-                    if isinstance(msg_template, str):
+                    if msg_template is not None:
                         attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
                     else:  # pragma: no cover
                         _warn_inspection_failure()

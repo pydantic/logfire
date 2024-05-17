@@ -277,3 +277,28 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_logging_non_string(exporter: TestExporter, logger: Logger):
+    logger.error(123)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': '123',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': '123',
+                    'logfire.msg': '123',
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_logging_non_string',
+                    'code.lineno': 123,
+                },
+            }
+        ]
+    )
