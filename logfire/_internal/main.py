@@ -887,8 +887,9 @@ class Logfire:
 
         The following methods are instrumented for both the sync and the async clients:
 
-        - [`client.messages.create`](https://docs.anthropic.com/claude/reference/messages_post) — with and without `stream=True`
-        - [`client.beta.tools.messages.create`](https://docs.anthropic.com/claude/docs/tool-use-examples) — with and without `stream=True`
+        - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
+        - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
+        - [`client.beta.tools.messages.create`](https://docs.anthropic.com/en/docs/tool-use)
 
         When `stream=True` a second span is created to instrument the streamed response.
 
