@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator
+from collections.abc import Iterable
+from contextlib import ExitStack, contextmanager
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
 
 from opentelemetry import context
 
@@ -25,6 +26,29 @@ def instrument_llm_provider(
     is_async_client_fn: Callable[[type[Any]], bool],
 ) -> ContextManager[None]:
     """Instruments the provided `client` with `logfire`."""
+    if isinstance(client, Iterable):
+        context_managers = [
+            instrument_llm_provider(
+                logfire,
+                c,
+                suppress_otel,
+                scope_suffix,
+                get_endpoint_config_fn,
+                on_response_fn,
+                is_async_client_fn,
+            )
+            for c in cast(Iterable[Any], client)
+        ]
+
+        @contextmanager
+        def uninstrument_context():
+            with ExitStack() as exit_stack:
+                for context_manager in context_managers:
+                    exit_stack.enter_context(context_manager)
+                yield
+
+        return uninstrument_context()
+
     if getattr(client, '_is_instrumented_by_logfire', False):
 
         @contextmanager

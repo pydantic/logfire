@@ -72,5 +72,5 @@ def is_async_client(client: type[anthropic.Anthropic] | type[anthropic.AsyncAnth
     """Returns whether or not the `client` class is async."""
     if issubclass(client, anthropic.Anthropic):
         return False
-    assert isinstance(client, anthropic.AsyncAnthropic), f'Expected Anthropic or AsyncAnthropic type, got: {client}'
+    assert issubclass(client, anthropic.AsyncAnthropic), f'Expected Anthropic or AsyncAnthropic type, got: {client}'
     return True

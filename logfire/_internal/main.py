@@ -823,7 +823,11 @@ class Logfire:
 
     def instrument_openai(
         self,
-        openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI],
+        openai_client: openai.OpenAI
+        | openai.AsyncOpenAI
+        | type[openai.OpenAI]
+        | type[openai.AsyncOpenAI]
+        | None = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -867,12 +871,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
+        import openai
+
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
         from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
         return instrument_llm_provider(
             self,
-            openai_client,
+            openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
             'OpenAI',
             get_endpoint_config,
@@ -885,7 +891,8 @@ class Logfire:
         anthropic_client: anthropic.Anthropic
         | anthropic.AsyncAnthropic
         | type[anthropic.Anthropic]
-        | type[anthropic.AsyncAnthropic],
+        | type[anthropic.AsyncAnthropic]
+        | None = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -928,12 +935,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
+        import anthropic
+
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         return instrument_llm_provider(
             self,
-            anthropic_client,
+            anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
             suppress_other_instrumentation,
             'Anthropic',
             get_endpoint_config,
