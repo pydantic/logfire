@@ -21,7 +21,7 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-1. In general, `logfire.instrument_openai()` should be all you need.
+1. In general, `logfire.instrument_anthropic()` should be all you need.
 
 _For more information, see the [`instrument_anthropic()` API reference][logfire.Logfire.instrument_anthropic]._
 
