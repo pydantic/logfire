@@ -164,10 +164,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                         {
                             'max_tokens': 1000,
                             'system': 'You are a helpful assistant.',
-                            'messages': [
-                                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                                {'role': 'user', 'content': 'What is four plus five?'},
-                            ],
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
                             'model': 'claude-3-haiku-20240307',
                         }
                     ),
@@ -175,7 +172,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'response_data': IsJson(
                         {
                             'message': {
@@ -234,10 +231,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                         {
                             'max_tokens': 1000,
                             'system': 'You are a helpful assistant.',
-                            'messages': [
-                                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                                {'role': 'user', 'content': 'What is four plus five?'},
-                            ],
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
                             'model': 'claude-3-haiku-20240307',
                         }
                     ),
@@ -245,7 +239,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'response_data': IsJson(
                         {
                             'message': {
@@ -302,13 +296,13 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_sync_message_empty_response_chunk',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"empty response chunk"}],"model":"claude-3-haiku-20240307","stream":true,"system":"empty response chunk"}',
+                    'request_data': '{"max_tokens":1000,"messages":[],"model":"claude-3-haiku-20240307","stream":true,"system":"empty response chunk"}',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                 },
             },
             {
@@ -319,7 +313,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"empty response chunk"}],"model":"claude-3-haiku-20240307","stream":true,"system":"empty response chunk"}',
+                    'request_data': '{"max_tokens":1000,"messages":[],"model":"claude-3-haiku-20240307","stream":true,"system":"empty response chunk"}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
@@ -327,7 +321,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"","chunk_count":0}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -359,13 +353,13 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_sync_messages_stream',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                 },
             },
             {
@@ -376,7 +370,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
@@ -384,7 +378,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -420,13 +414,13 @@ async def test_async_messages_stream(
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_async_messages_stream',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                 },
             },
             {
@@ -437,7 +431,7 @@ async def test_async_messages_stream(
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
                     'async': True,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
@@ -445,7 +439,7 @@ async def test_async_messages_stream(
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
@@ -478,12 +472,12 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_tool_messages',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"system","content":"tool response"}],"model":"claude-3-haiku-20240307","system":"tool response"}',
+                    'request_data': '{"max_tokens":1000,"messages":[],"model":"claude-3-haiku-20240307","system":"tool response"}',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"input_tokens":2,"output_tokens":3}}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
                 },
@@ -505,7 +499,7 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
                 'end_time': 1000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
-                    'logfire.tags': ('llm',),
+                    'logfire.tags': ('LLM',),
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
                     'logfire.msg': 'Unable to instrument Anthropic API call: Unknown Anthropic API endpoint: `/v1/complete`',
