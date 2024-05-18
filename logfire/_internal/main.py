@@ -565,6 +565,11 @@ class Logfire:
                 # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
                 # We update both because attributes_json_schema_properties looks at `attributes`.
                 attributes = {**attributes, **extra_attrs}
+        else:
+            # The message has already been filled in, presumably by a logging integration.
+            # Make sure it's a string.
+            msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
+            msg_template = str(msg_template)
 
         otlp_attributes = user_attributes(merged_attributes)
         otlp_attributes = {
@@ -1442,7 +1447,11 @@ def _record_exception(
     attributes = {**(attributes or {})}
     if ValidationError is not None and isinstance(exception, ValidationError):
         # insert a more detailed breakdown of pydantic errors
-        err_json = exception.json(include_url=False)
+        try:
+            err_json = exception.json(include_url=False)
+        except TypeError:  # pragma: no cover
+            # pydantic v1
+            err_json = exception.json()
         span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
         attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
 
