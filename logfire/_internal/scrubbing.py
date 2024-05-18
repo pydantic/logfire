@@ -106,7 +106,7 @@ class Scrubber:
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
-        if scope and scope.name == 'logfire.openai':
+        if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
             return
 
         # We need to use BoundedAttributes because:

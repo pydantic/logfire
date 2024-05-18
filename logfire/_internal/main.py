@@ -53,6 +53,7 @@ from .tracer import ProxyTracerProvider
 from .utils import uniquify_sequence
 
 if TYPE_CHECKING:
+    import anthropic
     import openai
     from fastapi import FastAPI
     from opentelemetry.metrics import _Gauge as Gauge
@@ -863,9 +864,75 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-        from .integrations.openai import instrument_openai
+        from .integrations.llm_providers.llm_provider import instrument_llm_provider
+        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
-        return instrument_openai(self, openai_client, suppress_other_instrumentation)
+        return instrument_llm_provider(
+            self,
+            openai_client,
+            suppress_other_instrumentation,
+            'OpenAI',
+            get_endpoint_config,
+            on_response,
+            is_async_client,
+        )
+
+    def instrument_anthropic(
+        self,
+        anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic,
+        *,
+        suppress_other_instrumentation: bool = True,
+    ) -> ContextManager[None]:
+        """Instrument an Anthropic client so that spans are automatically created for each request.
+
+        The following methods are instrumented for both the sync and the async clients:
+
+        - [`client.messages.create`](https://docs.anthropic.com/claude/reference/messages_post) — with and without `stream=True`
+        - [`client.beta.tools.messages.create`](https://docs.anthropic.com/claude/docs/tool-use-examples) — with and without `stream=True`
+
+        When `stream=True` a second span is created to instrument the streamed response.
+
+        Example usage:
+
+        ```python
+        import logfire
+        import anthropic
+
+        client = anthropic.Anthropic()
+        logfire.instrument_anthropic(client)
+
+        response = client.messages.create(
+            model='claude-3-haiku-20240307',
+            system='You are a helpful assistant.',
+            messages=[
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+        )
+        print('answer:', response.content[0].text)
+        ```
+
+        Args:
+            anthropic_client: The Anthropic client to instrument, either `anthropic.Anthropic` or `anthropic.AsyncAnthropic`.
+            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
+                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
+                OpenAI uses HTTPX to make HTTP requests.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.llm_provider import instrument_llm_provider
+
+        return instrument_llm_provider(
+            self,
+            anthropic_client,
+            suppress_other_instrumentation,
+            'Anthropic',
+            get_endpoint_config,
+            on_response,
+            is_async_client,
+        )
 
     def instrument_asyncpg(self):
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
