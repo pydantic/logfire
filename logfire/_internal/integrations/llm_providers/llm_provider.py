@@ -25,7 +25,7 @@ def instrument_llm_provider(
     is_async_client_fn: Callable[[Any], bool],
 ) -> ContextManager[None]:
     """Instruments the provided `client` with `logfire`."""
-    logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['llm'])
+    logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['LLM'])
 
     client._is_instrumented_by_logfire = True
     client._original_request_method = original_request_method = client._request

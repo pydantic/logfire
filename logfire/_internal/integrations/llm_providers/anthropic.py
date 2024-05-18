@@ -30,16 +30,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         raise ValueError('Expected `options.json_data` to be a dictionary')
 
     if url == '/v1/messages' or url == '/v1/messages?beta=tools':
-        # Note: this enables the UI to display the system message; however, it also shows
-        # the system message in the messages array, which isn't actually what's being sent.
-        # Likely better to enable the UI separately so the request data actually matches
-        # what is sent but the system message still shows up pretty in the UI.
-        request_data = json_data.copy()  # type: ignore
-        system_message = {'role': 'system', 'content': request_data['system']}  # type: ignore
-        request_data['messages'] = [system_message] + request_data['messages']
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
-            span_data={'request_data': request_data},
+            span_data={'request_data': json_data},
             content_from_stream=content_from_messages,
         )
     else:
