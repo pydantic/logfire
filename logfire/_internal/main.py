@@ -822,7 +822,10 @@ class Logfire:
         )
 
     def instrument_openai(
-        self, openai_client: openai.OpenAI | openai.AsyncOpenAI, *, suppress_other_instrumentation: bool = True
+        self,
+        openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI],
+        *,
+        suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -879,7 +882,10 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic,
+        anthropic_client: anthropic.Anthropic
+        | anthropic.AsyncAnthropic
+        | type[anthropic.Anthropic]
+        | type[anthropic.AsyncAnthropic],
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:

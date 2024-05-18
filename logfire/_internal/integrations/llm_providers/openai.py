@@ -99,9 +99,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     return response
 
 
-def is_async_client(client: openai.OpenAI | openai.AsyncOpenAI):
-    """Returns whether or not `client` is async."""
-    if isinstance(client, openai.OpenAI):
+def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
+    """Returns whether or not the `client` class is async."""
+    if issubclass(client, openai.OpenAI):
         return False
-    assert isinstance(client, openai.AsyncOpenAI), f'Unexpected OpenAI or AsyncOpenAI type, got: {client}'
+    assert issubclass(client, openai.AsyncOpenAI), f'Expected OpenAI or AsyncOpenAI type, got: {client}'
     return True

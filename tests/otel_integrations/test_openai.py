@@ -199,8 +199,9 @@ def instrumented_client() -> Iterator[openai.Client]:
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_openai(openai_client):
-            yield openai_client
+        with logfire.instrument_openai(openai.Client):
+            with logfire.instrument_openai(openai.Client):
+                yield openai_client
 
 
 @pytest.fixture
