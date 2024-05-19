@@ -136,6 +136,7 @@ async def instrumented_async_client() -> AsyncIterator[anthropic.AsyncAnthropic]
         # use a hardcoded API key to make sure one in the environment is never used
         anthropic_client = anthropic.AsyncAnthropic(api_key='foobar', http_client=httpx_client)
 
+        # Test instrumenting EVERYTHING
         with logfire.instrument_anthropic():
             yield anthropic_client
 
