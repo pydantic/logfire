@@ -862,7 +862,14 @@ class Logfire:
         ```
 
         Args:
-            openai_client: The OpenAI client to instrument, either `openai.OpenAI` or `openai.AsyncOpenAI`.
+            openai_client: The OpenAI client or class to instrument:
+
+                - `None` (the default) to instrument both the `openai.OpenAI` and `openai.AsyncOpenAI` classes.
+                - The `openai.OpenAI` class or a subclass
+                - The `openai.AsyncOpenAI` class or a subclass
+                - An instance of `openai.OpenAI`
+                - An instance of `openai.AsyncOpenAI`
+
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
@@ -926,7 +933,15 @@ class Logfire:
         ```
 
         Args:
-            anthropic_client: The Anthropic client to instrument, either `anthropic.Anthropic` or `anthropic.AsyncAnthropic`.
+            anthropic_client: The Anthropic client or class to instrument:
+
+                - `None` (the default) to instrument both the
+                    `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
+                - The `anthropic.Anthropic` class or a subclass
+                - The `anthropic.AsyncAnthropic` class or a subclass
+                - An instance of `anthropic.Anthropic`
+                - An instance of `anthropic.AsyncAnthropic`
+
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
