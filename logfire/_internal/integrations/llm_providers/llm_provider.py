@@ -37,7 +37,7 @@ def instrument_llm_provider(
                 on_response_fn,
                 is_async_client_fn,
             )
-            for c in cast(Iterable[Any], client)
+            for c in cast('Iterable[Any]', client)
         ]
 
         @contextmanager
