@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
 
 from opentelemetry import context
@@ -25,8 +25,21 @@ def instrument_llm_provider(
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
 ) -> ContextManager[None]:
-    """Instruments the provided `client` with `logfire`."""
+    """Instruments the provided `client` (or clients) with `logfire`.
+
+    `client` can be:
+    - a single client instance, e.g. an instance of `openai.OpenAI`.
+    - a class of a client
+    - an iterable of clients/classes.
+
+    Returns:
+        A context manager that will revert the instrumentation when exited.
+            Use of this context manager is optional.
+    """
     if isinstance(client, Iterable):
+        # Eagerly instrument each client, but only open the returned context managers
+        # in another context manager which the user needs to open if they want.
+        # Otherwise the garbage collector will close them and uninstrument.
         context_managers = [
             instrument_llm_provider(
                 logfire,
@@ -50,12 +63,8 @@ def instrument_llm_provider(
         return uninstrument_context()
 
     if getattr(client, '_is_instrumented_by_logfire', False):
-
-        @contextmanager
-        def dummy_context():
-            yield
-
-        return dummy_context()
+        # Do nothing if already instrumented.
+        return nullcontext()
 
     logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['LLM'])
 
@@ -107,6 +116,9 @@ def instrument_llm_provider(
                 kwargs['stream_cls'] = LogfireInstrumentedStream
 
         return message_template, span_data, kwargs
+
+    # In these methods, `*args` is only expected to be `(self,)`
+    # in the case where we instrument classes rather than client instances.
 
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
