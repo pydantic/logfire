@@ -21,7 +21,7 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-1. In general, `logfire.instrument_anthropic()` should be all you need.
+1. If you don't have access to the client instance, you can pass a class (e.g. `logfire.instrument_anthropic(anthropic.Anthropic)`), or just pass no arguments (i.e. `logfire.instrument_anthropic()`) to instrument both the `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
 
 _For more information, see the [`instrument_anthropic()` API reference][logfire.Logfire.instrument_anthropic]._
 
