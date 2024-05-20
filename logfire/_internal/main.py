@@ -9,12 +9,23 @@ import warnings
 from functools import cached_property, partial
 from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
@@ -55,10 +66,12 @@ from .utils import uniquify_sequence
 if TYPE_CHECKING:
     import anthropic
     import openai
+    from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from opentelemetry.metrics import _Gauge as Gauge
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+
 
 try:
     from pydantic import ValidationError
@@ -865,7 +878,11 @@ class Logfire:
                 Use of this context manager is optional.
         """
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
-        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.openai import (
+            get_endpoint_config,
+            is_async_client,
+            on_response,
+        )
 
         return instrument_llm_provider(
             self,
@@ -922,7 +939,11 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.anthropic import (
+            get_endpoint_config,
+            is_async_client,
+            on_response,
+        )
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         return instrument_llm_provider(
@@ -940,6 +961,52 @@ class Logfire:
         from .integrations.asyncpg import instrument_asyncpg
 
         return instrument_asyncpg()
+
+    def instrument_django(
+        self,
+        is_sql_commentor_enabled: bool | None = None,
+        request_hook: Callable[[Span, HttpRequest], None] | None = None,
+        response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
+        excluded_urls: list[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Instrument `django` so that spans are automatically created for each web request.
+
+        Uses the OpenTelemetry instrumentation library for
+        [`django`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html)
+
+        Args:
+            is_sql_commentor_enabled: You can optionally configure django instrumentation to enable
+                sqlcommenter which enriches the query with contextual information.
+
+            request_hook: A function called right after a span is created for a request.
+
+            ```py
+            def request_hook(span, request):
+                pass
+            ```
+
+            response_hook: A function called right before a span is finished for the response.
+
+            ```py
+            def response_hook(span, request, response):
+                pass
+            ```
+            excluded_urls: To exclude certain URLs from tracking, set the parameter
+                a list of comma delimited regexes that match the URLs to be excluded.
+
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        """
+        from .integrations.django import instrument_django
+
+        return instrument_django(
+            is_sql_commentor_enabled=is_sql_commentor_enabled,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            excluded_urls=excluded_urls,
+            **kwargs,
+        )
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.

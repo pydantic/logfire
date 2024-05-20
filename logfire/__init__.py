@@ -6,7 +6,12 @@ from typing import Any
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
-from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
+from ._internal.config import (
+    METRICS_PREFERRED_TEMPORALITY,
+    ConsoleOptions,
+    PydanticPlugin,
+    configure,
+)
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.main import Logfire, LogfireSpan
@@ -24,6 +29,7 @@ instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
+instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
