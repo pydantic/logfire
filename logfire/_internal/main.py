@@ -971,6 +971,12 @@ class Logfire:
 
         return instrument_asyncpg()
 
+    def instrument_requests(self):
+        """Instrument the `requests` module so that spans are automatically created for each request."""
+        from .integrations.requests import instrument_requests
+
+        return instrument_requests()
+
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 

@@ -13,10 +13,9 @@ Install `logfire` with the `requests` extra:
 ```py title="main.py"
 import logfire
 import requests
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 logfire.configure()
-RequestsInstrumentor().instrument()
+logfire.instrument_requests()
 
 requests.get("https://httpbin.org/get")
 ```

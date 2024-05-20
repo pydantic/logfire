@@ -3,7 +3,6 @@ from typing import Any
 import pytest
 import requests
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import logfire
 from logfire.testing import TestExporter
@@ -21,10 +20,8 @@ def instrument_requests(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(requests.Session, 'send', send)
 
-    instrumentor = RequestsInstrumentor()
-    instrumentor.instrument()  # type: ignore
+    logfire.instrument_requests()
     yield
-    instrumentor.uninstrument()  # type: ignore
 
 
 @pytest.mark.anyio
