@@ -1,6 +1,6 @@
 # Requests
 
-The logfire.instrument_requests() function can be used to instrument [Requests][requests] with Logfire.
+The logfire.instrument_requests() function can be used to instrument [`requests`][requests] with **Logfire**.
 
 ## Installation
 
