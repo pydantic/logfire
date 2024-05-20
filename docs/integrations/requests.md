@@ -1,6 +1,6 @@
 # Requests
 
-The [OpenTelemetry Instrumentation Requests][opentelemetry-requests] package can be used to instrument [Requests][requests].
+The logfire.instrument_requests() function can be used to instrument [Requests][requests] with Logfire.
 
 ## Installation
 
