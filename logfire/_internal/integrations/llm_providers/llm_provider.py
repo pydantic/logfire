@@ -27,9 +27,9 @@ def instrument_llm_provider(
 ) -> ContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
-    `client` can be:
-    - a single client instance, e.g. an instance of `openai.OpenAI`.
-    - a class of a client
+    The `client` argument can be:
+    - a single client instance, e.g. an instance of `openai.OpenAI`,
+    - a class of a client, or
     - an iterable of clients/classes.
 
     Returns:
