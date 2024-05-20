@@ -2,7 +2,6 @@ import httpx
 import pytest
 from httpx import Request
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
 from logfire.testing import TestExporter
@@ -10,10 +9,8 @@ from logfire.testing import TestExporter
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def instrument_httpx():
-    instrumentor = HTTPXClientInstrumentor()
-    instrumentor.instrument()  # type: ignore
+    logfire.instrument_httpx()
     yield
-    instrumentor.uninstrument()  # type: ignore
 
 
 @pytest.mark.anyio

@@ -971,6 +971,12 @@ class Logfire:
 
         return instrument_asyncpg()
 
+    def instrument_httpx(self):
+        """Instrument the `httpx` module so that spans are automatically created for each request."""
+        from .integrations.httpx import instrument_httpx
+
+        return instrument_httpx()
+
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
