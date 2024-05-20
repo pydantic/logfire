@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
-from opentelemetry import trace as trace_api
+from opentelemetry import context, trace as trace_api
+from opentelemetry.context import _SUPPRESS_INSTRUMENTATION_KEY as OTEL_SUPPRESS_INSTRUMENTATION_KEY  # type: ignore
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
@@ -20,6 +22,10 @@ T = TypeVar('T')
 
 JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
 JsonDict = Dict[str, JsonValue]
+
+# see https://github.com/open-telemetry/opentelemetry-python/blob/d054dff47d2da663a39b9656d106c3d15f344269/opentelemetry-api/src/opentelemetry/context/__init__.py#L171
+# OTEL uses two different keys to supress instrumentation. We need to check both.
+SUPPRESS_INSTRUMENTATION_CONTEXT_KEY = 'suppress_instrumentation'
 
 try:
     import pydantic_core
@@ -184,3 +190,23 @@ def get_version(version: str) -> Version:
     except ImportError:  # pragma: no cover
         from setuptools._vendor.packaging.version import Version
     return Version(version)  # type: ignore
+
+
+def is_instrumentation_suppressed() -> bool:
+    return bool(
+        context.get_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY) or context.get_value(OTEL_SUPPRESS_INSTRUMENTATION_KEY)
+    )
+
+
+@contextmanager
+def suppress_instrumentation():
+    """Context manager to suppress instrumentation from the LLM client."""
+    suppress_keys = [SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, OTEL_SUPPRESS_INSTRUMENTATION_KEY]
+    new_context = context.get_current()
+    for key in suppress_keys:
+        new_context = context.set_value(key, True, new_context)
+    token = context.attach(new_context)
+    try:
+        yield
+    finally:
+        context.detach(token)
