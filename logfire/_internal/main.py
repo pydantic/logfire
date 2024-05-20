@@ -972,7 +972,13 @@ class Logfire:
         return instrument_asyncpg()
 
     def instrument_requests(self):
-        """Instrument the `requests` module so that spans are automatically created for each request."""
+        """Instrument the `requests` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                particularly `request_hook` and `response_hook`.
+        """
         from .integrations.requests import instrument_requests
 
         return instrument_requests()
