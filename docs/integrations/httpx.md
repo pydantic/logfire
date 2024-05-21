@@ -1,6 +1,6 @@
 # HTTPX
 
-The [OpenTelemetry Instrumentation HTTPX][opentelemetry-httpx] package can be used to instrument [HTTPX][httpx].
+The [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] method can be used to instrument [HTTPX][httpx] with **Logfire**.
 
 ## Installation
 
@@ -15,11 +15,11 @@ Let's see a minimal example below. You can run it with `python main.py`:
 ```py title="main.py"
 import logfire
 import httpx
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 logfire.configure()
+logfire.instrument_httpx()
+
 url = "https://httpbin.org/get"
-HTTPXClientInstrumentor().instrument()
 
 with httpx.Client() as client:
     client.get(url)
@@ -36,7 +36,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-You can read more about the HTTPX OpenTelemetry package [here][opentelemetry-httpx].
+[`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] uses the
+**OpenTelemetry HTTPX Instrumentation** package,
+which you can find more information about [here][opentelemetry-httpx].
 
 [httpx]: https://www.python-httpx.org/
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
