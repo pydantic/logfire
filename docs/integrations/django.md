@@ -1,6 +1,6 @@
 # Django
 
-The [OpenTelemetry Instrumentation Django][opentelemetry-django] package can be used to instrument [Django][django].
+The [`logfire.instrument_django()`][logfire.Logfire.instrument_django] method can be used to instrument the [Django][django] web framework with **Logfire**.
 
 ## Installation
 
@@ -10,22 +10,21 @@ Install `logfire` with the `django` extra:
 
 ## Usage
 
-You need to add the [`DjangoInstrumentor`][django-instrumentor] to your code before your application is started.
-
 In the `settings.py` file, add the following lines:
 
 ```py
 import logfire
-from opentelemetry.instrumentation.django import DjangoInstrumentor
 
 # ...All the other settings...
 
 # Add the following lines at the end of the file
 logfire.configure()
-DjangoInstrumentor().instrument()
+logfire.instrument_django()
 ```
 
-You can read more about the Django OpenTelemetry package [here][opentelemetry-django].
+[`logfire.instrument_django()`][logfire.Logfire.instrument_django] uses the
+**OpenTelemetry Django Instrumentation** package,
+which you can find more information about [here][opentelemetry-django].
 
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
