@@ -984,11 +984,16 @@ class Logfire:
 
         return instrument_asyncpg()
 
-    def instrument_httpx(self):
-        """Instrument the `httpx` module so that spans are automatically created for each request."""
+    def instrument_httpx(self, **kwargs: Any):
+        """Instrument the `httpx` module so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
+        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
         from .integrations.httpx import instrument_httpx
 
-        return instrument_httpx()
+        return instrument_httpx(**kwargs)
 
     def instrument_django(
         self,
