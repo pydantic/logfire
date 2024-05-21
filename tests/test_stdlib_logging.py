@@ -212,9 +212,10 @@ def test_recursive_logging_from_opentelemetry() -> None:
 
     try:
         # This calls ExceptionExporter.export which causes OTEL to log an exception.
-        # That log call goes to LogfireLoggingHandler.emit, which tries to emit another logfire log,
+        # That log call goes to LogfireLoggingHandler.emit, which usually tries to emit another logfire log,
         # causing another stdlib log from OTEL, potentially leading to infinite recursion.
-        # This tests that we handle that by using the fallback test_logging_handler when recursion is detected.
+        # Recursion is prevented by OTEL suppressing instrumentation, so the second logfire log isn't emitted.
+        # But when we detect this, we use the fallback handler instead, so this tests that.
         logfire.info('test')
     finally:
         # Don't mess with the root logger longer than needed.
