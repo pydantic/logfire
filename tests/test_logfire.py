@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 import logfire
-from logfire import Logfire
+from logfire import Logfire, suppress_instrumentation
 from logfire._internal.config import LogfireConfig, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
@@ -31,7 +31,7 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
 )
 from logfire._internal.formatter import InspectArgumentsFailedWarning
-from logfire._internal.utils import is_instrumentation_suppressed, suppress_instrumentation
+from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
