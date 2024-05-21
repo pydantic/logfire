@@ -68,9 +68,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     return response
 
 
-def is_async_client(client: anthropic.Anthropic | anthropic.AsyncAnthropic):
-    """Returns whether or not `client` is async."""
-    if isinstance(client, anthropic.Anthropic):
+def is_async_client(client: type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic]):
+    """Returns whether or not the `client` class is async."""
+    if issubclass(client, anthropic.Anthropic):
         return False
-    assert isinstance(client, anthropic.AsyncAnthropic), f'Unexpected Anthropic or AsyncAnthropic type, got: {client}'
+    assert issubclass(client, anthropic.AsyncAnthropic), f'Expected Anthropic or AsyncAnthropic type, got: {client}'
     return True

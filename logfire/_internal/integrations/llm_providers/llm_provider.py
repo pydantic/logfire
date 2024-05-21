@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator
+from collections.abc import Iterable
+from contextlib import ExitStack, contextmanager, nullcontext
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
 
 from opentelemetry import context
 
@@ -22,15 +23,55 @@ def instrument_llm_provider(
     scope_suffix: str,
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
-    is_async_client_fn: Callable[[Any], bool],
+    is_async_client_fn: Callable[[type[Any]], bool],
 ) -> ContextManager[None]:
-    """Instruments the provided `client` with `logfire`."""
+    """Instruments the provided `client` (or clients) with `logfire`.
+
+    The `client` argument can be:
+    - a single client instance, e.g. an instance of `openai.OpenAI`,
+    - a class of a client, or
+    - an iterable of clients/classes.
+
+    Returns:
+        A context manager that will revert the instrumentation when exited.
+            Use of this context manager is optional.
+    """
+    if isinstance(client, Iterable):
+        # Eagerly instrument each client, but only open the returned context managers
+        # in another context manager which the user needs to open if they want.
+        # Otherwise the garbage collector will close them and uninstrument.
+        context_managers = [
+            instrument_llm_provider(
+                logfire,
+                c,
+                suppress_otel,
+                scope_suffix,
+                get_endpoint_config_fn,
+                on_response_fn,
+                is_async_client_fn,
+            )
+            for c in cast('Iterable[Any]', client)
+        ]
+
+        @contextmanager
+        def uninstrument_context():
+            with ExitStack() as exit_stack:
+                for context_manager in context_managers:
+                    exit_stack.enter_context(context_manager)
+                yield
+
+        return uninstrument_context()
+
+    if getattr(client, '_is_instrumented_by_logfire', False):
+        # Do nothing if already instrumented.
+        return nullcontext()
+
     logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['LLM'])
 
     client._is_instrumented_by_logfire = True
     client._original_request_method = original_request_method = client._request
 
-    is_async = is_async_client_fn(client)
+    is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
     def _instrumentation_setup(**kwargs: Any) -> Any:
         if context.get_value('suppress_instrumentation'):
@@ -76,30 +117,33 @@ def instrument_llm_provider(
 
         return message_template, span_data, kwargs
 
-    def instrumented_llm_request_sync(**kwargs: Any) -> Any:
+    # In these methods, `*args` is only expected to be `(self,)`
+    # in the case where we instrument classes rather than client instances.
+
+    def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
         if message_template is None:
-            return original_request_method(**kwargs)
+            return original_request_method(*args, **kwargs)
         stream = kwargs['stream']
         with logfire_llm.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
-                    return original_request_method(**kwargs)
+                    return original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(original_request_method(**kwargs), span)
+                    response = on_response_fn(original_request_method(*args, **kwargs), span)
                     return response
 
-    async def instrumented_llm_request_async(**kwargs: Any) -> Any:
+    async def instrumented_llm_request_async(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
         if message_template is None:
-            return await original_request_method(**kwargs)
+            return await original_request_method(*args, **kwargs)
         stream = kwargs['stream']
         with logfire_llm.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if stream:
-                    return await original_request_method(**kwargs)
+                    return await original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(await original_request_method(**kwargs), span)
+                    response = on_response_fn(await original_request_method(*args, **kwargs), span)
                     return response
 
     if is_async:
@@ -118,7 +162,7 @@ def instrument_llm_provider(
         try:
             yield
         finally:
-            client._request = client._original_request_method
+            client._request = client._original_request_method  # type: ignore
             del client._original_request_method
             client._is_instrumented_by_logfire = False
 

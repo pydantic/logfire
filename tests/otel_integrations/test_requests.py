@@ -21,9 +21,9 @@ def instrument_requests(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(requests.Session, 'send', send)
 
-    instrumentor = RequestsInstrumentor()
-    instrumentor.instrument()  # type: ignore
+    logfire.instrument_requests()
     yield
+    instrumentor = RequestsInstrumentor()
     instrumentor.uninstrument()  # type: ignore
 
 

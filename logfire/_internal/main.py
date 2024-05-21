@@ -835,7 +835,14 @@ class Logfire:
         )
 
     def instrument_openai(
-        self, openai_client: openai.OpenAI | openai.AsyncOpenAI, *, suppress_other_instrumentation: bool = True
+        self,
+        openai_client: openai.OpenAI
+        | openai.AsyncOpenAI
+        | type[openai.OpenAI]
+        | type[openai.AsyncOpenAI]
+        | None = None,
+        *,
+        suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -868,7 +875,14 @@ class Logfire:
         ```
 
         Args:
-            openai_client: The OpenAI client to instrument, either `openai.OpenAI` or `openai.AsyncOpenAI`.
+            openai_client: The OpenAI client or class to instrument:
+
+                - `None` (the default) to instrument both the `openai.OpenAI` and `openai.AsyncOpenAI` classes.
+                - The `openai.OpenAI` class or a subclass
+                - The `openai.AsyncOpenAI` class or a subclass
+                - An instance of `openai.OpenAI`
+                - An instance of `openai.AsyncOpenAI`
+
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
@@ -877,12 +891,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
+        import openai
+
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
         from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
         return instrument_llm_provider(
             self,
-            openai_client,
+            openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
             'OpenAI',
             get_endpoint_config,
@@ -892,7 +908,11 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic,
+        anthropic_client: anthropic.Anthropic
+        | anthropic.AsyncAnthropic
+        | type[anthropic.Anthropic]
+        | type[anthropic.AsyncAnthropic]
+        | None = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -926,7 +946,15 @@ class Logfire:
         ```
 
         Args:
-            anthropic_client: The Anthropic client to instrument, either `anthropic.Anthropic` or `anthropic.AsyncAnthropic`.
+            anthropic_client: The Anthropic client or class to instrument:
+
+                - `None` (the default) to instrument both the
+                    `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
+                - The `anthropic.Anthropic` class or a subclass
+                - The `anthropic.AsyncAnthropic` class or a subclass
+                - An instance of `anthropic.Anthropic`
+                - An instance of `anthropic.AsyncAnthropic`
+
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
@@ -935,12 +963,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
+        import anthropic
+
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         return instrument_llm_provider(
             self,
-            anthropic_client,
+            anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
             suppress_other_instrumentation,
             'Anthropic',
             get_endpoint_config,
@@ -999,6 +1029,18 @@ class Logfire:
             excluded_urls=excluded_urls,
             **kwargs,
         )
+
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+        """Instrument the `requests` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                particularly `request_hook` and `response_hook`.
+        """
+        from .integrations.requests import instrument_requests
+
+        return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
