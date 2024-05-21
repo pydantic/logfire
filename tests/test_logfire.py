@@ -31,6 +31,7 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
 )
 from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.utils import is_instrumentation_suppressed, suppress_instrumentation
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -2452,5 +2453,53 @@ def test_wrong_fstring_source_segment(exporter: TestExporter):
                     'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
                 },
             }
+        ]
+    )
+
+
+def test_suppress_instrumentation(exporter: TestExporter):
+    logfire.info('log1')
+    assert not is_instrumentation_suppressed()
+    with suppress_instrumentation():
+        assert is_instrumentation_suppressed()
+        # Not included in the asserted spans below
+        logfire.info('log2')
+    assert not is_instrumentation_suppressed()
+    logfire.info('log3')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'log1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log1',
+                    'logfire.msg': 'log1',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_instrumentation',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'log3',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log3',
+                    'logfire.msg': 'log3',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_instrumentation',
+                    'code.lineno': 123,
+                },
+            },
         ]
     )
