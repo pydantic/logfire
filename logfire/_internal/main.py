@@ -989,35 +989,36 @@ class Logfire:
         is_sql_commentor_enabled: bool | None = None,
         request_hook: Callable[[Span, HttpRequest], None] | None = None,
         response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
-        excluded_urls: list[str] | None = None,
+        excluded_urls: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
 
-        Uses the OpenTelemetry instrumentation library for
-        [`django`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html)
+        Uses the
+        [OpenTelemetry Django Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html)
+        library.
 
         Args:
-            is_sql_commentor_enabled: You can optionally configure django instrumentation to enable
-                sqlcommenter which enriches the query with contextual information.
+            is_sql_commentor_enabled: Adds comments to SQL queries performed by Django,
+                so that database logs have additional context.
+
+                This does NOT create spans/logs for the queries themselves.
+                For that you need to instrument the database driver, e.g. with `logfire.instrument_psycopg()`.
+
+                To configure the SQL Commentor, see the OpenTelemetry documentation for the
+                values that need to be added to `settings.py`.
 
             request_hook: A function called right after a span is created for a request.
-
-            ```py
-            def request_hook(span, request):
-                pass
-            ```
+                The function should accept two arguments: the span and the Django `Request` object.
 
             response_hook: A function called right before a span is finished for the response.
+                The function should accept three arguments:
+                the span, the Django `Request` object, and the Django `Response` object.
 
-            ```py
-            def response_hook(span, request, response):
-                pass
-            ```
-            excluded_urls: To exclude certain URLs from tracking, set the parameter
-                a list of comma delimited regexes that match the URLs to be excluded.
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
 
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method,
+                for future compatibility.
 
         """
         from .integrations.django import instrument_django
