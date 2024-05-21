@@ -23,6 +23,7 @@ instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
+instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
 instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags

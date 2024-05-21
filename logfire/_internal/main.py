@@ -9,7 +9,18 @@ import warnings
 from functools import cached_property, partial
 from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -970,6 +981,18 @@ class Logfire:
         from .integrations.asyncpg import instrument_asyncpg
 
         return instrument_asyncpg()
+
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+        """Instrument the `requests` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                particularly `request_hook` and `response_hook`.
+        """
+        from .integrations.requests import instrument_requests
+
+        return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
