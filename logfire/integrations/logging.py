@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import Any, ClassVar, Mapping, cast
 
@@ -14,6 +13,7 @@ from .._internal.constants import (
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
 )
+from .._internal.utils import is_instrumentation_suppressed
 
 # skip natural LogRecord attributes
 # http://docs.python.org/library/logging.html#logrecord-attributes
@@ -61,20 +61,9 @@ class LogfireLoggingHandler(LoggingHandler):
         Args:
             record: The log record to send.
         """
-        if record.name.startswith('opentelemetry.'):
-            # This method can lead to OTEL calling logging methods which recursively calls this again.
-            # If we detect recursion, use the fallback handler instead.
-            # TODO find a better way to handle this,
-            #  or document the fallback clearly and nudge the user to configure it.
-            frame = inspect.currentframe()
-            assert frame is not None
-            code_here = frame.f_code
-            frame = frame.f_back
-            while frame:
-                if frame.f_code is code_here:
-                    self.fallback.emit(record)
-                    return
-                frame = frame.f_back
+        if is_instrumentation_suppressed():
+            self.fallback.handle(record)
+            return
 
         attributes = self.fill_attributes(record)
 
