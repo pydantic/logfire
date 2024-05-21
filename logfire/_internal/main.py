@@ -878,11 +878,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
-        from .integrations.llm_providers.openai import (
-            get_endpoint_config,
-            is_async_client,
-            on_response,
-        )
+        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
         return instrument_llm_provider(
             self,
@@ -939,11 +935,7 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-        from .integrations.llm_providers.anthropic import (
-            get_endpoint_config,
-            is_async_client,
-            on_response,
-        )
+        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         return instrument_llm_provider(
