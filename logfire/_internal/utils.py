@@ -188,12 +188,16 @@ def get_version(version: str) -> Version:
 
 
 # OTEL uses two different keys to supress instrumentation. We need to check both.
-SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS = (
-    # This is the 'main' key used by OTEL in recent versions
-    context._SUPPRESS_INSTRUMENTATION_KEY,  # type: ignore
+SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS = [
     # This is still used in some places in OTEL, and probably more in older versions.
     'suppress_instrumentation',
-)
+]
+
+try:
+    # This is the 'main' key used by OTEL in recent versions
+    SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS.append(context._SUPPRESS_INSTRUMENTATION_KEY)  # type: ignore
+except AttributeError:  # pragma: no cover
+    pass
 
 
 def is_instrumentation_suppressed() -> bool:
