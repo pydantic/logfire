@@ -856,6 +856,7 @@ class Logfire:
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
+            **opentelemetry_kwargs,
         )
 
     def instrument_openai(
