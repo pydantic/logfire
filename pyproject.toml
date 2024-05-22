@@ -81,6 +81,9 @@ managed = true
 dev-dependencies = [
     "anyio",
     "httpx",
+    "aiohttp",
+    "redis",
+    "pymongo",
     "starlette",
     "fastapi",
     "Flask",
@@ -109,6 +112,8 @@ dev-dependencies = [
     "opentelemetry-instrumentation-asyncpg",
     "opentelemetry-instrumentation-psycopg",
     "opentelemetry-instrumentation-psycopg2",
+    "opentelemetry-instrumentation-redis",
+    "opentelemetry-instrumentation-pymongo",
     "gitpython",
     "eval-type-backport",
     "requests-mock",

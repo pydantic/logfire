@@ -8,6 +8,7 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
 
+import logfire
 from logfire.testing import TestExporter
 
 
@@ -31,7 +32,7 @@ def app():
 
     app = Starlette(routes=routes)
     try:
-        StarletteInstrumentor.instrument_app(app)  # type: ignore
+        logfire.instrument_starlette(app)
         yield app
     finally:
         StarletteInstrumentor.uninstrument_app(app)

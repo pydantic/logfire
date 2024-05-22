@@ -68,7 +68,9 @@ if TYPE_CHECKING:
     import openai
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
+    from flask.app import Flask
     from opentelemetry.metrics import _Gauge as Gauge
+    from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
 
@@ -1076,6 +1078,72 @@ class Logfire:
         from .integrations.psycopg import instrument_psycopg
 
         return instrument_psycopg(conn_or_module, **kwargs)
+
+    def instrument_flask(self, app: Flask, **kwargs: Any):
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
+        library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+        """
+        from .integrations.flask import instrument_flask
+
+        return instrument_flask(app, **kwargs)
+
+    def instrument_starlette(self, app: Starlette, **kwargs: Any):
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
+        library, specifically `StarletteInstrumentor.instrument_app()`, to which it passes `**kwargs`.
+        """
+        from .integrations.starlette import instrument_starlette
+
+        return instrument_starlette(app, **kwargs)
+
+    def instrument_aiohttp_client(self, **kwargs: Any):
+        """Instrument the `aiohttp` module so that spans are automatically created for each client request.
+
+        Uses the
+        [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
+        library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.aiohttp_client import instrument_aiohttp_client
+
+        return instrument_aiohttp_client(**kwargs)
+
+    def instrument_sqlalchemy(self, **kwargs: Any):
+        """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
+
+        Uses the
+        [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
+        library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.sqlalchemy import instrument_sqlalchemy
+
+        return instrument_sqlalchemy(**kwargs)
+
+    def instrument_pymongo(self, **kwargs: Any):
+        """Instrument the `pymongo` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
+            library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.pymongo import instrument_pymongo
+
+        return instrument_pymongo(**kwargs)
+
+    def instrument_redis(self, **kwargs: Any):
+        """Instrument the `redis` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry Redis Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html)
+        library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.redis import instrument_redis
+
+        return instrument_redis(**kwargs)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
