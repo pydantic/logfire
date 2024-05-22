@@ -44,6 +44,7 @@ def instrument_fastapi(
     | None = None,
     use_opentelemetry_instrumentation: bool = True,
     excluded_urls: str | Iterable[str] | None = None,
+    **opentelemetry_kwargs: Any,
 ) -> ContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -55,7 +56,7 @@ def instrument_fastapi(
         excluded_urls = ','.join(excluded_urls)
 
     if use_opentelemetry_instrumentation:  # pragma: no branch
-        FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls)  # type: ignore
+        FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls, **opentelemetry_kwargs)  # type: ignore
 
     registry = patch_fastapi()
     if app in registry:  # pragma: no cover

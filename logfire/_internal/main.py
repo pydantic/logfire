@@ -809,6 +809,7 @@ class Logfire:
         | None = None,
         use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
+        **opentelemetry_kwargs: Any,
     ) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -838,6 +839,7 @@ class Logfire:
                 will also instrument the app.
 
                 See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
+            opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
