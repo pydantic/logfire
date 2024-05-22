@@ -9,12 +9,23 @@ import warnings
 from functools import cached_property, partial
 from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
@@ -55,10 +66,12 @@ from .utils import uniquify_sequence
 if TYPE_CHECKING:
     import anthropic
     import openai
+    from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from opentelemetry.metrics import _Gauge as Gauge
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+
 
 try:
     from pydantic import ValidationError
@@ -970,6 +983,76 @@ class Logfire:
         from .integrations.asyncpg import instrument_asyncpg
 
         return instrument_asyncpg()
+
+    def instrument_httpx(self, **kwargs: Any):
+        """Instrument the `httpx` module so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
+        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.httpx import instrument_httpx
+
+        return instrument_httpx(**kwargs)
+
+    def instrument_django(
+        self,
+        is_sql_commentor_enabled: bool | None = None,
+        request_hook: Callable[[Span, HttpRequest], None] | None = None,
+        response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
+        excluded_urls: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Instrument `django` so that spans are automatically created for each web request.
+
+        Uses the
+        [OpenTelemetry Django Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html)
+        library.
+
+        Args:
+            is_sql_commentor_enabled: Adds comments to SQL queries performed by Django,
+                so that database logs have additional context.
+
+                This does NOT create spans/logs for the queries themselves.
+                For that you need to instrument the database driver, e.g. with `logfire.instrument_psycopg()`.
+
+                To configure the SQL Commentor, see the OpenTelemetry documentation for the
+                values that need to be added to `settings.py`.
+
+            request_hook: A function called right after a span is created for a request.
+                The function should accept two arguments: the span and the Django `Request` object.
+
+            response_hook: A function called right before a span is finished for the response.
+                The function should accept three arguments:
+                the span, the Django `Request` object, and the Django `Response` object.
+
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method,
+                for future compatibility.
+
+        """
+        from .integrations.django import instrument_django
+
+        return instrument_django(
+            is_sql_commentor_enabled=is_sql_commentor_enabled,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            excluded_urls=excluded_urls,
+            **kwargs,
+        )
+
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+        """Instrument the `requests` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                particularly `request_hook` and `response_hook`.
+        """
+        from .integrations.requests import instrument_requests
+
+        return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.

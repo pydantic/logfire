@@ -10,10 +10,11 @@ from logfire.testing import TestExporter
 
 @pytest.fixture(autouse=True)  # only applies within this module
 def instrument_httpx():
-    instrumentor = HTTPXClientInstrumentor()
-    instrumentor.instrument()  # type: ignore
-    yield
-    instrumentor.uninstrument()  # type: ignore
+    logfire.instrument_httpx()
+    try:
+        yield
+    finally:
+        HTTPXClientInstrumentor().uninstrument()  # type: ignore
 
 
 @pytest.mark.anyio
