@@ -103,6 +103,7 @@ def request_attributes_mapper(request, attributes):
         return None
 
 
+logfire.configure()
 logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper)
 ```
 

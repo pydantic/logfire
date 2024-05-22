@@ -76,18 +76,21 @@ Then in your code:
 import logfire
 from datetime import date
 
-logfire.info('Hello, {name}!', name='world')  # (1)!
+logfire.configure()  # (1)!
 
-with logfire.span('Asking the user their {question}', question='age'):  # (2)!
+logfire.info('Hello, {name}!', name='world')  # (2)!
+
+with logfire.span('Asking the user their {question}', question='age'):  # (3)!
     user_input = input('How old are you [YYYY-mm-dd]? ')
-    dob = date.fromisoformat(user_input)  # (3)!
-    logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)  # (4)!
+    dob = date.fromisoformat(user_input)  # (4)!
+    logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)  # (5)!
 ```
 
-1. This will log `Hello world!` with `info` level. The first time a `logfire` command is run, if no project is configured for the current directory, an interactive prompt will walk you through creating a project.
-2. Spans allow you to nest other Logfire calls, and also to measure how long code takes to run. They are the fundamental building block of traces!
-3. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
-4. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
+1. This should be called once before logging to initialize Logfire. All its arguments are optional. If no project is configured for the current directory, an interactive prompt will walk you through creating a project.
+2. This will log `Hello world!` with `info` level. `name='world'` will be stored as an attributed that can be queried with SQL.
+3. Spans allow you to nest other Logfire calls, and also to measure how long code takes to run. They are the fundamental building block of traces!
+4. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
+5. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
 
 This might look similar to simple logging, but it's much more powerful — you get:
 
@@ -113,6 +116,8 @@ We can record Pydantic models directly:
 from datetime import date
 import logfire
 from pydantic import BaseModel
+
+logfire.configure()
 
 class User(BaseModel):
     name: str

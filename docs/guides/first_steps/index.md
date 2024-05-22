@@ -41,15 +41,18 @@ Upon successful authentication, credentials are stored in `~/.logfire/default.to
 The first time you use Logfire in a new environment, you'll need to set up a project. A Logfire project is like a
 namespace for organizing your data. All data sent to Logfire must be associated with a project.
 
-To use Logfire, simply import it and call the desired logging function:
+To use Logfire, simply import it, configure, and call the desired logging function:
 
 ```py
 import logfire
 
-logfire.info('Hello, {name}!', name='world')  # (1)!
+logfire.configure()  # (1)!
+
+logfire.info('Hello, {name}!', name='world')  # (2)!
 ```
 
-1. This will log `Hello world!` with `info` level.
+1. This should be called once before logging to initialize Logfire. All its arguments are optional.
+2. This will log `Hello world!` with `info` level.
 
 !!! note
 
@@ -104,6 +107,8 @@ import logfire
 
 cwd = Path.cwd()
 total_size = 0
+
+logfire.configure()
 
 with logfire.span('counting size of {cwd=}', cwd=cwd):
     for path in cwd.iterdir():

@@ -13,6 +13,7 @@ you could create another file outside of the `app` package, e.g:
 ```py title="main.py"
 import logfire
 
+logfire.configure()
 logfire.install_auto_tracing(modules=['app'])
 
 from app.main import main

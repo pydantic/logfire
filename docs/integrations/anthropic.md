@@ -10,6 +10,7 @@ import logfire
 
 client = anthropic.Anthropic()
 
+logfire.configure()
 logfire.instrument_anthropic(client)  # (1)!
 
 response = client.messages.create(
@@ -66,6 +67,7 @@ from rich.live import Live
 from rich.markdown import Markdown
 
 client = anthropic.AsyncAnthropic()
+logfire.configure()
 logfire.instrument_anthropic(client)
 
 
