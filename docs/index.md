@@ -86,7 +86,7 @@ with logfire.span('Asking the user their {question}', question='age'):  # (3)!
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)  # (5)!
 ```
 
-1. This should be called once before logging to initialize Logfire. All its arguments are optional. If no project is configured for the current directory, an interactive prompt will walk you through creating a project.
+1. This should be called once before logging to initialize Logfire. If no project is configured for the current directory, an interactive prompt will walk you through creating a project.
 2. This will log `Hello world!` with `info` level. `name='world'` will be stored as an attributed that can be queried with SQL.
 3. Spans allow you to nest other Logfire calls, and also to measure how long code takes to run. They are the fundamental building block of traces!
 4. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
