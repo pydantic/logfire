@@ -6,9 +6,10 @@ every standard library log record.
 ```py title="main.py"
 from logging import basicConfig, getLogger
 
-from logfire.integrations.logging import LogfireLoggingHandler
+import logfire
 
-basicConfig(handlers=[LogfireLoggingHandler()])
+logfire.configure()
+basicConfig(handlers=[logfire.LogfireLoggingHandler()])
 
 logger = getLogger(__name__)
 

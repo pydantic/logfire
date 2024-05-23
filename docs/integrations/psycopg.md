@@ -86,6 +86,7 @@ To add SQL comments to the end of your queries to enrich your database logs with
 ```python
 import logfire
 
+logfire.configure()
 logfire.instrument_psycopg(enable_commenter=True)
 ```
 
@@ -106,6 +107,7 @@ e.g:
 ```python
 import logfire
 
+logfire.configure()
 logfire.instrument_psycopg(enable_commenter=True, commenter_options={'db_driver': False, 'dbapi_threadsafety': False})
 ```
 

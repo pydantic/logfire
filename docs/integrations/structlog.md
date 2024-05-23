@@ -6,8 +6,9 @@
 from dataclasses import dataclass
 
 import structlog
+import logfire
 
-from logfire.integrations.structlog import LogfireProcessor
+logfire.configure()
 
 structlog.configure(
     processors=[
@@ -16,7 +17,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.dev.set_exc_info,
         structlog.processors.TimeStamper(fmt='%Y-%m-%d %H:%M:%S', utc=False),
-        LogfireProcessor(),
+        logfire.StructlogProcessor(),
         structlog.dev.ConsoleRenderer(),
     ],
 )
