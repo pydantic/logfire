@@ -1,6 +1,6 @@
 # Redis
 
-The [OpenTelemetry Instrumentation Redis][opentelemetry-redis] package can be used to instrument [Redis][redis].
+The [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] method will create a span for every command executed by your [Redis][redis] clients.
 
 ## Installation
 
@@ -17,11 +17,10 @@ Let's see a minimal example below:
 ```py title="main.py"
 import logfire
 import redis
-from opentelemetry.instrumentation.redis import RedisInstrumentor
 
 
 logfire.configure()
-RedisInstrumentor().instrument()
+logfire.instrument_redis()
 
 # This will report a span with the default settings
 client = redis.StrictRedis(host="localhost", port=6379)
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-You can read more about the Redis OpenTelemetry package [here][opentelemetry-redis].
+The keyword arguments of `logfire.instrument_redis()` are passed to the `RedisInstrumentor().instrument()` method of the OpenTelemetry Redis Instrumentation package, read more about it [here][opentelemetry-redis].
 
 [redis]: https://redis.readthedocs.io/en/stable/
 [opentelemetry-redis]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html

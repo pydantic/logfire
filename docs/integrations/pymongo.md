@@ -1,6 +1,6 @@
 # PyMongo
 
-The [OpenTelemetry Instrumentation PyMongo][opentelemetry-pymongo] package can be used to instrument [PyMongo][pymongo].
+The [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo] method will create a span for every operation performed using your [PyMongo][pymongo] clients.
 
 ## Installation
 
@@ -28,10 +28,9 @@ The following script connects to a MongoDB database, inserts a document, and que
 ```py
 import logfire
 from pymongo import MongoClient
-from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 
 logfire.configure()
-PymongoInstrumentor().instrument(capture_statement=True)  # (1)!
+logfire.instrument_pymongo(capture_statement=True)  # (1)!
 
 client = MongoClient()
 db = client["database"]
@@ -47,7 +46,7 @@ collection.find_one()
 
 ---
 
-You can read more about the PyMongo OpenTelemetry package [here][opentelemetry-pymongo].
+The keyword arguments of `logfire.instrument_pymongo()` are passed to the `PymongoInstrumentor().instrument()` method of the OpenTelemetry pymongo Instrumentation package, read more about it [here][opentelemetry-pymongo].
 
 [pymongo]: https://pymongo.readthedocs.io/en/stable/
 [opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
