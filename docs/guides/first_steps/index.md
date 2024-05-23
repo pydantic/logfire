@@ -51,7 +51,7 @@ logfire.configure()  # (1)!
 logfire.info('Hello, {name}!', name='world')  # (2)!
 ```
 
-1. This should be called once before logging to initialize Logfire. All its arguments are optional.
+1. This should be called once before logging to initialize **Logfire**.
 2. This will log `Hello world!` with `info` level.
 
 !!! note
