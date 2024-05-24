@@ -1,8 +1,7 @@
 # FastAPI
 
-**Logfire** provides custom instrumentation for [FastAPI][fastapi]. It also works with the
-third-party [OpenTelemetry FastAPI Instrumentation][opentelemetry-fastapi] package. The two can be used together or
-separately.
+**Logfire** combines custom and third-party instrumentation for [FastAPI][fastapi]
+with the [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] method.
 
 ## Installation
 
@@ -52,38 +51,22 @@ how long it takes to process each request.
 [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] applies this instrumentation by default.
 You can disable it by passing `use_opentelemetry_instrumentation=False`.
 
-To customize this aspect of the instrumentation, use the package directly, e.g:
-
-```py
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-import logfire
-
-# Or just remove this line completely if you don't want logfire's instrumentation at all
-logfire.instrument_fastapi(app, use_opentelemetry_instrumentation=False)
-
-# Whether or not you call the above, this is still needed to connect logfire with other instrumentation.
-logfire.configure()
-
-FastAPIInstrumentor.instrument_app(app, **custom_kwargs)
-```
-
-!!! question "What about the OpenTelemetry ASGI middleware?"
-    If you are a more experienced user, you might be wondering about the [OpenTelemetry ASGI middleware][opentelemetry-asgi].
-    The `FastAPIInstrumentor` actually wraps the ASGI middleware and adds some additional information related to the routes.
-
-    Using the ASGI middleware directly as above will also work.
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] also accepts arbitrary additional keyword arguments
+and passes them to the OpenTelemetry `FastAPIInstrumentor.instrument_app()` method. See their documentation for more details.
 
 ## Logfire instrumentation: logging endpoint arguments and validation errors
 
-[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] will emit a log message for each request.
-By default this will contain the following attributes:
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] will emit a span for each request
+called `FastAPI arguments` which shows how long it takes FastAPI to parse and validate the endpoint function
+arguments from the request and resolve any dependencies.
+By default the span will also contain the following attributes:
 
 - `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
 - `errors`: A list of validation errors for any invalid inputs.
 
 You can customize this by passing an `request_attributes_mapper` function to `instrument_fastapi`. This function will be called
 with the `Request` or `WebSocket` object and the default attributes dictionary. It should return a new dictionary of
-attributes, or `None` to skip logging this request. For example:
+attributes, or `None` to set the span level to 'debug' so that it's hidden by default. For example:
 
 ```py
 import logfire
@@ -108,15 +91,14 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
 ```
 
 !!! note
-    The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't modify the
-    contents of `values` or `errors`.
+    The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't mutate the
+    contents of `values` or `errors`, but it can safely replace them with new values.
 
 ## Excluding URLs from instrumentation
 
 To avoid tracing certain URLs, you can specify a string of comma-separated regexes which will be matched against the full request URL. This can be passed to:
 
 - [`instrument_fastapi`][logfire.Logfire.instrument_fastapi] as [`excluded_urls`][logfire.Logfire.instrument_fastapi(excluded_urls)], e.g: `logfire.instrument_fastapi(app, excluded_urls='/health')`
-- [`FastAPIInstrumentor.instrument_app`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument_app] as `excluded_urls` (only needed if you're already using the OpenTelemetry FastAPI Instrumentation directly)
 - The environment variable `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`.
 - The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
 
