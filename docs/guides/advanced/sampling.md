@@ -27,6 +27,8 @@ You can tweak sampling on a per module or per code block basis using
 ```python
 import logfire
 
+logfire.configure()
+
 sampled = logfire.with_trace_sample_rate(0.5)
 
 with sampled.span("outer"):  # This span will be sampled 50% of the time

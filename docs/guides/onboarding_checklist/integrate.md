@@ -45,9 +45,10 @@ The minimal configuration would be the following:
 ```py hl_lines="5"
 from logging import basicConfig
 
-from logfire.integrations.logging import LogfireLoggingHandler
+import logfire
 
-basicConfig(handlers=[LogfireLoggingHandler()])
+logfire.configure()
+basicConfig(handlers=[logfire.LogfireLoggingHandler()])
 ```
 
 Now imagine, that you have a logger in your application:
@@ -55,9 +56,10 @@ Now imagine, that you have a logger in your application:
 ```py hl_lines="7-8" title="main.py"
 from logging import basicConfig, getLogger
 
-from logfire.integrations.logging import LogfireLoggingHandler
+import logfire
 
-basicConfig(handlers=[LogfireLoggingHandler()])
+logfire.configure()
+basicConfig(handlers=[logfire.LogfireLoggingHandler()])
 
 logger = getLogger(__name__)
 logger.error("Hello %s!", "Fred")
