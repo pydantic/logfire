@@ -208,13 +208,21 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return
 
         arguments: dict[str, Any] = {}
-        json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
-        for key, schema in json_schema.get('properties', {}).items():
-            value = span.attributes.get(key)
-            if schema:
-                value = json.loads(cast(str, value))
-            value = json_args_value_formatter(value, schema=schema)
-            arguments[key] = value
+        try:
+            json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
+        except json.JSONDecodeError:
+            pass
+        else:
+            for key, schema in json_schema.get('properties', {}).items():
+                value = span.attributes.get(key)
+                if schema:
+                    try:
+                        value = json.loads(cast(str, value))
+                    except json.JSONDecodeError:
+                        arguments[key] = value
+                        continue
+                value = json_args_value_formatter(value, schema=schema)
+                arguments[key] = value
 
         if not arguments:
             return
