@@ -673,6 +673,7 @@ class LogfireConfig(_LogfireConfigData):
                                 endpoint=self.metrics_endpoint,
                                 headers=headers,
                                 preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                session=session,
                             )
                         )
                     ]

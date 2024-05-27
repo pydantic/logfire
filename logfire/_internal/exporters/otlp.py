@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import contextlib
+import time
+from random import random
 from typing import Any, Iterable, Sequence, cast
 
+import requests.exceptions
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
@@ -38,7 +41,19 @@ class OTLPExporterHttpSession(Session):
                         yield chunk
 
                 request.body = gen()  # type: ignore
-        return super().send(request, **kwargs)
+
+        max_attempts = 7
+        for attempt in range(max_attempts):
+            try:
+                response = super().send(request, **kwargs)
+            except requests.exceptions.RequestException:
+                if attempt < max_attempts - 1:
+                    # Exponential backoff with jitter
+                    time.sleep(2**attempt + random())
+                    continue
+                raise
+            return response
+        raise RuntimeError('Unreachable code')
 
     def _check_body_size(self, size: int) -> None:
         if size > self.max_body_size:
