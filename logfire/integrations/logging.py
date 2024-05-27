@@ -5,7 +5,7 @@ from __future__ import annotations
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import Any, ClassVar, Mapping, cast
 
-from logfire import log
+import logfire
 
 from .._internal.constants import (
     ATTRIBUTES_LOGGING_ARGS_KEY,
@@ -67,7 +67,7 @@ class LogfireLoggingHandler(LoggingHandler):
 
         attributes = self.fill_attributes(record)
 
-        log(
+        logfire.log(
             msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
             level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
             attributes=attributes,

@@ -232,6 +232,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
         logfire.trace('This is a trace log')
         ```
 
@@ -261,6 +263,8 @@ class Logfire:
 
         ```py
         import logfire
+
+        logfire.configure()
 
         logfire.debug('This is a debug log')
         ```
@@ -292,6 +296,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
         logfire.info('This is an info log')
         ```
 
@@ -321,6 +327,8 @@ class Logfire:
 
         ```py
         import logfire
+
+        logfire.configure()
 
         logfire.notice('This is a notice log')
         ```
@@ -352,6 +360,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
         logfire.warn('This is a warning log')
         ```
 
@@ -382,6 +392,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
         logfire.error('This is an error log')
         ```
 
@@ -411,6 +423,8 @@ class Logfire:
 
         ```py
         import logfire
+
+        logfire.configure()
 
         logfire.fatal('This is a fatal log')
         ```
@@ -467,6 +481,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
         with logfire.span('This is a span {a=}', a='data'):
             logfire.info('new log 1')
         ```
@@ -501,6 +517,8 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
+
 
         @logfire.instrument('This is a span {a=}')
         def my_function(a: int):
@@ -533,6 +551,8 @@ class Logfire:
 
         ```py
         import logfire
+
+        logfire.configure()
 
         logfire.log('info', 'This is a log {a}', {'a': 'Apple'})
         ```
@@ -639,6 +659,8 @@ class Logfire:
 
         ```py
         import logfire
+
+        logfire.configure()
 
         local_logfire = logfire.with_tags('tag1')
         local_logfire.info('a log message', _tags=['tag2'])
@@ -787,6 +809,7 @@ class Logfire:
         | None = None,
         use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
+        **opentelemetry_kwargs: Any,
     ) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -816,6 +839,7 @@ class Logfire:
                 will also instrument the app.
 
                 See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
+            opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -832,6 +856,7 @@ class Logfire:
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
+            **opentelemetry_kwargs,
         )
 
     def instrument_openai(
@@ -862,6 +887,7 @@ class Logfire:
         import openai
 
         client = openai.OpenAI()
+        logfire.configure()
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
@@ -933,6 +959,7 @@ class Logfire:
         import anthropic
 
         client = anthropic.Anthropic()
+        logfire.configure()
         logfire.instrument_anthropic(client)
 
         response = client.messages.create(
@@ -1085,6 +1112,7 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
         counter = logfire.metric_counter('exceptions', unit='1', description='Number of exceptions caught')
 
         try:
@@ -1114,6 +1142,7 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
         histogram = logfire.metric_histogram('bank.amount_transferred', unit='$', description='Amount transferred')
 
 
@@ -1141,6 +1170,7 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
         gauge = logfire.metric_gauge('system.cpu_usage', unit='%', description='CPU usage')
 
 
@@ -1169,6 +1199,7 @@ class Logfire:
         ```py
         import logfire
 
+        logfire.configure()
         up_down_counter = logfire.metric_up_down_counter('users.logged_in', unit='1', description='Users logged in')
 
 
@@ -1209,6 +1240,8 @@ class Logfire:
         import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        logfire.configure()
 
 
         def cpu_usage_callback(options: CallbackOptions):
@@ -1251,6 +1284,8 @@ class Logfire:
         import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
 
+        logfire.configure()
+
 
         def thread_count_callback(options: CallbackOptions):
             yield Observation(threading.active_count())
@@ -1287,6 +1322,8 @@ class Logfire:
         ```py
         import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        logfire.configure()
 
         items = []
 

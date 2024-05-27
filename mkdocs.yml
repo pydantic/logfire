@@ -120,6 +120,7 @@ nav:
           - Loguru: integrations/loguru.md
       - Third Party:
           - Mirascope: integrations/third_party/mirascope.md
+          - LiteLLM: integrations/third_party/litellm.md
       - Use Cases:
           - Web Frameworks: integrations/use_cases/web_frameworks.md
   - Reference:

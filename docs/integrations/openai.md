@@ -10,6 +10,7 @@ import logfire
 
 client = openai.Client()
 
+logfire.configure()
 logfire.instrument_openai(client)  # (1)!
 
 response = client.chat.completions.create(
@@ -61,6 +62,7 @@ import logfire
 
 async def main():
     client = openai.AsyncClient()
+    logfire.configure()
     logfire.instrument_openai(client)
 
     response = await client.images.generate(
@@ -98,6 +100,7 @@ from rich.live import Live
 from rich.markdown import Markdown
 
 client = openai.AsyncClient()
+logfire.configure()
 logfire.instrument_openai(client)
 
 async def main():
