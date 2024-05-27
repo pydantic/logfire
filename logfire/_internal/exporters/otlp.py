@@ -43,7 +43,7 @@ class OTLPExporterHttpSession(Session):
                 request.body = gen()  # type: ignore
 
         max_attempts = 7
-        for attempt in range(max_attempts):
+        for attempt in range(max_attempts):  # pragma: no branch
             try:
                 response = super().send(request, **kwargs)
             except requests.exceptions.RequestException:
@@ -54,7 +54,7 @@ class OTLPExporterHttpSession(Session):
                 raise
             return response
 
-        raise RuntimeError('Unreachable code')  # for pyright
+        raise RuntimeError('Unreachable code')  # for pyright  # pragma: no cover
 
     def _check_body_size(self, size: int) -> None:
         if size > self.max_body_size:
