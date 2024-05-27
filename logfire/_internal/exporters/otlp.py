@@ -53,7 +53,8 @@ class OTLPExporterHttpSession(Session):
                     continue
                 raise
             return response
-        raise RuntimeError('Unreachable code')
+
+        raise RuntimeError('Unreachable code')  # for pyright
 
     def _check_body_size(self, size: int) -> None:
         if size > self.max_body_size:
