@@ -1,11 +1,18 @@
 """Logfire processor for structlog."""
 
-from structlog.types import EventDict, WrappedLogger
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import logfire
 
 from .._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
+
+# This file is currently imported eagerly from __init__.py, so it shouldn't import structlog directly
+# since that's not a required dependency.
+if TYPE_CHECKING:
+    from structlog.types import EventDict, WrappedLogger
 
 RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
 """Attributes to strip from the event before sending to Logfire."""
