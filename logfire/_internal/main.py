@@ -795,6 +795,9 @@ class Logfire:
         """
         install_auto_tracing(self, modules, check_imported_modules=check_imported_modules, min_duration=min_duration)
 
+    def _warn_if_not_initialized_for_instrumentation(self):
+        self.config.warn_if_not_initialized('Instrumentation will have no effect')
+
     def instrument_fastapi(
         self,
         app: FastAPI,
@@ -850,6 +853,7 @@ class Logfire:
         """
         from .integrations.fastapi import instrument_fastapi
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_fastapi(
             self,
             app,
@@ -922,6 +926,7 @@ class Logfire:
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
         from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
             openai_client or (openai.OpenAI, openai.AsyncOpenAI),
@@ -995,6 +1000,7 @@ class Logfire:
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
             anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
@@ -1009,6 +1015,7 @@ class Logfire:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_asyncpg()
 
     def instrument_httpx(self, **kwargs: Any):
@@ -1020,6 +1027,7 @@ class Logfire:
         """
         from .integrations.httpx import instrument_httpx
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_httpx(**kwargs)
 
     def instrument_django(
@@ -1061,6 +1069,7 @@ class Logfire:
         """
         from .integrations.django import instrument_django
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_django(
             is_sql_commentor_enabled=is_sql_commentor_enabled,
             request_hook=request_hook,
@@ -1079,6 +1088,7 @@ class Logfire:
         """
         from .integrations.requests import instrument_requests
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
@@ -1102,6 +1112,7 @@ class Logfire:
         """
         from .integrations.psycopg import instrument_psycopg
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_psycopg(conn_or_module, **kwargs)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:

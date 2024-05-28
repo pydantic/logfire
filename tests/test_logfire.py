@@ -903,6 +903,17 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
         'No logs or spans will be created until `logfire.configure()` has been called. '
         'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress this warning.'
     )
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 9  # type: ignore
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings:
+        logfire.instrument_httpx()
+
+    assert str(warnings[0].message) == (
+        'Instrumentation will have no effect until `logfire.configure()` has been '
+        'called. Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress '
+        'this warning.'
+    )
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
     assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
