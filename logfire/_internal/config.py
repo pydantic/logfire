@@ -74,6 +74,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
+from .stack_info import get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file
 
@@ -714,8 +715,7 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The tracer provider.
         """
-        if not self._initialized:
-            return self.initialize()
+        self.warn_if_not_initialized('No logs or spans will be created')
         return self._tracer_provider
 
     def get_meter_provider(self) -> ProxyMeterProvider:
@@ -726,9 +726,19 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The meter provider.
         """
-        if not self._initialized:  # pragma: no cover
-            self.initialize()
+        self.warn_if_not_initialized('No metrics will be created')
         return self._meter_provider
+
+    def warn_if_not_initialized(self, message: str):
+        env_var_name = 'LOGFIRE_IGNORE_NO_CONFIG'
+        if not self._initialized and not os.environ.get(env_var_name):
+            _frame, stacklevel = get_user_frame_and_stacklevel()
+            warnings.warn(
+                f'{message} until `logfire.configure()` has been called. '
+                f'Set the environment variable {env_var_name}=1 to suppress this warning.',
+                category=LogfireNotConfiguredWarning,
+                stacklevel=stacklevel,
+            )
 
     @cached_property
     def meter(self) -> metrics.Meter:
@@ -1228,3 +1238,7 @@ def sanitize_project_name(name: str) -> str:
 
 def default_project_name():
     return sanitize_project_name(os.path.basename(os.getcwd()))
+
+
+class LogfireNotConfiguredWarning(UserWarning):
+    pass

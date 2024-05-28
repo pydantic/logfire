@@ -21,7 +21,7 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire
-from logfire._internal.config import LogfireConfig, configure
+from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -893,12 +893,25 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
     logfire = Logfire(config=config)
     logfire1 = logfire.with_tags('tag1', 'tag2')
 
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings:
+        with logfire.span('root'):
+            with logfire.span('child'):
+                logfire.info('test1')
+                logfire1.info('test2')
+
+    assert str(warnings[0].message) == (
+        'No logs or spans will be created until `logfire.configure()` has been called. '
+        'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress this warning.'
+    )
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
+    assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
+
+    config.initialize()
     with logfire.span('root'):
         with logfire.span('child'):
             logfire.info('test1')
             logfire1.info('test2')
-
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
 
     assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
@@ -906,8 +919,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'root (pending)',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 1000000000,
-                'end_time': 1000000000,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -922,8 +935,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'child (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 2000000000,
+                'start_time': 6000000000,
+                'end_time': 6000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -938,8 +951,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'test1',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
+                'start_time': 7000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -954,8 +967,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'test2',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 4000000000,
-                'end_time': 4000000000,
+                'start_time': 8000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -971,8 +984,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 5000000000,
+                'start_time': 6000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -986,8 +999,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
-                'start_time': 1000000000,
-                'end_time': 6000000000,
+                'start_time': 5000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
