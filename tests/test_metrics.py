@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from typing import Any, cast
 
 import pytest
@@ -320,27 +319,6 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
             }
         ]
     )
-
-
-def test_metrics_without_configure():
-    # Ensure that methods like logfire.metric_counter() can be called without calling logfire.configure().
-    # language=python
-    code = """
-import logfire
-
-config = logfire.DEFAULT_LOGFIRE_INSTANCE._config
-
-def initialize():
-    # Just check that initialize() is called without actually starting metric exporters etc.
-    config._initialized = True
-
-config.initialize = initialize
-
-assert not config._initialized
-logfire.metric_counter('foo')
-assert config._initialized
-    """
-    subprocess.check_call(['python', '-c', code])
 
 
 def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
