@@ -906,7 +906,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
     assert warnings[0].lineno == inspect.currentframe().f_lineno - 9  # type: ignore
 
     with pytest.warns(LogfireNotConfiguredWarning) as warnings:
-        logfire.instrument_httpx()
+        logfire.instrument_django()
 
     assert str(warnings[0].message) == (
         'Instrumentation will have no effect until `logfire.configure()` has been '
