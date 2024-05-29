@@ -1,6 +1,9 @@
 from typing import Any, Iterable, cast
+from unittest.mock import Mock
 
 import pytest
+import requests.exceptions
+from dirty_equals import IsFloat
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
@@ -42,3 +45,27 @@ def test_max_body_size_generator() -> None:
     with pytest.raises(BodyTooLargeError) as e:
         s.post('http://example.com', data=iter([b'abc'] * 100))
     assert str(e.value) == 'Request body is too large (12 bytes), must be less than 10 bytes.'
+
+
+def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleep_mock = Mock(return_value=0)
+    monkeypatch.setattr('time.sleep', sleep_mock)
+
+    class ConnectionErrorAdapter(HTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            raise requests.exceptions.ConnectionError()
+
+    session = OTLPExporterHttpSession(max_body_size=10)
+    session.mount('http://', ConnectionErrorAdapter())
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        session.post('http://example.com', data='123')
+
+    assert [call.args for call in sleep_mock.call_args_list] == [
+        (IsFloat(gt=1, lt=2),),
+        (IsFloat(gt=2, lt=3),),
+        (IsFloat(gt=4, lt=5),),
+        (IsFloat(gt=8, lt=9),),
+        (IsFloat(gt=16, lt=17),),
+        (IsFloat(gt=32, lt=33),),
+    ]
