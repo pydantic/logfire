@@ -23,11 +23,11 @@ from openai.types import (
     images_response,
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
-from opentelemetry import context
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
 from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+from logfire._internal.utils import suppress_instrumentation
 from logfire.testing import TestExporter
 
 
@@ -845,25 +845,15 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
 
 
 def test_openai_suppressed(instrumented_client: openai.Client, exporter: TestExporter) -> None:
-    new_context = context.set_value('suppress_instrumentation', True)
-    token = context.attach(new_context)
-    try:
+    with suppress_instrumentation():
         response = instrumented_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
-    finally:
-        context.detach(token)
-
     assert response.choices[0].text == 'Nine'
     assert exporter.exported_spans_as_dict() == []
 
 
 async def test_async_openai_suppressed(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
-    new_context = context.set_value('suppress_instrumentation', True)
-    token = context.attach(new_context)
-    try:
+    with suppress_instrumentation():
         response = await instrumented_async_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
-    finally:
-        context.detach(token)
-
     assert response.choices[0].text == 'Nine'
     assert exporter.exported_spans_as_dict() == []
 

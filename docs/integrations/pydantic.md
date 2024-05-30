@@ -3,13 +3,26 @@
 Logfire has a [Pydantic plugin][pydantic-plugin] to instrument [Pydantic][pydantic] models.
 The plugin provides logs and metrics about model validation.
 
-You can enable it using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
+To enable the plugin, do one of the following:
+
+- Set the `LOGFIRE_PYDANTIC_PLUGIN_RECORD` environment variable to `all`.
+- Set `pydantic_plugin_record` in `pyproject.toml`, e.g:
+
+```toml
+[tool.logfire]
+pydantic_plugin_record = "all"
+```
+
+- Use the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] parameter in `logfire.configure`, e.g:
 
 ```py
 import logfire
 
 logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))
 ```
+
+Note that if you only use the last option then only models defined and imported *after* calling `logfire.configure`
+will be instrumented.
 
 ## Third party modules
 
@@ -33,7 +46,7 @@ logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', exclude={
 
 ## Model configuration
 
-If you want more granular control over the plugin, you can use the the
+If you want more granular control over the plugin, you can use the
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
 
 ```py

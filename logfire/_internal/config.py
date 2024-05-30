@@ -17,7 +17,6 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import metrics, trace
-from opentelemetry.context import attach, detach, set_value
 from opentelemetry.environment_variables import OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -57,7 +56,6 @@ from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
-    SUPPRESS_INSTRUMENTATION_CONTEXT_KEY,
     LevelName,
 )
 from .exporters.console import (
@@ -76,7 +74,7 @@ from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
 from .stack_info import get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
-from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file
+from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -552,8 +550,7 @@ class LogfireConfig(_LogfireConfigData):
         if self._initialized:  # pragma: no cover
             return self._tracer_provider
 
-        backup_context = attach(set_value(SUPPRESS_INSTRUMENTATION_CONTEXT_KEY, True))
-        try:
+        with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
                 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -704,8 +701,6 @@ class LogfireConfig(_LogfireConfigData):
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
             return self._tracer_provider
-        finally:
-            detach(backup_context)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
