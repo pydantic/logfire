@@ -16,6 +16,7 @@ from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubMatch
+from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION
@@ -101,6 +102,7 @@ __all__ = (
     'METRICS_PREFERRED_TEMPORALITY',
     'ScrubMatch',
     'VERSION',
+    'suppress_instrumentation',
     'StructlogProcessor',
     'LogfireLoggingHandler',
 )

@@ -15,7 +15,7 @@ from ..constants import (
     log_level_attributes,
 )
 from ..scrubbing import Scrubber
-from ..utils import ReadableSpanDict, span_to_dict, truncate_string
+from ..utils import ReadableSpanDict, is_instrumentation_suppressed, span_to_dict, truncate_string
 
 
 class SpanProcessorWrapper(SpanProcessor):
@@ -34,13 +34,13 @@ class SpanProcessorWrapper(SpanProcessor):
         span: Span,
         parent_context: context.Context | None = None,
     ) -> None:
-        if context.get_value('suppress_instrumentation'):  # pragma: no cover
+        if is_instrumentation_suppressed():
             return
         _set_log_level_on_asgi_send_receive_spans(span)
         self.processor.on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
-        if context.get_value('suppress_instrumentation'):  # pragma: no cover
+        if is_instrumentation_suppressed():
             return
         span_dict = span_to_dict(span)
         _tweak_asgi_send_receive_spans(span_dict)
