@@ -46,7 +46,7 @@ logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', exclude={
 
 ## Model configuration
 
-If you want more granular control over the plugin, you can use the the
+If you want more granular control over the plugin, you can use the
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
 
 ```py
