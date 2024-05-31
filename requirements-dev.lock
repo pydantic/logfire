@@ -6,7 +6,6 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
-#   generate-hashes: false
 
 -e file:.
 aiohttp==3.9.5
@@ -56,6 +55,7 @@ colorama==0.4.6
     # via griffe
     # via mkdocs-material
 coverage==7.5.3
+    # via coverage
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
@@ -94,6 +94,8 @@ gitdb==4.0.11
 gitpython==3.1.43
 googleapis-common-protos==1.63.1
     # via opentelemetry-exporter-otlp-proto-http
+greenlet==3.0.3
+    # via sqlalchemy
 griffe==0.45.2
     # via mkdocstrings-python
 h11==0.14.0
@@ -196,6 +198,7 @@ opentelemetry-api==1.25.0
     # via opentelemetry-instrumentation-redis
     # via opentelemetry-instrumentation-requests
     # via opentelemetry-instrumentation-sqlalchemy
+    # via opentelemetry-instrumentation-sqlite3
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-system-metrics
     # via opentelemetry-instrumentation-wsgi
@@ -221,6 +224,7 @@ opentelemetry-instrumentation==0.46b0
     # via opentelemetry-instrumentation-redis
     # via opentelemetry-instrumentation-requests
     # via opentelemetry-instrumentation-sqlalchemy
+    # via opentelemetry-instrumentation-sqlite3
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-system-metrics
     # via opentelemetry-instrumentation-wsgi
@@ -232,6 +236,7 @@ opentelemetry-instrumentation-asyncpg==0.46b0
 opentelemetry-instrumentation-dbapi==0.46b0
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
+    # via opentelemetry-instrumentation-sqlite3
 opentelemetry-instrumentation-django==0.46b0
 opentelemetry-instrumentation-fastapi==0.46b0
 opentelemetry-instrumentation-flask==0.46b0
@@ -242,6 +247,7 @@ opentelemetry-instrumentation-pymongo==0.46b0
 opentelemetry-instrumentation-redis==0.46b0
 opentelemetry-instrumentation-requests==0.46b0
 opentelemetry-instrumentation-sqlalchemy==0.46b0
+opentelemetry-instrumentation-sqlite3==0.46b0
 opentelemetry-instrumentation-starlette==0.46b0
 opentelemetry-instrumentation-system-metrics==0.46b0
 opentelemetry-instrumentation-wsgi==0.46b0
@@ -366,8 +372,6 @@ rich==13.7.1
     # via pytest-pretty
     # via typer
 ruff==0.4.8
-setuptools==70.0.0
-    # via opentelemetry-instrumentation
 shellingham==1.5.4
     # via typer
 six==1.16.0
@@ -417,6 +421,7 @@ urllib3==2.2.1
     # via requests
 uvicorn==0.30.1
     # via fastapi
+    # via uvicorn
 uvloop==0.19.0
     # via uvicorn
 virtualenv==20.26.2
@@ -440,3 +445,5 @@ yarl==1.9.4
     # via aiohttp
 zipp==3.19.2
     # via importlib-metadata
+setuptools==69.5.1
+    # via opentelemetry-instrumentation

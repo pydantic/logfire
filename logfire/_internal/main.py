@@ -1202,6 +1202,11 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(**kwargs)
 
+    def instrument_sqlite3(self, **kwargs: Any):
+        from .integrations.sqlite3 import instrument_sqlite3
+
+        return instrument_sqlite3(**kwargs)
+
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
 

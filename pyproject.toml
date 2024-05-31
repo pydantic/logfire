@@ -66,6 +66,9 @@ psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
+sqlite3 = [
+    "opentelemetry-instrumentation-sqlite3>=0.46b0",
+]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -135,6 +138,7 @@ dev-dependencies = [
     "anthropic>=0.27.0",
     # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
     "typing-extensions<4.12",
+    "opentelemetry-instrumentation-sqlite3>=0.46b0",
 ]
 
 [tool.rye.scripts]
