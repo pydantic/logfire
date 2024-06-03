@@ -216,7 +216,7 @@ class Logfire:
             )
         except Exception:
             _internal_error()
-            return DummySpan()  # type: ignore
+            return NoopSpan()  # type: ignore
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
@@ -228,7 +228,7 @@ class Logfire:
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             _internal_error()
-            return DummySpan()  # type: ignore
+            return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
@@ -247,7 +247,7 @@ class Logfire:
             return self._fast_span(name, attributes)
         except Exception:  # pragma: no cover
             _internal_error()
-            return DummySpan()  # type: ignore
+            return NoopSpan()  # type: ignore
 
     def trace(
         self,
@@ -1520,7 +1520,7 @@ class FastLogfireSpan:
         self._span.end()
 
 
-# Changes to this class may need to be reflected in `FastLogfireSpan` and `DummySpan` as well.
+# Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
 class LogfireSpan(ReadableSpan):
     def __init__(
         self,
@@ -1684,14 +1684,21 @@ class LogfireSpan(ReadableSpan):
         return attributes.get(key, default)
 
 
-class DummySpan:
+class NoopSpan:
+    """Implements the same methods as `LogfireSpan` but does nothing.
+
+    Used in place of `LogfireSpan` and `FastLogfireSpan` when an exception occurs during span creation.
+
+    TODO this should also be used when tracing is disabled, e.g. before `logfire.configure()` has been called.
+    """
+
     def __init__(self, *_args: Any, **__kwargs: Any) -> None:
         pass
 
     def __getattr__(self, _name: str) -> Any:
         return lambda *_args, **__kwargs: None  # type: ignore
 
-    def __enter__(self) -> DummySpan:
+    def __enter__(self) -> NoopSpan:
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
