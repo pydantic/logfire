@@ -1688,6 +1688,13 @@ class NoopSpan:
     """Implements the same methods as `LogfireSpan` but does nothing.
 
     Used in place of `LogfireSpan` and `FastLogfireSpan` when an exception occurs during span creation.
+    This way code like:
+
+        with logfire.span(...) as span:
+            span.set_attribute(...)
+
+    doesn't raise an error even if `logfire.span` fails internally.
+    If `logfire.span` just returned `None` then the `with` block and the `span.set_attribute` call would raise an error.
 
     TODO this should also be used when tracing is disabled, e.g. before `logfire.configure()` has been called.
     """
@@ -1696,6 +1703,7 @@ class NoopSpan:
         pass
 
     def __getattr__(self, _name: str) -> Any:
+        # Handle methods of LogfireSpan which return nothing
         return lambda *_args, **__kwargs: None  # type: ignore
 
     def __enter__(self) -> NoopSpan:
@@ -1704,6 +1712,7 @@ class NoopSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         pass
 
+    # Implement methods/properties that return something to get the type right.
     @property
     def message_template(self) -> str:  # pragma: no cover
         return ''
@@ -1716,6 +1725,7 @@ class NoopSpan:
     def message(self) -> str:  # pragma: no cover
         return ''
 
+    # This is required to make `span.message = ` not raise an error.
     @message.setter
     def message(self, message: str):
         pass
