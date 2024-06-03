@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import inspect
 import logging
 import sys
@@ -97,6 +98,19 @@ ExcInfo: typing.TypeAlias = Union[
 ]
 
 logger = logging.getLogger('logfire')
+
+
+def _internal_error():
+    with suppress_instrumentation():
+        logger.exception('Internal error in Logfire')
+
+
+@contextlib.contextmanager
+def _handle_internal_errors():
+    try:
+        yield
+    except Exception:
+        _internal_error()
 
 
 class Logfire:
@@ -591,7 +605,7 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        try:
+        with _handle_internal_errors():
             stack_info = get_user_stack_info()
 
             attributes = attributes or {}
@@ -671,8 +685,6 @@ class Logfire:
                     raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
             span.end(start_time)
-        except Exception:
-            _internal_error()
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.
@@ -1486,11 +1498,6 @@ class Logfire:
         return (start - time()) < timeout_millis
 
 
-def _internal_error():
-    with suppress_instrumentation():
-        logger.exception('Internal error in Logfire')
-
-
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
@@ -1505,6 +1512,7 @@ class FastLogfireSpan:
     def __enter__(self) -> FastLogfireSpan:
         return self
 
+    @_handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         atexit.unregister(self._atexit)
         context_api.detach(self._token)
@@ -1512,7 +1520,7 @@ class FastLogfireSpan:
         self._span.end()
 
 
-# Changes to this class may need to be reflected in `FastLogfireSpan` as well.
+# Changes to this class may need to be reflected in `FastLogfireSpan` and `DummySpan` as well.
 class LogfireSpan(ReadableSpan):
     def __init__(
         self,
@@ -1539,20 +1547,22 @@ class LogfireSpan(ReadableSpan):
             return getattr(self._span, name)
 
     def __enter__(self) -> LogfireSpan:
-        self.end_on_exit = True
-        if self._span is None:
-            self._span = self._tracer.start_span(
-                name=self._span_name,
-                attributes=self._otlp_attributes,
-            )
-        if self._token is None:  # pragma: no branch
-            self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+        with _handle_internal_errors():
+            self.end_on_exit = True
+            if self._span is None:
+                self._span = self._tracer.start_span(
+                    name=self._span_name,
+                    attributes=self._otlp_attributes,
+                )
+            if self._token is None:  # pragma: no branch
+                self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
-        self._atexit = partial(self.__exit__, None, None, None)
-        atexit.register(self._atexit)
+            self._atexit = partial(self.__exit__, None, None, None)
+            atexit.register(self._atexit)
 
         return self
 
+    @_handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
@@ -1603,13 +1613,15 @@ class LogfireSpan(ReadableSpan):
         if self._span is None:  # pragma: no cover
             raise RuntimeError('Span has not been started')
         if self._span.is_recording():
-            if self._added_attributes:
-                self._span.set_attribute(
-                    ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
-                )
+            with _handle_internal_errors():
+                if self._added_attributes:
+                    self._span.set_attribute(
+                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                    )
 
-            self._span.end()
+                self._span.end()
 
+    @_handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -1658,6 +1670,7 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
+    @_handle_internal_errors()
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
         attributes = log_level_attributes(level)
@@ -1714,6 +1727,7 @@ def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
         _record_exception(span, exception, escaped=True)
 
 
+@_handle_internal_errors()
 def _record_exception(
     span: trace_api.Span,
     exception: BaseException,
