@@ -201,9 +201,7 @@ class Logfire:
                 json_schema_properties,
             )
         except Exception:
-            with suppress_instrumentation():
-                logger.exception('Error creating span')
-
+            _internal_error()
             return DummySpan()  # type: ignore
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
@@ -211,8 +209,12 @@ class Logfire:
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
-        span = self._spans_tracer.start_span(name=name, attributes=attributes)
-        return FastLogfireSpan(span)
+        try:
+            span = self._spans_tracer.start_span(name=name, attributes=attributes)
+            return FastLogfireSpan(span)
+        except Exception:  # pragma: no cover
+            _internal_error()
+            return DummySpan()  # type: ignore
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
@@ -222,12 +224,16 @@ class Logfire:
         This is a bit faster than `_span` but not as fast as `_fast_span` because it supports message formatting
         and arbitrary types of attributes.
         """
-        msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
-        if json_schema_properties := attributes_json_schema_properties(function_args):
-            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
-        attributes.update(user_attributes(function_args))
-        return self._fast_span(name, attributes)
+        try:
+            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+            attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
+            if json_schema_properties := attributes_json_schema_properties(function_args):
+                attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            attributes.update(user_attributes(function_args))
+            return self._fast_span(name, attributes)
+        except Exception:  # pragma: no cover
+            _internal_error()
+            return DummySpan()  # type: ignore
 
     def trace(
         self,
@@ -666,8 +672,7 @@ class Logfire:
 
             span.end(start_time)
         except Exception:
-            with suppress_instrumentation():
-                logger.exception('Error creating log')
+            _internal_error()
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.
@@ -1479,6 +1484,11 @@ class Logfire:
             return False
         self._meter_provider.shutdown(remaining)
         return (start - time()) < timeout_millis
+
+
+def _internal_error():
+    with suppress_instrumentation():
+        logger.exception('Internal error in Logfire')
 
 
 class FastLogfireSpan:

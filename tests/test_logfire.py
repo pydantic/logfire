@@ -2540,7 +2540,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
         span.record_exception(ValueError('baz'), {})
 
     assert len(caplog.records) == 1
-    assert caplog.records[0].message == 'Error creating span'
+    assert caplog.records[0].message == 'Internal error in Logfire'
 
     assert exporter.exported_spans_as_dict() == []
 
@@ -2549,6 +2549,6 @@ def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: Test
     logfire.info('foo', _tags=123)  # type: ignore
 
     assert len(caplog.records) == 1
-    assert caplog.records[0].message == 'Error creating log'
+    assert caplog.records[0].message == 'Internal error in Logfire'
 
     assert exporter.exported_spans_as_dict() == []
