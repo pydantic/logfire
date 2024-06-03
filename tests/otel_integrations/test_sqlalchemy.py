@@ -8,6 +8,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.sql import text
 from sqlalchemy.types import Integer, String
 
+import logfire
 from logfire.testing import TestExporter
 
 
@@ -26,7 +27,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         # Need to  ensure this import happens _after_ importing sqlalchemy
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
-        SQLAlchemyInstrumentor().instrument(engine=engine, enable_commenter=True, commenter_options={})  # type: ignore
+        logfire.instrument_sqlalchemy(engine=engine, enable_commenter=True, commenter_options={})
 
         class Base(DeclarativeBase):
             pass

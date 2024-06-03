@@ -1,6 +1,7 @@
 # Flask
 
-The [OpenTelemetry Instrumentation Flask][opentelemetry-flask] package can be used to instrument [Flask][flask].
+The [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask] method
+will create a span for every request to your [Flask][flask] application.
 
 ## Install
 
@@ -15,13 +16,12 @@ Let's see a minimal example below. You can run it with `python main.py`:
 ```py title="main.py"
 import logfire
 from flask import Flask
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 
 logfire.configure()
 
 app = Flask(__name__)
-FlaskInstrumentor().instrument_app(app)
+logfire.instrument_flask(app)
 
 
 @app.route("/")
@@ -33,7 +33,8 @@ if __name__ == "__main__":
     app.run(debug=True)
 ```
 
-You can read more about the Flask OpenTelemetry package [here][opentelemetry-flask].
+The keyword arguments of `logfire.instrument_flask()` are passed to the `FlaskInstrumentor().instrument_app()` method
+of the OpenTelemetry Flask Instrumentation package, read more about it [here][opentelemetry-flask].
 
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->

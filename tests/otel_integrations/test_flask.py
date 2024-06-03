@@ -1,7 +1,6 @@
 import opentelemetry.instrumentation.flask
 from flask import Flask
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
@@ -11,7 +10,7 @@ from logfire.testing import TestExporter, TimeGenerator
 
 def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGenerator) -> None:
     app = Flask(__name__)
-    FlaskInstrumentor().instrument_app(app)  # type: ignore
+    logfire.instrument_flask(app)
 
     @app.route('/')
     def homepage():  # type: ignore

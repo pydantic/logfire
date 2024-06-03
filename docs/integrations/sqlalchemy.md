@@ -1,7 +1,6 @@
 # SQLAlchemy
 
-The [OpenTelemetry Instrumentation SQLAlchemy][opentelemetry-sqlalchemy] package can be used to
-instrument [SQLAlchemy][sqlalchemy].
+The [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy] method will create a span for every query executed by a [SQLAlchemy][sqlalchemy] engine.
 
 ## Installation
 
@@ -16,15 +15,14 @@ Let's see a minimal example below. You can run it with `python main.py`:
 ```py title="main.py"
 import logfire
 from sqlalchemy import create_engine
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
 logfire.configure()
 
 engine = create_engine("sqlite:///:memory:")
-SQLAlchemyInstrumentor().instrument(engine=engine)
+logfire.instrument_sqlalchemy(engine=engine)
 ```
 
-You can read more about the SQLAlchemy OpenTelemetry package [here][opentelemetry-sqlalchemy].
+The keyword arguments of `logfire.instrument_sqlalchemy()` are passed to the `SQLAlchemyInstrumentor().instrument()` method of the OpenTelemetry SQLAlchemy Instrumentation package, read more about it [here][opentelemetry-sqlalchemy].
 
 !!! tip
     If you use [SQLModel][sqlmodel], you can use the same `SQLAlchemyInstrumentor` to instrument it.

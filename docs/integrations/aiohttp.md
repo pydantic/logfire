@@ -2,7 +2,7 @@
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.
 
-The [OpenTelemetry Instrumentation AIOHTTP][opentelemetry-aiohttp] package can be used to instrument AIOHTTP.
+The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method will create a span for every request made by your AIOHTTP clients.
 
 !!! question "What about AIOHTTP Server?"
     The AIOHTTP server instrumentation is not supported yet. You can track the progress [here][aiohttp-server].
@@ -20,11 +20,10 @@ Let's see a minimal example below. You can run it with `python main.py`:
 ```py title="main.py"
 import logfire
 import aiohttp
-from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
 
 logfire.configure()
-AioHttpClientInstrumentor().instrument()
+logfire.instrument_aiohttp_client()
 
 
 async def main():
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-You can read more about the AIOHTTP OpenTelemetry package [here][opentelemetry-aiohttp].
+The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the `AioHttpClientInstrumentor().instrument()` method of the OpenTelemetry aiohttp client Instrumentation package, read more about it [here][opentelemetry-aiohttp].
 
 [aiohttp]: https://docs.aiohttp.org/en/stable/
 [aiohttp-server]: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/501

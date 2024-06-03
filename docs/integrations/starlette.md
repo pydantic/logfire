@@ -1,6 +1,6 @@
 # Starlette
 
-The [OpenTelemetry Instrumentation Starlette][opentelemetry-starlette] package can be used to instrument [Starlette][starlette].
+The [`logfire.instrument_starlette()`][logfire.Logfire.instrument_starlette] method will create a span for every request to your [Starlette][starlette] application.
 
 ## Installation
 
@@ -20,7 +20,6 @@ You can run it with `python main.py`:
 
 ```py title="main.py"
 import logfire
-from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.requests import Request
@@ -34,13 +33,15 @@ async def home(request: Request) -> PlainTextResponse:
 
 
 app = Starlette(routes=[Route("/", home)])
-StarletteInstrumentor.instrument_app(app)
+logfire.instrument_starlette(app)
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app)
 ```
+
+The keyword arguments of `logfire.instrument_starlette()` are passed to the `StarletteInstrumentor.instrument_app()` method of the OpenTelemetry Starlette Instrumentation package, read more about it [here][opentelemetry-starlette].
 
 !!! question "What about the OpenTelemetry ASGI middleware?"
     If you are a more experienced user, you might be wondering why we are not using
