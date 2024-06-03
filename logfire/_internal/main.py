@@ -1126,6 +1126,7 @@ class Logfire:
         """
         from .integrations.flask import instrument_flask
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(app, **kwargs)
 
     def instrument_starlette(self, app: Starlette, **kwargs: Any):
@@ -1137,6 +1138,7 @@ class Logfire:
         """
         from .integrations.starlette import instrument_starlette
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_starlette(app, **kwargs)
 
     def instrument_aiohttp_client(self, **kwargs: Any):
@@ -1148,6 +1150,7 @@ class Logfire:
         """
         from .integrations.aiohttp_client import instrument_aiohttp_client
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(**kwargs)
 
     def instrument_sqlalchemy(self, **kwargs: Any):
@@ -1159,6 +1162,7 @@ class Logfire:
         """
         from .integrations.sqlalchemy import instrument_sqlalchemy
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(**kwargs)
 
     def instrument_pymongo(self, **kwargs: Any):
@@ -1170,6 +1174,7 @@ class Logfire:
         """
         from .integrations.pymongo import instrument_pymongo
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_pymongo(**kwargs)
 
     def instrument_redis(self, **kwargs: Any):
@@ -1181,6 +1186,7 @@ class Logfire:
         """
         from .integrations.redis import instrument_redis
 
+        self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(**kwargs)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
