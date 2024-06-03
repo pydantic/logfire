@@ -2556,6 +2556,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
 def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
     logfire.info('foo', _tags=123)  # type: ignore
 
+    # _tags=123 causes an exception (tags should be an iterable)
     assert len(caplog.records) == 1
     assert caplog.records[0].message == 'Internal error in Logfire'
 
