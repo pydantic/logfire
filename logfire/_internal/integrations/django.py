@@ -4,7 +4,7 @@ try:
     from opentelemetry.instrumentation.django import DjangoInstrumentor
 except ModuleNotFoundError:
     raise RuntimeError(
-        'The `logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.\n'
+        'logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[django]'"
     )

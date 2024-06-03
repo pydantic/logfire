@@ -129,7 +129,7 @@ def test_missing_opentelemetry_dependency() -> None:
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.django)
         assert str(exc_info.value) == snapshot("""\
-The `logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.
+`logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.
 You can install this with:
     pip install 'logfire[django]'\
 """)
