@@ -2527,3 +2527,19 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
+    with logfire.span('foo', _tags=123) as span:  # type: ignore
+        span.message = 'bar'
+        assert span.is_recording() is False
+        assert span.message == span.message_template == ''
+        assert span.tags == []
+        span.set_attribute('x', 1)
+        span.set_level('error')
+        span.record_exception(ValueError('baz'), {})
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == 'Error creating span'
+
+    assert exporter.exported_spans_as_dict() == []

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import inspect
+import logging
 import sys
 import traceback
 import typing
@@ -61,7 +62,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import uniquify_sequence
+from .utils import suppress_instrumentation, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -94,6 +95,8 @@ ExcInfo: typing.TypeAlias = Union[
     bool,
     None,
 ]
+
+logger = logging.getLogger('logfire')
 
 
 class Logfire:
@@ -151,51 +154,57 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
     ) -> LogfireSpan:
-        stack_info = get_user_stack_info()
-        merged_attributes = {**stack_info, **attributes}
+        try:
+            stack_info = get_user_stack_info()
+            merged_attributes = {**stack_info, **attributes}
 
-        if self._config.inspect_arguments:
-            fstring_frame = inspect.currentframe().f_back  # type: ignore
-        else:
-            fstring_frame = None
+            if self._config.inspect_arguments:
+                fstring_frame = inspect.currentframe().f_back  # type: ignore
+            else:
+                fstring_frame = None
 
-        log_message, extra_attrs, msg_template = logfire_format_with_magic(
-            msg_template,
-            merged_attributes,
-            self._config.scrubber,
-            fstring_frame=fstring_frame,
-        )
-        merged_attributes.update(extra_attrs)
-        attributes.update(extra_attrs)  # for the JSON schema
-        merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
-        merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
+            log_message, extra_attrs, msg_template = logfire_format_with_magic(
+                msg_template,
+                merged_attributes,
+                self._config.scrubber,
+                fstring_frame=fstring_frame,
+            )
+            merged_attributes.update(extra_attrs)
+            attributes.update(extra_attrs)  # for the JSON schema
+            merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+            merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
-        otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = user_attributes(merged_attributes)
 
-        if json_schema_properties := attributes_json_schema_properties(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            if json_schema_properties := attributes_json_schema_properties(attributes):
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
-        if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+            tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
+            if tags:
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-        sample_rate = (
-            self._sample_rate
-            if self._sample_rate is not None
-            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-        )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+            sample_rate = (
+                self._sample_rate
+                if self._sample_rate is not None
+                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
+            )
+            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+                otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        if _level is not None:
-            otlp_attributes.update(log_level_attributes(_level))
+            if _level is not None:
+                otlp_attributes.update(log_level_attributes(_level))
 
-        return LogfireSpan(
-            _span_name or msg_template,
-            otlp_attributes,
-            self._spans_tracer,
-            json_schema_properties,
-        )
+            return LogfireSpan(
+                _span_name or msg_template,
+                otlp_attributes,
+                self._spans_tracer,
+                json_schema_properties,
+            )
+        except Exception:
+            with suppress_instrumentation():
+                logger.exception('Error creating span')
+
+            return DummySpan()  # type: ignore
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
@@ -1646,6 +1655,39 @@ class LogfireSpan(ReadableSpan):
     def _get_attribute(self, key: str, default: Any) -> Any:
         attributes = getattr(self._span, 'attributes', self._otlp_attributes)
         return attributes.get(key, default)
+
+
+class DummySpan:
+    def __init__(self, *_args: Any, **__kwargs: Any) -> None:
+        pass
+
+    def __getattr__(self, _name: str) -> Any:
+        return lambda *_args, **__kwargs: None  # type: ignore
+
+    def __enter__(self) -> DummySpan:
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        pass
+
+    @property
+    def message_template(self) -> str:  # pragma: no cover
+        return ''
+
+    @property
+    def tags(self) -> Sequence[str]:  # pragma: no cover
+        return []
+
+    @property
+    def message(self) -> str:  # pragma: no cover
+        return ''
+
+    @message.setter
+    def message(self, message: str):
+        pass
+
+    def is_recording(self) -> bool:
+        return False
 
 
 def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
