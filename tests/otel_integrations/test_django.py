@@ -2,10 +2,12 @@ from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
 
+import logfire
 from logfire.testing import TestExporter
 
 
 def test_good_route(client: Client, exporter: TestExporter):
+    logfire.instrument_django()
     response: HttpResponse = client.get(  # type: ignore
         '/django_test_app/123/?very_long_query_param_name=very+long+query+param+value&foo=1'
     )
@@ -41,6 +43,7 @@ def test_good_route(client: Client, exporter: TestExporter):
 
 
 def test_error_route(client: Client, exporter: TestExporter):
+    logfire.instrument_django()
     response: HttpResponse = client.get('/django_test_app/bad/?foo=1')  # type: ignore
     assert response.status_code == 400
 
@@ -84,6 +87,7 @@ def test_error_route(client: Client, exporter: TestExporter):
 
 
 def test_no_matching_route(client: Client, exporter: TestExporter):
+    logfire.instrument_django()
     response: HttpResponse = client.get('/django_test_app/nowhere/?foo=1')  # type: ignore
     assert response.status_code == 404
 

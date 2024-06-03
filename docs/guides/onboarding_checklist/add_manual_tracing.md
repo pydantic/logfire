@@ -13,13 +13,26 @@ The [`@logfire.instrument`][logfire.Logfire.instrument] decorator is a convenien
 function. To use it, simply add the decorator above the function definition:
 
 ```python
-@logfire.instrument("Function Name", extract_args=True)
+@logfire.instrument()
 def my_function(arg1, arg2):
-    # Function code
+    ...
 ```
 
-The first argument to the decorator is the name of the span, and you can optionally set `extract_args=True` to
-automatically log the function arguments as span attributes.
+By default, this will add the function arguments to the span as attributes.
+To disable this (e.g. if the arguments are large objects not worth collecting), use `instrument(extract_args=False)`.
+
+The default span name will be something like `Calling module_name.my_function`.
+You can pass an alternative span name as the first argument to `instrument`, and it can even be a template
+into which arguments will be formatted, e.g:
+
+```python
+@logfire.instrument('Applying my_function to {arg1=} and {arg2=}')
+def my_function(arg1, arg2):
+    ...
+
+my_function(3, 4)
+# Logs: Applying my_function to arg1=3 and arg2=4
+```
 
 !!! note
 

@@ -16,7 +16,8 @@ You can use the following environment variables to configure **Logfire**:
 
 {{ env_var_table }}
 
-When using environment variables, you don't need to call [`logfire.configure()`][logfire.configure].
+When using environment variables, you still need to call [`logfire.configure()`][logfire.configure],
+but you can leave out the arguments.
 
 ## Using a configuration file (`pyproject.toml`)
 

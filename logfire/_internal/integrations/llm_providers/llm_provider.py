@@ -4,9 +4,8 @@ from collections.abc import Iterable
 from contextlib import ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
 
-from opentelemetry import context
-
 from ...constants import ONE_SECOND_IN_NANOSECONDS
+from ...utils import is_instrumentation_suppressed, suppress_instrumentation
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
@@ -74,7 +73,7 @@ def instrument_llm_provider(
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
     def _instrumentation_setup(**kwargs: Any) -> Any:
-        if context.get_value('suppress_instrumentation'):
+        if is_instrumentation_suppressed():
             return None, None, kwargs
 
         options = kwargs['options']
@@ -172,12 +171,8 @@ def instrument_llm_provider(
 @contextmanager
 def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
     if suppress:
-        new_context = context.set_value('suppress_instrumentation', True)
-        token = context.attach(new_context)
-        try:
+        with suppress_instrumentation():
             yield
-        finally:
-            context.detach(token)
     else:
         yield
 

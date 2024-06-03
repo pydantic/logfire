@@ -20,8 +20,8 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 
 import logfire
-from logfire import Logfire
-from logfire._internal.config import LogfireConfig, configure
+from logfire import Logfire, suppress_instrumentation
+from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -31,6 +31,7 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
 )
 from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -893,12 +894,36 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
     logfire = Logfire(config=config)
     logfire1 = logfire.with_tags('tag1', 'tag2')
 
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings:
+        with logfire.span('root'):
+            with logfire.span('child'):
+                logfire.info('test1')
+                logfire1.info('test2')
+
+    assert str(warnings[0].message) == (
+        'No logs or spans will be created until `logfire.configure()` has been called. '
+        'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress this warning.'
+    )
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 9  # type: ignore
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings:
+        logfire.instrument_django()
+
+    assert str(warnings[0].message) == (
+        'Instrumentation will have no effect until `logfire.configure()` has been '
+        'called. Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress '
+        'this warning.'
+    )
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
+    assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
+
+    config.initialize()
     with logfire.span('root'):
         with logfire.span('child'):
             logfire.info('test1')
             logfire1.info('test2')
-
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot([])
 
     assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
@@ -906,8 +931,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'root (pending)',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 1000000000,
-                'end_time': 1000000000,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -922,8 +947,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'child (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 2000000000,
+                'start_time': 6000000000,
+                'end_time': 6000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -938,8 +963,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'test1',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
+                'start_time': 7000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -954,8 +979,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'test2',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 4000000000,
-                'end_time': 4000000000,
+                'start_time': 8000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -971,8 +996,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 5000000000,
+                'start_time': 6000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -986,8 +1011,8 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
                 'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
-                'start_time': 1000000000,
-                'end_time': 6000000000,
+                'start_time': 5000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
@@ -2452,5 +2477,53 @@ def test_wrong_fstring_source_segment(exporter: TestExporter):
                     'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
                 },
             }
+        ]
+    )
+
+
+def test_suppress_instrumentation(exporter: TestExporter):
+    logfire.info('log1')
+    assert not is_instrumentation_suppressed()
+    with suppress_instrumentation():
+        assert is_instrumentation_suppressed()
+        # Not included in the asserted spans below
+        logfire.info('log2')
+    assert not is_instrumentation_suppressed()
+    logfire.info('log3')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'log1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log1',
+                    'logfire.msg': 'log1',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_instrumentation',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'log3',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'log3',
+                    'logfire.msg': 'log3',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_instrumentation',
+                    'code.lineno': 123,
+                },
+            },
         ]
     )
