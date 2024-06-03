@@ -585,85 +585,89 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        stack_info = get_user_stack_info()
+        try:
+            stack_info = get_user_stack_info()
 
-        attributes = attributes or {}
-        merged_attributes = {**stack_info, **attributes}
-        if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            fstring_frame = None
-            if self._config.inspect_arguments:
-                fstring_frame = inspect.currentframe()
-                if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
-                    # fstring_frame.f_back should be the user's frame.
-                    # The user called logfire.info or a similar method rather than calling logfire.log directly.
-                    fstring_frame = fstring_frame.f_back  # type: ignore
+            attributes = attributes or {}
+            merged_attributes = {**stack_info, **attributes}
+            if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+                fstring_frame = None
+                if self._config.inspect_arguments:
+                    fstring_frame = inspect.currentframe()
+                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                        # fstring_frame.f_back should be the user's frame.
+                        # The user called logfire.info or a similar method rather than calling logfire.log directly.
+                        fstring_frame = fstring_frame.f_back  # type: ignore
 
-            msg, extra_attrs, msg_template = logfire_format_with_magic(
-                msg_template,
-                merged_attributes,
-                self._config.scrubber,
-                fstring_frame=fstring_frame,
+                msg, extra_attrs, msg_template = logfire_format_with_magic(
+                    msg_template,
+                    merged_attributes,
+                    self._config.scrubber,
+                    fstring_frame=fstring_frame,
+                )
+                if extra_attrs:
+                    merged_attributes.update(extra_attrs)
+                    # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
+                    # We update both because attributes_json_schema_properties looks at `attributes`.
+                    attributes = {**attributes, **extra_attrs}
+            else:
+                # The message has already been filled in, presumably by a logging integration.
+                # Make sure it's a string.
+                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
+                msg_template = str(msg_template)
+
+            otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = {
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+                **log_level_attributes(level),
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+                ATTRIBUTES_MESSAGE_KEY: msg,
+                **otlp_attributes,
+            }
+            if json_schema_properties := attributes_json_schema_properties(attributes):
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+
+            tags = self._tags + tuple(tags or ())
+            if tags:
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+
+            sample_rate = (
+                self._sample_rate
+                if self._sample_rate is not None
+                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
             )
-            if extra_attrs:
-                merged_attributes.update(extra_attrs)
-                # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
-                # We update both because attributes_json_schema_properties looks at `attributes`.
-                attributes = {**attributes, **extra_attrs}
-        else:
-            # The message has already been filled in, presumably by a logging integration.
-            # Make sure it's a string.
-            msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
-            msg_template = str(msg_template)
+            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+                otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        otlp_attributes = user_attributes(merged_attributes)
-        otlp_attributes = {
-            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-            **log_level_attributes(level),
-            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
-            ATTRIBUTES_MESSAGE_KEY: msg,
-            **otlp_attributes,
-        }
-        if json_schema_properties := attributes_json_schema_properties(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            if not (self._console_log if console_log is None else console_log):
+                otlp_attributes[DISABLE_CONSOLE_KEY] = True
+            start_time = self._config.ns_timestamp_generator()
 
-        tags = self._tags + tuple(tags or ())
-        if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+            if custom_scope_suffix:
+                tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
+            else:
+                tracer = self._logs_tracer
 
-        sample_rate = (
-            self._sample_rate
-            if self._sample_rate is not None
-            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-        )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+            span = tracer.start_span(
+                msg_template,
+                attributes=otlp_attributes,
+                start_time=start_time,
+            )
 
-        if not (self._console_log if console_log is None else console_log):
-            otlp_attributes[DISABLE_CONSOLE_KEY] = True
-        start_time = self._config.ns_timestamp_generator()
+            if exc_info:
+                if exc_info is True:
+                    exc_info = sys.exc_info()
+                if isinstance(exc_info, tuple):
+                    exc_info = exc_info[1]
+                if isinstance(exc_info, BaseException):
+                    _record_exception(span, exc_info)
+                elif exc_info is not None:  # pragma: no cover
+                    raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
-        if custom_scope_suffix:
-            tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
-        else:
-            tracer = self._logs_tracer
-
-        span = tracer.start_span(
-            msg_template,
-            attributes=otlp_attributes,
-            start_time=start_time,
-        )
-
-        if exc_info:
-            if exc_info is True:
-                exc_info = sys.exc_info()
-            if isinstance(exc_info, tuple):
-                exc_info = exc_info[1]
-            if isinstance(exc_info, BaseException):
-                _record_exception(span, exc_info)
-            elif exc_info is not None:  # pragma: no cover
-                raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
-
-        span.end(start_time)
+            span.end(start_time)
+        except Exception:
+            with suppress_instrumentation():
+                logger.exception('Error creating log')
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.
