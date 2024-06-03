@@ -188,10 +188,7 @@ def configure(
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
-        processors: Span processors to use. Defaults to None. If None is provided then the default span processor is
-            used. If a sequence is passed the default processor is disabled (which disables exporting of spans to
-            Logfire's API) and the specified processors are used instead. In particular, if an empty list is provided
-            then no span processors are used.
+        processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
@@ -655,9 +652,7 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                     )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    if self.processors is None:  # pragma: no branch
-                        # Only add the default span processor if the user didn't specify any of their own.
-                        add_span_processor(self.default_span_processor(span_exporter))
+                    add_span_processor(self.default_span_processor(span_exporter))
 
                 elif otel_traces_exporter_env != 'none':  # pragma: no cover
                     raise ValueError(
