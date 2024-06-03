@@ -226,7 +226,7 @@ def suppress_instrumentation():
 
 
 def log_internal_error():
-    with suppress_instrumentation():
+    with suppress_instrumentation():  # prevent infinite recursion from the logging integration
         logger.exception('Internal error in Logfire')
 
 
