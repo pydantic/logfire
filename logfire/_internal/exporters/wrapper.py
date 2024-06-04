@@ -1,7 +1,7 @@
-from typing import Any, Sequence
+from typing import Any, Dict, Optional, Sequence
 
-from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
-from opentelemetry.sdk.metrics._internal.point import MetricsData
+from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
+from opentelemetry.sdk.metrics.view import Aggregation
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -25,8 +25,13 @@ class WrapperSpanExporter(SpanExporter):
 class WrapperMetricExporter(MetricExporter):
     """A base class for MetricExporters that wrap another exporter."""
 
-    def __init__(self, exporter: MetricExporter, **kwargs: Any) -> None:
-        super().__init__(**kwargs)  # type: ignore
+    def __init__(
+        self,
+        exporter: MetricExporter,
+        preferred_temporality: Optional[Dict[type, AggregationTemporality]] = None,
+        preferred_aggregation: Optional[Dict[type, Aggregation]] = None,
+    ) -> None:
+        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # type: ignore
         self.wrapped_exporter = exporter
 
     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
