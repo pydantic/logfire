@@ -887,7 +887,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
         console=False,
         ns_timestamp_generator=TimeGenerator(),
         id_generator=IncrementalIdGenerator(),
-        processors=[
+        additional_span_processors=[
             SimpleSpanProcessor(exporter1),
         ],
     )
@@ -1265,7 +1265,7 @@ def test_config_preserved_across_thread_or_process(
         send_to_logfire=False,
         console=False,
         project_name='foobar!',
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     with executor_factory() as executor:
