@@ -214,7 +214,10 @@ def configure(
             Defaults to `True` if and only if the Python version is at least 3.11.
     """
     if processors is not None:  # pragma: no cover
-        raise ValueError('The `processors` argument is deprecated. Use `additional_span_processors` instead.')
+        raise ValueError(
+            'The `processors` argument has been replaced by `additional_span_processors`. '
+            'Set `send_to_logfire=False` to disable the default processor.'
+        )
 
     GLOBAL_CONFIG.configure(
         base_url=base_url,
