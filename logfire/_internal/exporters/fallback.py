@@ -25,7 +25,7 @@ class FallbackSpanExporter(SpanExporter):
             self.fallback.export(spans)
             if isinstance(e, requests.exceptions.RequestException):
                 logger.warning('Error sending spans to Logfire: %s', e)
-                res = SpanExportResult.FAILURE
+                return SpanExportResult.FAILURE
             else:
                 raise
         if res is not SpanExportResult.SUCCESS:  # pragma: no branch
