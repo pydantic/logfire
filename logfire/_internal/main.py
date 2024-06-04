@@ -61,7 +61,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import uniquify_sequence
+from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -151,59 +151,67 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
     ) -> LogfireSpan:
-        stack_info = get_user_stack_info()
-        merged_attributes = {**stack_info, **attributes}
+        try:
+            stack_info = get_user_stack_info()
+            merged_attributes = {**stack_info, **attributes}
 
-        if self._config.inspect_arguments:
-            fstring_frame = inspect.currentframe().f_back  # type: ignore
-        else:
-            fstring_frame = None
+            if self._config.inspect_arguments:
+                fstring_frame = inspect.currentframe().f_back  # type: ignore
+            else:
+                fstring_frame = None
 
-        log_message, extra_attrs, msg_template = logfire_format_with_magic(
-            msg_template,
-            merged_attributes,
-            self._config.scrubber,
-            fstring_frame=fstring_frame,
-        )
-        merged_attributes.update(extra_attrs)
-        attributes.update(extra_attrs)  # for the JSON schema
-        merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
-        merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
+            log_message, extra_attrs, msg_template = logfire_format_with_magic(
+                msg_template,
+                merged_attributes,
+                self._config.scrubber,
+                fstring_frame=fstring_frame,
+            )
+            merged_attributes.update(extra_attrs)
+            attributes.update(extra_attrs)  # for the JSON schema
+            merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+            merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
-        otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = user_attributes(merged_attributes)
 
-        if json_schema_properties := attributes_json_schema_properties(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            if json_schema_properties := attributes_json_schema_properties(attributes):
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
-        if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+            tags = cast('tuple[str, ...]', (self._tags or ()) + tuple(_tags or ()))
+            if tags:
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-        sample_rate = (
-            self._sample_rate
-            if self._sample_rate is not None
-            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-        )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+            sample_rate = (
+                self._sample_rate
+                if self._sample_rate is not None
+                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
+            )
+            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+                otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        if _level is not None:
-            otlp_attributes.update(log_level_attributes(_level))
+            if _level is not None:
+                otlp_attributes.update(log_level_attributes(_level))
 
-        return LogfireSpan(
-            _span_name or msg_template,
-            otlp_attributes,
-            self._spans_tracer,
-            json_schema_properties,
-        )
+            return LogfireSpan(
+                _span_name or msg_template,
+                otlp_attributes,
+                self._spans_tracer,
+                json_schema_properties,
+            )
+        except Exception:
+            log_internal_error()
+            return NoopSpan()  # type: ignore
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
-        span = self._spans_tracer.start_span(name=name, attributes=attributes)
-        return FastLogfireSpan(span)
+        try:
+            span = self._spans_tracer.start_span(name=name, attributes=attributes)
+            return FastLogfireSpan(span)
+        except Exception:  # pragma: no cover
+            log_internal_error()
+            return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
@@ -213,12 +221,16 @@ class Logfire:
         This is a bit faster than `_span` but not as fast as `_fast_span` because it supports message formatting
         and arbitrary types of attributes.
         """
-        msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-        attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
-        if json_schema_properties := attributes_json_schema_properties(function_args):
-            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
-        attributes.update(user_attributes(function_args))
-        return self._fast_span(name, attributes)
+        try:
+            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+            attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
+            if json_schema_properties := attributes_json_schema_properties(function_args):
+                attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            attributes.update(user_attributes(function_args))
+            return self._fast_span(name, attributes)
+        except Exception:  # pragma: no cover
+            log_internal_error()
+            return NoopSpan()  # type: ignore
 
     def trace(
         self,
@@ -576,85 +588,86 @@ class Logfire:
                 See the `instrumenting_module_name` parameter on
                 [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
-        stack_info = get_user_stack_info()
+        with handle_internal_errors():
+            stack_info = get_user_stack_info()
 
-        attributes = attributes or {}
-        merged_attributes = {**stack_info, **attributes}
-        if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
-            fstring_frame = None
-            if self._config.inspect_arguments:
-                fstring_frame = inspect.currentframe()
-                if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
-                    # fstring_frame.f_back should be the user's frame.
-                    # The user called logfire.info or a similar method rather than calling logfire.log directly.
-                    fstring_frame = fstring_frame.f_back  # type: ignore
+            attributes = attributes or {}
+            merged_attributes = {**stack_info, **attributes}
+            if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+                fstring_frame = None
+                if self._config.inspect_arguments:
+                    fstring_frame = inspect.currentframe()
+                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                        # fstring_frame.f_back should be the user's frame.
+                        # The user called logfire.info or a similar method rather than calling logfire.log directly.
+                        fstring_frame = fstring_frame.f_back  # type: ignore
 
-            msg, extra_attrs, msg_template = logfire_format_with_magic(
-                msg_template,
-                merged_attributes,
-                self._config.scrubber,
-                fstring_frame=fstring_frame,
+                msg, extra_attrs, msg_template = logfire_format_with_magic(
+                    msg_template,
+                    merged_attributes,
+                    self._config.scrubber,
+                    fstring_frame=fstring_frame,
+                )
+                if extra_attrs:
+                    merged_attributes.update(extra_attrs)
+                    # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
+                    # We update both because attributes_json_schema_properties looks at `attributes`.
+                    attributes = {**attributes, **extra_attrs}
+            else:
+                # The message has already been filled in, presumably by a logging integration.
+                # Make sure it's a string.
+                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
+                msg_template = str(msg_template)
+
+            otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = {
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+                **log_level_attributes(level),
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+                ATTRIBUTES_MESSAGE_KEY: msg,
+                **otlp_attributes,
+            }
+            if json_schema_properties := attributes_json_schema_properties(attributes):
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+
+            tags = self._tags + tuple(tags or ())
+            if tags:
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+
+            sample_rate = (
+                self._sample_rate
+                if self._sample_rate is not None
+                else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
             )
-            if extra_attrs:
-                merged_attributes.update(extra_attrs)
-                # Only do this if extra_attrs is not empty since the copy of `attributes` might be expensive.
-                # We update both because attributes_json_schema_properties looks at `attributes`.
-                attributes = {**attributes, **extra_attrs}
-        else:
-            # The message has already been filled in, presumably by a logging integration.
-            # Make sure it's a string.
-            msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
-            msg_template = str(msg_template)
+            if sample_rate is not None and sample_rate != 1:  # pragma: no cover
+                otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-        otlp_attributes = user_attributes(merged_attributes)
-        otlp_attributes = {
-            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-            **log_level_attributes(level),
-            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
-            ATTRIBUTES_MESSAGE_KEY: msg,
-            **otlp_attributes,
-        }
-        if json_schema_properties := attributes_json_schema_properties(attributes):
-            otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
+            if not (self._console_log if console_log is None else console_log):
+                otlp_attributes[DISABLE_CONSOLE_KEY] = True
+            start_time = self._config.ns_timestamp_generator()
 
-        tags = self._tags + tuple(tags or ())
-        if tags:
-            otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+            if custom_scope_suffix:
+                tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
+            else:
+                tracer = self._logs_tracer
 
-        sample_rate = (
-            self._sample_rate
-            if self._sample_rate is not None
-            else otlp_attributes.pop(ATTRIBUTES_SAMPLE_RATE_KEY, None)
-        )
-        if sample_rate is not None and sample_rate != 1:  # pragma: no cover
-            otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
+            span = tracer.start_span(
+                msg_template,
+                attributes=otlp_attributes,
+                start_time=start_time,
+            )
 
-        if not (self._console_log if console_log is None else console_log):
-            otlp_attributes[DISABLE_CONSOLE_KEY] = True
-        start_time = self._config.ns_timestamp_generator()
+            if exc_info:
+                if exc_info is True:
+                    exc_info = sys.exc_info()
+                if isinstance(exc_info, tuple):
+                    exc_info = exc_info[1]
+                if isinstance(exc_info, BaseException):
+                    _record_exception(span, exc_info)
+                elif exc_info is not None:  # pragma: no cover
+                    raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
-        if custom_scope_suffix:
-            tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
-        else:
-            tracer = self._logs_tracer
-
-        span = tracer.start_span(
-            msg_template,
-            attributes=otlp_attributes,
-            start_time=start_time,
-        )
-
-        if exc_info:
-            if exc_info is True:
-                exc_info = sys.exc_info()
-            if isinstance(exc_info, tuple):
-                exc_info = exc_info[1]
-            if isinstance(exc_info, BaseException):
-                _record_exception(span, exc_info)
-            elif exc_info is not None:  # pragma: no cover
-                raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
-
-        span.end(start_time)
+            span.end(start_time)
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.
@@ -1482,6 +1495,7 @@ class FastLogfireSpan:
     def __enter__(self) -> FastLogfireSpan:
         return self
 
+    @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         atexit.unregister(self._atexit)
         context_api.detach(self._token)
@@ -1489,7 +1503,7 @@ class FastLogfireSpan:
         self._span.end()
 
 
-# Changes to this class may need to be reflected in `FastLogfireSpan` as well.
+# Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
 class LogfireSpan(ReadableSpan):
     def __init__(
         self,
@@ -1516,20 +1530,22 @@ class LogfireSpan(ReadableSpan):
             return getattr(self._span, name)
 
     def __enter__(self) -> LogfireSpan:
-        self.end_on_exit = True
-        if self._span is None:
-            self._span = self._tracer.start_span(
-                name=self._span_name,
-                attributes=self._otlp_attributes,
-            )
-        if self._token is None:  # pragma: no branch
-            self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+        with handle_internal_errors():
+            self.end_on_exit = True
+            if self._span is None:
+                self._span = self._tracer.start_span(
+                    name=self._span_name,
+                    attributes=self._otlp_attributes,
+                )
+            if self._token is None:  # pragma: no branch
+                self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
-        self._atexit = partial(self.__exit__, None, None, None)
-        atexit.register(self._atexit)
+            self._atexit = partial(self.__exit__, None, None, None)
+            atexit.register(self._atexit)
 
         return self
 
+    @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
@@ -1580,13 +1596,15 @@ class LogfireSpan(ReadableSpan):
         if self._span is None:  # pragma: no cover
             raise RuntimeError('Span has not been started')
         if self._span.is_recording():
-            if self._added_attributes:
-                self._span.set_attribute(
-                    ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
-                )
+            with handle_internal_errors():
+                if self._added_attributes:
+                    self._span.set_attribute(
+                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                    )
 
-            self._span.end()
+                self._span.end()
 
+    @handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -1635,6 +1653,7 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
+    @handle_internal_errors()
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
         attributes = log_level_attributes(level)
@@ -1648,6 +1667,56 @@ class LogfireSpan(ReadableSpan):
         return attributes.get(key, default)
 
 
+class NoopSpan:
+    """Implements the same methods as `LogfireSpan` but does nothing.
+
+    Used in place of `LogfireSpan` and `FastLogfireSpan` when an exception occurs during span creation.
+    This way code like:
+
+        with logfire.span(...) as span:
+            span.set_attribute(...)
+
+    doesn't raise an error even if `logfire.span` fails internally.
+    If `logfire.span` just returned `None` then the `with` block and the `span.set_attribute` call would raise an error.
+
+    TODO this should also be used when tracing is disabled, e.g. before `logfire.configure()` has been called.
+    """
+
+    def __init__(self, *_args: Any, **__kwargs: Any) -> None:
+        pass
+
+    def __getattr__(self, _name: str) -> Any:
+        # Handle methods of LogfireSpan which return nothing
+        return lambda *_args, **__kwargs: None  # type: ignore
+
+    def __enter__(self) -> NoopSpan:
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        pass
+
+    # Implement methods/properties that return something to get the type right.
+    @property
+    def message_template(self) -> str:  # pragma: no cover
+        return ''
+
+    @property
+    def tags(self) -> Sequence[str]:  # pragma: no cover
+        return []
+
+    @property
+    def message(self) -> str:  # pragma: no cover
+        return ''
+
+    # This is required to make `span.message = ` not raise an error.
+    @message.setter
+    def message(self, message: str):
+        pass
+
+    def is_recording(self) -> bool:
+        return False
+
+
 def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
     if not span.is_recording():
         return
@@ -1658,6 +1727,7 @@ def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
         _record_exception(span, exception, escaped=True)
 
 
+@handle_internal_errors()
 def _record_exception(
     span: trace_api.Span,
     exception: BaseException,
