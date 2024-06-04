@@ -196,8 +196,8 @@ def configure(
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Legacy argument, use `additional_metric_readers` instead.
-        additional_metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used.
-            Pass an empty list to disable metrics.
+        additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
+            which exports metrics to Logfire's API.
             Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
             is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
