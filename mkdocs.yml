@@ -65,7 +65,8 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Intro: index.md
+  - Intro:
+      - index.md
   - Guides:
       - Guides: guides/index.md
       - First Steps:
