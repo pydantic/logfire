@@ -47,7 +47,7 @@ def test_propagate_config_to_tags() -> None:
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     tags2 = logfire.with_tags('tag3', 'tag4')
@@ -453,7 +453,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
 
     configure(
         config_dir=tmp_path,
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     assert GLOBAL_CONFIG.base_url == 'https://api.logfire.io'
@@ -535,7 +535,7 @@ def test_configure_fallback_path(tmp_path: str) -> None:
             data_dir=data_dir,
             token='abc',
             default_span_processor=default_span_processor,
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
     assert not data_dir.exists()
@@ -563,14 +563,14 @@ def test_configure_service_version(tmp_path: str) -> None:
         configure(
             token='abc',
             service_version='1.2.3',
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
         assert GLOBAL_CONFIG.service_version == '1.2.3'
 
         configure(
             token='abc',
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
         assert GLOBAL_CONFIG.service_version == git_sha
@@ -581,7 +581,7 @@ def test_configure_service_version(tmp_path: str) -> None:
             os.chdir(tmp_path)
             configure(
                 token='abc',
-                metric_readers=[InMemoryMetricReader()],
+                additional_metric_readers=[InMemoryMetricReader()],
             )
             assert GLOBAL_CONFIG.service_version is None
         finally:
@@ -600,7 +600,7 @@ def test_otel_service_name_env_var() -> None:
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             additional_span_processors=[SimpleSpanProcessor(exporter)],
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
     logfire.info('test1')
@@ -652,7 +652,7 @@ def test_otel_otel_resource_attributes_env_var() -> None:
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             additional_span_processors=[SimpleSpanProcessor(exporter)],
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
     logfire.info('test1')
@@ -704,7 +704,7 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
             additional_span_processors=[SimpleSpanProcessor(exporter)],
-            metric_readers=[InMemoryMetricReader()],
+            additional_metric_readers=[InMemoryMetricReader()],
         )
 
     logfire.info('test1')

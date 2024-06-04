@@ -1265,7 +1265,7 @@ def test_config_preserved_across_thread_or_process(
         send_to_logfire=False,
         console=False,
         project_name='foobar!',
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     with executor_factory() as executor:

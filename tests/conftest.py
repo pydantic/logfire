@@ -51,7 +51,7 @@ def config_kwargs(
     """
     Use this when you want to `logfire.configure()` with a variation of the default configuration.
 
-    Note that this doesn't set `metric_readers` because `metrics_reader` can't be used twice.
+    Note that this doesn't set `additional_metric_readers` because `metrics_reader` can't be used twice.
     """
     return dict(
         send_to_logfire=False,
@@ -70,7 +70,7 @@ def config_kwargs(
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
     configure(
         **config_kwargs,
-        metric_readers=[metrics_reader],
+        additional_metric_readers=[metrics_reader],
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

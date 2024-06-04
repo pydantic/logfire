@@ -17,7 +17,7 @@ def test_system_metrics_collection() -> None:
     metrics_reader = InMemoryMetricReader()
     logfire.configure(
         send_to_logfire=False,
-        metric_readers=[metrics_reader],
+        additional_metric_readers=[metrics_reader],
         # i.e. use the default value, in contrast to `False` which the automatic test fixture uses.
         collect_system_metrics=None,
     )
