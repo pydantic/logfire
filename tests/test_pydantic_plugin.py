@@ -49,7 +49,7 @@ def test_disable_logfire_pydantic_plugin() -> None:
     logfire.configure(
         send_to_logfire=False,
         pydantic_plugin=PydanticPlugin(record='off'),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
@@ -121,7 +121,7 @@ def test_logfire_plugin_include_exclude_models(
     logfire.configure(
         send_to_logfire=False,
         pydantic_plugin=PydanticPlugin(record='all', include=include, exclude=exclude),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
     plugin = LogfirePydanticPlugin()
 
@@ -631,9 +631,9 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
         trace_sample_rate=0.1,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
@@ -650,9 +650,9 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter) -> None:
 def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
@@ -681,9 +681,9 @@ def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any)
 def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     class MyModel(

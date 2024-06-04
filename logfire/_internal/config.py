@@ -148,9 +148,11 @@ def configure(
     collect_system_metrics: bool | None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
-    processors: Sequence[SpanProcessor] | None = None,
+    processors: None = None,
+    additional_span_processors: Sequence[SpanProcessor] | None = None,
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
-    metric_readers: Sequence[MetricReader] | None = None,
+    metric_readers: None = None,
+    additional_metric_readers: Sequence[MetricReader] | None = None,
     logfire_api_session: requests.Session | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     fast_shutdown: bool = False,
@@ -189,15 +191,14 @@ def configure(
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
-        processors: Span processors to use. Defaults to None. If None is provided then the default span processor is
-            used. If a sequence is passed the default processor is disabled (which disables exporting of spans to
-            Logfire's API) and the specified processors are used instead. In particular, if an empty list is provided
-            then no span processors are used.
+        processors: Legacy argument, use `additional_span_processors` instead.
+        additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
-        metric_readers: Sequence of metric readers to be used. If `None` then a default metrics reader is used.
-            Pass an empty list to disable metrics.
+        metric_readers: Legacy argument, use `additional_metric_readers` instead.
+        additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
+            which exports metrics to Logfire's API.
             Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
             is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
         logfire_api_session: HTTP client session used to communicate with the Logfire API.
@@ -215,6 +216,18 @@ def configure(
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
     """
+    if processors is not None:  # pragma: no cover
+        raise ValueError(
+            'The `processors` argument has been replaced by `additional_span_processors`. '
+            'Set `send_to_logfire=False` to disable the default processor.'
+        )
+
+    if metric_readers is not None:  # pragma: no cover
+        raise ValueError(
+            'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
+            'Set `send_to_logfire=False` to disable the default metric reader.'
+        )
+
     GLOBAL_CONFIG.configure(
         base_url=base_url,
         send_to_logfire=send_to_logfire,
@@ -230,9 +243,9 @@ def configure(
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
-        processors=processors,
+        additional_span_processors=additional_span_processors,
         default_span_processor=default_span_processor,
-        metric_readers=metric_readers,
+        additional_metric_readers=additional_metric_readers,
         logfire_api_session=logfire_api_session,
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
@@ -300,7 +313,7 @@ class _LogfireConfigData:
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
 
-    processors: Sequence[SpanProcessor] | None
+    additional_span_processors: Sequence[SpanProcessor] | None
     """Additional span processors"""
 
     pydantic_plugin: PydanticPlugin
@@ -337,9 +350,9 @@ class _LogfireConfigData:
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
-        processors: Sequence[SpanProcessor] | None,
+        additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
-        metric_readers: Sequence[MetricReader] | None,
+        additional_metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
@@ -403,9 +416,9 @@ class _LogfireConfigData:
 
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
-        self.processors = processors
+        self.additional_span_processors = additional_span_processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
-        self.metric_readers = metric_readers
+        self.additional_metric_readers = additional_metric_readers
         self.logfire_api_session = logfire_api_session or requests.Session()
         if self.service_version is None:
             try:
@@ -433,9 +446,9 @@ class LogfireConfig(_LogfireConfigData):
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
-        processors: Sequence[SpanProcessor] | None = None,
+        additional_span_processors: Sequence[SpanProcessor] | None = None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
-        metric_readers: Sequence[MetricReader] | None = None,
+        additional_metric_readers: Sequence[MetricReader] | None = None,
         logfire_api_session: requests.Session | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         fast_shutdown: bool = False,
@@ -466,9 +479,9 @@ class LogfireConfig(_LogfireConfigData):
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
-            processors=processors,
+            additional_span_processors=additional_span_processors,
             default_span_processor=default_span_processor,
-            metric_readers=metric_readers,
+            additional_metric_readers=additional_metric_readers,
             logfire_api_session=logfire_api_session,
             pydantic_plugin=pydantic_plugin,
             fast_shutdown=fast_shutdown,
@@ -503,9 +516,9 @@ class LogfireConfig(_LogfireConfigData):
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
-        processors: Sequence[SpanProcessor] | None,
+        additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
-        metric_readers: Sequence[MetricReader] | None,
+        additional_metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
@@ -530,9 +543,9 @@ class LogfireConfig(_LogfireConfigData):
                 collect_system_metrics,
                 id_generator,
                 ns_timestamp_generator,
-                processors,
+                additional_span_processors,
                 default_span_processor,
-                metric_readers,
+                additional_metric_readers,
                 logfire_api_session,
                 pydantic_plugin,
                 fast_shutdown,
@@ -596,8 +609,8 @@ class LogfireConfig(_LogfireConfigData):
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 
-            if self.processors is not None:
-                for processor in self.processors:
+            if self.additional_span_processors is not None:
+                for processor in self.additional_span_processors:
                     add_span_processor(processor)
 
             if self.console:
@@ -619,7 +632,7 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
-            metric_readers = self.metric_readers
+            metric_readers = list(self.additional_metric_readers or [])
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
                 credentials: LogfireCredentials | None = None
@@ -656,36 +669,31 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                     )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    if self.processors is None:  # pragma: no branch
-                        # Only add the default span processor if the user didn't specify any of their own.
-                        add_span_processor(self.default_span_processor(span_exporter))
+                    add_span_processor(self.default_span_processor(span_exporter))
 
                 elif otel_traces_exporter_env != 'none':  # pragma: no cover
                     raise ValueError(
                         'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
                     )
 
-                if metric_readers is None:
-                    metric_readers = [
-                        PeriodicExportingMetricReader(
-                            QuietMetricExporter(
-                                OTLPMetricExporter(
-                                    endpoint=self.metrics_endpoint,
-                                    headers=headers,
-                                    session=session,
-                                    # I'm pretty sure that this line here is redundant,
-                                    # and that passing it to the QuietMetricExporter is what matters
-                                    # because the PeriodicExportingMetricReader will read it from there.
-                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                ),
+                metric_readers += [
+                    PeriodicExportingMetricReader(
+                        QuietMetricExporter(
+                            OTLPMetricExporter(
+                                endpoint=self.metrics_endpoint,
+                                headers=headers,
+                                session=session,
+                                # I'm pretty sure that this line here is redundant,
+                                # and that passing it to the QuietMetricExporter is what matters
+                                # because the PeriodicExportingMetricReader will read it from there.
                                 preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                            )
+                            ),
+                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                         )
-                    ]
+                    )
+                ]
 
             tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
-
-            metric_readers = metric_readers or []
 
             meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
             if self.collect_system_metrics:

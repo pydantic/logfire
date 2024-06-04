@@ -51,14 +51,14 @@ def config_kwargs(
     """
     Use this when you want to `logfire.configure()` with a variation of the default configuration.
 
-    Note that this doesn't set `metric_readers` because `metrics_reader` can't be used twice.
+    Note that this doesn't set `additional_metric_readers` because `metrics_reader` can't be used twice.
     """
     return dict(
         send_to_logfire=False,
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
         # Ensure that inspect_arguments doesn't break things in most versions
         # (it's off by default for <3.11) but it's completely forbidden for 3.8.
@@ -70,7 +70,7 @@ def config_kwargs(
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
     configure(
         **config_kwargs,
-        metric_readers=[metrics_reader],
+        additional_metric_readers=[metrics_reader],
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

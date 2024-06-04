@@ -62,9 +62,9 @@ def test_sample_rate_config() -> None:
     logfire.configure(
         send_to_logfire=False,
         trace_sample_rate=0.05,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(100):
@@ -86,9 +86,9 @@ def test_sample_rate_runtime() -> None:  # pragma: no cover
     logfire.configure(
         send_to_logfire=False,
         trace_sample_rate=1,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
-        metric_readers=[InMemoryMetricReader()],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(100):
@@ -112,8 +112,8 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
         trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-        metric_readers=[InMemoryMetricReader()],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):
@@ -141,8 +141,8 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
         trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-        metric_readers=[InMemoryMetricReader()],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):
@@ -176,8 +176,8 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
         trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
-        metric_readers=[InMemoryMetricReader()],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_metric_readers=[InMemoryMetricReader()],
     )
 
     for _ in range(10):

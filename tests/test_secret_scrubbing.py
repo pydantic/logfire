@@ -189,7 +189,7 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
     )
 
@@ -236,7 +236,7 @@ def test_dont_scrub_resource(
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
     )
     logfire.info('hi')
