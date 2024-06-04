@@ -72,7 +72,6 @@ nav:
           - First Steps: guides/first_steps/index.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding_checklist/index.md
-          - Create a Project: guides/onboarding_checklist/create_a_project.md
           - Integrate Logfire: guides/onboarding_checklist/integrate.md
           - Add Logfire Manual Tracing: guides/onboarding_checklist/add_manual_tracing.md
           - Add Logfire Auto-Tracing: guides/onboarding_checklist/add_auto_tracing.md
