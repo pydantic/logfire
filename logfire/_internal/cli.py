@@ -77,7 +77,6 @@ def parse_whoami(args: argparse.Namespace) -> None:
 
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
-    # Check if running directory is HOME_LOGFIRE.
     if Path.cwd() == Path.home():
         sys.stderr.write('The clean command cannot be run in the home directory. ')
         sys.stderr.write('Please run the command from a different directory.\n')
