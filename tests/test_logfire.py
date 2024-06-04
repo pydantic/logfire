@@ -31,6 +31,7 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
 )
 from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -2527,3 +2528,36 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
+    with logfire.span('foo', _tags=123) as span:  # type: ignore
+        # _tags=123 causes an exception (tags should be an iterable)
+        assert len(caplog.records) == 1
+        assert caplog.records[0].message == 'Internal error in Logfire'
+
+        assert isinstance(span, NoopSpan)
+
+        span.message = 'bar'  # this is ignored
+
+        # These methods/properties are implemented to return the right type
+        assert span.is_recording() is False
+        assert span.message == span.message_template == ''
+        assert span.tags == []
+
+        # These methods exist on LogfireSpan, but NoopSpan handles them with __getattr__
+        span.set_attribute('x', 1)
+        span.set_level('error')
+        span.record_exception(ValueError('baz'), {})
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
+
+
+def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
+    logfire.info('foo', _tags=123)  # type: ignore
+
+    # _tags=123 causes an exception (tags should be an iterable)
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == 'Internal error in Logfire'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []

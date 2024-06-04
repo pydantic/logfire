@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +33,9 @@ else:
 
     def dump_json(obj: JsonValue) -> str:
         return pydantic_core.to_json(obj).decode()
+
+
+logger = logging.getLogger('logfire')
 
 
 def uniquify_sequence(seq: Sequence[T]) -> tuple[T, ...]:
@@ -219,3 +223,16 @@ def suppress_instrumentation():
         yield
     finally:
         context.detach(token)
+
+
+def log_internal_error():
+    with suppress_instrumentation():  # prevent infinite recursion from the logging integration
+        logger.exception('Internal error in Logfire')
+
+
+@contextmanager
+def handle_internal_errors():
+    try:
+        yield
+    except Exception:
+        log_internal_error()

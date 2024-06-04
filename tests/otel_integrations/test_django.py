@@ -1,8 +1,15 @@
+import importlib
+from unittest import mock
+
+import pytest
 from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
 
 import logfire
+import logfire._internal
+import logfire._internal.integrations
+import logfire._internal.integrations.django
 from logfire.testing import TestExporter
 
 
@@ -115,3 +122,14 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
             }
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.django': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.django)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.
+You can install this with:
+    pip install 'logfire[django]'\
+""")

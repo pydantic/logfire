@@ -38,20 +38,19 @@ Upon successful authentication, credentials are stored in `~/.logfire/default.to
 
 ## Basic Usage
 
-The first time you use Logfire in a new environment, you'll need to set up a project. A Logfire project is like a
-namespace for organizing your data. All data sent to Logfire must be associated with a project.
+The first time you use **Logfire** in a new environment, you'll need to set up a project.
+A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
-To use Logfire, simply import it, configure, and call the desired logging function:
+To use **Logfire**, it's simple as:
 
 ```py
 import logfire
 
 logfire.configure()  # (1)!
-
 logfire.info('Hello, {name}!', name='world')  # (2)!
 ```
 
-1. This should be called once before logging to initialize **Logfire**.
+1. The `configure()` should be called once before logging to initialize **Logfire**.
 2. This will log `Hello world!` with `info` level.
 
 !!! note
@@ -59,39 +58,45 @@ logfire.info('Hello, {name}!', name='world')  # (2)!
     Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
     `error`, and `fatal`.
 
-If you don't have existing credentials for a Logfire project, you'll see a prompt in your terminal to create a new
-project:
+If you don't have existing credentials for a project, you'll be prompted to select one of your projects, or create a new one:
 
-```bash
-No Logfire project credentials found.
-All data sent to Logfire must be associated with a project.
+![Terminal with prompt to create a project](../../images/guide//terminal-create-project.png)
 
-The project will be created in the organization "dmontagu". Continue? [y/n] (y):
-Enter the project name (platform): my-project
-Project initialized successfully. You will be able to view it at: https://logfire.pydantic.dev/dmontagu/my-project
-Press Enter to continue:
-```
+If you don't have any projects yet, write `"n"` and `"Enter"` to create a new project.
 
-Here's what happens:
+You'll then be asked to select your organization, and to provide a name for your new project:
 
-1. Logfire detects that no project credentials exist and prompts you to create a new project.
-2. You're asked to confirm the organization where the project will be created (defaulting to your personal
-   organization).
-3. You enter a name for your new project (defaulting to the name of the folder your script is running from).
-4. Logfire initializes the project and provides the URL where you can view your project's data.
-5. Press Enter to continue, and the script will proceed.
+![Terminal with prompt to create a project](../../images/guide/terminal-create-project-full.png)
 
-After this one-time setup, Logfire will use the newly created project credentials for subsequent Python runs from the
+You have created a new project in **Logfire**! :partying_face:
+
+After this one-time setup, **Logfire** will use the newly created project credentials for subsequent Python runs from the
 same directory.
 
-Once you've created a project (or if you already had one), you should see:
+??? success "You can also create a project via Web UI..."
+    To create a new project within the UI, you can follow these steps:
+
+    1. Go to the [Logfire Web UI](https://logfire.pydantic.dev).
+
+    ![Logfire Web UI](../../images/guide/browser-create-project.png)
+
+    2. Click on the `New Project` button, fill the form that appears, and click `Create Project`.
+
+    ![New Project button](../../images/guide/browser-create-project-button.png)
+
+    Done! You have created a new project in **Logfire**! :sunglasses:
+
+??? success "You can also create a project via CLI..."
+    Check the [SDK CLI documentation](../../reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
+
+Once you've created a project, you should see:
 
 ```bash
 Logfire project URL: https://logfire.pydantic.dev/dmontagu/my-project
 19:52:12.323 Hello, world!
 ```
 
-Logfire will always start by displaying the URL of your project, and (with default configuration) will also provide a
+**Logfire** will always start by displaying the URL of your project, and (with default configuration) will also provide a
 basic display in the terminal of the logs you are sending to Logfire.
 
 ![Hello world screenshot](../../images/logfire-screenshot-first-steps-hello-world.png)
