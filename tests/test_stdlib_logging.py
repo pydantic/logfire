@@ -195,7 +195,7 @@ def test_recursive_logging_from_opentelemetry() -> None:
 
     logfire.configure(
         send_to_logfire=False,
-        processors=[SimpleSpanProcessor(ExceptionExporter())],
+        additional_span_processors=[SimpleSpanProcessor(ExceptionExporter())],
     )
 
     class TestLoggingHandler(logging.Handler):

@@ -886,7 +886,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
         console=False,
         ns_timestamp_generator=TimeGenerator(),
         id_generator=IncrementalIdGenerator(),
-        processors=[
+        additional_span_processors=[
             SimpleSpanProcessor(exporter1),
         ],
     )

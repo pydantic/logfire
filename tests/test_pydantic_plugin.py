@@ -631,7 +631,7 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
         trace_sample_rate=0.1,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
         metric_readers=[InMemoryMetricReader()],
     )
@@ -650,7 +650,7 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter) -> None:
 def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
         metric_readers=[InMemoryMetricReader()],
     )
@@ -681,7 +681,7 @@ def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any)
 def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExporter) -> None:
     logfire.configure(
         send_to_logfire=False,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
         metric_readers=[InMemoryMetricReader()],
     )

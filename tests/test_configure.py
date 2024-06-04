@@ -46,7 +46,7 @@ def test_propagate_config_to_tags() -> None:
         console=False,
         ns_timestamp_generator=time_generator,
         id_generator=IncrementalIdGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         metric_readers=[InMemoryMetricReader()],
     )
 
@@ -599,7 +599,7 @@ def test_otel_service_name_env_var() -> None:
             console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
-            processors=[SimpleSpanProcessor(exporter)],
+            additional_span_processors=[SimpleSpanProcessor(exporter)],
             metric_readers=[InMemoryMetricReader()],
         )
 
@@ -651,7 +651,7 @@ def test_otel_otel_resource_attributes_env_var() -> None:
             console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
-            processors=[SimpleSpanProcessor(exporter)],
+            additional_span_processors=[SimpleSpanProcessor(exporter)],
             metric_readers=[InMemoryMetricReader()],
         )
 
@@ -703,7 +703,7 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
             console=False,
             ns_timestamp_generator=time_generator,
             id_generator=IncrementalIdGenerator(),
-            processors=[SimpleSpanProcessor(exporter)],
+            additional_span_processors=[SimpleSpanProcessor(exporter)],
             metric_readers=[InMemoryMetricReader()],
         )
 
@@ -754,7 +754,7 @@ def test_config_serializable():
         from logfire._internal.exporters.console import SimpleConsoleSpanExporter
         from logfire._internal.integrations.executors import serialize_config
 
-        logfire.configure(processors=[SimpleSpanProcessor(SimpleConsoleSpanExporter())])
+        logfire.configure(additional_span_processors=[SimpleSpanProcessor(SimpleConsoleSpanExporter())])
 
         serialize_config()  # fails because SimpleConsoleSpanExporter contains sys.stdout
 

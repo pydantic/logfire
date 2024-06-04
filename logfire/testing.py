@@ -258,7 +258,7 @@ def capfire() -> CaptureLogfire:
         console=False,
         id_generator=IncrementalIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         metric_readers=[metrics_reader],
     )
 

@@ -148,6 +148,7 @@ def configure(
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: Sequence[SpanProcessor] | None = None,
+    additional_span_processors: Sequence[SpanProcessor] | None = None,
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
     logfire_api_session: requests.Session | None = None,
@@ -188,7 +189,8 @@ def configure(
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
-        processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+        processors: Legacy argument, use `additional_span_processors` instead.
+        additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
             [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
             by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
@@ -211,6 +213,9 @@ def configure(
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
     """
+    if processors is not None:  # pragma: no cover
+        raise ValueError('The `processors` argument is deprecated. Use `additional_span_processors` instead.')
+
     GLOBAL_CONFIG.configure(
         base_url=base_url,
         send_to_logfire=send_to_logfire,
@@ -226,7 +231,7 @@ def configure(
         collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
-        processors=processors,
+        additional_span_processors=additional_span_processors,
         default_span_processor=default_span_processor,
         metric_readers=metric_readers,
         logfire_api_session=logfire_api_session,
@@ -296,7 +301,7 @@ class _LogfireConfigData:
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
 
-    processors: Sequence[SpanProcessor] | None
+    additional_span_processors: Sequence[SpanProcessor] | None
     """Additional span processors"""
 
     pydantic_plugin: PydanticPlugin
@@ -333,7 +338,7 @@ class _LogfireConfigData:
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
-        processors: Sequence[SpanProcessor] | None,
+        additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
@@ -399,7 +404,7 @@ class _LogfireConfigData:
 
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
-        self.processors = processors
+        self.additional_span_processors = additional_span_processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.metric_readers = metric_readers
         self.logfire_api_session = logfire_api_session or requests.Session()
@@ -429,7 +434,7 @@ class LogfireConfig(_LogfireConfigData):
         collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
-        processors: Sequence[SpanProcessor] | None = None,
+        additional_span_processors: Sequence[SpanProcessor] | None = None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         metric_readers: Sequence[MetricReader] | None = None,
         logfire_api_session: requests.Session | None = None,
@@ -462,7 +467,7 @@ class LogfireConfig(_LogfireConfigData):
             collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
-            processors=processors,
+            additional_span_processors=additional_span_processors,
             default_span_processor=default_span_processor,
             metric_readers=metric_readers,
             logfire_api_session=logfire_api_session,
@@ -499,7 +504,7 @@ class LogfireConfig(_LogfireConfigData):
         collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
-        processors: Sequence[SpanProcessor] | None,
+        additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         metric_readers: Sequence[MetricReader] | None,
         logfire_api_session: requests.Session | None,
@@ -526,7 +531,7 @@ class LogfireConfig(_LogfireConfigData):
                 collect_system_metrics,
                 id_generator,
                 ns_timestamp_generator,
-                processors,
+                additional_span_processors,
                 default_span_processor,
                 metric_readers,
                 logfire_api_session,
@@ -592,8 +597,8 @@ class LogfireConfig(_LogfireConfigData):
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 
-            if self.processors is not None:
-                for processor in self.processors:
+            if self.additional_span_processors is not None:
+                for processor in self.additional_span_processors:
                     add_span_processor(processor)
 
             if self.console:

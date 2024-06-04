@@ -58,7 +58,7 @@ def config_kwargs(
         console=False,
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
-        processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         collect_system_metrics=False,
         # Ensure that inspect_arguments doesn't break things in most versions
         # (it's off by default for <3.11) but it's completely forbidden for 3.8.
