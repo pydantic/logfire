@@ -672,8 +672,11 @@ class LogfireConfig(_LogfireConfigData):
                                 OTLPMetricExporter(
                                     endpoint=self.metrics_endpoint,
                                     headers=headers,
-                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                                     session=session,
+                                    # I'm pretty sure that this line here is redundant,
+                                    # and that passing it to the QuietMetricExporter is what matters
+                                    # because the PeriodicExportingMetricReader will read it from there.
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                                 ),
                                 preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                             )
