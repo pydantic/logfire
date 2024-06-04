@@ -141,6 +141,23 @@ def test_clean(
     assert capsys.readouterr().err == output
 
 
+def test_clean_home_dir(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+    monkeypatch.setattr(Path, 'home', lambda: tmp_dir_cwd)
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    with pytest.raises(SystemExit) as exc:
+        main(['clean'])
+    assert capsys.readouterr().err == (
+        'The clean command cannot be run in the home directory. Please run the command from a different directory.\n'
+    )
+    assert exc.value.code == 1
+
+
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         main(shlex.split('clean --data-dir potato'))
