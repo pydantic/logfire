@@ -12,9 +12,6 @@ fix bugs, analyze user behavior, and make data-driven decisions.
 
 #### Logfire Onboarding Checklist
 
-* [ ] **[Create a Logfire project for your application](create_a_project.md)**: Set up a dedicated project in Logfire
-  to organize and manage your application's data.
-
 * [ ] **[Integrate Logfire](integrate.md)**: Fully integrate Logfire with your logging system and the packages you are
   using.
 
