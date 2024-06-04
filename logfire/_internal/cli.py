@@ -128,7 +128,9 @@ def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
                     progress.update(task, completed=f.tell())
 
             url = urljoin(config.base_url, '/v1/backfill/traces')
-            response = requests.post(url, data=reader(), headers={'Content-Length': str(total)})
+            response = requests.post(
+                url, data=reader(), headers={'Authorization': token, 'User-Agent': f'logfire/{VERSION}'}
+            )
             if response.status_code != 200:
                 try:
                     data = response.json()
