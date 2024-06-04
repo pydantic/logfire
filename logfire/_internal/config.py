@@ -147,7 +147,7 @@ def configure(
     collect_system_metrics: bool | None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
-    processors: Sequence[SpanProcessor] | None = None,
+    processors: None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: Sequence[MetricReader] | None = None,
