@@ -79,7 +79,7 @@ logfire = "logfire.testing"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "anyio",
+    "anyio<4.4.0",
     "httpx",
     "aiohttp",
     "redis",
