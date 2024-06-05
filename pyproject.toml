@@ -132,7 +132,10 @@ dev-dependencies = [
     "psycopg2-binary",
     "asyncpg",
     "cloudpickle>=3.0.0",
+    # https://github.com/pydantic/logfire/issues/227
     "anthropic<0.27.0",
+    # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
+    "typing-extensions<4.12",
 ]
 
 [tool.rye.scripts]
