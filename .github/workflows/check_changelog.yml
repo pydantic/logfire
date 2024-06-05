@@ -41,8 +41,10 @@ jobs:
           if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$HISTORY.md_changed" == "false" ]; then
             echo "Version changed in pyproject.toml but no changes in HISTORY.md"
             exit 1
+          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$HISTORY.md_changed" == "true" ]; then
+            echo "Version changed and HISTORY.md updated."
           else
-            echo "HISTORY.md updated."
+            echo "Version did not change. Changes to HISTORY.md not required."
           fi
 
       - name: No changes detected
