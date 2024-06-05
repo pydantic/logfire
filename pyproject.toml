@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.40.1"
+version = "0.40.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -148,7 +148,7 @@ allow-direct-references = true
 packages = ["logfire"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/README.md", "/Makefile", "/logfire", "/tests"]
+include = ["/README.md", "HISTORY.md", "/Makefile", "/logfire", "/tests"]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
