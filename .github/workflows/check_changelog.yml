@@ -38,10 +38,10 @@ jobs:
         run: |
           VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import toml, sys; print(toml.load(sys.stdin)['project']['version'])")
           VERSION_AFTER=$(python -c "import toml; print(toml.load(open('pyproject.toml'))['project']['version'])")
-          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$HISTORY.md_changed" == "false" ]; then
+          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "false" ]; then
             echo "Version changed in pyproject.toml but no changes in HISTORY.md"
             exit 1
-          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$HISTORY.md_changed" == "true" ]; then
+          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "true" ]; then
             echo "Version changed and HISTORY.md updated."
           else
             echo "Version did not change. Changes to HISTORY.md not required."
