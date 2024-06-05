@@ -131,7 +131,7 @@ class AutoTraceTransformer(BaseTransformer):
         return ast.Call(
             func=ast.Subscript(
                 value=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
-                slice=ast.Index(value=ast.Constant(value=index)),
+                slice=ast.Index(value=ast.Constant(value=index)),  # type: ignore
                 ctx=ast.Load(),
             ),
             args=[],
