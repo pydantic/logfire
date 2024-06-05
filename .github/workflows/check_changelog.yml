@@ -1,0 +1,54 @@
+name: Check Changelog
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'HISTORY.md'
+
+jobs:
+  check-changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install toml
+
+    - name: Check if pyproject.toml is changed
+      id: check_pyproject_changed
+      run: |
+        if git diff --name-only HEAD^ | grep -q "^pyproject.toml$"; then
+          echo "pyproject_changed=true" >> $GITHUB_ENV
+        else
+          echo "pyproject_changed=false" >> $GITHUB_ENV
+        fi
+
+    - name: Check if changelog.md is changed
+      id: check_changelog_changed
+      run: |
+        if git diff --name-only HEAD^ | grep -q "^changelog.md$"; then
+          echo "changelog_changed=true" >> $GITHUB_ENV
+        else
+          echo "changelog_changed=false" >> $GITHUB_ENV
+        fi
+
+    - name: Verify version change and changelog update
+      if: env.pyproject_changed == 'true'
+      run: |
+        VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import toml, sys; print(toml.load(sys.stdin)['project']['version'])")
+        VERSION_AFTER=$(python -c "import toml; print(toml.load(open('pyproject.toml'))['project']['version'])")
+        if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "false" ]; then
+          echo "Version changed in pyproject.toml but no changes in changelog.md"
+          exit 1
+        else
+          echo "Changelog updated."
+        fi
