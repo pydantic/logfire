@@ -59,7 +59,7 @@ rich==13.7.1
     # via logfire
 setuptools==70.0.0
     # via opentelemetry-instrumentation
-typing-extensions==4.12.1
+typing-extensions==4.11.0
     # via logfire
     # via opentelemetry-sdk
 urllib3==2.2.1
