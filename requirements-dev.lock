@@ -178,7 +178,7 @@ nodeenv==1.9.1
     # via pyright
 numpy==1.26.4
     # via pandas
-openai==1.31.0
+openai==1.31.1
 opentelemetry-api==1.25.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
