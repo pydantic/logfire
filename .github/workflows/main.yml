@@ -71,8 +71,8 @@ jobs:
       - name: Pin python-version ${{ matrix.python-version }}
         run: rye pin ${{ matrix.python-version }}
       - run: rye config --set-bool behavior.use-uv=true
-      # We regenerate the lockfile, and generate a new one, since Rye doesn't support multiple lockfiles per Python version yet.
-      - run: rye sync
+      # Update all dependencies to the latest version possible
+      - run: rye sync --update-all
       - run: rye show
       - run: mkdir coverage
       - run: make test
