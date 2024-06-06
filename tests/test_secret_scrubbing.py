@@ -150,7 +150,7 @@ def test_scrub_events(exporter: TestExporter):
                         'name': 'exception',
                         'timestamp': 3000000000,
                         'attributes': {
-                            'exception.type': 'PasswordError',
+                            'exception.type': 'tests.test_secret_scrubbing.PasswordError',
                             'exception.message': "[Redacted due to 'Password']",
                             'exception.stacktrace': "[Redacted due to 'secret']",
                             'exception.escaped': 'False',
@@ -160,7 +160,7 @@ def test_scrub_events(exporter: TestExporter):
                         'name': 'exception',
                         'timestamp': 4000000000,
                         'attributes': {
-                            'exception.type': 'PasswordError',
+                            'exception.type': 'tests.test_secret_scrubbing.PasswordError',
                             'exception.message': "[Redacted due to 'Password']",
                             'exception.stacktrace': (
                                 "tests.test_secret_scrubbing.PasswordError: [Redacted due to 'Password']"
