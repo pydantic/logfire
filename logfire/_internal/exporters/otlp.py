@@ -79,14 +79,6 @@ class DiskRetryer:
         with self.lock:
             self.tasks.append((path, kwargs))
 
-    def _do_task(self, **kwargs: Any):
-        try:
-            response = self.session.post(**kwargs)
-            raise_for_retryable_status(response)
-        except requests.exceptions.RequestException:
-            return False
-        return True
-
     def _run(self):
         delay = 1
         while True:
@@ -98,12 +90,15 @@ class DiskRetryer:
             data = path.read_bytes()
             while True:
                 sleep(delay * (1 + random()))
-                if self._do_task(**kwargs, data=data):
+                try:
+                    response = self.session.post(**kwargs, data=data)
+                    raise_for_retryable_status(response)
+                except requests.exceptions.RequestException:
+                    delay = min(delay * 2, self.MAX_DELAY)
+                else:
                     delay = 1
                     path.unlink()
                     break
-                else:
-                    delay = min(delay * 2, self.MAX_DELAY)
 
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):
