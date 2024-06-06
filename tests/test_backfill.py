@@ -99,6 +99,7 @@ def test_write_spans_and_logs() -> None:
                                             {'key': 'path', 'value': {'stringValue': '/test'}},
                                         ],
                                         'status': {'code': 'STATUS_CODE_OK'},
+                                        'flags': 256,
                                     }
                                 ],
                             }
@@ -157,6 +158,7 @@ def test_write_spans_and_logs() -> None:
                                             {'key': 'path', 'value': {'stringValue': '/test'}},
                                         ],
                                         'status': {'code': 'STATUS_CODE_OK'},
+                                        'flags': 256,
                                     }
                                 ],
                             }

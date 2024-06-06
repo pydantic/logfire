@@ -76,6 +76,7 @@ def test_export_to_file(tmp_path: str) -> None:
                                         'kind': 'SPAN_KIND_INTERNAL',
                                         'endTimeUnixNano': '1',
                                         'status': {'code': 'STATUS_CODE_OK'},
+                                        'flags': 256,
                                     }
                                 ],
                             }
@@ -129,6 +130,7 @@ def test_dont_close_open_file(tmp_path: str) -> None:
                                             'kind': 'SPAN_KIND_INTERNAL',
                                             'endTimeUnixNano': '1',
                                             'status': {'code': 'STATUS_CODE_OK'},
+                                            'flags': 256,
                                         }
                                     ],
                                 }
@@ -184,6 +186,7 @@ def test_export_existing_file(tmp_path: str) -> None:
                                         'kind': 'SPAN_KIND_INTERNAL',
                                         'endTimeUnixNano': '1',
                                         'status': {'code': 'STATUS_CODE_OK'},
+                                        'flags': 256,
                                     }
                                 ],
                             }
@@ -213,6 +216,7 @@ def test_export_existing_file(tmp_path: str) -> None:
                                         'kind': 'SPAN_KIND_INTERNAL',
                                         'endTimeUnixNano': '1',
                                         'status': {'code': 'STATUS_CODE_OK'},
+                                        'flags': 256,
                                     }
                                 ],
                             }

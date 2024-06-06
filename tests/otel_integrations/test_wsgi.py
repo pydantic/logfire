@@ -57,6 +57,7 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'http.server_name': 'localhost',
                     'http.scheme': 'http',
+                    'net.host.name': 'localhost',
                     'net.host.port': 80,
                     'http.host': 'localhost',
                     'http.target': '/',
