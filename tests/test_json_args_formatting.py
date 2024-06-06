@@ -689,5 +689,5 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
 
 
 def test_all_types_covered():
-    types = set(DataType.__args__)  # type: ignore
+    types = set(DataType.__args__)
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore

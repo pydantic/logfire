@@ -81,7 +81,7 @@ def test_error_route(client: Client, exporter: TestExporter):
                         'name': 'exception',
                         'timestamp': 2000000000,
                         'attributes': {
-                            'exception.type': 'BadRequest',
+                            'exception.type': 'django.core.exceptions.BadRequest',
                             'exception.message': 'bad request',
                             'exception.stacktrace': 'django.core.exceptions.BadRequest: bad request',
                             'exception.escaped': 'False',

@@ -79,7 +79,7 @@ logfire = "logfire.testing"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "anyio",
+    "anyio<4.4.0",
     "httpx",
     "aiohttp",
     "redis",
@@ -133,6 +133,8 @@ dev-dependencies = [
     "asyncpg",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
+    # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
+    "typing-extensions<4.12",
 ]
 
 [tool.rye.scripts]
