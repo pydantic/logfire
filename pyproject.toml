@@ -132,7 +132,7 @@ dev-dependencies = [
     "psycopg2-binary",
     "asyncpg",
     "cloudpickle>=3.0.0",
-    "anthropic",
+    "anthropic>=0.27.0",
 ]
 
 [tool.rye.scripts]
