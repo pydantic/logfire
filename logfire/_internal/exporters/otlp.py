@@ -19,7 +19,7 @@ from requests import Session
 import logfire
 
 from ..stack_info import STACK_INFO_KEYS
-from ..utils import truncate_string
+from ..utils import logger, truncate_string
 from .wrapper import WrapperSpanExporter
 
 
@@ -36,7 +36,10 @@ class OTLPExporterHttpSession(Session):
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
         except requests.exceptions.RequestException:
-            self.retryer.add_task(data, {'url': url, **kwargs})
+            try:
+                self.retryer.add_task(data, {'url': url, **kwargs})
+            except Exception:  # pragma: no cover
+                logger.exception('Failed to add task to export retryer')
             raise
 
         return response
@@ -89,18 +92,21 @@ class DiskRetryer:
                     self.thread = None
                     break
                 path, kwargs = self.tasks.popleft()
-            data = path.read_bytes()
-            while True:
-                time.sleep(delay * (1 + random.random()))
-                try:
-                    response = self.session.post(**kwargs, data=data)
-                    raise_for_retryable_status(response)
-                except requests.exceptions.RequestException:
-                    delay = min(delay * 2, self.MAX_DELAY)
-                else:
-                    delay = 1
-                    path.unlink()
-                    break
+            try:
+                data = path.read_bytes()
+                while True:
+                    time.sleep(delay * (1 + random.random()))
+                    try:
+                        response = self.session.post(**kwargs, data=data)
+                        raise_for_retryable_status(response)
+                    except requests.exceptions.RequestException:
+                        delay = min(delay * 2, self.MAX_DELAY)
+                    else:
+                        delay = 1
+                        path.unlink()
+                        break
+            except Exception:  # pragma: no cover
+                logger.exception('Error retrying export')
 
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):
