@@ -97,7 +97,7 @@ class DiskRetryer:
                 path, kwargs = self.tasks.popleft()
             data = path.read_bytes()
             while True:
-                sleep(delay + random())
+                sleep(delay * (1 + random()))
                 if self._do_task(**kwargs, data=data):
                     delay = 1
                     path.unlink()
