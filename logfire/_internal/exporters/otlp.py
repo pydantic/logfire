@@ -64,6 +64,7 @@ DiskRetryerTask = tuple[Path, dict[str, Any]]
 class DiskRetryer:
     MAX_DELAY = 128
     MAX_TASKS = 100
+    WARN_INTERVAL = 60
 
     def __init__(self, headers: Mapping[str, str | bytes]):
         self.tasks: deque[DiskRetryerTask] = deque()
@@ -72,9 +73,12 @@ class DiskRetryer:
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
         self.lock = Lock()
         self.thread = None
+        self.last_warning_time = time.monotonic()
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
-        if len(self.tasks) >= self.MAX_TASKS:
+        if len(self.tasks) >= self.MAX_TASKS:  # pragma: no cover
+            if self._should_warn():
+                logger.error('Already retrying %s export tasks, dropping an export', len(self.tasks))
             return
         path = self.dir / uuid.uuid4().hex
         path.write_bytes(data)
@@ -83,6 +87,16 @@ class DiskRetryer:
             if not self.thread:
                 self.thread = Thread(target=self._run, daemon=True)
                 self.thread.start()
+            num_tasks = len(self.tasks)
+
+        if self._should_warn():
+            logger.warning('Currently retrying %s export task(s)', num_tasks)
+
+    def _should_warn(self):
+        result = time.monotonic() - self.last_warning_time >= self.WARN_INTERVAL
+        if result:
+            self.last_warning_time = time.monotonic()
+        return result
 
     def _run(self):
         delay = 1

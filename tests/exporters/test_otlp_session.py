@@ -37,9 +37,10 @@ def test_max_body_size_bytes() -> None:
     assert str(e.value) == 'Request body is too large (13 bytes), must be less than 10 bytes.'
 
 
-def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     sleep_mock = Mock(return_value=0)
     monkeypatch.setattr('time.sleep', sleep_mock)
+    monkeypatch.setattr('time.monotonic', Mock(side_effect=range(0, 1000, 30)))
     monkeypatch.setattr('random.random', Mock(return_value=0.5))
 
     class ConnectionErrorAdapter(HTTPAdapter):
@@ -62,10 +63,10 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     success.status_code = 200
     session.retryer.session.mount(
         'http://',
-        ConnectionErrorAdapter(Mock(side_effect=[requests.exceptions.ConnectionError()] * 10 + [success] * 2)),
+        ConnectionErrorAdapter(Mock(side_effect=[requests.exceptions.ConnectionError()] * 10 + [success] * 10)),
     )
 
-    for _ in range(2):
+    for _ in range(10):
         with pytest.raises(requests.exceptions.ConnectionError):
             session.post('http://example.com/', data=b'123')
 
@@ -87,5 +88,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
         (192.0,),
         (192.0,),
         (192.0,),
-        (1.5,),
-    ]
+    ] + [(1.5,)] * 9
+
+    assert len(caplog.messages) == 5
+    assert caplog.messages[0] == 'Currently retrying 1 export task(s)'
