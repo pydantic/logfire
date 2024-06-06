@@ -59,7 +59,7 @@ DiskRetryerTask = tuple[Path, dict[str, Any]]
 
 
 class DiskRetryer:
-    MAX_DELAY = 64
+    MAX_DELAY = 128
     MAX_TASKS = 100
 
     def __init__(self, headers: Mapping[str, str | bytes]):

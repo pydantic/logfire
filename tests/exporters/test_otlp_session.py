@@ -42,26 +42,32 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('time.sleep', sleep_mock)
     monkeypatch.setattr('random.random', Mock(return_value=0.5))
 
-    success = Response()
-    success.status_code = 200
-    send_mock = Mock(side_effect=[requests.exceptions.ConnectionError()] * 4 + [success])
-
     class ConnectionErrorAdapter(HTTPAdapter):
+        def __init__(self, mock: Mock):
+            super().__init__()
+            self.mock = mock
+
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
             assert request.body == b'123'
             assert request.url == 'http://example.com/'
             assert request.headers['User-Agent'] == 'logfire'
             assert request.headers['Authorization'] == 'Bearer 123'
-            return send_mock()
+            return self.mock()
 
     session = OTLPExporterHttpSession(max_body_size=10)
     headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
     session.headers.update(headers)
-    session.mount('http://', ConnectionErrorAdapter())
-    session.retryer.session.mount('http://', ConnectionErrorAdapter())
+    session.mount('http://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
+    success = Response()
+    success.status_code = 200
+    session.retryer.session.mount(
+        'http://',
+        ConnectionErrorAdapter(Mock(side_effect=[requests.exceptions.ConnectionError()] * 10 + [success] * 2)),
+    )
 
-    with pytest.raises(requests.exceptions.ConnectionError):
-        session.post('http://example.com/', data=b'123')
+    for _ in range(2):
+        with pytest.raises(requests.exceptions.ConnectionError):
+            session.post('http://example.com/', data=b'123')
 
     assert session.retryer.thread
     session.retryer.thread.join()
@@ -69,4 +75,17 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not session.retryer.thread
     assert not list(session.retryer.dir.iterdir())
 
-    assert [call.args for call in sleep_mock.call_args_list] == [(1.5,), (3.0,), (6.0,), (12.0,)]
+    assert [call.args for call in sleep_mock.call_args_list] == [
+        (1.5,),
+        (3.0,),
+        (6.0,),
+        (12.0,),
+        (24.0,),
+        (48.0,),
+        (96.0,),
+        (192.0,),
+        (192.0,),
+        (192.0,),
+        (192.0,),
+        (1.5,),
+    ]
