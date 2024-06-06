@@ -32,19 +32,10 @@ class SinkHTTPAdapter(HTTPAdapter):
 def test_max_body_size_bytes() -> None:
     s = OTLPExporterHttpSession(max_body_size=10)
     s.mount('http://', SinkHTTPAdapter())
-    s.post('http://example.com', data='1234567890')
+    s.post('http://example.com', data=b'1234567890')
     with pytest.raises(BodyTooLargeError) as e:
-        s.post('http://example.com', data='1234567890XXX')
+        s.post('http://example.com', data=b'1234567890XXX')
     assert str(e.value) == 'Request body is too large (13 bytes), must be less than 10 bytes.'
-
-
-def test_max_body_size_generator() -> None:
-    s = OTLPExporterHttpSession(max_body_size=10)
-    s.mount('http://', SinkHTTPAdapter())
-    s.post('http://example.com', data=iter([b'abc'] * 3))
-    with pytest.raises(BodyTooLargeError) as e:
-        s.post('http://example.com', data=iter([b'abc'] * 100))
-    assert str(e.value) == 'Request body is too large (12 bytes), must be less than 10 bytes.'
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -59,7 +50,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     session.mount('http://', ConnectionErrorAdapter())
 
     with pytest.raises(requests.exceptions.ConnectionError):
-        session.post('http://example.com', data='123')
+        session.post('http://example.com', data=b'123')
 
     assert [call.args for call in sleep_mock.call_args_list] == [
         (IsFloat(gt=1, lt=2),),

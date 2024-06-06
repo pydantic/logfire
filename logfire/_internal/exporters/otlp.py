@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import contextlib
-import time
+import uuid
+from collections import deque
+from pathlib import Path
 from random import random
-from typing import Any, Iterable, Sequence, cast
+from tempfile import mkdtemp
+from threading import Lock, Thread
+from time import sleep
+from typing import Any, Mapping, Sequence
 
 import requests.exceptions
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
-from requests.models import PreparedRequest, Response
 
 import logfire
 
@@ -24,41 +28,82 @@ class OTLPExporterHttpSession(Session):
     def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.max_body_size = max_body_size
+        self.retryer = None
 
-    def send(self, request: PreparedRequest, **kwargs: Any) -> Response:
-        if request.body is not None:  # pragma: no branch
-            if isinstance(request.body, (str, bytes)):  # type: ignore
-                self._check_body_size(len(request.body))
-            else:
-                # assume a generator
-                body = cast('Iterable[bytes]', request.body)
+    def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
+        self._check_body_size(len(data))
+        try:
+            response = super().post(url, data=data, **kwargs)
+            raise_for_retryable_status(response)
+        except requests.exceptions.RequestException:
+            if not self.retryer:
+                self.retryer = DiskRetryer(self.headers)
+                self.retryer.start()
+            self.retryer.add_task(data, {'url': url, **kwargs})
+            raise
 
-                def gen() -> Iterable[bytes]:
-                    total = 0
-                    for chunk in body:
-                        total += len(chunk)
-                        self._check_body_size(total)
-                        yield chunk
-
-                request.body = gen()  # type: ignore
-
-        max_attempts = 7
-        for attempt in range(max_attempts):  # pragma: no branch
-            try:
-                response = super().send(request, **kwargs)
-            except requests.exceptions.RequestException:
-                if attempt < max_attempts - 1:
-                    # Exponential backoff with jitter
-                    time.sleep(2**attempt + random())
-                    continue
-                raise
-            return response
-
-        raise RuntimeError('Unreachable code')  # for pyright  # pragma: no cover
+        return response
 
     def _check_body_size(self, size: int) -> None:
         if size > self.max_body_size:
             raise BodyTooLargeError(size, self.max_body_size)
+
+
+def raise_for_retryable_status(response: requests.Response):
+    if response.status_code in (408, 429) or response.status_code >= 500:
+        response.raise_for_status()
+
+
+DiskRetryerTask = tuple[Path, dict[str, Any]]
+
+
+class DiskRetryer:
+    MAX_DELAY = 64
+    MAX_TASKS = 100
+
+    def __init__(self, headers: Mapping[str, str | bytes]):
+        self.tasks: deque[DiskRetryerTask] = deque()
+        self.session = Session()
+        self.session.headers.update(headers)
+        self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
+        self.lock = Lock()
+
+    def start(self):
+        Thread(target=self._run, daemon=True).start()
+
+    def add_task(self, data: bytes, kwargs: dict[str, Any]):
+        if len(self.tasks) >= self.MAX_TASKS:
+            return
+        path = self.dir / uuid.uuid4().hex
+        path.write_bytes(data)
+        with self.lock:
+            self.tasks.append((path, kwargs))
+
+    def _do_task(self, **kwargs: Any):
+        try:
+            response = self.session.post(**kwargs)
+            raise_for_retryable_status(response)
+        except requests.exceptions.RequestException:
+            return False
+        return True
+
+    def _run(self):
+        delay = 1
+        while True:
+            if not self.tasks:
+                sleep(1)
+                continue
+            with self.lock:
+                path, kwargs = self.tasks.popleft()
+            data = path.read_bytes()
+            while True:
+                sleep(delay + random())
+                if self._do_task(**kwargs, data=data):
+                    delay = 1
+                    path.unlink()
+                    break
+                else:
+                    delay = min(delay * 2, self.MAX_DELAY)
 
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):
