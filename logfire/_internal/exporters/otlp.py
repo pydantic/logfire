@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import uuid
 from collections import deque
+from functools import cached_property
 from pathlib import Path
 from random import random
 from tempfile import mkdtemp
@@ -28,7 +29,6 @@ class OTLPExporterHttpSession(Session):
     def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.max_body_size = max_body_size
-        self.retryer = None
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
         self._check_body_size(len(data))
@@ -36,13 +36,14 @@ class OTLPExporterHttpSession(Session):
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
         except requests.exceptions.RequestException:
-            if not self.retryer:
-                self.retryer = DiskRetryer(self.headers)
-                self.retryer.start()
             self.retryer.add_task(data, {'url': url, **kwargs})
             raise
 
         return response
+
+    @cached_property
+    def retryer(self) -> DiskRetryer:
+        return DiskRetryer(self.headers)
 
     def _check_body_size(self, size: int) -> None:
         if size > self.max_body_size:
@@ -67,9 +68,7 @@ class DiskRetryer:
         self.session.headers.update(headers)
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
         self.lock = Lock()
-
-    def start(self):
-        Thread(target=self._run, daemon=True).start()
+        self.thread = None
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         if len(self.tasks) >= self.MAX_TASKS:
@@ -78,6 +77,9 @@ class DiskRetryer:
         path.write_bytes(data)
         with self.lock:
             self.tasks.append((path, kwargs))
+            if not self.thread:
+                self.thread = Thread(target=self._run, daemon=True)
+                self.thread.start()
 
     def _run(self):
         delay = 1
