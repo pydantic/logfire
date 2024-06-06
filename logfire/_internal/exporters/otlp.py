@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import contextlib
+import random
+import time
 import uuid
 from collections import deque
 from functools import cached_property
 from pathlib import Path
-from random import random
 from tempfile import mkdtemp
 from threading import Lock, Thread
-from time import sleep
 from typing import Any, Mapping, Sequence
 
 import requests.exceptions
@@ -84,14 +84,14 @@ class DiskRetryer:
     def _run(self):
         delay = 1
         while True:
-            if not self.tasks:
-                sleep(1)
-                continue
             with self.lock:
+                if not self.tasks:
+                    self.thread = None
+                    break
                 path, kwargs = self.tasks.popleft()
             data = path.read_bytes()
             while True:
-                sleep(delay * (1 + random()))
+                time.sleep(delay * (1 + random.random()))
                 try:
                     response = self.session.post(**kwargs, data=data)
                     raise_for_retryable_status(response)
