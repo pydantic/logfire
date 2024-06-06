@@ -48,18 +48,25 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class ConnectionErrorAdapter(HTTPAdapter):
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            assert request.body == b'123'
+            assert request.url == 'http://example.com/'
+            assert request.headers['User-Agent'] == 'logfire'
+            assert request.headers['Authorization'] == 'Bearer 123'
             return send_mock()
 
     session = OTLPExporterHttpSession(max_body_size=10)
+    headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
+    session.headers.update(headers)
     session.mount('http://', ConnectionErrorAdapter())
     session.retryer.session.mount('http://', ConnectionErrorAdapter())
 
     with pytest.raises(requests.exceptions.ConnectionError):
-        session.post('http://example.com', data=b'123')
+        session.post('http://example.com/', data=b'123')
 
     assert session.retryer.thread
     session.retryer.thread.join()
     assert not session.retryer.tasks
     assert not session.retryer.thread
+    assert not list(session.retryer.dir.iterdir())
 
     assert [call.args for call in sleep_mock.call_args_list] == [(1.5,), (3.0,), (6.0,), (12.0,)]
