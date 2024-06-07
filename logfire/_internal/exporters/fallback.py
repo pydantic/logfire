@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from typing import Sequence
 
+import requests
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+from ..utils import logger
 
 
 class FallbackSpanExporter(SpanExporter):
@@ -18,9 +21,13 @@ class FallbackSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             res = self.exporter.export(spans)
-        except Exception:
+        except Exception as e:
             self.fallback.export(spans)
-            raise
+            if isinstance(e, requests.exceptions.RequestException):
+                logger.warning('Error sending spans to Logfire: %s', e)
+                return SpanExportResult.FAILURE
+            else:
+                raise
         if res is not SpanExportResult.SUCCESS:  # pragma: no branch
             self.fallback.export(spans)
         return res
