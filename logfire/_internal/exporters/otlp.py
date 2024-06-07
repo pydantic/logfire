@@ -73,9 +73,6 @@ def raise_for_retryable_status(response: requests.Response):
         response.raise_for_status()
 
 
-DiskRetryerTask = tuple[Path, dict[str, Any]]
-
-
 class DiskRetryer:
     """Retries requests failed by OTLPExporterHttpSession, saving the request body to disk to save memory."""
 
@@ -97,7 +94,7 @@ class DiskRetryer:
         # Reading/writing `thread` and `tasks` should generally be protected by `lock`.
         self.lock = Lock()
         self.thread: Thread | None = None
-        self.tasks: deque[DiskRetryerTask] = deque()
+        self.tasks: deque[tuple[Path, dict[str, Any]]] = deque()
 
         # Make a new session rather than using the OTLPExporterHttpSession directly
         # because thread safety of Session is questionable.
