@@ -76,27 +76,15 @@ def test_fallback_on_exception() -> None:
     )
 
 
-def test_fallback_on_connection_error(caplog: pytest.LogCaptureFixture) -> None:
+def test_no_fallback_on_connection_error(caplog: pytest.LogCaptureFixture) -> None:
     test_exporter = TestExporter()
     exporter = FallbackSpanExporter(ConnectionErrorExporter(), test_exporter)
 
-    assert not caplog.messages
     assert not test_exporter.exported_spans_as_dict()
     exporter.export([TEST_SPAN])
-    assert caplog.messages == ['Error sending spans to Logfire: Test connection error']
+    assert not caplog.messages
 
-    assert test_exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'test',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 0,
-                'end_time': 1,
-                'attributes': {},
-            }
-        ]
-    )
+    assert test_exporter.exported_spans_as_dict() == []
 
 
 def test_fallback_on_failure() -> None:

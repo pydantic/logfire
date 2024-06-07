@@ -6,8 +6,6 @@ import requests
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
-from ..utils import logger
-
 
 class FallbackSpanExporter(SpanExporter):
     def __init__(
@@ -22,11 +20,13 @@ class FallbackSpanExporter(SpanExporter):
         try:
             res = self.exporter.export(spans)
         except Exception as e:
-            self.fallback.export(spans)
             if isinstance(e, requests.exceptions.RequestException):
-                logger.warning('Error sending spans to Logfire: %s', e)
+                # Silence the exception so that OTEL doesn't log a huge traceback.
+                # Rely on OTLPExporterHttpSession to log this kind of error periodically.
                 return SpanExportResult.FAILURE
             else:
+                # Only write to fallback file if this isn't already being retried by OTLPExporterHttpSession.
+                self.fallback.export(spans)
                 raise
         if res is not SpanExportResult.SUCCESS:  # pragma: no branch
             self.fallback.export(spans)

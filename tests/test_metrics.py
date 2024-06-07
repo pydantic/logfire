@@ -351,10 +351,9 @@ def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
             shutdown_called = True
 
     exporter = QuietMetricExporter(ConnectionErrorExporter())
-    assert not caplog.messages
     result = exporter.export(MetricsData([]))
     assert result == MetricExportResult.FAILURE
-    assert caplog.messages == ['Error sending metrics to Logfire: Test connection error']
+    assert not caplog.messages
 
     assert not force_flush_called
     assert not shutdown_called

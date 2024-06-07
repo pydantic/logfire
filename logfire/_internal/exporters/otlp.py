@@ -104,7 +104,7 @@ class DiskRetryer:
         # The directory where the export files are stored.
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
 
-        self.last_log_time = time.monotonic()
+        self.last_log_time = -float('inf')
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
