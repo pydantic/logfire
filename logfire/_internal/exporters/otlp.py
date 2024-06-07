@@ -121,7 +121,7 @@ class DiskRetryer:
                         path.unlink()
                         break
             except Exception:  # pragma: no cover
-                logger.exception('Error retrying export')
+                logger.warning('Error retrying export')
 
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):
