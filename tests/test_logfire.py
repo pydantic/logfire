@@ -748,7 +748,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                         'name': 'exception',
                         'timestamp': 2000000000,
                         'attributes': {
-                            'exception.type': 'ValidationError',
+                            'exception.type': 'pydantic_core._pydantic_core.ValidationError',
                             'exception.message': IsStr(
                                 regex='1 validation error for Model\na\n  '
                                 'Input should be a valid integer, unable to parse string as an integer .+',
@@ -819,7 +819,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                         'name': 'exception',
                         'timestamp': 2000000000,
                         'attributes': {
-                            'exception.type': 'ValidationError',
+                            'exception.type': 'pydantic_core._pydantic_core.ValidationError',
                             'exception.message': IsStr(
                                 regex='1 validation error for Model\na\n  '
                                 'Input should be a valid integer, unable to parse string as an integer .+',

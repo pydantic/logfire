@@ -115,7 +115,7 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET http send response.start',
                     'http.status_code': 404,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                     'logfire.level_num': 5,
                 },
             },
@@ -128,7 +128,7 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET http send response.body',
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                     'logfire.level_num': 5,
                 },
             },
@@ -293,7 +293,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /with_path_param/{param} http send response.start',
                     'logfire.level_num': 5,
                     'http.status_code': 200,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                 },
             },
             {
@@ -319,7 +319,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /with_path_param/{param} http send response.body',
                     'logfire.level_num': 5,
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                 },
             },
             {
@@ -510,7 +510,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg': 'GET / http send response.start',
                     'logfire.level_num': 5,
                     'http.status_code': 200,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                 },
             },
             {
@@ -536,7 +536,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / http send response.body',
                     'logfire.level_num': 5,
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                 },
             },
             {
@@ -638,7 +638,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /other http send response.start',
                     'http.status_code': 422,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                     'logfire.level_num': 5,
                 },
             },
@@ -651,7 +651,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /other http send response.body',
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                     'logfire.level_num': 5,
                 },
             },
@@ -820,7 +820,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'name': 'exception',
                         'timestamp': 5000000000,
                         'attributes': {
-                            'exception.type': 'RequestValidationError',
+                            'exception.type': 'fastapi.exceptions.RequestValidationError',
                             'exception.message': '[]',
                             'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
                             'exception.escaped': 'True',
@@ -839,7 +839,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.msg': 'GET /validation_error http send response.start',
                     'logfire.level_num': 5,
                     'http.status_code': 422,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                 },
             },
             {
@@ -852,7 +852,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error http send response.body',
                     'logfire.level_num': 5,
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                 },
             },
             {
@@ -946,7 +946,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /secret/{path_param} http send response.start',
                     'http.status_code': 200,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                     'logfire.level_num': 5,
                 },
             },
@@ -959,7 +959,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /secret/{path_param} http send response.body',
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                     'logfire.level_num': 5,
                 },
             },

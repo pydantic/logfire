@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import anthropic
-from anthropic.types import ContentBlockDeltaEvent, ContentBlockStartEvent, Message
-from anthropic.types.beta.tools import ToolsBetaMessage
+from anthropic.types import Message, RawContentBlockDeltaEvent, RawContentBlockStartEvent, TextBlock, TextDelta
 
 from .types import EndpointConfig
 
@@ -29,7 +28,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     if not isinstance(json_data, dict):
         raise ValueError('Expected `options.json_data` to be a dictionary')
 
-    if url == '/v1/messages' or url == '/v1/messages?beta=tools':
+    if url == '/v1/messages':
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data={'request_data': json_data},
@@ -40,19 +39,19 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
-    if isinstance(chunk, ContentBlockStartEvent):
-        return chunk.content_block.text
-    if isinstance(chunk, ContentBlockDeltaEvent):
-        return chunk.delta.text
+    if isinstance(chunk, RawContentBlockStartEvent):
+        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else ''
+    if isinstance(chunk, RawContentBlockDeltaEvent):
+        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else ''
     return None
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
-    if isinstance(response, (Message, ToolsBetaMessage)):  # pragma: no branch
+    if isinstance(response, Message):  # pragma: no branch
         block = response.content[0]
         message: dict[str, Any] = {'role': 'assistant'}
-        if block.type == 'text':
+        if isinstance(block, TextBlock):
             message['content'] = block.text
         else:
             message['tool_calls'] = [

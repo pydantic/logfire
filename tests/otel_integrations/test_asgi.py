@@ -63,7 +63,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / http send response.start',
                     'http.status_code': 200,
-                    'type': 'http.response.start',
+                    'asgi.event.type': 'http.response.start',
                     'logfire.level_num': 5,
                 },
             },
@@ -76,7 +76,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET / http send response.body',
-                    'type': 'http.response.body',
+                    'asgi.event.type': 'http.response.body',
                     'logfire.level_num': 5,
                 },
             },

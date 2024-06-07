@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.40.0"
+version = "0.41.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -79,7 +79,7 @@ logfire = "logfire.testing"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "anyio",
+    "anyio<4.4.0",
     "httpx",
     "aiohttp",
     "redis",
@@ -132,7 +132,9 @@ dev-dependencies = [
     "psycopg2-binary",
     "asyncpg",
     "cloudpickle>=3.0.0",
-    "anthropic",
+    "anthropic>=0.27.0",
+    # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
+    "typing-extensions<4.12",
 ]
 
 [tool.rye.scripts]
