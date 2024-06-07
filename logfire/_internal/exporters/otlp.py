@@ -36,10 +36,7 @@ class OTLPExporterHttpSession(Session):
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
         except requests.exceptions.RequestException:
-            try:
-                self.retryer.add_task(data, {'url': url, **kwargs})
-            except Exception:  # pragma: no cover
-                logger.exception('Export and retry failed')
+            self.retryer.add_task(data, {'url': url, **kwargs})
             raise
 
         return response
@@ -76,21 +73,25 @@ class DiskRetryer:
         self.last_warning_time = time.monotonic()
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
-        if len(self.tasks) >= self.MAX_TASKS:  # pragma: no cover
-            if self._should_warn():
-                logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
-            return
-        path = self.dir / uuid.uuid4().hex
-        path.write_bytes(data)
-        with self.lock:
-            self.tasks.append((path, kwargs))
-            if not self.thread:
-                self.thread = Thread(target=self._run, daemon=True)
-                self.thread.start()
-            num_tasks = len(self.tasks)
+        try:
+            if len(self.tasks) >= self.MAX_TASKS:  # pragma: no cover
+                if self._should_warn():
+                    logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
+                return
+            path = self.dir / uuid.uuid4().hex
+            path.write_bytes(data)
+            with self.lock:
+                self.tasks.append((path, kwargs))
+                if not self.thread:
+                    self.thread = Thread(target=self._run, daemon=True)
+                    self.thread.start()
+                num_tasks = len(self.tasks)
 
-        if self._should_warn():
-            logger.warning('Currently retrying %s failed export(s)', num_tasks)
+            if self._should_warn():
+                logger.warning('Currently retrying %s failed export(s)', num_tasks)
+        except Exception as e:  # pragma: no cover
+            if self._should_warn():
+                logger.error('Export and retry failed: %s', e)
 
     def _should_warn(self):
         result = time.monotonic() - self.last_warning_time >= self.WARN_INTERVAL
