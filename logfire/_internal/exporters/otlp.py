@@ -24,7 +24,10 @@ from .wrapper import WrapperSpanExporter
 
 
 class OTLPExporterHttpSession(Session):
-    """A requests.Session subclass that raises a BodyTooLargeError if the request body is too large."""
+    """A requests.Session subclass that raises a BodyTooLargeError if the request body is too large.
+
+    Also defers failed requests to a DiskRetryer.
+    """
 
     def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
