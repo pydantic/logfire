@@ -87,6 +87,9 @@ class DiskRetryer:
     LOG_INTERVAL = 60
 
     def __init__(self, headers: Mapping[str, str | bytes]):
+        # Reading/writing `thread` and `tasks` should generally be protected by `lock`.
+        self.lock = Lock()
+        self.thread: Thread | None = None
         self.tasks: deque[DiskRetryerTask] = deque()
 
         # Make a new session rather than using the OTLPExporterHttpSession directly
@@ -98,8 +101,6 @@ class DiskRetryer:
         # The directory where the export files are stored.
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
 
-        self.lock = Lock()
-        self.thread: Thread | None = None
         self.last_log_time = time.monotonic()
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
@@ -109,7 +110,7 @@ class DiskRetryer:
                     logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
                 return
 
-            # TODO consider keeping the first few tasks in memory to avoid disk I/O
+            # TODO consider keeping the first few tasks in memory to avoid disk I/O and possible errors.
             path = self.dir / uuid.uuid4().hex
             path.write_bytes(data)
 
@@ -117,6 +118,7 @@ class DiskRetryer:
                 self.tasks.append((path, kwargs))
                 if not (self.thread and self.thread.is_alive()):
                     # daemon=True to avoid hanging the program on exit, since this might never finish.
+                    # See caveat about this where add_task is called.
                     self.thread = Thread(target=self._run, daemon=True)
                     self.thread.start()
                 num_tasks = len(self.tasks)
@@ -142,21 +144,31 @@ class DiskRetryer:
                     self.thread = None
                     break
 
-                path, kwargs = self.tasks.popleft()
+                # Keep this outside the try block below so that if somehow this part fails
+                # the queue still gets smaller, and we don't get stuck in a hot infinite loop.
+                task = self.tasks.popleft()
 
             try:
+                path, kwargs = task
                 data = path.read_bytes()
                 while True:
+                    # Exponential backoff with jitter.
+                    # The jitter is proportional to the delay, in particular so that if we go down for a while
+                    # and then come back up then retry requests will be spread out over a time of MAX_DELAY.
                     time.sleep(delay * (1 + random.random()))
                     try:
                         response = self.session.post(**kwargs, data=data)
                         raise_for_retryable_status(response)
                     except requests.exceptions.RequestException:
+                        # Failed, increase delay exponentially up to MAX_DELAY.
                         delay = min(delay * 2, self.MAX_DELAY)
                     else:
+                        # Success, reset the delay (so that remaining tasks can be done quickly),
+                        # remove the file, and move on to the next task.
                         delay = 1
                         path.unlink()
                         break
+
             except Exception:  # pragma: no cover
                 if self._should_log():
                     logger.exception('Error retrying export')
