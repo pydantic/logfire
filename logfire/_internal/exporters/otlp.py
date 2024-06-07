@@ -65,6 +65,8 @@ class OTLPExporterHttpSession(Session):
 
 
 def raise_for_retryable_status(response: requests.Response):
+    # These are status codes that OTEL should retry.
+    # We want to do the retrying ourselves, so we raise an exception instead of returning.
     if response.status_code in (408, 429) or response.status_code >= 500:
         response.raise_for_status()
 
