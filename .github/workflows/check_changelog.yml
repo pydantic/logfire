@@ -35,8 +35,8 @@ jobs:
       - name: Verify version change and HISTORY.md update
         if: env.pyproject_changed == 'true'
         run: |
-          VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import tomlib, sys; print(tomlib.load(sys.stdin)['project']['version'])")
-          VERSION_AFTER=$(python -c "import tomlib; print(tomlib.load(open('pyproject.toml'))['project']['version'])")
+          VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import tomllib, sys; print(tomllib.load(sys.stdin)['project']['version'])")
+          VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml'))['project']['version'])")
           if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "false" ]; then
             echo "Version changed in pyproject.toml but no changes in HISTORY.md"
             exit 1
