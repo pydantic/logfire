@@ -57,6 +57,8 @@ class OTLPExporterHttpSession(Session):
 
     @cached_property
     def retryer(self) -> DiskRetryer:
+        # Only create this when needed to save resources,
+        # and because the full set of headers are only set some time after this session is created.
         return DiskRetryer(self.headers)
 
     def _check_body_size(self, size: int) -> None:
