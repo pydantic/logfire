@@ -75,7 +75,7 @@ class DiskRetryer:
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
             if len(self.tasks) >= self.MAX_TASKS:  # pragma: no cover
-                if self._should_warn():
+                if self._should_log():
                     logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
                 return
             path = self.dir / uuid.uuid4().hex
@@ -87,13 +87,13 @@ class DiskRetryer:
                     self.thread.start()
                 num_tasks = len(self.tasks)
 
-            if self._should_warn():
+            if self._should_log():
                 logger.warning('Currently retrying %s failed export(s)', num_tasks)
         except Exception as e:  # pragma: no cover
-            if self._should_warn():
+            if self._should_log():
                 logger.error('Export and retry failed: %s', e)
 
-    def _should_warn(self):
+    def _should_log(self):
         result = time.monotonic() - self.last_warning_time >= self.WARN_INTERVAL
         if result:
             self.last_warning_time = time.monotonic()
@@ -121,7 +121,8 @@ class DiskRetryer:
                         path.unlink()
                         break
             except Exception:  # pragma: no cover
-                logger.warning('Error retrying export')
+                if self._should_log():
+                    logger.exception('Error retrying export')
 
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):
