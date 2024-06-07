@@ -1,4 +1,4 @@
-from typing import Any, Iterable, cast
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -13,18 +13,8 @@ class SinkHTTPAdapter(HTTPAdapter):
     """An HTTPAdapter that consumes all data sent to it."""
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
-        total = 0
-        if request.body is not None:  # pragma: no branch
-            if isinstance(request.body, (str, bytes)):  # type: ignore
-                total = len(request.body)
-            else:
-                # assume a generator
-                body = request.body
-                for chunk in cast(Iterable[bytes], body):
-                    total += len(chunk)
         resp = Response()
         resp.status_code = 200
-        resp._content = f'{total}'.encode()
         return resp
 
 
