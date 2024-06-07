@@ -9,20 +9,20 @@ import pytest
 from anthropic._models import FinalRequestOptions
 from anthropic.types import (
     Completion,
-    ContentBlockDeltaEvent,
-    ContentBlockStartEvent,
-    ContentBlockStopEvent,
     Message,
-    MessageDeltaEvent,
     MessageDeltaUsage,
     MessageStartEvent,
     MessageStopEvent,
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawContentBlockStopEvent,
+    RawMessageDeltaEvent,
     TextBlock,
     TextDelta,
+    ToolUseBlock,
     Usage,
 )
-from anthropic.types.beta.tools import ToolsBetaMessage, ToolUseBlock
-from anthropic.types.message_delta_event import Delta
+from anthropic.types.raw_message_delta_event import Delta
 from dirty_equals import IsJson
 from dirty_equals._strings import IsStr
 from httpx._transports.mock import MockTransport
@@ -46,10 +46,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 mode='json'
             ),
         )
-    assert request.url in [
-        'https://api.anthropic.com/v1/messages',
-        'https://api.anthropic.com/v1/messages?beta=tools',
-    ], f'Unexpected URL: {request.url}'
+    assert request.url in ['https://api.anthropic.com/v1/messages'], f'Unexpected URL: {request.url}'
     json_body = json.loads(request.content)
     if json_body.get('stream'):
         if json_body['system'] == 'empty response chunk':
@@ -69,17 +66,17 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ),
                     type='message_start',
                 ),
-                ContentBlockStartEvent(
+                RawContentBlockStartEvent(
                     content_block=TextBlock(text='', type='text'), index=0, type='content_block_start'
                 ),
-                ContentBlockDeltaEvent(
+                RawContentBlockDeltaEvent(
                     delta=TextDelta(text='The answer', type='text_delta'), index=0, type='content_block_delta'
                 ),
-                ContentBlockDeltaEvent(
+                RawContentBlockDeltaEvent(
                     delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'
                 ),
-                ContentBlockStopEvent(index=0, type='content_block_stop'),
-                MessageDeltaEvent(
+                RawContentBlockStopEvent(index=0, type='content_block_stop'),
+                RawMessageDeltaEvent(
                     delta=Delta(stop_reason='end_turn', stop_sequence=None),
                     type='message_delta',
                     usage=MessageDeltaUsage(output_tokens=55),
@@ -92,7 +89,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     elif json_body['system'] == 'tool response':
         return httpx.Response(
             200,
-            json=ToolsBetaMessage(
+            json=Message(
                 id='test_id',
                 content=[ToolUseBlock(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
                 model='claude-3-haiku-20240307',
@@ -148,6 +145,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
         system='You are a helpful assistant.',
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
     )
+    assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -215,6 +213,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
         system='You are a helpful assistant.',
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
     )
+    assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -333,14 +332,19 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
 
 
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = instrumented_client.messages.stream(
+    response = instrumented_client.messages.create(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
         system='You are a helpful assistant.',
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
     )
     with response as stream:
-        combined = ''.join(chunk.delta.text for chunk in stream if isinstance(chunk, ContentBlockDeltaEvent))
+        combined = ''.join(
+            chunk.delta.text
+            for chunk in stream
+            if isinstance(chunk, RawContentBlockDeltaEvent) and isinstance(chunk.delta, TextDelta)
+        )
     assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -354,7 +358,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_sync_messages_stream',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -371,7 +375,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","system":"You are a helpful assistant.","stream":true}',
+                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
@@ -400,7 +404,11 @@ async def test_async_messages_stream(
         stream=True,
     )
     async with response as stream:
-        chunk_content = [chunk.delta.text async for chunk in stream if isinstance(chunk, ContentBlockDeltaEvent)]
+        chunk_content = [
+            chunk.delta.text
+            async for chunk in stream
+            if isinstance(chunk, RawContentBlockDeltaEvent) and isinstance(chunk.delta, TextDelta)
+        ]
         combined = ''.join(chunk_content)
     assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -451,13 +459,13 @@ async def test_async_messages_stream(
 
 
 def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestExporter):
-    response = instrumented_client.beta.tools.messages.create(
+    response = instrumented_client.messages.create(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
         system='tool response',
         messages=[],
     )
-    assert isinstance(response, ToolsBetaMessage)
+    assert isinstance(response.content[0], ToolUseBlock)
     content = response.content[0]
     assert isinstance(content, ToolUseBlock)
     assert content.input == {'param': 'param'}
