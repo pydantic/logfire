@@ -91,4 +91,4 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     ] + [(1.5,)] * 9
 
     assert len(caplog.messages) == 5
-    assert caplog.messages[0] == 'Currently retrying 1 export task(s)'
+    assert caplog.messages[0] == 'Currently retrying 1 failed export(s)'
