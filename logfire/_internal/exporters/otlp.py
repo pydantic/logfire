@@ -36,6 +36,17 @@ class OTLPExporterHttpSession(Session):
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
         except requests.exceptions.RequestException:
+            # Retry in another thread so that the BatchSpanProcessor can continue creating batches
+            # and not fill up its queue in memory.
+            # TODO consider first immediately retrying a little bit.
+            #   In particular this would help with very transient errors (as opposed to logfire being down)
+            #   that happen when the process is shutting down.
+            #   DiskRetryer uses a daemon thread so it will shut down when the main thread does,
+            #   meaning that kind of failed export would be lost.
+            #   BatchSpanProcessor on the other hand stays alive for a bit with a deadline.
+            #   If we do this we must measure and limit the amount of time spent requesting and retrying.
+            # TODO consider increasing the BatchSpanProcessor export delay here
+            #   to reduce the number of small inefficient requests.
             self.retryer.add_task(data, {'url': url, **kwargs})
             raise
 
@@ -59,18 +70,37 @@ DiskRetryerTask = tuple[Path, dict[str, Any]]
 
 
 class DiskRetryer:
+    """Retries requests failed by OTLPExporterHttpSession, saving the request body to disk to save memory."""
+
+    # The maximum delay between retries, in seconds
     MAX_DELAY = 128
-    MAX_TASKS = 100
-    WARN_INTERVAL = 60
+
+    # The maximum number of exports to retry. Each export is a file on disk.
+    # This amount should allow comfortably handling a few minutes of backend downtime
+    # while the BatchSpanProcessor produces a batch every half a second.
+    # If the number of failed exports exceeds this limit, new exports will be dropped.
+    # TODO ideally we should be measuring the total size of exports instead of the number of files,
+    #   and compare it to a limit based on disk space.
+    MAX_TASKS = 1000
+
+    # Log about problems at most once a minute.
+    LOG_INTERVAL = 60
 
     def __init__(self, headers: Mapping[str, str | bytes]):
         self.tasks: deque[DiskRetryerTask] = deque()
+
+        # Make a new session rather than using the OTLPExporterHttpSession directly
+        # because thread safety of Session is questionable.
+        # This assumes that the only important state is the headers.
         self.session = Session()
         self.session.headers.update(headers)
+
+        # The directory where the export files are stored.
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
+
         self.lock = Lock()
-        self.thread = None
-        self.last_warning_time = time.monotonic()
+        self.thread: Thread | None = None
+        self.last_log_time = time.monotonic()
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
@@ -78,11 +108,15 @@ class DiskRetryer:
                 if self._should_log():
                     logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
                 return
+
+            # TODO consider keeping the first few tasks in memory to avoid disk I/O
             path = self.dir / uuid.uuid4().hex
             path.write_bytes(data)
+
             with self.lock:
                 self.tasks.append((path, kwargs))
-                if not self.thread:
+                if not (self.thread and self.thread.is_alive()):
+                    # daemon=True to avoid hanging the program on exit, since this might never finish.
                     self.thread = Thread(target=self._run, daemon=True)
                     self.thread.start()
                 num_tasks = len(self.tasks)
@@ -94,9 +128,9 @@ class DiskRetryer:
                 logger.error('Export and retry failed: %s', e)
 
     def _should_log(self):
-        result = time.monotonic() - self.last_warning_time >= self.WARN_INTERVAL
+        result = time.monotonic() - self.last_log_time >= self.LOG_INTERVAL
         if result:
-            self.last_warning_time = time.monotonic()
+            self.last_log_time = time.monotonic()
         return result
 
     def _run(self):
@@ -104,9 +138,12 @@ class DiskRetryer:
         while True:
             with self.lock:
                 if not self.tasks:
+                    # All done, end the thread.
                     self.thread = None
                     break
+
                 path, kwargs = self.tasks.popleft()
+
             try:
                 data = path.read_bytes()
                 while True:
