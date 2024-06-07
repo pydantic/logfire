@@ -63,11 +63,13 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     session.mount('http://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
 
     # The retryer sessions fails at first to simulate logfire being down, then succeeds.
+    failure = Response()
+    failure.status_code = 500
     success = Response()
     success.status_code = 200
     session.retryer.session.mount(
         'http://',
-        ConnectionErrorAdapter(Mock(side_effect=[requests.exceptions.ConnectionError()] * 10 + [success] * 10)),
+        ConnectionErrorAdapter(Mock(side_effect=[failure] * 10 + [success] * 10)),
     )
 
     # Create a bunch of failed exports.
