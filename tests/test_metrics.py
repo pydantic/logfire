@@ -4,13 +4,16 @@ import json
 from typing import Any, cast
 
 import pytest
+import requests
 from dirty_equals._numeric import IsInt
 from inline_snapshot import snapshot
 from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
 
 import logfire
 import logfire._internal.metrics
+from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 
 
 def test_system_metrics_collection() -> None:
@@ -326,3 +329,35 @@ def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str
     [resource_metric] = exported_metrics['resource_metrics']
     [scope_metric] = resource_metric['scope_metrics']
     return scope_metric['metrics']
+
+
+def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
+    force_flush_called = False
+    shutdown_called = False
+
+    class ConnectionErrorExporter(MetricExporter):
+        def export(
+            self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any
+        ) -> MetricExportResult:
+            raise requests.exceptions.ConnectionError('Test connection error')
+
+        def force_flush(self, timeout_millis: float = 10_000) -> bool:
+            nonlocal force_flush_called
+            force_flush_called = True
+            return True
+
+        def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
+            nonlocal shutdown_called
+            shutdown_called = True
+
+    exporter = QuietMetricExporter(ConnectionErrorExporter())
+    result = exporter.export(MetricsData([]))
+    assert result == MetricExportResult.FAILURE
+    assert not caplog.messages
+
+    assert not force_flush_called
+    assert not shutdown_called
+    exporter.force_flush()
+    exporter.shutdown()
+    assert force_flush_called
+    assert shutdown_called
