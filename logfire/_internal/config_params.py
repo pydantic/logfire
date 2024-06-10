@@ -106,6 +106,8 @@ TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRA
 """Default sampling ratio for traces. Can be overridden by the `logfire.sample_rate` attribute of a span."""
 INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
+IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
+"""Whether to show a warning message if logire if used without calling logfire.configure()"""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -129,6 +131,7 @@ CONFIG_PARAMS = {
     'pydantic_plugin_include': PYDANTIC_PLUGIN_INCLUDE,
     'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
     'inspect_arguments': INSPECT_ARGUMENTS,
+    'ignore_no_config': IGNORE_NO_CONFIG,
 }
 
 
