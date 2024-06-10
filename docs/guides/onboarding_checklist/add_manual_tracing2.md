@@ -50,3 +50,25 @@ Note:
 A _trace_ is a tree of spans/logs sharing the same root. Whenever you create a new span/log when there's no active span, a new trace is created. If it's a span, any descendants of that span will be part of the same trace. To keep your logs organized nicely into traces, it's best to create spans at the top level representing high level operations such as handling web server requests.
 
 # Attributes
+
+Spans and logs can have structured data attached to them, e.g:
+
+```python
+logfire.info('Hello', name='world')
+```
+
+If you click on the 'Hello' log in the Live view, you should see this in the details panel on the right:
+
+![name attribute in Live view](../../images/guide/manual-tracing-attribute-hello-world.png)
+
+This data is stored in the `attributes` column in the `records` table as JSON. You can use e.g. `attributes->>'name' = 'world'` in the SQL filter at the top of the Live view to show only this log. This is used as the `WHERE` clause of a SQL query on the `records` table.
+
+Both spans and logs can have attributes containing arbitrary values which will be intelligently serialized to JSON as needed. You can pass any keyword arguments to set attributes as long as they don't start with an underscore (`_`). That namespace is reserved for other keyword arguments with logfire-specific meanings.
+
+Sometimes it's useful to attach an attribute to a span after it's been created. You can do this by calling the `span.set_attribute` method:
+
+```python
+with logfire.span('Calculating...') as span:
+    result = 1 + 2
+    span.set_attribute('result', result)
+```
