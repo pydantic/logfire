@@ -50,17 +50,38 @@ def test_nice_interrupt(capsys: pytest.CaptureFixture[str]) -> None:
         assert capsys.readouterr().err == 'User cancelled.\n'
 
 
+def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        main(['whoami'])
+
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
-    logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
-    assert capsys.readouterr().err.splitlines() == snapshot(
-        [
-            'Not logged in. Run `logfire auth` to log in.',
-            IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
-            '',
-            'Logfire project URL: https://dashboard.logfire.dev',
-        ]
-    )
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        # Also test LOGFIRE_TOKEN being set but the API being healthy, so it can't be checked
+        request_mocker.get('http://localhost/v1/info', status_code=500)
+
+        logfire_credentials.write_creds_file(tmp_dir_cwd)
+
+        with pytest.warns(UserWarning, match='unhealthy'):  # because of the 500 above
+            main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err.splitlines() == snapshot(
+            [
+                'Not logged in. Run `logfire auth` to log in.',
+                IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+                '',
+                'Logfire project URL: https://dashboard.logfire.dev',
+            ]
+        )
 
 
 def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
