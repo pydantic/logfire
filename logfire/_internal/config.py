@@ -359,7 +359,6 @@ class _LogfireConfigData:
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
         inspect_arguments: bool | None,
-        ignore_no_config: bool | None = None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -378,7 +377,7 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
-        self.ignore_no_config = param_manager.load_param('ignore_no_config', ignore_no_config)
+        self.ignore_no_config = param_manager.load_param('ignore_no_config')
         if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
             raise LogfireConfigError(
                 'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
@@ -746,7 +745,7 @@ class LogfireConfig(_LogfireConfigData):
             _frame, stacklevel = get_user_frame_and_stacklevel()
             warnings.warn(
                 f'{message} until `logfire.configure()` has been called. '
-                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 to suppress this warning.',
+                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=false in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
                 stacklevel=stacklevel,
             )
