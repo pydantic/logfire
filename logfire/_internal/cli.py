@@ -31,6 +31,7 @@ from ..version import VERSION
 from . import config as logfire_config
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from .config import LogfireCredentials
+from .config_params import ParamManager
 from .constants import LOGFIRE_BASE_URL
 from .tracer import SDKTracerProvider
 from .utils import read_toml_file
@@ -60,7 +61,17 @@ def version_callback() -> None:
 def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
-    current_user = LogfireCredentials.get_current_user(session=args._session, logfire_api_url=args.logfire_url)
+    param_manager = ParamManager.create(data_dir)
+    base_url = param_manager.load_param('base_url', args.logfire_url)
+    token = param_manager.load_param('token')
+
+    if token:
+        credentials = LogfireCredentials.from_token(token, args._session, base_url)
+        if credentials:
+            credentials.print_token_summary()
+            return
+
+    current_user = LogfireCredentials.get_current_user(session=args._session, logfire_api_url=base_url)
     if current_user is None:
         sys.stderr.write('Not logged in. Run `logfire auth` to log in.\n')
     else:
@@ -87,7 +98,7 @@ def parse_clean(args: argparse.Namespace) -> None:
 
     confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y] ')
     if confirm.lower() in ('yes', 'y'):
-        shutil.rmtree(data_dir)
+        shutil.rmtree(data_dir)  # type: ignore
         sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')
