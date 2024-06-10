@@ -68,6 +68,7 @@ from .exporters.fallback import FallbackSpanExporter
 from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import SpanProcessorWrapper
+from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
@@ -677,11 +678,17 @@ class LogfireConfig(_LogfireConfigData):
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
-                        OTLPMetricExporter(
-                            endpoint=self.metrics_endpoint,
-                            headers=headers,
+                        QuietMetricExporter(
+                            OTLPMetricExporter(
+                                endpoint=self.metrics_endpoint,
+                                headers=headers,
+                                session=session,
+                                # I'm pretty sure that this line here is redundant,
+                                # and that passing it to the QuietMetricExporter is what matters
+                                # because the PeriodicExportingMetricReader will read it from there.
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                            ),
                             preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                            session=session,
                         )
                     )
                 ]
