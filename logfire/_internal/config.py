@@ -211,7 +211,8 @@ def configure(
             If it returns `None`, the value is redacted.
             Otherwise, the returned value replaces the matched value.
             The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
-        inspect_arguments: Whether to enable f-string magic.
+        inspect_arguments: Whether to enable
+            [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
     """

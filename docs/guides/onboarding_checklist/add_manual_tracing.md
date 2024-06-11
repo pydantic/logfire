@@ -1,4 +1,4 @@
-# Spans, logs, and traces
+## Spans, logs, and traces
 
 Here's a simple example of using Logfire:
 
@@ -49,7 +49,7 @@ Note:
 
 A _trace_ is a tree of spans/logs sharing the same root. Whenever you create a new span/log when there's no active span, a new trace is created. If it's a span, any descendants of that span will be part of the same trace. To keep your logs organized nicely into traces, it's best to create spans at the top level representing high level operations such as handling web server requests.
 
-# Attributes
+## Attributes
 
 Spans and logs can have structured data attached to them, e.g:
 
@@ -73,7 +73,7 @@ with logfire.span('Calculating...') as span:
     span.set_attribute('result', result)
 ```
 
-# Messages and span names
+## Messages and span names
 
 If you run this code:
 
@@ -127,7 +127,7 @@ logfire.info('Hello {name}', name='world', _span_name='Hello')
 
 This will set the `span_name` to `'Hello'` and the `message` to `'Hello world'`. Note that the `_span_name` argument starts with an underscore to distinguish it from attributes.
 
-# f-strings
+## f-strings
 
 Instead of this:
 
@@ -151,7 +151,7 @@ Contrary to the previous section, this _will_ work well in Python 3.11+ because 
 - The first argument must be an actual f-string. `logfire.info(f'Hello {name}')` will work, but `message = f'Hello {name}'; logfire.info(message)` will not, nor will `logfire.info('Hello ' + name)`.
 - Inspecting arguments is cached so that the performance overhead of repeatedly inspecting the same f-string is minimal. However, there is a non-negligible overhead of parsing a large source file the first time arguments need to be inspected inside it. Either way, avoiding this overhead requires disabling inspecting arguments entirely, not merely avoiding f-strings.
 
-# Exceptions
+## Exceptions
 
 The `logfire.span` context manager will automatically record any exceptions that cause it to exit, e.g:
 
@@ -199,7 +199,7 @@ except ValueError:
 
 `logfire.exception(...)` is equivalent to `logfire.error(..., _exc_info=True)`. You can also use `_exc_info` with the other logging methods if you want to record a traceback in a log with a non-error level. You can set `_exc_info` to a specific exception object if it's not the one being handled. Don't forget the leading underscore!
 
-# Convenient function spans with `@logfire.instrument`
+## Convenient function spans with `@logfire.instrument`
 
 Often you want to wrap a whole function in a span. Instead of doing this:
 
@@ -238,7 +238,7 @@ my_function(3, 4)
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
     - The source code of the function MUST be accessible.
 
-# Log levels
+## Log levels
 
 The following methods exist for creating logs with different levels:
 
