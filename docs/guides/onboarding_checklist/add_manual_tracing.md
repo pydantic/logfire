@@ -23,7 +23,7 @@ Logfire project URL: https://logfire.pydantic.dev/my_username/my_project_name
 21:02:56.084   This is an info log
 ```
 
-Opening the project URL should show something like this in the live view:
+Opening the project URL should show something like this in the Live view:
 
 ![Simple example in Live view](../../images/guide/manual-tracing-basic-closed-span.png)
 
