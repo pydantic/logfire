@@ -143,7 +143,7 @@ logfire.info(f'Hello {name}')
 
 Contrary to the previous section, this _will_ work well in Python 3.11+ because Logfire will use special magic to both set the `span_name` to `'Hello {name}'` and set the `name` attribute to the value of the `name` variable, so it's equivalent to the previous snippet. Here's what you need to know about this:
 
-- The feature is enabled by default in Python 3.11+. You can disable it with `logfire.configure(inspect_arguments=False)`. You can also enable it in Python 3.9 and 3.10, but it's more likely to not work correctly.
+- The feature is enabled by default in Python 3.11+. You can disable it with [`logfire.configure(inspect_arguments=False)`][logfire.configure(inspect_arguments)]. You can also enable it in Python 3.9 and 3.10, but it's more likely to not work correctly.
 - Inspecting arguments is expected to always work under normal circumstances. The main caveat is that the source code must be available, so e.g. deploying only `.pyc` files will cause it to fail.
 - If inspecting arguments fails, you will get a warning, and the f-string argument will be treated as a normal string. This means you will get high-cardinality span names such as `'Hello Alice'` and no `name` attribute, but the information won't be completely lost.
 - If inspecting arguments is enabled, then arguments will be inspected regardless of whether f-strings are being used. So if you write `logfire.info('Hello {name}', name=name)` and inspecting arguments fails, then you will still get a warning and `'Hello {name}'` will be used as the message rather than formatting it.
@@ -178,7 +178,7 @@ with logfire.span('This is a span'):
         pass
 ```
 
-If you want to record a handled exception, use the `span.record_exception` method:
+If you want to record a handled exception, use the [`span.record_exception`][logfire.LogfireSpan.record_exception] method:
 
 ```python
 with logfire.span('This is a span') as span:
@@ -188,7 +188,7 @@ with logfire.span('This is a span') as span:
         span.record_exception(e)
 ```
 
-Alternatively, if you only want to log exceptions without creating a span for the normal case, you can use `logfire.exception`:
+Alternatively, if you only want to log exceptions without creating a span for the normal case, you can use [`logfire.exception`][logfire.Logfire.exception]:
 
 ```python
 try:
@@ -254,7 +254,7 @@ By default, `trace` and `debug` logs are hidden. You can change this by clicking
 
 ![Default levels dropdown](../../images/guide/manual-tracing-default-levels.png)
 
-You can also set the minimum level used for console logging with `logfire.configure`, e.g:
+You can also set the minimum level used for console logging with [`logfire.configure`][logfire.configure], e.g:
 
 ```python
 import logfire
@@ -264,7 +264,7 @@ logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
 
 To log a message with a variable level you can use `logfire.log`, e.g. `logfire.log('info', 'This is an info log')` is equivalent to `logfire.info('This is an info log')`.
 
-Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with `span.set_level`, e.g:
+Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with [`span.set_level`][logfire.LogfireSpan.set_level], e.g:
 
 ```python
 with logfire.span('Doing a thing') as span:
@@ -292,6 +292,6 @@ will be displayed like this:
 
 Here the spans themselves still have their level set to `info` as is the default, but they're colored red instead of blue because they contain an error log.
 
-If a span finishes with an unhandled exception, then in addition to recording a traceback as described above, the span's log level will be set to `error`. This will not happen when using the `span.record_exception` method.
+If a span finishes with an unhandled exception, then in addition to recording a traceback as described above, the span's log level will be set to `error`. This will not happen when using the [`span.record_exception`][logfire.LogfireSpan.record_exception] method.
 
 In the database, the log level is stored as a number in the `level` column. The values are based on OpenTelemetry, e.g. `info` is `9`. You can convert level names to numbers using the `level_num` SQL function, e.g. `level > level_num('info')` will find all 'unusual' records. You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in the Explore view. Note that the `level` column is indexed so that filtering on `level = level_num('error')` is efficient, but filtering on `level_name(level) = 'error'` is not.
