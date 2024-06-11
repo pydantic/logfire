@@ -198,3 +198,42 @@ except ValueError:
 ```
 
 `logfire.exception(...)` is equivalent to `logfire.error(..., _exc_info=True)`. You can also use `_exc_info` with the other logging methods if you want to record a traceback in a log with a non-error level. You can set `_exc_info` to a specific exception object if it's not the one being handled. Don't forget the leading underscore!
+
+# Convenient function spans with `@logfire.instrument`
+
+Often you want to wrap a whole function in a span. Instead of doing this:
+
+```python
+def my_function(x, y):
+    with logfire.span('my_function', x=x, y=y):
+        ...
+```
+
+you can use the [`@logfire.instrument`][logfire.Logfire.instrument] decorator:
+
+```python
+@logfire.instrument()
+def my_function(x, y):
+    ...
+```
+
+By default, this will add the function arguments to the span as attributes.
+To disable this (e.g. if the arguments are large objects not worth collecting), use `instrument(extract_args=False)`.
+
+The default span name will be something like `Calling module_name.my_function`.
+You can pass an alternative span name as the first argument to `instrument`, and it can even be a template
+into which arguments will be formatted, e.g:
+
+```python
+@logfire.instrument('Applying my_function to {x=} and {y=}')
+def my_function(x, y):
+    ...
+
+my_function(3, 4)
+# Logs: Applying my_function to x=3 and y=4
+```
+
+!!! note
+
+    - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
+    - The source code of the function MUST be accessible.
