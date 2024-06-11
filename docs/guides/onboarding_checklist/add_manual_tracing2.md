@@ -237,3 +237,38 @@ my_function(3, 4)
 
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
     - The source code of the function MUST be accessible.
+
+# Log levels
+
+The following methods exist for creating logs with different levels:
+
+- `logfire.trace`
+- `logfire.debug`
+- `logfire.info`
+- `logfire.notice`
+- `logfire.warn`
+- `logfire.error`
+- `logfire.fatal`
+
+By default, `trace` and `debug` logs are hidden. You can change this by clicking the 'Default levels' dropdown in the Live view:
+
+![Default levels dropdown](../../images/guide/manual-tracing-default-levels.png)
+
+You can also set the minimum level used for console logging with `logfire.configure`, e.g:
+
+```python
+import logfire
+
+logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
+```
+
+To log a message with a variable level you can use `logfire.log`, e.g. `logfire.log('info', 'This is an info log')` is equivalent to `logfire.info('This is an info log')`.
+
+Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with `span.set_level`, e.g:
+
+```python
+with logfire.span('Doing a thing') as span:
+    success = do_thing()
+    if not success:
+        span.set_level('error')
+```
