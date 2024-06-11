@@ -762,41 +762,7 @@ class LogfireConfig(_LogfireConfigData):
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        """Check that the token is valid.
-
-        Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
-
-        We continue unless we get a 401 and allow OTel to take of storing data locally for back-fill.
-
-        Raises:
-            LogfireConfigError: If the token is invalid.
-        """
-        try:
-            response = self.logfire_api_session.get(
-                urljoin(self.base_url, '/v1/info'),
-                timeout=10,
-                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
-            )
-        except requests.RequestException as e:
-            warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
-            return None
-
-        if response.status_code == 401:
-            raise LogfireConfigError('Invalid Logfire token.')
-        elif response.status_code != 200:
-            # any other status code is considered unhealthy
-            warnings.warn(
-                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
-            )
-            return None
-
-        data = response.json()
-        return LogfireCredentials(
-            token=token,
-            project_name=data['project_name'],
-            project_url=data['project_url'],
-            logfire_api_url=self.base_url,
-        )
+        return LogfireCredentials.from_token(token, self.logfire_api_session, self.base_url)
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
@@ -853,6 +819,44 @@ class LogfireCredentials:
                 return cls(**data)
             except TypeError as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
+
+    @classmethod
+    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+        """Check that the token is valid.
+
+        Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
+
+        We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        Raises:
+            LogfireConfigError: If the token is invalid.
+        """
+        try:
+            response = session.get(
+                urljoin(base_url, '/v1/info'),
+                timeout=10,
+                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
+            )
+        except requests.RequestException as e:
+            warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
+            return None
+
+        if response.status_code == 401:
+            raise LogfireConfigError('Invalid Logfire token.')
+        elif response.status_code != 200:
+            # any other status code is considered unhealthy
+            warnings.warn(
+                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
+            )
+            return None
+
+        data = response.json()
+        return cls(
+            token=token,
+            project_name=data['project_name'],
+            project_url=data['project_url'],
+            logfire_api_url=base_url,
+        )
 
     @classmethod
     def _get_user_token(cls, logfire_api_url: str) -> str:
