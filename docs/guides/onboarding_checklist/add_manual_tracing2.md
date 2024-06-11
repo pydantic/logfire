@@ -272,3 +272,26 @@ with logfire.span('Doing a thing') as span:
     if not success:
         span.set_level('error')
 ```
+
+In the Live view, **spans are colored based on the highest level of them and their descendants**. So e.g. this code:
+
+```python
+import logfire
+
+logfire.configure()
+
+with logfire.span('Outer span'):
+    with logfire.span('Inner span'):
+        logfire.info('This is an info message')
+        logfire.error('This is an error message')
+```
+
+will be displayed like this:
+
+![Spans colored by level](../../images/guide/manual-tracing-level-colors.png)
+
+Here the spans themselves still have their level set to `info` as is the default, but they're colored red instead of blue because they contain an error log.
+
+If a span finishes with an unhandled exception, then in addition to recording a traceback as described above, the span's log level will be set to `error`. This will not happen when using the `span.record_exception` method.
+
+In the database, the log level is stored as a number in the `level` column. The values are based on OpenTelemetry, e.g. `info` is `9`. You can convert level names to numbers using the `level_num` SQL function, e.g. `level > level_num('info')` will find all 'unusual' records. You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in the Explore view. Note that the `level` column is indexed so that filtering on `level = level_num('error')` is efficient, but filtering on `level_name(level) = 'error'` is not.
