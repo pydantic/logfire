@@ -150,3 +150,51 @@ Contrary to the previous section, this _will_ work well in Python 3.11+ because 
 - The values inside f-strings are evaluated and formatted by Logfire a second time. This means you should avoid code like `logfire.info(f'Hello {get_username()}')` if `get_username()` (or the string conversion of whatever it returns) is expensive or has side effects.
 - The first argument must be an actual f-string. `logfire.info(f'Hello {name}')` will work, but `message = f'Hello {name}'; logfire.info(message)` will not, nor will `logfire.info('Hello ' + name)`.
 - Inspecting arguments is cached so that the performance overhead of repeatedly inspecting the same f-string is minimal. However, there is a non-negligible overhead of parsing a large source file the first time arguments need to be inspected inside it. Either way, avoiding this overhead requires disabling inspecting arguments entirely, not merely avoiding f-strings.
+
+# Exceptions
+
+The `logfire.span` context manager will automatically record any exceptions that cause it to exit, e.g:
+
+```python
+import logfire
+
+logfire.configure()
+
+with logfire.span('This is a span'):
+    raise ValueError('This is an error')
+```
+
+If you click on the span in the Live view, the panel on the right will have an 'Exception Traceback' tab:
+
+![Traceback in UI](../../images/guide/manual-tracing-traceback.png)
+
+Exceptions which are caught and not re-raised will not be recorded, e.g:
+
+```python
+with logfire.span('This is a span'):
+    try:
+        raise ValueError('This is an acceptable error not worth recording')
+    except ValueError:
+        pass
+```
+
+If you want to record a handled exception, use the `span.record_exception` method:
+
+```python
+with logfire.span('This is a span') as span:
+    try:
+        raise ValueError('Catch this error, but record it')
+    except ValueError as e:
+        span.record_exception(e)
+```
+
+Alternatively, if you only want to log exceptions without creating a span for the normal case, you can use `logfire.exception`:
+
+```python
+try:
+    raise ValueError('This is an error')
+except ValueError:
+    logfire.exception('Something went wrong')
+```
+
+`logfire.exception(...)` is equivalent to `logfire.error(..., _exc_info=True)`. You can also use `_exc_info` with the other logging methods if you want to record a traceback in a log with a non-error level. You can set `_exc_info` to a specific exception object if it's not the one being handled. Don't forget the leading underscore!
