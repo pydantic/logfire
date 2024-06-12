@@ -8,7 +8,7 @@ from weakref import WeakKeyDictionary
 
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
-from fastapi.routing import APIRoute, APIWebSocketRoute
+from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
 from starlette.requests import Request
 from starlette.responses import Response
@@ -62,11 +62,14 @@ def instrument_fastapi(
     if app in registry:  # pragma: no cover
         raise ValueError('This app has already been instrumented.')
 
-    registry[app] = FastAPIInstrumentation(
-        logfire_instance,
-        request_attributes_mapper or _default_request_attributes_mapper,
-        excluded_urls,
-    )
+    mounted_apps = [route.app for route in app.routes if isinstance(route, Mount)] # fetches sub apps that are mounted to an app
+    mounted_apps.append(app)
+    for _app in mounted_apps:
+        registry[_app] = FastAPIInstrumentation(
+            logfire_instance,
+            request_attributes_mapper or _default_request_attributes_mapper,
+            excluded_urls,
+        )
 
     @contextmanager
     def uninstrument_context():
@@ -76,9 +79,10 @@ def instrument_fastapi(
         try:
             yield
         finally:
-            del registry[app]
-            if use_opentelemetry_instrumentation:  # pragma: no branch
-                FastAPIInstrumentor.uninstrument_app(app)
+            for _app in mounted_apps:
+                del registry[_app]
+                if use_opentelemetry_instrumentation:  # pragma: no branch
+                    FastAPIInstrumentor.uninstrument_app(_app)
 
     return uninstrument_context()
 
