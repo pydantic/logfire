@@ -32,9 +32,6 @@ jobs:
               fi
           done
 
-      - name: check env vars
-        run: env
-
       - name: Verify version change and HISTORY.md update
         if: env.pyproject_changed == 'true'
         run: |
