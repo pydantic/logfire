@@ -35,6 +35,8 @@ jobs:
       - name: Verify version change and HISTORY.md update
         if: env.pyproject_changed == 'true'
         run: |
+          echo $history_changed
+          echo $version_changed
           VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
           VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "false" ]; then
