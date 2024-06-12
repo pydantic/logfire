@@ -38,6 +38,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     from tests.auto_trace_samples import foo
 
+    # Check ignoring imported modules
+    install_auto_tracing('tests.auto_trace_samples', check_imported_modules='ignore')
+
     loader = foo.__loader__
     assert isinstance(loader, LogfireLoader)
     # The exact plain loader here isn't that essential.
@@ -163,41 +166,21 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     )
 
 
-def test_default_modules() -> None:
+def test_check_already_imported() -> None:
     # Check that nothing gets imported during this test,
     # because we don't want anything to get auto-traced here.
     imported_modules = set(sys.modules.items())
 
-    # Test the default module filter argument of install_auto_tracing.
-    # Since we're in `tests.test_auto_trace`, it should match anything in the `tests` package.
-    # Since this has obviously already been imported, it requires `check_imported_modules='ignore'`.
-    with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests' matches modules to trace"):
-        install_auto_tracing()
+    with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests.*' matches modules to trace"):
+        install_auto_tracing(['tests'])
 
-    with pytest.raises(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests' matches modules to trace"):
-        install_auto_tracing(check_imported_modules='warn')
+    with pytest.warns(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests.*' matches modules to trace"):
+        install_auto_tracing(['tests'], check_imported_modules='warn')
 
     with pytest.raises(ValueError):
-        install_auto_tracing(check_imported_modules='other')  # type: ignore
+        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
 
-    # This should match anything in the `tests` package, so remove the finder at the end of the test.
-    meta_path = sys.meta_path.copy()
-    install_auto_tracing(check_imported_modules='ignore')
-    assert sys.meta_path[1:] == meta_path
-    finder = sys.meta_path[0]
-
-    try:
-        assert isinstance(finder, LogfireFinder)
-        assert finder.modules_filter(AutoTraceModule('tests', '<filename>'))
-        assert finder.modules_filter(AutoTraceModule('tests.foo', '<filename>'))
-        assert finder.modules_filter(AutoTraceModule('tests.bar.baz', '<filename>'))
-        assert not finder.modules_filter(AutoTraceModule('test', '<filename>'))
-        assert not finder.modules_filter(AutoTraceModule('tests_foo', '<filename>'))
-        assert not finder.modules_filter(AutoTraceModule('foo.bar.baz', '<filename>'))
-    finally:
-        assert sys.meta_path.pop(0) == finder
-        assert sys.meta_path == meta_path
-        assert set(sys.modules.items()) == imported_modules
+    assert set(sys.modules.items()) == imported_modules
 
 
 # language=Python
@@ -512,3 +495,8 @@ def test_min_duration(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_wrong_type_modules():
+    with pytest.raises(TypeError, match='modules must be a list of strings or a callable'):
+        install_auto_tracing(123)  # type: ignore
