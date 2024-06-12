@@ -38,6 +38,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     from tests.auto_trace_samples import foo
 
+    # Check ignoring imported modules
+    install_auto_tracing('tests.auto_trace_samples', check_imported_modules='ignore')
+
     loader = foo.__loader__
     assert isinstance(loader, LogfireLoader)
     # The exact plain loader here isn't that essential.
