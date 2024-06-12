@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies and check for file changes
         run: |
           for file in pyproject.toml HISTORY.md; do
-              base_name=$(basename $file .${file##*.})
+              base_name=$(basename $file .${file##*.} | tr '[:upper:]' '[:lower:]')
               if git diff --name-only HEAD^ | grep -q "^$file$"; then
                 echo "${base_name}_changed=true" >> $GITHUB_ENV
               else
