@@ -114,7 +114,6 @@ dev-dependencies = [
     "opentelemetry-instrumentation-psycopg2",
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
-    "gitpython",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
