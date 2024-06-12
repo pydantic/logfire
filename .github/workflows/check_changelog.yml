@@ -50,5 +50,5 @@ jobs:
           fi
 
       - name: No changes detected
-        if: env.pyproject_changed == 'false' && env.HISTORY_changed == 'false'
+        if: env.pyproject_changed == 'false' && env.history_changed == 'false'
         run: echo "No changes detected in pyproject.toml or HISTORY.md. Everything is fine."
