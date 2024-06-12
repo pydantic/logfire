@@ -23,10 +23,10 @@ def install_auto_tracing(
 
     See `Logfire.install_auto_tracing` for more information.
     """
-    if isinstance(modules, Sequence):  # pragma: no branch
+    if isinstance(modules, Sequence):
         modules = modules_func_from_sequence(modules)
 
-    if not callable(modules):  # pragma: no cover
+    if not callable(modules):
         raise TypeError('modules must be a list of strings or a callable')
 
     if check_imported_modules not in ('error', 'warn', 'ignore'):

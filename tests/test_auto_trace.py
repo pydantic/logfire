@@ -495,3 +495,8 @@ def test_min_duration(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_wrong_type_modules():
+    with pytest.raises(TypeError, match='modules must be a list of strings or a callable'):
+        install_auto_tracing(123)  # type: ignore
