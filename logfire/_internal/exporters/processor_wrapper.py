@@ -16,9 +16,10 @@ from ..constants import (
 )
 from ..scrubbing import Scrubber
 from ..utils import ReadableSpanDict, is_instrumentation_suppressed, span_to_dict, truncate_string
+from .wrapper import WrapperSpanProcessor
 
 
-class SpanProcessorWrapper(SpanProcessor):
+class MainSpanProcessorWrapper(WrapperSpanProcessor):
     """Wrapper around other processors to intercept starting and ending spans with our own global logic.
 
     Suppresses starting/ending if the current context has a `suppress_instrumentation` value.
@@ -26,7 +27,7 @@ class SpanProcessorWrapper(SpanProcessor):
     """
 
     def __init__(self, processor: SpanProcessor, scrubber: Scrubber) -> None:
-        self.processor = processor
+        super().__init__(processor)
         self.scrubber = scrubber
 
     def on_start(
@@ -37,7 +38,7 @@ class SpanProcessorWrapper(SpanProcessor):
         if is_instrumentation_suppressed():
             return
         _set_log_level_on_asgi_send_receive_spans(span)
-        self.processor.on_start(span, parent_context)
+        super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         if is_instrumentation_suppressed():
@@ -47,13 +48,7 @@ class SpanProcessorWrapper(SpanProcessor):
         _tweak_http_spans(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
-        self.processor.on_end(span)
-
-    def shutdown(self) -> None:
-        self.processor.shutdown()
-
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.processor.force_flush(timeout_millis)  # pragma: no cover
+        super().on_end(span)
 
 
 def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:

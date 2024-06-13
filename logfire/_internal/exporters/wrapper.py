@@ -1,8 +1,9 @@
 from typing import Any, Dict, Optional, Sequence
 
+from opentelemetry import context
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 
@@ -42,3 +43,22 @@ class WrapperMetricExporter(MetricExporter):
 
     def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
         self.wrapped_exporter.shutdown(timeout_millis, **kwargs)  # type: ignore
+
+
+class WrapperSpanProcessor(SpanProcessor):
+    """A base class for SpanProcessors that wrap another processor."""
+
+    def __init__(self, processor: SpanProcessor) -> None:
+        self.processor = processor
+
+    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
+        self.processor.on_start(span, parent_context)
+
+    def on_end(self, span: ReadableSpan) -> None:
+        self.processor.on_end(span)
+
+    def shutdown(self) -> None:
+        self.processor.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return self.processor.force_flush(timeout_millis)  # pragma: no cover

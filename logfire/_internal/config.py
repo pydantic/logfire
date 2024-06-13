@@ -67,9 +67,10 @@ from .exporters.console import (
 from .exporters.fallback import FallbackSpanExporter
 from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import SpanProcessorWrapper
+from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
+from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
@@ -159,6 +160,7 @@ def configure(
     scrubbing_patterns: Sequence[str] | None = None,
     scrubbing_callback: ScrubCallback | None = None,
     inspect_arguments: bool | None = None,
+    tail_sampling: TailSamplingOptions | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -216,6 +218,7 @@ def configure(
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
+        tail_sampling: TODO
     """
     if processors is not None:  # pragma: no cover
         raise ValueError(
@@ -253,6 +256,7 @@ def configure(
         scrubbing_patterns=scrubbing_patterns,
         scrubbing_callback=scrubbing_callback,
         inspect_arguments=inspect_arguments,
+        tail_sampling=tail_sampling,
     )
 
 
@@ -360,6 +364,7 @@ class _LogfireConfigData:
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
         inspect_arguments: bool | None,
+        tail_sampling: TailSamplingOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -414,6 +419,12 @@ class _LogfireConfigData:
 
             if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
+
+        if isinstance(tail_sampling, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
+        self.tail_sampling = tail_sampling  # TODO param manager
+
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -457,6 +468,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing_patterns: Sequence[str] | None = None,
         scrubbing_callback: ScrubCallback | None = None,
         inspect_arguments: bool | None = None,
+        tail_sampling: TailSamplingOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -490,6 +502,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing_patterns=scrubbing_patterns,
             scrubbing_callback=scrubbing_callback,
             inspect_arguments=inspect_arguments,
+            tail_sampling=tail_sampling,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -527,6 +540,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
         inspect_arguments: bool | None,
+        tail_sampling: TailSamplingOptions | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -554,6 +568,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing_patterns,
                 scrubbing_callback,
                 inspect_arguments,
+                tail_sampling,
             )
             self.initialize()
 
@@ -607,7 +622,9 @@ class LogfireConfig(_LogfireConfigData):
                 # Most span processors added to the tracer provider should also be recorded in the `processors` list
                 # so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
-                span_processor = SpanProcessorWrapper(span_processor, self.scrubber)
+                if self.tail_sampling:
+                    span_processor = TailSamplingProcessor(span_processor, self.tail_sampling)
+                span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 
