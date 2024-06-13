@@ -89,7 +89,9 @@ class TailSamplingProcessor(WrapperSpanProcessor):
 
         attributes = span.attributes or {}
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if not isinstance(level, int) or level >= self.level:
+        if not isinstance(level, int):
+            level = LEVEL_NUMBERS['info']
+        if level >= self.level:
             self.drop_buffer(buffer)
             return True
 
