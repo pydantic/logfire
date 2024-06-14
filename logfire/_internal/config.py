@@ -429,7 +429,7 @@ class _LogfireConfigData:
         if isinstance(tail_sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
             tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
-        self.tail_sampling = tail_sampling  # TODO param manager
+        self.tail_sampling = tail_sampling
 
         self.fast_shutdown = fast_shutdown
 
