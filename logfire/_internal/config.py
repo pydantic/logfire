@@ -336,6 +336,12 @@ class _LogfireConfigData:
     scrubbing_callback: ScrubCallback | None
     """A function that is called for each match found by the scrubber."""
 
+    inspect_arguments: bool
+    """Whether to enable f-string magic"""
+
+    tail_sampling: TailSamplingOptions | None
+    """Tail sampling options"""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
