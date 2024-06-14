@@ -774,7 +774,7 @@ class Logfire:
 
     def install_auto_tracing(
         self,
-        modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None,
+        modules: Sequence[str] | Callable[[AutoTraceModule], bool],
         *,
         check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
         min_duration: float = 0,
@@ -797,9 +797,6 @@ class Logfire:
         Args:
             modules: List of module names to trace, or a function which returns True for modules that should be traced.
                 If a list is provided, any submodules within a given module will also be traced.
-
-                Defaults to the root of the calling module, so e.g. calling this inside the module `foo.bar`
-                will trace all functions in `foo`, `foo.bar`, `foo.spam`, etc.
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.

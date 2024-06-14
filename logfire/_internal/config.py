@@ -68,6 +68,7 @@ from .exporters.fallback import FallbackSpanExporter
 from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import SpanProcessorWrapper
+from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
@@ -211,7 +212,8 @@ def configure(
             If it returns `None`, the value is redacted.
             Otherwise, the returned value replaces the matched value.
             The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
-        inspect_arguments: Whether to enable f-string magic.
+        inspect_arguments: Whether to enable
+            [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
     """
@@ -376,6 +378,7 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
+        self.ignore_no_config = param_manager.load_param('ignore_no_config')
         if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
             raise LogfireConfigError(
                 'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
@@ -677,11 +680,17 @@ class LogfireConfig(_LogfireConfigData):
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
-                        OTLPMetricExporter(
-                            endpoint=self.metrics_endpoint,
-                            headers=headers,
+                        QuietMetricExporter(
+                            OTLPMetricExporter(
+                                endpoint=self.metrics_endpoint,
+                                headers=headers,
+                                session=session,
+                                # I'm pretty sure that this line here is redundant,
+                                # and that passing it to the QuietMetricExporter is what matters
+                                # because the PeriodicExportingMetricReader will read it from there.
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                            ),
                             preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                            session=session,
                         )
                     )
                 ]
@@ -733,12 +742,11 @@ class LogfireConfig(_LogfireConfigData):
         return self._meter_provider
 
     def warn_if_not_initialized(self, message: str):
-        env_var_name = 'LOGFIRE_IGNORE_NO_CONFIG'
-        if not self._initialized and not os.environ.get(env_var_name):
+        if not self._initialized and not self.ignore_no_config:
             _frame, stacklevel = get_user_frame_and_stacklevel()
             warnings.warn(
                 f'{message} until `logfire.configure()` has been called. '
-                f'Set the environment variable {env_var_name}=1 to suppress this warning.',
+                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=false in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
                 stacklevel=stacklevel,
             )
@@ -755,41 +763,7 @@ class LogfireConfig(_LogfireConfigData):
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        """Check that the token is valid.
-
-        Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
-
-        We continue unless we get a 401 and allow OTel to take of storing data locally for back-fill.
-
-        Raises:
-            LogfireConfigError: If the token is invalid.
-        """
-        try:
-            response = self.logfire_api_session.get(
-                urljoin(self.base_url, '/v1/info'),
-                timeout=10,
-                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
-            )
-        except requests.RequestException as e:
-            warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
-            return None
-
-        if response.status_code == 401:
-            raise LogfireConfigError('Invalid Logfire token.')
-        elif response.status_code != 200:
-            # any other status code is considered unhealthy
-            warnings.warn(
-                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
-            )
-            return None
-
-        data = response.json()
-        return LogfireCredentials(
-            token=token,
-            project_name=data['project_name'],
-            project_url=data['project_url'],
-            logfire_api_url=self.base_url,
-        )
+        return LogfireCredentials.from_token(token, self.logfire_api_session, self.base_url)
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
@@ -846,6 +820,44 @@ class LogfireCredentials:
                 return cls(**data)
             except TypeError as e:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
+
+    @classmethod
+    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+        """Check that the token is valid.
+
+        Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
+
+        We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        Raises:
+            LogfireConfigError: If the token is invalid.
+        """
+        try:
+            response = session.get(
+                urljoin(base_url, '/v1/info'),
+                timeout=10,
+                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
+            )
+        except requests.RequestException as e:
+            warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
+            return None
+
+        if response.status_code == 401:
+            raise LogfireConfigError('Invalid Logfire token.')
+        elif response.status_code != 200:
+            # any other status code is considered unhealthy
+            warnings.warn(
+                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
+            )
+            return None
+
+        data = response.json()
+        return cls(
+            token=token,
+            project_name=data['project_name'],
+            project_url=data['project_url'],
+            logfire_api_url=base_url,
+        )
 
     @classmethod
     def _get_user_token(cls, logfire_api_url: str) -> str:
@@ -1214,22 +1226,11 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-try:
-    import git
+def get_git_revision_hash() -> str:
+    """Get the current git commit hash."""
+    import subprocess
 
-    def get_git_revision_hash() -> str:
-        repo = git.Repo(search_parent_directories=True)
-        return repo.head.object.hexsha
-
-except ImportError:  # pragma: no cover
-    # gitpython is not installed
-    # fall back to using the git command line
-
-    def get_git_revision_hash() -> str:
-        """Get the current git commit hash."""
-        import subprocess
-
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
 
 
 def sanitize_project_name(name: str) -> str:

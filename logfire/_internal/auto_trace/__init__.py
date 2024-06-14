@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import sys
 import warnings
 from typing import TYPE_CHECKING, Callable, Literal, Sequence
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
 
 def install_auto_tracing(
     logfire: Logfire,
-    modules: Sequence[str] | Callable[[AutoTraceModule], bool] | None = None,
+    modules: Sequence[str] | Callable[[AutoTraceModule], bool],
     *,
     check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
     min_duration: float = 0,
@@ -24,16 +23,10 @@ def install_auto_tracing(
 
     See `Logfire.install_auto_tracing` for more information.
     """
-    if modules is None:
-        frame = inspect.stack()[2]
-        module = inspect.getmodule(frame[0])
-        if module is None:  # pragma: no cover
-            raise KeyError('module not found')
-        modules = modules_func_from_sequence([module.__name__.split('.')[0]])
-    elif isinstance(modules, Sequence):  # pragma: no branch
+    if isinstance(modules, Sequence):
         modules = modules_func_from_sequence(modules)
 
-    if not callable(modules):  # pragma: no cover
+    if not callable(modules):
         raise TypeError('modules must be a list of strings or a callable')
 
     if check_imported_modules not in ('error', 'warn', 'ignore'):

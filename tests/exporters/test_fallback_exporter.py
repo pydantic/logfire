@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import pytest
+import requests.exceptions
 from inline_snapshot import snapshot
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
@@ -20,6 +21,11 @@ from logfire.testing import TestExporter
 class ExceptionExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         raise Exception('Bad, bad exporter 😉')
+
+
+class ConnectionErrorExporter(SpanExporter):
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        raise requests.exceptions.ConnectionError('Test connection error')
 
 
 class FailureExporter(SpanExporter):
@@ -68,6 +74,17 @@ def test_fallback_on_exception() -> None:
             }
         ]
     )
+
+
+def test_no_fallback_on_connection_error(caplog: pytest.LogCaptureFixture) -> None:
+    test_exporter = TestExporter()
+    exporter = FallbackSpanExporter(ConnectionErrorExporter(), test_exporter)
+
+    assert not test_exporter.exported_spans_as_dict()
+    exporter.export([TEST_SPAN])
+    assert not caplog.messages
+
+    assert test_exporter.exported_spans_as_dict() == []
 
 
 def test_fallback_on_failure() -> None:

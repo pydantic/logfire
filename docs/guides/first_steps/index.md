@@ -2,23 +2,6 @@ This guide will walk you through getting started with **Logfire**.
 You'll learn how to install Logfire, authenticate your local environment,
 and use traces and spans to instrument your code for observability.
 
-## OpenTelemetry Concepts
-
-Before diving in, let's briefly cover two fundamental OpenTelemetry concepts:
-
-- **Traces:** A trace represents the entire journey of a request or operation as it moves through a
-  (possibly distributed) system. It's composed of one or more spans.
-- **Spans:** A span represents a unit of work within a trace, and are a way to track the execution of your code.
-  Unlike traditional logs, which contain a message at a single moment in time, spans can be nested to form a tree-like
-  structure, with a root span representing the overall operation, and child spans representing sub-operations.
-  Spans are used to measure timing and record metadata about the work being performed.
-
-In Logfire, we'll frequently visualize traces as a tree of its spans:
-
-![Example trace screenshot](../../images/logfire-screenshot-first-steps-example-trace.png)
-
-Using traces and spans, you can gain valuable insights into your system's behavior and performance.
-
 ## Installation {#install}
 
 To install the latest version of **Logfire**, run:

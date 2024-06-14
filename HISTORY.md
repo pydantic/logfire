@@ -1,5 +1,28 @@
 # HISTORY
 
+## v0.42.0 (2024-06-11)
+
+## What's Changed
+
+* Improved handling of request errors when exporting by @alexmojaki in https://github.com/pydantic/logfire/pull/252
+* `ignore_no_config` setting added to `pyproject.toml` by @deepakdinesh1123 in https://github.com/pydantic/logfire/pull/254
+* Make `logfire whoami` respect the `LOGFIRE_TOKEN` env var by @alexmojaki in https://github.com/pydantic/logfire/pull/256
+
+## New Contributors
+* @sydney-runkle made their first contribution in https://github.com/pydantic/logfire/pull/245
+
+**Full Changelog**: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
+
+## v0.41.0 (2024-06-06)
+
+## What's Changed
+
+* Fix backfill command by @alexmojaki in https://github.com/pydantic/logfire/pull/243
+* Update Anthropic to use tools that are no longer in beta by @willbakst in https://github.com/pydantic/logfire/pull/249
+  * NOTE: Anthropic instrumentation now requires `anthropic>=0.27.0`
+
+**Full Changelog**: https://github.com/pydantic/logfire/compare/v0.40.0...v0.41.0
+
 ## v0.40.0 (2024-06-04)
 
 ## What's Changed

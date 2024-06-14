@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.41.0"
+version = "0.42.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -117,7 +117,6 @@ dev-dependencies = [
     "opentelemetry-instrumentation-psycopg2",
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
-    "gitpython",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
