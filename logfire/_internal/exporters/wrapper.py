@@ -1,4 +1,6 @@
-from typing import Any, Dict, Optional, Sequence
+from __future__ import annotations
+
+from typing import Any, Sequence
 
 from opentelemetry import context
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
@@ -29,8 +31,8 @@ class WrapperMetricExporter(MetricExporter):
     def __init__(
         self,
         exporter: MetricExporter,
-        preferred_temporality: Optional[Dict[type, AggregationTemporality]] = None,
-        preferred_aggregation: Optional[Dict[type, Aggregation]] = None,
+        preferred_temporality: dict[type, AggregationTemporality] | None = None,
+        preferred_aggregation: dict[type, Aggregation] | None = None,
     ) -> None:
         super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # type: ignore
         self.wrapped_exporter = exporter
