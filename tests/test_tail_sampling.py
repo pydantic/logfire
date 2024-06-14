@@ -186,3 +186,100 @@ def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
             },
         ]
     )
+
+
+def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+    logfire.configure(**config_kwargs, tail_sampling=logfire.TailSamplingOptions(level=None, duration=3))
+
+    logfire.info('short1')
+    with logfire.span('span'):
+        logfire.info('short2')
+    with logfire.span('span2'):
+        with logfire.span('span3'):
+            pass
+    with logfire.span('span4'):
+        with logfire.span('span5'):
+            logfire.info('long1')
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'span4 (pending)',
+                'context': {'trace_id': 4, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_sampling',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span4',
+                    'logfire.msg': 'span4',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'span5 (pending)',
+                'context': {'trace_id': 4, 'span_id': 12, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 11, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_sampling',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span5',
+                    'logfire.msg': 'span5',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000009',
+                },
+            },
+            {
+                'name': 'long1',
+                'context': {'trace_id': 4, 'span_id': 13, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 11, 'is_remote': False},
+                'start_time': 11000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'long1',
+                    'logfire.msg': 'long1',
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_sampling',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'span5',
+                'context': {'trace_id': 4, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 12000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_sampling',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span5',
+                    'logfire.msg': 'span5',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'span4',
+                'context': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 13000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_sampling',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span4',
+                    'logfire.msg': 'span4',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
