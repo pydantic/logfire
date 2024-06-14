@@ -48,7 +48,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         buffer = None
 
         with self.lock:
-            if span.context:
+            if span.context:  # pragma: no branch
                 trace_id = span.context.trace_id
                 if span.parent is None:
                     self.traces[trace_id] = TraceBuffer([], [])
@@ -68,7 +68,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         buffer = None
 
         with self.lock:
-            if span.context:
+            if span.context:  # pragma: no branch
                 trace_id = span.context.trace_id
                 buffer = self.traces.get(trace_id)
                 if buffer is not None:
