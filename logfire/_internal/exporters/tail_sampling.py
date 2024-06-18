@@ -18,13 +18,23 @@ from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
 @dataclass
 class TailSamplingOptions:
-    # TODO document
     level: LevelName | None = 'notice'
+    """
+    Include all spans/logs with level greater than or equal to this level.
+    If None, spans are not included based on level.
+    """
+
     duration: float | None = 1.0
+    """
+    Include all spans/logs with duration greater than this level.
+    If None, spans are not included based on duration.
+    """
 
 
 @dataclass
 class TraceBuffer:
+    """Arguments of `on_start` and `on_end` for spans in a single trace."""
+
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
 
