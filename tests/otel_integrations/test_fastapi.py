@@ -756,6 +756,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'net.peer.ip': 'testclient',
                     'net.peer.port': 50000,
                     'http.route': '/exception',
+                    'logfire.level_num': 17,
                 },
                 'events': [
                     {
