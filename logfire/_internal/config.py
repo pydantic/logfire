@@ -1226,22 +1226,11 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-try:
-    import git
+def get_git_revision_hash() -> str:
+    """Get the current git commit hash."""
+    import subprocess
 
-    def get_git_revision_hash() -> str:
-        repo = git.Repo(search_parent_directories=True)
-        return repo.head.object.hexsha
-
-except ImportError:  # pragma: no cover
-    # gitpython is not installed
-    # fall back to using the git command line
-
-    def get_git_revision_hash() -> str:
-        """Get the current git commit hash."""
-        import subprocess
-
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
 
 
 def sanitize_project_name(name: str) -> str:

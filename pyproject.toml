@@ -114,7 +114,6 @@ dev-dependencies = [
     "opentelemetry-instrumentation-psycopg2",
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
-    "gitpython",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
@@ -150,7 +149,7 @@ allow-direct-references = true
 packages = ["logfire"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/README.md", "HISTORY.md", "/Makefile", "/logfire", "/tests"]
+include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
