@@ -15,6 +15,7 @@ import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
+import logfire._internal.cli
 from logfire import VERSION
 from logfire._internal.cli import OTEL_PACKAGES, main
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
@@ -157,9 +158,21 @@ def test_clean(
     output: str,
 ) -> None:
     monkeypatch.setattr(sys, 'stdin', io.StringIO(confirm))
+
+    log_file = tmp_dir_cwd / 'logfire.log'
+    log_file.touch()
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)} --logs'))
-    assert capsys.readouterr().err == output
+    out, err = capsys.readouterr()
+    assert err == output
+    assert out.splitlines() == [
+        'The following files will be deleted:',
+        str(log_file),
+        str(tmp_dir_cwd / 'logfire_credentials.json'),
+        'Are you sure? [N/y]',
+    ]
 
 
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
