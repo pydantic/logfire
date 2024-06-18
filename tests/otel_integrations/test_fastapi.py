@@ -73,12 +73,16 @@ def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
     # which won't be stripped out of the logfire msg, complicating things in different python versions.
     app = FastAPI()
+    sub_app = FastAPI()
+    app.mount('/api', sub_app)
+
     app.get('/')(homepage)
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
+    sub_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     return app
 
 
@@ -676,6 +680,107 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'net.peer.ip': 'testclient',
                     'net.peer.port': 50000,
                     'http.route': '/other',
+                    'http.status_code': 422,
+                },
+            },
+        ]
+    )
+
+
+def test_subapp_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/api/other?foo=foo_val&bar=bar_val')
+    assert response.status_code == 422
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'custom_attr': 'custom_value',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'values': '{"foo":"foo_val"}',
+                    'errors': '[{"type":"int_parsing","loc":["query","bar"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"bar_val"}]',
+                    'http.method': 'GET',
+                    'http.route': '/other',
+                    'fastapi.route.name': 'other_route_name',
+                    'fastapi.route.operation_id': 'other_route_operation_id',
+                    'logfire.json_schema': IsJson(
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'values': {'type': 'object'},
+                                'errors': {
+                                    'type': 'array',
+                                    'items': {
+                                        'type': 'object',
+                                        'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                    },
+                                },
+                                'http.method': {},
+                                'http.route': {},
+                                'fastapi.route.name': {},
+                                'fastapi.route.operation_id': {},
+                                'custom_attr': {},
+                            },
+                        }
+                    ),
+                    'logfire.tags': ('fastapi',),
+                },
+            },
+            {
+                'name': 'GET /api http send response.start',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /api http send response.start',
+                    'http.status_code': 422,
+                    'asgi.event.type': 'http.response.start',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /api http send response.body',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /api http send response.body',
+                    'asgi.event.type': 'http.response.body',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /api',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': "GET /api/other ? bar='bar_val' & foo='foo_val'",
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/api/other',
+                    'http.url': 'http://testserver/api/other?foo=foo_val&bar=bar_val',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'http.route': '/api',
                     'http.status_code': 422,
                 },
             },
