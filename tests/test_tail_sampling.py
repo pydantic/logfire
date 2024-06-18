@@ -303,18 +303,18 @@ def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter, 
     logfire.configure(
         **config_kwargs,
         tail_sampling=logfire.TailSamplingOptions(),
-        trace_sample_rate=0.5,
+        trace_sample_rate=0.3,
     )
-    # Alternate between <0.5 and >0.5.
-    monkeypatch.setattr('random.random', Mock(side_effect=itertools.cycle([0.1, 0.9])))
+    # <0.3 a third of the time.
+    monkeypatch.setattr('random.random', Mock(side_effect=itertools.cycle([0.1, 0.6, 0.9])))
 
     # These spans should all be included because the level is above the default.
     for _ in range(10):
         logfire.error('error')
     assert len(exporter.exported_spans) == 10
 
-    # Half these spans (i.e. an extra 5) should be included because of the trace_sample_rate.
+    # A third of these spans (i.e. an extra 10) should be included because of the trace_sample_rate.
     # None of them meet the tail sampling criteria.
-    for _ in range(10):
+    for _ in range(30):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 15
+    assert len(exporter.exported_spans) == 20

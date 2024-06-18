@@ -613,6 +613,8 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
+            # Avoid using the usual sampler if we're using tail-based sampling.
+            # The TailSamplingProcessor will handle the random sampling part as well.
             sampler = (
                 ParentBasedTraceIdRatio(self.trace_sample_rate)
                 if self.trace_sample_rate < 1 and self.tail_sampling is None
@@ -637,6 +639,9 @@ class LogfireConfig(_LogfireConfigData):
                     span_processor = TailSamplingProcessor(
                         span_processor,
                         self.tail_sampling,
+                        # If self.trace_sample_rate < 1 then that ratio of spans should be included randomly by this.
+                        # In that case the tracer provider doesn't need to do any sampling, see above.
+                        # Otherwise we're not using any random sampling, so 0% of spans should be included 'randomly'.
                         self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
                     )
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
