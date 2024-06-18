@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'pyproject.toml'
-      - 'HISTORY.md'
+      - 'CHANGELOG.md'
 
 jobs:
   check-changelog:
@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies and check for file changes
         run: |
-          for file in pyproject.toml HISTORY.md; do
+          for file in pyproject.toml CHANGELOG.md; do
               base_name=$(basename $file .${file##*.} | tr '[:upper:]' '[:lower:]')
               if git diff --name-only HEAD^ | grep -q "^$file$"; then
                 echo "${base_name}_changed=true" >> $GITHUB_ENV
@@ -32,20 +32,20 @@ jobs:
               fi
           done
 
-      - name: Verify version change and HISTORY.md update
+      - name: Verify version change and CHANGELOG.md update
         if: env.pyproject_changed == 'true'
         run: |
           VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
           VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "false" ]; then
-            echo "Version changed in pyproject.toml but no changes in HISTORY.md"
+            echo "Version changed in pyproject.toml but no changes in CHANGELOG.md"
             exit 1
           elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "true" ]; then
-            echo "Version changed and HISTORY.md updated."
+            echo "Version changed and CHANGELOG.md updated."
           else
-            echo "Version did not change. Changes to HISTORY.md not required."
+            echo "Version did not change. Changes to CHANGELOG.md not required."
           fi
 
       - name: No changes detected
         if: env.pyproject_changed == 'false' && env.history_changed == 'false'
-        run: echo "No changes detected in pyproject.toml or HISTORY.md. Everything is fine."
+        run: echo "No changes detected in pyproject.toml or CHANGELOG.md. Everything is fine."
