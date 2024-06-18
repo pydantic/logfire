@@ -12,19 +12,23 @@ from logfire.testing import TestExporter
 
 
 def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+    # Use the default TailSamplingOptions.level of 'notice'.
+    # Set duration to None to not include spans with a long duration.
     logfire.configure(**config_kwargs, tail_sampling=logfire.TailSamplingOptions(duration=None))
 
     with logfire.span('ignored span'):
-        logfire.debug('debug')
+        logfire.debug('ignored debug')
     logfire.notice('notice')
     with logfire.span('ignored span'):
-        logfire.info('info')
+        logfire.info('ignored info')
     logfire.warn('warn')
 
+    # Include this whole tree because of the inner error
     with logfire.span('span'):
         with logfire.span('span2'):
             logfire.error('error')
 
+    # Include this whole tree because of the outer fatal
     with logfire.span('span3', _level='fatal'):
         logfire.trace('trace')
 
@@ -194,14 +198,19 @@ def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
 
 
 def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+    # Set level to None to not include spans merely based on a high level.
     logfire.configure(**config_kwargs, tail_sampling=logfire.TailSamplingOptions(level=None, duration=3))
 
-    logfire.info('short1')
+    logfire.error('short1')
     with logfire.span('span'):
-        logfire.info('short2')
+        logfire.error('short2')
+
+    # This has a total fake duration of 3s, which doesn't get included because we use >, not >=.
     with logfire.span('span2'):
-        with logfire.span('span3'):
+        with logfire.span('span3', _level='error'):
             pass
+
+    # This has a total fake duration of 4s, which does get included.
     with logfire.span('span4'):
         with logfire.span('span5'):
             logfire.info('long1')
@@ -296,14 +305,16 @@ def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter, 
         tail_sampling=logfire.TailSamplingOptions(),
         trace_sample_rate=0.5,
     )
+    # Alternate between <0.5 and >0.5.
     monkeypatch.setattr('random.random', Mock(side_effect=itertools.cycle([0.1, 0.9])))
 
+    # These spans should all be included because the level is above the default.
     for _ in range(10):
         logfire.error('error')
-
     assert len(exporter.exported_spans) == 10
 
+    # Half these spans (i.e. an extra 5) should be included because of the trace_sample_rate.
+    # None of them meet the tail sampling criteria.
     for _ in range(10):
         logfire.info('info')
-
     assert len(exporter.exported_spans) == 15
