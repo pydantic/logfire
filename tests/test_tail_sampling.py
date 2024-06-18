@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import itertools
 from typing import Any
+from unittest.mock import Mock
 
+import pytest
 from inline_snapshot import snapshot
 
 import logfire
@@ -285,3 +288,22 @@ def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter
             },
         ]
     )
+
+
+def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    logfire.configure(
+        **config_kwargs,
+        tail_sampling=logfire.TailSamplingOptions(),
+        trace_sample_rate=0.5,
+    )
+    monkeypatch.setattr('random.random', Mock(side_effect=itertools.cycle([0.1, 0.9])))
+
+    for _ in range(10):
+        logfire.error('error')
+
+    assert len(exporter.exported_spans) == 10
+
+    for _ in range(10):
+        logfire.info('info')
+
+    assert len(exporter.exported_spans) == 15

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
@@ -44,12 +45,13 @@ class TraceBuffer:
 
 
 class TailSamplingProcessor(WrapperSpanProcessor):
-    def __init__(self, processor: SpanProcessor, options: TailSamplingOptions) -> None:
+    def __init__(self, processor: SpanProcessor, options: TailSamplingOptions, random_rate: float) -> None:
         super().__init__(processor)
         self.duration: float = (
             float('inf') if options.duration is None else options.duration * ONE_SECOND_IN_NANOSECONDS
         )
         self.level: float | int = float('inf') if options.level is None else LEVEL_NUMBERS[options.level]
+        self.random_rate = random_rate
         self.traces: dict[int, TraceBuffer] = {}
         self.lock = Lock()
 
@@ -60,7 +62,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         with self.lock:
             if span.context:  # pragma: no branch
                 trace_id = span.context.trace_id
-                if span.parent is None:
+                if span.parent is None and random.random() > self.random_rate:
                     self.traces[trace_id] = TraceBuffer([], [])
 
                 buffer = self.traces.get(trace_id)

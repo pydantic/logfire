@@ -613,8 +613,13 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
+            sampler = (
+                ParentBasedTraceIdRatio(self.trace_sample_rate)
+                if self.trace_sample_rate < 1 and self.tail_sampling is None
+                else None
+            )
             tracer_provider = SDKTracerProvider(
-                sampler=ParentBasedTraceIdRatio(self.trace_sample_rate),
+                sampler=sampler,
                 resource=resource,
                 id_generator=self.id_generator,
             )
@@ -629,7 +634,11 @@ class LogfireConfig(_LogfireConfigData):
                 # so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
                 if self.tail_sampling:
-                    span_processor = TailSamplingProcessor(span_processor, self.tail_sampling)
+                    span_processor = TailSamplingProcessor(
+                        span_processor,
+                        self.tail_sampling,
+                        self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
+                    )
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
