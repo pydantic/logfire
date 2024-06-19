@@ -30,6 +30,17 @@ except ModuleNotFoundError:
     )
 
 
+def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
+    """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
+    mounted_apps = []
+    for route in app.routes:
+        if isinstance(route, Mount):
+            _app = route.app
+            mounted_apps.append(_app)
+            mounted_apps += find_mounted_apps(_app)
+    return mounted_apps
+
+
 def instrument_fastapi(
     logfire_instance: Logfire,
     app: FastAPI,
@@ -62,8 +73,9 @@ def instrument_fastapi(
     if app in registry:  # pragma: no cover
         raise ValueError('This app has already been instrumented.')
 
-    mounted_apps = [route.app for route in app.routes if isinstance(route, Mount)] # fetches sub apps that are mounted to an app
+    mounted_apps = find_mounted_apps(app)
     mounted_apps.append(app)
+
     for _app in mounted_apps:
         registry[_app] = FastAPIInstrumentation(
             logfire_instance,
