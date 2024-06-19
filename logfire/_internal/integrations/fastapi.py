@@ -32,10 +32,10 @@ except ModuleNotFoundError:
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
-    mounted_apps = []
+    mounted_apps: list[FastAPI] = []
     for route in app.routes:
         if isinstance(route, Mount):
-            _app = route.app
+            _app: Any = route.app
             mounted_apps.append(_app)
             mounted_apps += find_mounted_apps(_app)
     return mounted_apps
