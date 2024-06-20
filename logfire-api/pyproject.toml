@@ -1,17 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "logfire-api"
 version = "0.1.0"
 description = "Add your description here"
-authors = [
-    { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }
-]
+authors = [{ name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }]
 dependencies = []
 readme = "README.md"
 requires-python = ">= 3.8"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
@@ -21,4 +19,4 @@ dev-dependencies = []
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/logfire_api"]
+packages = ["logfire_api"]

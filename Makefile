@@ -29,6 +29,10 @@ lint:
 test:
 	rye run coverage run -m pytest
 
+.PHONY: generate-stubs # Generate stubs for logfire-api
+generate-stubs:
+	rye run generate-stubs
+
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov: test
 	@echo "building coverage html"
