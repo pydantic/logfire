@@ -786,7 +786,7 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                 'end_time': 10000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': "GET /other",
+                    'logfire.msg': 'GET /other',
                     'http.scheme': 'http',
                     'http.host': 'testserver',
                     'net.host.port': 80,
