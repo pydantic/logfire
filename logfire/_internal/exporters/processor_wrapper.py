@@ -174,7 +174,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
             new_name += PENDING_SPAN_NAME_SUFFIX
         span['name'] = new_name
 
-    if not messages:
+    if not messages:  # pragma: no cover
         return
 
     message = messages[-1]
