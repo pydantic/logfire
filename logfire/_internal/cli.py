@@ -9,7 +9,6 @@ import importlib.util
 import logging
 import os
 import platform
-import shutil
 import sys
 import warnings
 import webbrowser
@@ -88,17 +87,23 @@ def parse_whoami(args: argparse.Namespace) -> None:
 
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
+    files_to_delete: list[Path] = []
     if args.logs and LOGFIRE_LOG_FILE.exists():
-        LOGFIRE_LOG_FILE.unlink()
+        files_to_delete.append(LOGFIRE_LOG_FILE)
 
     data_dir = Path(args.data_dir)
     if not data_dir.exists() or not data_dir.is_dir():
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
-    confirm = input(f'The folder {data_dir.resolve()} will be deleted. Are you sure? [N/y] ')
+    files_to_delete.append(data_dir / '.gitignore')
+    files_to_delete.append(data_dir / 'logfire_credentials.json')
+
+    files_to_display = '\n'.join([str(file) for file in files_to_delete if file.exists()])
+    confirm = input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
     if confirm.lower() in ('yes', 'y'):
-        shutil.rmtree(data_dir)
+        for file in files_to_delete:
+            file.unlink(missing_ok=True)
         sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')
