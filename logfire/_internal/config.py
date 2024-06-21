@@ -10,7 +10,7 @@ import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from threading import RLock
+from threading import RLock, Thread
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -67,9 +67,10 @@ from .exporters.console import (
 from .exporters.fallback import FallbackSpanExporter
 from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import SpanProcessorWrapper
+from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
+from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import Scrubber, ScrubCallback
@@ -159,6 +160,7 @@ def configure(
     scrubbing_patterns: Sequence[str] | None = None,
     scrubbing_callback: ScrubCallback | None = None,
     inspect_arguments: bool | None = None,
+    tail_sampling: TailSamplingOptions | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -216,6 +218,7 @@ def configure(
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
+        tail_sampling: Tail sampling options. Not ready for general use.
     """
     if processors is not None:  # pragma: no cover
         raise ValueError(
@@ -253,6 +256,7 @@ def configure(
         scrubbing_patterns=scrubbing_patterns,
         scrubbing_callback=scrubbing_callback,
         inspect_arguments=inspect_arguments,
+        tail_sampling=tail_sampling,
     )
 
 
@@ -332,6 +336,12 @@ class _LogfireConfigData:
     scrubbing_callback: ScrubCallback | None
     """A function that is called for each match found by the scrubber."""
 
+    inspect_arguments: bool
+    """Whether to enable f-string magic"""
+
+    tail_sampling: TailSamplingOptions | None
+    """Tail sampling options"""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -360,6 +370,7 @@ class _LogfireConfigData:
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
         inspect_arguments: bool | None,
+        tail_sampling: TailSamplingOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -414,6 +425,12 @@ class _LogfireConfigData:
 
             if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
+
+        if isinstance(tail_sampling, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
+        self.tail_sampling = tail_sampling
+
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -457,6 +474,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing_patterns: Sequence[str] | None = None,
         scrubbing_callback: ScrubCallback | None = None,
         inspect_arguments: bool | None = None,
+        tail_sampling: TailSamplingOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -490,6 +508,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing_patterns=scrubbing_patterns,
             scrubbing_callback=scrubbing_callback,
             inspect_arguments=inspect_arguments,
+            tail_sampling=tail_sampling,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -527,6 +546,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing_patterns: Sequence[str] | None,
         scrubbing_callback: ScrubCallback | None,
         inspect_arguments: bool | None,
+        tail_sampling: TailSamplingOptions | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -554,6 +574,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing_patterns,
                 scrubbing_callback,
                 inspect_arguments,
+                tail_sampling,
             )
             self.initialize()
 
@@ -592,8 +613,15 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
+            # Avoid using the usual sampler if we're using tail-based sampling.
+            # The TailSamplingProcessor will handle the random sampling part as well.
+            sampler = (
+                ParentBasedTraceIdRatio(self.trace_sample_rate)
+                if self.trace_sample_rate < 1 and self.tail_sampling is None
+                else None
+            )
             tracer_provider = SDKTracerProvider(
-                sampler=ParentBasedTraceIdRatio(self.trace_sample_rate),
+                sampler=sampler,
                 resource=resource,
                 id_generator=self.id_generator,
             )
@@ -607,7 +635,16 @@ class LogfireConfig(_LogfireConfigData):
                 # Most span processors added to the tracer provider should also be recorded in the `processors` list
                 # so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
-                span_processor = SpanProcessorWrapper(span_processor, self.scrubber)
+                if self.tail_sampling:
+                    span_processor = TailSamplingProcessor(
+                        span_processor,
+                        self.tail_sampling,
+                        # If self.trace_sample_rate < 1 then that ratio of spans should be included randomly by this.
+                        # In that case the tracer provider doesn't need to do any sampling, see above.
+                        # Otherwise we're not using any random sampling, so 0% of spans should be included 'randomly'.
+                        self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
+                    )
+                span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 processors.append(span_processor)
 
@@ -637,7 +674,6 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers = list(self.additional_metric_readers or [])
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
-                credentials: LogfireCredentials | None = None
                 if self.token is None:
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
@@ -647,15 +683,19 @@ class LogfireConfig(_LogfireConfigData):
                         )
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
-                    self.project_name = credentials.project_name
                     self.base_url = self.base_url or credentials.logfire_api_url
+                    if self.show_summary:  # pragma: no branch
+                        credentials.print_token_summary()
                 else:
-                    credentials = self._initialize_credentials_from_token(self.token)
-                    if credentials is not None:
-                        self.project_name = credentials.project_name
 
-                if self.show_summary and credentials is not None:  # pragma: no cover
-                    credentials.print_token_summary()
+                    def check_token():
+                        assert self.token is not None
+                        creds = self._initialize_credentials_from_token(self.token)
+                        if self.show_summary and creds is not None:  # pragma: no branch
+                            creds.print_token_summary()
+
+                    thread = Thread(target=check_token, name='check_logfire_token')
+                    thread.start()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 self.logfire_api_session.headers.update(headers)
@@ -843,7 +883,8 @@ class LogfireCredentials:
             return None
 
         if response.status_code == 401:
-            raise LogfireConfigError('Invalid Logfire token.')
+            warnings.warn('Invalid Logfire token.')
+            return None
         elif response.status_code != 200:
             # any other status code is considered unhealthy
             warnings.warn(

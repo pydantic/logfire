@@ -73,12 +73,19 @@ def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
     # which won't be stripped out of the logfire msg, complicating things in different python versions.
     app = FastAPI()
+    first_lvl_app = FastAPI()
+    second_lvl_app = FastAPI()
+    app.mount('/first_lvl', first_lvl_app)
+    first_lvl_app.mount('/second_lvl', second_lvl_app)
+
     app.get('/')(homepage)
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
+    first_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
+    second_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     return app
 
 
@@ -663,7 +670,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                 'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /other',
+                    'logfire.msg': "GET /other ? bar='bar_val' & foo='foo_val'",
                     'http.scheme': 'http',
                     'http.host': 'testserver',
                     'net.host.port': 80,
@@ -677,6 +684,354 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'net.peer.port': 50000,
                     'http.route': '/other',
                     'http.status_code': 422,
+                },
+            },
+        ]
+    )
+
+
+def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/other?foo=foo_val&bar=1')
+    assert response.status_code == 200
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'custom_attr': 'custom_value',
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'values': '{"foo":"foo_val","bar":1}',
+                    'errors': '[]',
+                    'http.method': 'GET',
+                    'http.route': '/other',
+                    'fastapi.route.name': 'other_route_name',
+                    'fastapi.route.operation_id': 'other_route_operation_id',
+                    'logfire.json_schema': IsJson(
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'values': {'type': 'object'},
+                                'errors': {
+                                    'type': 'array',
+                                },
+                                'http.method': {},
+                                'http.route': {},
+                                'fastapi.route.name': {},
+                                'fastapi.route.operation_id': {},
+                                'custom_attr': {},
+                            },
+                        }
+                    ),
+                    'logfire.tags': ('fastapi',),
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'method': 'GET',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'other_route',
+                    'code.lineno': 123,
+                    'http.route': '/other',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'GET /other (other_route)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'GET /other http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /other http send response.start',
+                    'http.status_code': 200,
+                    'asgi.event.type': 'http.response.start',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /other http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /other http send response.body',
+                    'asgi.event.type': 'http.response.body',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /other',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': "GET /other ? bar='1' & foo='foo_val'",
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/other',
+                    'http.url': 'http://testserver/other?foo=foo_val&bar=1',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'http.route': '/other',
+                    'http.status_code': 200,
+                },
+            },
+        ]
+    )
+
+
+def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/first_lvl/other?foo=foo_val&bar=1')
+    assert response.status_code == 200
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'custom_attr': 'custom_value',
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'values': '{"foo":"foo_val","bar":1}',
+                    'errors': '[]',
+                    'http.method': 'GET',
+                    'http.route': '/other',
+                    'fastapi.route.name': 'other_route_name',
+                    'fastapi.route.operation_id': 'other_route_operation_id',
+                    'logfire.json_schema': IsJson(
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'values': {'type': 'object'},
+                                'errors': {
+                                    'type': 'array',
+                                },
+                                'http.method': {},
+                                'http.route': {},
+                                'fastapi.route.name': {},
+                                'fastapi.route.operation_id': {},
+                                'custom_attr': {},
+                            },
+                        }
+                    ),
+                    'logfire.tags': ('fastapi',),
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'method': 'GET',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'other_route',
+                    'code.lineno': 123,
+                    'http.route': '/other',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'GET /other (other_route)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'GET /first_lvl http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /first_lvl http send response.start',
+                    'http.status_code': 200,
+                    'asgi.event.type': 'http.response.start',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /first_lvl http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /first_lvl http send response.body',
+                    'asgi.event.type': 'http.response.body',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /first_lvl',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': "GET /first_lvl/other ? bar='1' & foo='foo_val'",
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/first_lvl/other',
+                    'http.url': 'http://testserver/first_lvl/other?foo=foo_val&bar=1',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'http.route': '/first_lvl',
+                    'http.status_code': 200,
+                },
+            },
+        ]
+    )
+
+
+def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/first_lvl/second_lvl/other?foo=foo_val&bar=1')
+    assert response.status_code == 200
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'custom_attr': 'custom_value',
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'values': '{"foo":"foo_val","bar":1}',
+                    'errors': '[]',
+                    'http.method': 'GET',
+                    'http.route': '/other',
+                    'fastapi.route.name': 'other_route_name',
+                    'fastapi.route.operation_id': 'other_route_operation_id',
+                    'logfire.json_schema': IsJson(
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'values': {'type': 'object'},
+                                'errors': {
+                                    'type': 'array',
+                                },
+                                'http.method': {},
+                                'http.route': {},
+                                'fastapi.route.name': {},
+                                'fastapi.route.operation_id': {},
+                                'custom_attr': {},
+                            },
+                        }
+                    ),
+                    'logfire.tags': ('fastapi',),
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'other_route',
+                    'code.lineno': 123,
+                    'method': 'GET',
+                    'http.route': '/other',
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'GET /other (other_route)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'GET /first_lvl http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /first_lvl http send response.start',
+                    'http.status_code': 200,
+                    'asgi.event.type': 'http.response.start',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /first_lvl http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /first_lvl http send response.body',
+                    'asgi.event.type': 'http.response.body',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'GET /first_lvl',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': "GET /first_lvl/second_lvl/other ? bar='1' & foo='foo_val'",
+                    'http.scheme': 'http',
+                    'http.host': 'testserver',
+                    'net.host.port': 80,
+                    'http.flavor': '1.1',
+                    'http.target': '/first_lvl/second_lvl/other',
+                    'http.url': 'http://testserver/first_lvl/second_lvl/other?foo=foo_val&bar=1',
+                    'http.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'http.route': '/first_lvl',
+                    'http.status_code': 200,
                 },
             },
         ]
@@ -906,7 +1261,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'values': '{"path_param": "[Redacted due to \'auth\']", "foo": "foo_val", "password": "[Redacted due to \'password\']", "testauthorization": "[Redacted due to \'auth\']"}',
+                    'values': '{"path_param": "[Scrubbed due to \'auth\']", "foo": "foo_val", "password": "[Scrubbed due to \'password\']", "testauthorization": "[Scrubbed due to \'auth\']"}',
                     'errors': '[]',
                     'custom_attr': 'custom_value',
                     'http.method': 'GET',
@@ -985,7 +1340,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'net.peer.ip': 'testclient',
                     'net.peer.port': 50000,
                     'http.route': '/secret/{path_param}',
-                    'http.request.header.testauthorization': ("[Redacted due to 'auth']",),
+                    'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                     'http.status_code': 200,
                 },
             },

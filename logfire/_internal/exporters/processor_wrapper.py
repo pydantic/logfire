@@ -19,9 +19,10 @@ from ..constants import (
 )
 from ..scrubbing import Scrubber
 from ..utils import ReadableSpanDict, is_instrumentation_suppressed, span_to_dict, truncate_string
+from .wrapper import WrapperSpanProcessor
 
 
-class SpanProcessorWrapper(SpanProcessor):
+class MainSpanProcessorWrapper(WrapperSpanProcessor):
     """Wrapper around other processors to intercept starting and ending spans with our own global logic.
 
     Suppresses starting/ending if the current context has a `suppress_instrumentation` value.
@@ -29,7 +30,7 @@ class SpanProcessorWrapper(SpanProcessor):
     """
 
     def __init__(self, processor: SpanProcessor, scrubber: Scrubber) -> None:
-        self.processor = processor
+        super().__init__(processor)
         self.scrubber = scrubber
 
     def on_start(
@@ -40,7 +41,7 @@ class SpanProcessorWrapper(SpanProcessor):
         if is_instrumentation_suppressed():
             return
         _set_log_level_on_asgi_send_receive_spans(span)
-        self.processor.on_start(span, parent_context)
+        super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         if is_instrumentation_suppressed():
@@ -51,13 +52,7 @@ class SpanProcessorWrapper(SpanProcessor):
         _set_error_level_and_status(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
-        self.processor.on_end(span)
-
-    def shutdown(self) -> None:
-        self.processor.shutdown()
-
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.processor.force_flush(timeout_millis)  # pragma: no cover
+        super().on_end(span)
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
@@ -193,30 +188,35 @@ def _tweak_http_spans(span: ReadableSpanDict):
             new_name += PENDING_SPAN_NAME_SUFFIX
         span['name'] = new_name
 
-    if messages and (message := messages[-1]) != name:
-        # Add query params to the message if:
-        # 1. The message currently ends with the target
-        # 2. We have a URL to parse query params from
-        # 3. Some query params exist
-        # 4. The target doesn't already end with the query string
-        #       (it's supposed to according to the spec, but the OTEL libraries don't include it)
-        if (
-            url and target and isinstance(url, str) and isinstance(target, str) and message.endswith(target)
-        ):  # pragma: no branch
-            query_string = urlparse(url).query
-            query_params = parse_qs(query_string)
-            if query_params and not target.endswith(query_string):
-                pairs = [(k, v) for k, vs in query_params.items() for v in vs]
-                # Put shorter query params first so that they'll be visible in the UI even if the whole message isn't.
-                pairs.sort(key=lambda pair: (len(pair[0]) + len(pair[1]), pair))
-                # Limit keys and values to 20 chars each.
-                truncated_pairs = [[truncate_string(s, max_length=20, middle='…') for s in pair] for pair in pairs]
-                # Show
-                #   /path?foo=1&bar=2%203
-                # as:
-                #   /path ? foo='1' & bar='2 3'
-                # to make things nice and readable.
-                # Note that we show decoded values, e.g. %20 -> ' '.
-                message += ' ? ' + ' & '.join(f'{k}={v!r}' for k, v in truncated_pairs)
+    if not messages:  # pragma: no cover
+        return
 
+    message = messages[-1]
+
+    # Add query params to the message if:
+    # 1. The message currently ends with the target
+    # 2. We have a URL to parse query params from
+    # 3. Some query params exist
+    # 4. The target doesn't already end with the query string
+    #       (it's supposed to according to the spec, but the OTEL libraries don't include it)
+    if (
+        url and target and isinstance(url, str) and isinstance(target, str) and message.endswith(target)
+    ):  # pragma: no branch
+        query_string = urlparse(url).query
+        query_params = parse_qs(query_string)
+        if query_params and not target.endswith(query_string):
+            pairs = [(k, v) for k, vs in query_params.items() for v in vs]
+            # Put shorter query params first so that they'll be visible in the UI even if the whole message isn't.
+            pairs.sort(key=lambda pair: (len(pair[0]) + len(pair[1]), pair))
+            # Limit keys and values to 20 chars each.
+            truncated_pairs = [[truncate_string(s, max_length=20, middle='…') for s in pair] for pair in pairs]
+            # Show
+            #   /path?foo=1&bar=2%203
+            # as:
+            #   /path ? foo='1' & bar='2 3'
+            # to make things nice and readable.
+            # Note that we show decoded values, e.g. %20 -> ' '.
+            message += ' ? ' + ' & '.join(f'{k}={v!r}' for k, v in truncated_pairs)
+
+    if message != name:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: message}

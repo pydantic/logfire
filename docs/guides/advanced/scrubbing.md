@@ -59,7 +59,7 @@ logfire.info('User details: {user}', user=User(id=123, password='secret'))
 ...may log something like:
 
 ```
-User details: [Redacted due to 'password']
+User details: [Scrubbed due to 'password']
 ```
 
 ...but this:

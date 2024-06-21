@@ -176,8 +176,8 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'net.peer.ip': 'testclient',
                     'net.peer.port': 50000,
                     'http.route': '/secret/{path_param}',
-                    'http.request.header.testauthorization': ("[Redacted due to 'auth']",),
                     'logfire.level_num': 17,
+                    'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                 },
                 'events': [
                     {
