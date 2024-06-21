@@ -200,6 +200,7 @@ def test_override_init_pyi() -> None:
                 new_end_lines.append(line)
         lines.remove('from _typeshed import Incomplete')
         lines[span_index - 1 :] = new_end_lines
+        lines.append('')
 
     new_init_pyi = '\n'.join(lines)
     if new_init_pyi == init_pyi:

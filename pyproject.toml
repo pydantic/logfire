@@ -200,7 +200,7 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme"]
+exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme", "logfire-api/**/*.py"]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]
