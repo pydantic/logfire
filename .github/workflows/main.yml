@@ -144,5 +144,14 @@ jobs:
       - run: rye config --set-bool behavior.use-uv=true
       - run: rye build
 
-      - name: Upload package to PyPI
+      - name: Publish logfire to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Build logfire-api
+        run: rye run hatch build
+        working-directory: logfire-api/
+
+      - name: Publish logfire-api to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: logfire-api/

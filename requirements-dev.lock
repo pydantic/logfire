@@ -45,10 +45,12 @@ charset-normalizer==3.3.2
 click==8.1.7
     # via black
     # via flask
+    # via hatch
     # via inline-snapshot
     # via mkdocs
     # via mkdocstrings
     # via typer
+    # via userpath
     # via uvicorn
 cloudpickle==3.0.0
 colorama==0.4.6
@@ -95,6 +97,9 @@ griffe==0.47.0
 h11==0.14.0
     # via httpcore
     # via uvicorn
+hatch==1.12.0
+hatchling==1.24.2
+    # via hatch
 httpcore==1.0.5
     # via httpx
 httptools==0.6.1
@@ -102,15 +107,19 @@ httptools==0.6.1
 httpx==0.27.0
     # via anthropic
     # via fastapi
+    # via hatch
     # via openai
 huggingface-hub==0.23.4
     # via tokenizers
+hyperlink==21.0.0
+    # via hatch
 identify==2.5.36
     # via pre-commit
 idna==3.7
     # via anyio
     # via email-validator
     # via httpx
+    # via hyperlink
     # via requests
     # via yarl
 importlib-metadata==7.1.0
@@ -121,6 +130,12 @@ iniconfig==2.0.0
 inline-snapshot==0.10.2
 itsdangerous==2.2.0
     # via flask
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==5.3.0
+    # via keyring
+jaraco-functools==4.0.1
+    # via keyring
 jinja2==3.1.4
     # via fastapi
     # via flask
@@ -129,6 +144,8 @@ jinja2==3.1.4
     # via mkdocstrings
 jiter==0.5.0
     # via anthropic
+keyring==25.2.1
+    # via hatch
 logfire-api @ file://logfire-api
 loguru==0.7.2
 markdown==3.6
@@ -282,6 +299,8 @@ orjson==3.10.5
     # via fastapi
 packaging==24.1
     # via black
+    # via hatch
+    # via hatchling
     # via huggingface-hub
     # via mkdocs
     # via opentelemetry-instrumentation-flask
@@ -292,13 +311,18 @@ paginate==0.5.6
 pandas==2.2.2
 pathspec==0.12.1
     # via black
+    # via hatchling
     # via mkdocs
+pexpect==4.9.0
+    # via hatch
 platformdirs==4.2.2
     # via black
+    # via hatch
     # via mkdocs-get-deps
     # via mkdocstrings
     # via virtualenv
 pluggy==1.5.0
+    # via hatchling
     # via pytest
 pre-commit==3.7.1
 protobuf==4.25.3
@@ -361,6 +385,7 @@ requests==2.32.3
     # via requests-mock
 requests-mock==1.12.1
 rich==13.7.1
+    # via hatch
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
@@ -369,6 +394,7 @@ ruff==0.5.0
 setuptools==70.1.1
     # via opentelemetry-instrumentation
 shellingham==1.5.4
+    # via hatch
     # via typer
 six==1.16.0
     # via asttokens
@@ -390,9 +416,15 @@ tokenizers==0.19.1
     # via anthropic
 toml==0.10.2
     # via inline-snapshot
+tomli-w==1.0.0
+    # via hatch
+tomlkit==0.12.5
+    # via hatch
 tqdm==4.66.4
     # via huggingface-hub
     # via openai
+trove-classifiers==2024.5.22
+    # via hatchling
 typer==0.12.3
     # via fastapi-cli
 types-toml==0.10.8.20240310
@@ -416,6 +448,10 @@ ujson==5.10.0
     # via fastapi
 urllib3==2.2.2
     # via requests
+userpath==1.9.2
+    # via hatch
+uv==0.2.13
+    # via hatch
 uvicorn==0.30.1
     # via fastapi
 uvloop==0.19.0
@@ -441,3 +477,5 @@ yarl==1.9.4
     # via aiohttp
 zipp==3.19.2
     # via importlib-metadata
+zstandard==0.22.0
+    # via hatch

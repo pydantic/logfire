@@ -135,6 +135,7 @@ dev-dependencies = [
     "sqlmodel",
     "logfire-api @ file://logfire-api",
     "mypy>=1.10.0",
+    "hatch>=1.12.0",
 ]
 
 [tool.rye.scripts]
