@@ -204,4 +204,4 @@ class Scrubber:
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
             return result
-        return f'[Redacted due to {match.pattern_match.group(0)!r}]'
+        return f'[Scrubbed due to {match.pattern_match.group(0)!r}]'
