@@ -201,7 +201,7 @@ def test_override_init_pyi() -> None:
         lines.remove('from _typeshed import Incomplete')
         lines[span_index - 1 :] = new_end_lines
 
-    new_init_pyi = '\n'.join(lines)
+    new_init_pyi = '\n'.join(lines) + '\n'
     if new_init_pyi == init_pyi:
         pytest.skip('No changes were made to the __init__.pyi file.')
     (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)
