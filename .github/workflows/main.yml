@@ -148,7 +148,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Build logfire-api
-        run: rye run hatch build
+        run: rye build
         working-directory: logfire-api/
 
       - name: Publish logfire-api to PyPI
