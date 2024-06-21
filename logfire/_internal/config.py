@@ -154,7 +154,6 @@ def configure(
     default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
-    logfire_api_session: requests.Session | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     fast_shutdown: bool = False,
     scrubbing_patterns: Sequence[str] | None = None,
@@ -203,7 +202,6 @@ def configure(
             which exports metrics to Logfire's API.
             Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
             is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
-        logfire_api_session: HTTP client session used to communicate with the Logfire API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
@@ -250,7 +248,6 @@ def configure(
         additional_span_processors=additional_span_processors,
         default_span_processor=default_span_processor,
         additional_metric_readers=additional_metric_readers,
-        logfire_api_session=logfire_api_session,
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
         scrubbing_patterns=scrubbing_patterns,
@@ -312,9 +309,6 @@ class _LogfireConfigData:
     id_generator: IdGenerator
     """The ID generator to use"""
 
-    logfire_api_session: requests.Session
-    """The session to use when checking the Logfire backend"""
-
     ns_timestamp_generator: Callable[[], int]
     """The nanosecond timestamp generator to use"""
 
@@ -364,7 +358,6 @@ class _LogfireConfigData:
         additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
-        logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
         scrubbing_patterns: Sequence[str] | None,
@@ -438,7 +431,6 @@ class _LogfireConfigData:
         self.additional_span_processors = additional_span_processors
         self.default_span_processor = default_span_processor or _get_default_span_processor
         self.additional_metric_readers = additional_metric_readers
-        self.logfire_api_session = logfire_api_session or requests.Session()
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -468,7 +460,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None = None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         additional_metric_readers: Sequence[MetricReader] | None = None,
-        logfire_api_session: requests.Session | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         fast_shutdown: bool = False,
         scrubbing_patterns: Sequence[str] | None = None,
@@ -502,7 +493,6 @@ class LogfireConfig(_LogfireConfigData):
             additional_span_processors=additional_span_processors,
             default_span_processor=default_span_processor,
             additional_metric_readers=additional_metric_readers,
-            logfire_api_session=logfire_api_session,
             pydantic_plugin=pydantic_plugin,
             fast_shutdown=fast_shutdown,
             scrubbing_patterns=scrubbing_patterns,
@@ -540,7 +530,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None,
         default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
-        logfire_api_session: requests.Session | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
         scrubbing_patterns: Sequence[str] | None,
@@ -568,7 +557,6 @@ class LogfireConfig(_LogfireConfigData):
                 additional_span_processors,
                 default_span_processor,
                 additional_metric_readers,
-                logfire_api_session,
                 pydantic_plugin,
                 fast_shutdown,
                 scrubbing_patterns,
@@ -679,7 +667,7 @@ class LogfireConfig(_LogfireConfigData):
                         credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.base_url,
                             project_name=self.project_name,
-                            session=self.logfire_api_session,
+                            session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
@@ -698,8 +686,6 @@ class LogfireConfig(_LogfireConfigData):
                     thread.start()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                self.logfire_api_session.headers.update(headers)
-
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
                 otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
@@ -803,7 +789,7 @@ class LogfireConfig(_LogfireConfigData):
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, self.logfire_api_session, self.base_url)
+        return LogfireCredentials.from_token(token, requests.Session(), self.base_url)
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
