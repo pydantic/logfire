@@ -84,7 +84,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('force_flush')
 
     assert hasattr(logfire_api, 'no_auto_trace')
-    logfire_api.no_auto_trace(lambda: None)
+    logfire_api.no_auto_trace(lambda: None)  # pragma: no branch
     logfire__all__.remove('no_auto_trace')
 
     assert hasattr(logfire_api, 'suppress_instrumentation')
@@ -113,7 +113,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('install_auto_tracing')
 
     assert hasattr(logfire_api, 'instrument')
-    logfire_api.instrument(lambda: None)
+    logfire_api.instrument(lambda: None)  # pragma: no branch
     logfire__all__.remove('instrument')
 
     for member in [m for m in ('instrument_flask', 'instrument_fastapi', 'instrument_starlette')]:
@@ -170,7 +170,7 @@ def test_match_version_on_pyproject() -> None:
     assert logfire_pyproject_content['project']['version'] == logfire_api_pyproject_content['project']['version']
 
 
-def test_override_init_pyi() -> None:
+def test_override_init_pyi() -> None:  # pragma: no cover
     """The logic here is:
 
     1. If `span: Incomplete` is present, it means we need to regenerate the `DEFAULT_LOGFIRE_INSTANCE` logic.
