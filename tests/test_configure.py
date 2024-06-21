@@ -1203,7 +1203,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
 
 def wait_for_check_token_thread():
     for thread in threading.enumerate():
-        if thread.name == 'check_logfire_token':
+        if thread.name == 'check_logfire_token':  # pragma: no cover
             thread.join()
 
 

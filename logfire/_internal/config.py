@@ -647,14 +647,14 @@ class LogfireConfig(_LogfireConfigData):
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
                     self.base_url = self.base_url or credentials.logfire_api_url
-                    if self.show_summary:
+                    if self.show_summary:  # pragma: no branch
                         credentials.print_token_summary()
                 else:
 
                     def check_token():
                         assert self.token is not None
                         creds = self._initialize_credentials_from_token(self.token)
-                        if self.show_summary and creds is not None:
+                        if self.show_summary and creds is not None:  # pragma: no branch
                             creds.print_token_summary()
 
                     thread = Thread(target=check_token, name='check_logfire_token')
