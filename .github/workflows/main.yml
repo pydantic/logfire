@@ -23,7 +23,7 @@ jobs:
       - run: rye config --set-bool behavior.use-uv=true
       - run: rye sync --no-lock
       - run: make lint
-      - run: rye run pyright
+      - run: rye run pyright logfire tests
 
   docs:
     runs-on: ubuntu-latest
