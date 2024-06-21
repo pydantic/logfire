@@ -142,6 +142,9 @@ except ImportError:
         class ConsoleOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class TailSamplingOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 
