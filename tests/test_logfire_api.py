@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Callable
 from unittest.mock import MagicMock
@@ -150,3 +151,58 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='We only need this test for a single Python version.')
+def test_match_version_on_pyproject() -> None:
+    import tomllib
+
+    logfire_pyproject = (Path(__file__).parent.parent / 'pyproject.toml').read_text()
+    logfire_api_pyproject = (Path(__file__).parent.parent / 'logfire-api' / 'pyproject.toml').read_text()
+
+    logfire_pyproject_content = tomllib.loads(logfire_pyproject)
+    logfire_api_pyproject_content = tomllib.loads(logfire_api_pyproject)
+
+    assert logfire_pyproject_content['project']['version'] == logfire_api_pyproject_content['project']['version']
+
+
+def test_override_init_pyi() -> None:
+    """The logic here is:
+
+    1. If `span: Incomplete` is present, it means we need to regenerate the `DEFAULT_LOGFIRE_INSTANCE` logic.
+    2. If the `span: Incomplete` is present, but we have `Incomplete` in the file, it means we need to update to a
+        `DEFAULT_LOGFIRE_INSTANCE` logic.
+    3. If none of the above is present, we skip the test.
+    """
+    incomplete = ': Incomplete'
+    len_incomplete = len(incomplete)
+
+    init_pyi = (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').read_text()
+    lines = init_pyi.splitlines()
+
+    try:
+        span_index = lines.index('span: Incomplete')
+    except ValueError:
+        for i, line in enumerate(lines.copy()):
+            if line.endswith(incomplete):
+                prefix = line[: len(line) - len_incomplete]
+                lines[i] = f'{prefix} = DEFAULT_LOGFIRE_INSTANCE.{prefix}'
+    else:
+        default_logfire_instance = 'DEFAULT_LOGFIRE_INSTANCE'
+
+        new_end_lines: list[str] = [f'{default_logfire_instance} = Logfire()']
+
+        for line in lines[span_index:]:
+            if line.endswith(incomplete):
+                prefix = line[: len(line) - len_incomplete]
+                new_end_lines.append(f'{prefix} = {default_logfire_instance}.{prefix}')
+            else:
+                new_end_lines.append(line)
+        lines.remove('from _typeshed import Incomplete')
+        lines[span_index - 1:] = new_end_lines
+
+    new_init_pyi = '\n'.join(lines)
+    if new_init_pyi == init_pyi:
+        pytest.skip('No changes were made to the __init__.pyi file.')
+    (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)
+    pytest.fail('The __init__.pyi file was updated.')

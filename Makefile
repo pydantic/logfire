@@ -29,7 +29,7 @@ lint:
 test:
 	rye run coverage run -m pytest
 
-.PHONY: generate-stubs # Generate stubs for logfire-api
+.PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
 	rye run generate-stubs
 
