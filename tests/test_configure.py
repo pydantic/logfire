@@ -785,7 +785,7 @@ def test_config_serializable():
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
         # These values get deepcopied by dataclasses.asdict, so we can't compare them directly
-        return {k: v for k, v in s.items() if k not in ['logfire_api_session', 'id_generator']}
+        return {k: v for k, v in s.items() if k not in ['id_generator']}
 
     assert normalize(serialized) == normalize(serialized2)
 
