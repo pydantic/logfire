@@ -16,6 +16,7 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.trace import StatusCode
 from pydantic import BaseModel
 from pydantic_core import ValidationError
 
@@ -395,8 +396,8 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 1000000000,
                 'attributes': {
-                    'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
                     'code.function': 'test_span_end_on_exit_false',
                     'name': 'foo',
                     'number': 3,
@@ -2561,3 +2562,11 @@ def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: Test
     assert caplog.records[0].message == 'Internal error in Logfire'
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
+
+
+def test_otel_status_code(exporter: TestExporter):
+    logfire.warn('warn')
+    logfire.error('error')
+
+    assert exporter.exported_spans[0].status.status_code == StatusCode.UNSET
+    assert exporter.exported_spans[1].status.status_code == StatusCode.ERROR

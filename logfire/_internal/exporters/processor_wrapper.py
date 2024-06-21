@@ -6,11 +6,14 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace import Status, StatusCode
 
 from ..constants import (
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
+    LEVEL_NUMBERS,
     PENDING_SPAN_NAME_SUFFIX,
     log_level_attributes,
 )
@@ -46,9 +49,25 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         span_dict = span_to_dict(span)
         _tweak_asgi_send_receive_spans(span_dict)
         _tweak_http_spans(span_dict)
+        _set_error_level_and_status(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
+
+
+def _set_error_level_and_status(span: ReadableSpanDict) -> None:
+    """Default the log level to error if the status code is error, and vice versa.
+
+    This makes querying for `level` and `otel_status_code` interchangeable ways to find errors.
+    """
+    status = span['status']
+    attributes = span['attributes']
+    if status.status_code == StatusCode.ERROR and ATTRIBUTES_LOG_LEVEL_NUM_KEY not in attributes:
+        span['attributes'] = {**attributes, **log_level_attributes('error')}
+    elif status.is_unset:
+        level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
+        if isinstance(level, int) and level >= LEVEL_NUMBERS['error']:
+            span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
 
 
 def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
