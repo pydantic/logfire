@@ -105,7 +105,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('ScrubMatch')
 
     assert hasattr(logfire_api, 'log_slow_async_callbacks')
-    logfire_api.log_slow_async_callbacks()
+    # NOTE: We don't call the log_slow_async_callbacks, to not give side effect to the test suite.
     logfire__all__.remove('log_slow_async_callbacks')
 
     assert hasattr(logfire_api, 'install_auto_tracing')
@@ -200,7 +200,6 @@ def test_override_init_pyi() -> None:
                 new_end_lines.append(line)
         lines.remove('from _typeshed import Incomplete')
         lines[span_index - 1 :] = new_end_lines
-        lines.append('')
 
     new_init_pyi = '\n'.join(lines)
     if new_init_pyi == init_pyi:
