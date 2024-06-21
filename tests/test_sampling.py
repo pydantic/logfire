@@ -164,7 +164,7 @@ def test_outer_and_inner_sampled() -> None:
         for _ in range(10):
             with sample(0.5):
                 with logfire.span('1'):
-                    with sample(0.5):
+                    with sample(0.125):
                         with logfire.span('2'):
                             with sample(0):
                                 with logfire.span('3'):
@@ -174,7 +174,7 @@ def test_outer_and_inner_sampled() -> None:
         [
             SpanNode(name='1', children=[]),
             SpanNode(name='1', children=[]),
-            SpanNode(name='1', children=[]),
+            SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
             SpanNode(name='1', children=[]),
             SpanNode(name='1', children=[]),
         ]
