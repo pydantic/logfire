@@ -50,13 +50,13 @@ def test_scrub_attribute(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_attribute',
                     'code.lineno': 123,
-                    'user_password': "[Redacted due to 'password']",
+                    'user_password': "[Scrubbed due to 'password']",
                     'mode': 'password',
-                    'modes': "[Redacted due to 'password']",
+                    'modes': "[Scrubbed due to 'password']",
                     'Author': 'Alice1',
                     'authors': 'Alice2',
-                    'authr': "[Redacted due to 'auth']",
-                    'authorization': "[Redacted due to 'auth']",
+                    'authr': "[Scrubbed due to 'auth']",
+                    'authorization': "[Scrubbed due to 'auth']",
                     'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
                 },
             }
@@ -81,11 +81,11 @@ def test_scrub_message(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'User: {user}',
-                    'logfire.msg': "User: [Redacted due to 'password']",
+                    'logfire.msg': "User: [Scrubbed due to 'password']",
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': '[{"name": "John", "password": "[Redacted due to \'password\']"}]',
+                    'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
                     'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
                 },
             }
@@ -142,7 +142,7 @@ def test_scrub_events(exporter: TestExporter):
                         'name': 'password',
                         'timestamp': 2000000000,
                         'attributes': {
-                            'password': "[Redacted due to 'password']",
+                            'password': "[Scrubbed due to 'password']",
                             'other': 'safe',
                         },
                     },
@@ -151,8 +151,8 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 3000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Redacted due to 'Password']",
-                            'exception.stacktrace': "[Redacted due to 'secret']",
+                            'exception.message': "[Scrubbed due to 'Password']",
+                            'exception.stacktrace': "[Scrubbed due to 'secret']",
                             'exception.escaped': 'False',
                         },
                     },
@@ -161,9 +161,9 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 4000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Redacted due to 'Password']",
+                            'exception.message': "[Scrubbed due to 'Password']",
                             'exception.stacktrace': (
-                                "tests.test_secret_scrubbing.PasswordError: [Redacted due to 'Password']"
+                                "tests.test_secret_scrubbing.PasswordError: [Scrubbed due to 'Password']"
                             ),
                             'exception.escaped': 'True',
                         },
@@ -219,7 +219,7 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
                         "pattern_match=<re.Match object; span=(3, 11), match='password'>"
                         ')'
                     ),
-                    'other': "[Redacted due to 'my_pattern']",
+                    'other': "[Scrubbed due to 'my_pattern']",
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
                 },
             }

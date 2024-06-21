@@ -4,6 +4,7 @@ import dataclasses
 import json
 import os
 import sys
+import threading
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, Sequence
@@ -533,10 +534,12 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         logfire.configure(
             send_to_logfire=True,
             data_dir=data_dir,
-            token='abc',
+            token='abc1',
             default_span_processor=default_span_processor,
             additional_metric_readers=[InMemoryMetricReader()],
+            collect_system_metrics=False,
         )
+        wait_for_check_token_thread()
 
     assert not data_dir.exists()
     path = data_dir / 'logfire_spans.bin'
@@ -561,16 +564,18 @@ def test_configure_service_version(tmp_path: str) -> None:
 
     with request_mocker:
         configure(
-            token='abc',
+            token='abc2',
             service_version='1.2.3',
             additional_metric_readers=[InMemoryMetricReader()],
+            collect_system_metrics=False,
         )
 
         assert GLOBAL_CONFIG.service_version == '1.2.3'
 
         configure(
-            token='abc',
+            token='abc3',
             additional_metric_readers=[InMemoryMetricReader()],
+            collect_system_metrics=False,
         )
 
         assert GLOBAL_CONFIG.service_version == git_sha
@@ -580,12 +585,15 @@ def test_configure_service_version(tmp_path: str) -> None:
         try:
             os.chdir(tmp_path)
             configure(
-                token='abc',
+                token='abc4',
                 additional_metric_readers=[InMemoryMetricReader()],
+                collect_system_metrics=False,
             )
             assert GLOBAL_CONFIG.service_version is None
         finally:
             os.chdir(dir)
+
+        wait_for_check_token_thread()
 
 
 def test_otel_service_name_env_var() -> None:
@@ -840,7 +848,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         }
         request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
 
-        logfire.configure(send_to_logfire=True)
+        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
 
         assert confirm_mock.mock_calls == [
             call('The project will be created in the organization "fake_org". Continue?', default=True),
@@ -875,7 +883,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             [create_project_response],
         )
 
-        logfire.configure(send_to_logfire=True)
+        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -932,7 +940,10 @@ def test_initialize_project_not_using_existing_project(
             [create_project_response],
         )
 
-        logfire.configure(send_to_logfire=True)
+        logfire.configure(
+            send_to_logfire=True,
+            collect_system_metrics=False,
+        )
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -972,7 +983,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         )
 
         with pytest.raises(SystemExit):
-            logfire.configure(data_dir=tmp_path, send_to_logfire=True)
+            logfire.configure(data_dir=tmp_path, send_to_logfire=True, collect_system_metrics=False)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -1049,7 +1060,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             ],
         )
 
-        logfire.configure(send_to_logfire=True)
+        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
 
         for request in request_mocker.request_history:
             assert request.headers['Authorization'] == 'fake_user_token'
@@ -1132,7 +1143,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             [create_project_response],
         )
 
-        logfire.configure(send_to_logfire=True)
+        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
 
         assert prompt_mock.mock_calls == [
             call(
@@ -1164,7 +1175,7 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
             )
         )
         with pytest.raises(RuntimeError, match='^expected$'):
-            configure(send_to_logfire=True, console=False, data_dir=data_dir)
+            configure(send_to_logfire=True, console=False, data_dir=data_dir, collect_system_metrics=False)
 
 
 def test_send_to_logfire_false() -> None:
@@ -1192,6 +1203,12 @@ def test_send_to_logfire_if_token_present_empty() -> None:
         del os.environ['LOGFIRE_TOKEN']
 
 
+def wait_for_check_token_thread():
+    for thread in threading.enumerate():
+        if thread.name == 'check_logfire_token':  # pragma: no cover
+            thread.join()
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
@@ -1201,6 +1218,7 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
                 json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
             )
             configure(send_to_logfire='if-token-present', console=False)
+            wait_for_check_token_thread()
             assert len(request_mocker.request_history) == 1
             assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
     finally:
@@ -1263,7 +1281,7 @@ def test_initialize_credentials_from_token_invalid_token():
         stack.enter_context(request_mocker)
         request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=401)
 
-        with pytest.raises(LogfireConfigError, match='Invalid Logfire token.'):
+        with pytest.warns(match='Invalid Logfire token.'):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 

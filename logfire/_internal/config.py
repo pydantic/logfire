@@ -10,7 +10,7 @@ import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from threading import RLock
+from threading import RLock, Thread
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -674,7 +674,6 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers = list(self.additional_metric_readers or [])
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
-                credentials: LogfireCredentials | None = None
                 if self.token is None:
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
@@ -684,15 +683,19 @@ class LogfireConfig(_LogfireConfigData):
                         )
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
-                    self.project_name = credentials.project_name
                     self.base_url = self.base_url or credentials.logfire_api_url
+                    if self.show_summary:  # pragma: no branch
+                        credentials.print_token_summary()
                 else:
-                    credentials = self._initialize_credentials_from_token(self.token)
-                    if credentials is not None:
-                        self.project_name = credentials.project_name
 
-                if self.show_summary and credentials is not None:  # pragma: no cover
-                    credentials.print_token_summary()
+                    def check_token():
+                        assert self.token is not None
+                        creds = self._initialize_credentials_from_token(self.token)
+                        if self.show_summary and creds is not None:  # pragma: no branch
+                            creds.print_token_summary()
+
+                    thread = Thread(target=check_token, name='check_logfire_token')
+                    thread.start()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 self.logfire_api_session.headers.update(headers)
@@ -880,7 +883,8 @@ class LogfireCredentials:
             return None
 
         if response.status_code == 401:
-            raise LogfireConfigError('Invalid Logfire token.')
+            warnings.warn('Invalid Logfire token.')
+            return None
         elif response.status_code != 200:
             # any other status code is considered unhealthy
             warnings.warn(
