@@ -1,5 +1,17 @@
 # Release Notes
 
+## [v0.43.0] (2024-06-24)
+
+* **BREAKING CHANGE**: Remove default for `modules` parameter of `install_auto_tracing` by @alexmojaki in https://github.com/pydantic/logfire/pull/261
+* **BREAKING CHANGE**: Check if logfire token is valid in separate thread, so `logfire.configure` won't block startup and will no longer raise an exception for an invalid token, by @alexmojaki in https://github.com/pydantic/logfire/pull/274
+* Remove `logfire_api_session` parameter from `logfire.configure` by @alexmojaki in https://github.com/pydantic/logfire/pull/272
+* Default the log level to error if the status code is error, and vice versa by @alexmojaki in https://github.com/pydantic/logfire/pull/269
+* Avoid importing `gitpython` by @alexmojaki in https://github.com/pydantic/logfire/pull/260
+* Only delete files on `logfire clean` by @Kludex in https://github.com/pydantic/logfire/pull/267
+* Bug fix: Logging arguments of a request to a FastAPI sub app by @sneakyPad in https://github.com/pydantic/logfire/pull/259
+* Fix query params not being in message by @alexmojaki in https://github.com/pydantic/logfire/pull/271
+* Replace 'Redacted' with 'Scrubbed' in 'Redacted due to...' by @alexmojaki in https://github.com/pydantic/logfire/pull/273
+
 ## [v0.42.0] (2024-06-11)
 
 * Improved handling of request errors when exporting by @alexmojaki in https://github.com/pydantic/logfire/pull/252
@@ -164,6 +176,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.43.0]: https://github.com/pydantic/logfire/compare/v0.42.0...v0.43.0
 [v0.42.0]: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
 [v0.41.0]: https://github.com/pydantic/logfire/compare/v0.40.0...v0.41.0
 [v0.40.0]: https://github.com/pydantic/logfire/compare/v0.39.0...v0.40.0
