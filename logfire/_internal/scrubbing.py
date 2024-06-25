@@ -94,7 +94,7 @@ class Scrubber:
             already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
             try:
                 already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
-            except json.JSONDecodeError:
+            except json.JSONDecodeError:  # pragma: no cover
                 already_scrubbed = []
             span['attributes'] = {
                 **attributes,
