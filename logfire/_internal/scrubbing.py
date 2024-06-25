@@ -47,7 +47,6 @@ DEFAULT_PATTERNS = [
     'credit[._ -]?card',
 ]
 
-
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
 
@@ -112,6 +111,12 @@ class Scrubber:
 
 
 class SpanScrubber:
+    """Does the actual scrubbing work.
+
+    This class is separate from Scrubber so that it can be instantiated more regularly
+    and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
+    """
+
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
     # Some of these are just here for performance.
     SAFE_KEYS = {
