@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
+import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
@@ -47,7 +48,7 @@ DEFAULT_PATTERNS = [
 ]
 
 
-JsonPath = tuple[str | int, ...]
+JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
 
 @dataclass
