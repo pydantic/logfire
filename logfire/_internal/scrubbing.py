@@ -47,11 +47,14 @@ DEFAULT_PATTERNS = [
 ]
 
 
+JsonPath = tuple[str | int, ...]
+
+
 @dataclass
 class ScrubMatch:
     """An object passed to the [`scrubbing_callback`][logfire.configure(scrubbing_callback)] function."""
 
-    path: tuple[str | int, ...]
+    path: JsonPath
     """The path to the value in the span being considered for redaction, e.g. `('attributes', 'password')`."""
 
     value: Any
@@ -69,7 +72,7 @@ ScrubCallback = Callable[[ScrubMatch], Any]
 
 
 class ScrubbedNote(TypedDict):
-    path: tuple[str | int, ...]
+    path: JsonPath
     matched_substring: str
 
 
@@ -101,7 +104,7 @@ class Scrubber:
                 ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
             }
 
-    def scrub_value(self, path: tuple[str | int, ...], value: Any) -> tuple[Any, list[ScrubbedNote]]:
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
         span_scrubber = SpanScrubber(self)
         result = span_scrubber.scrub(path, value)
         return result, span_scrubber.scrubbed
@@ -199,7 +202,7 @@ class SpanScrubber:
 
         return new_attributes
 
-    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
