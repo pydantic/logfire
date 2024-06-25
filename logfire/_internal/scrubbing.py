@@ -142,10 +142,6 @@ class SpanScrubber:
         self.scrubbed: list[ScrubbedNote] = []
 
     def scrub_span(self, span: ReadableSpanDict):
-        scope = span['instrumentation_scope']
-        if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
-            return
-
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
