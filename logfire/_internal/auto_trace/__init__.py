@@ -33,7 +33,7 @@ def install_auto_tracing(
         raise ValueError('check_imported_modules must be one of "error", "warn", or "ignore"')
 
     if check_imported_modules != 'ignore':
-        for module in sys.modules.values():
+        for module in list(sys.modules.values()):
             try:
                 auto_trace_module = AutoTraceModule(module.__name__, module.__file__)
             except Exception:
