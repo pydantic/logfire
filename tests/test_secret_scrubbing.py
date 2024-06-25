@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
@@ -283,4 +284,42 @@ def test_dont_scrub_resource(
             'yours': 'your_password',
             'other': 'safe=good',
         }
+    )
+
+
+@pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')
+def test_fstring_magic_scrubbing(exporter: TestExporter):
+    password = 'secret-password'
+    name = 'John'
+    logfire.info(f'User: {name}, password: {password}', foo=1234)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'User: {name}, password: {password}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'User: {name}, password: {password}',
+                    'logfire.msg': "User: John, password: [Scrubbed due to 'secret']",
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_fstring_magic_scrubbing',
+                    'code.lineno': 123,
+                    'foo': 1234,
+                    'name': 'John',
+                    'password': "[Scrubbed due to 'password']",
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{},"name":{},"password":{}}}',
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {'path': ['message', 'password'], 'matched_substring': 'secret'},
+                            {'path': ['attributes', 'password'], 'matched_substring': 'password'},
+                        ]
+                    ),
+                },
+            }
+        ]
     )
