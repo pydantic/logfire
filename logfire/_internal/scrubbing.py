@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
@@ -18,6 +18,7 @@ from .constants import (
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
+    ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     NULL_ARGS_KEY,
@@ -67,9 +68,46 @@ class ScrubMatch:
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
+class ScrubbedNote(TypedDict):
+    path: tuple[str | int, ...]
+    matched_substring: str
+
+
 class Scrubber:
     """Redacts potentially sensitive data."""
 
+    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
+        # See scrubbing_patterns and scrubbing_callback in logfire.configure for more info on these parameters.
+        patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
+        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        self._callback = callback
+
+    def scrub_span(self, span: ReadableSpanDict):
+        scope = span['instrumentation_scope']
+        if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
+            return
+
+        span_scrubber = SpanScrubber(self)
+        span_scrubber.scrub_span(span)
+        if span_scrubber.scrubbed:
+            attributes = span['attributes']
+            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
+            try:
+                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
+            except json.JSONDecodeError:
+                already_scrubbed = []
+            span['attributes'] = {
+                **attributes,
+                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
+            }
+
+    def scrub_value(self, path: tuple[str | int, ...], value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        span_scrubber = SpanScrubber(self)
+        result = span_scrubber.scrub(path, value)
+        return result, span_scrubber.scrubbed
+
+
+class SpanScrubber:
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
     # Some of these are just here for performance.
     SAFE_KEYS = {
@@ -98,11 +136,10 @@ class Scrubber:
         'db.plan',
     }
 
-    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
-        # See scrubbing_patterns and scrubbing_callback in logfire.configure for more info on these parameters.
-        patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
-        self._callback = callback
+    def __init__(self, parent: Scrubber):
+        self._pattern = parent._pattern  # type: ignore
+        self._callback = parent._callback  # type: ignore
+        self.scrubbed: list[ScrubbedNote] = []
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
@@ -204,4 +241,6 @@ class Scrubber:
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
             return result
-        return f'[Scrubbed due to {match.pattern_match.group(0)!r}]'
+        matched_substring = match.pattern_match.group(0)
+        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+        return f'[Scrubbed due to {matched_substring!r}]'
