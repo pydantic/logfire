@@ -96,9 +96,11 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         if function_name := stack_info.get('code.function'):  # pragma: no branch
             result['name'] += f' ({function_name})'
 
+        # Walk through the coroutines being awaited to create an 'async stacktrace'
         stack = [stack_info]
         while isinstance(coro := coro.cr_await, CoroutineType):
             stack_info = stack_info_from_coroutine(coro)  # type: ignore
+            # Ignore frames from the stdlib asyncio
             if not stack_info.get('code.filepath', '').startswith(ASYNCIO_PATH):
                 stack.append(stack_info)
         result['stack'] = stack
