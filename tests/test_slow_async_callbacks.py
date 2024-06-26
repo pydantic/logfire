@@ -2,7 +2,7 @@ import asyncio
 from asyncio.events import Handle
 
 import pytest
-from dirty_equals import IsInt
+from dirty_equals import IsInt, IsJson
 from inline_snapshot import snapshot
 
 import logfire
@@ -65,7 +65,16 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 28,
                     'duration': 2.0,
                     'name': 'task foo 1 (foo)',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'foo',
+                                'code.lineno': 28,
+                            }
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
                     'logfire.tags': ('slow-async',),
                 },
             },
@@ -85,7 +94,21 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 15,
                     'duration': 2.0,
                     'name': 'task bar 1 (bar)',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'bar',
+                                'code.lineno': 15,
+                            },
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'foo',
+                                'code.lineno': 28,
+                            },
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
                     'logfire.tags': ('slow-async',),
                 },
             },
@@ -105,7 +128,16 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 18,
                     'duration': 3.0,
                     'name': 'task bar 1 (bar)',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'bar',
+                                'code.lineno': 18,
+                            }
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
                     'logfire.tags': ('slow-async',),
                 },
             },
@@ -125,7 +157,16 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 28,
                     'duration': 2.0,
                     'name': 'task foo 2 (foo)',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'foo',
+                                'code.lineno': 28,
+                            }
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
                     'logfire.tags': ('slow-async',),
                 },
             },
@@ -145,7 +186,16 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 14,
                     'duration': 4.0,
                     'name': 'task bar 1 (bar)',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'bar',
+                                'code.lineno': 14,
+                            }
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
                     'logfire.tags': ('slow-async',),
                 },
             },

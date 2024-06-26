@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import asyncio.events
 import asyncio.tasks
 import inspect
 from contextlib import contextmanager
+from pathlib import Path
 from types import CoroutineType
 from typing import TYPE_CHECKING, Any, ContextManager
 
@@ -13,6 +15,8 @@ from .utils import safe_repr
 
 if TYPE_CHECKING:
     from .main import Logfire
+
+ASYNCIO_PATH = str(Path(asyncio.__file__).parent.absolute())
 
 
 def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager[None]:
@@ -65,6 +69,16 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager
 
 class _CallbackAttributes(StackInfo, total=False):
     name: str
+    stack: list[StackInfo]
+
+
+def stack_info_from_coroutine(coro: CoroutineType[Any, Any, Any]) -> StackInfo:
+    if frame := coro.cr_frame:
+        return get_stack_info_from_frame(frame)
+    else:
+        # This typically means that the coroutine has finished.
+        # We can't get an exact line number, so we'll use the line number of the code object.
+        return get_code_object_info(coro.cr_code)
 
 
 def _callback_attributes(callback: Any) -> _CallbackAttributes:
@@ -77,15 +91,18 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
         if not isinstance(coro, CoroutineType):  # pragma: no cover
             return result
-        frame = coro.cr_frame
-        if frame:
-            result = {**result, **get_stack_info_from_frame(frame)}
-        else:
-            # This typically means that the coroutine has finished.
-            # We can't get an exact line number, so we'll use the line number of the code object.
-            result = {**result, **get_code_object_info(coro.cr_code)}
-        if function_name := result.get('code.function'):  # pragma: no branch
+        stack_info = stack_info_from_coroutine(coro)  # type: ignore
+        result = {**result, **stack_info}
+        if function_name := stack_info.get('code.function'):  # pragma: no branch
             result['name'] += f' ({function_name})'
+
+        stack = [stack_info]
+        while isinstance(coro := coro.cr_await, CoroutineType):
+            stack_info = stack_info_from_coroutine(coro)  # type: ignore
+            if not stack_info.get('code.filepath', '').startswith(ASYNCIO_PATH):
+                stack.append(stack_info)
+        result['stack'] = stack
+
         return result
 
     # `callback` is a callable passed to a low-level API like `call_soon`.
