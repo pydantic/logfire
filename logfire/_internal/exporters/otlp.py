@@ -161,7 +161,8 @@ class DiskRetryer:
                     # and then come back up then retry requests will be spread out over a time of MAX_DELAY.
                     time.sleep(delay * (1 + random.random()))
                     try:
-                        response = self.session.post(**kwargs, data=data)
+                        with logfire.suppress_instrumentation():
+                            response = self.session.post(**kwargs, data=data)
                         raise_for_retryable_status(response)
                     except requests.exceptions.RequestException:
                         # Failed, increase delay exponentially up to MAX_DELAY.
