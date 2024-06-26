@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v0.44.0] (2024-06-26)
+
+* Prevent 'dictionary changed size during iteration' error in `install_auto_tracing` by @alexmojaki in https://github.com/pydantic/logfire/pull/277
+* `suppress_instrumentation` when retrying exports by @alexmojaki in https://github.com/pydantic/logfire/pull/279
+* Log async stack in `log_slow_async_callbacks` by @alexmojaki in https://github.com/pydantic/logfire/pull/280
+
 ## [v0.43.0] (2024-06-24)
 
 * **BREAKING CHANGE**: Remove default for `modules` parameter of `install_auto_tracing` by @alexmojaki in https://github.com/pydantic/logfire/pull/261
@@ -176,6 +182,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.44.0]: https://github.com/pydantic/logfire/compare/v0.43.0...v0.44.0
 [v0.43.0]: https://github.com/pydantic/logfire/compare/v0.42.0...v0.43.0
 [v0.42.0]: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
 [v0.41.0]: https://github.com/pydantic/logfire/compare/v0.40.0...v0.41.0
