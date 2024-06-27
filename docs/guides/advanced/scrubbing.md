@@ -45,11 +45,8 @@ Here's an example:
 import logfire
 
 def scrubbing_callback(match: logfire.ScrubMatch):
-    # OpenTelemetry database instrumentation libraries conventionally
-    # use `db.statement` as the attribute key for SQL queries.
-    # Assume that SQL queries are safe even if they contain words like 'password'.
-    # Make sure you always use SQL parameters instead of formatting strings directly!
-    if match.path == ('attributes', 'db.statement'):
+    # `my_safe_value` often contains the string 'password' but it's not actually sensitive.
+    if match.path == ('attributes', 'my_safe_value') and match.pattern_match.group(0) == 'password':
         # Return the original value to prevent redaction.
         return match.value
 
