@@ -17,7 +17,7 @@ import logfire
 from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import ScrubbedNote, Scrubber, SpanScrubber
+from .scrubbing import BaseScrubber, ScrubbedNote
 from .utils import truncate_string
 
 
@@ -40,7 +40,7 @@ class ChunksFormatter(Formatter):
         format_string: str,
         kwargs: Mapping[str, Any],
         *,
-        scrubber: Scrubber,
+        scrubber: BaseScrubber,
         fstring_frame: types.FrameType | None = None,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         # Returns
@@ -65,7 +65,7 @@ class ChunksFormatter(Formatter):
     def _fstring_chunks(
         self,
         kwargs: Mapping[str, Any],
-        scrubber: Scrubber,
+        scrubber: BaseScrubber,
         frame: types.FrameType,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
         # `frame` is the frame of the method that's being called by the user,
@@ -239,7 +239,7 @@ class ChunksFormatter(Formatter):
         format_string: str,
         kwargs: Mapping[str, Any],
         *,
-        scrubber: Scrubber,
+        scrubber: BaseScrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
@@ -329,12 +329,12 @@ class ChunksFormatter(Formatter):
         extra_attrs = {ATTRIBUTES_SCRUBBED_KEY: scrubbed} if scrubbed else {}
         return result, extra_attrs
 
-    def _clean_value(self, field_name: str, value: str, scrubber: Scrubber) -> tuple[str, list[ScrubbedNote]]:
+    def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> tuple[str, list[ScrubbedNote]]:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
         scrubbed: list[ScrubbedNote] = []
-        if field_name not in SpanScrubber.SAFE_KEYS:
+        if field_name not in scrubber.SAFE_KEYS:
             value, scrubbed = scrubber.scrub_value(('message', field_name), value)
         return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT), scrubbed
 
@@ -342,7 +342,7 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubber) -> str:
+def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber) -> str:
     result, _extra_attrs, _new_template = logfire_format_with_magic(
         format_string,
         kwargs,
@@ -354,7 +354,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: Scrubbe
 def logfire_format_with_magic(
     format_string: str,
     kwargs: dict[str, Any],
-    scrubber: Scrubber,
+    scrubber: BaseScrubber,
     fstring_frame: types.FrameType | None = None,
 ) -> tuple[str, dict[str, Any], str]:
     # Returns

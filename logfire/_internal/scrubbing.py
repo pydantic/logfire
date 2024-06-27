@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
@@ -76,7 +77,75 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
-class Scrubber:
+@dataclass
+class ScrubbingOptions:
+    """Options for redacting sensitive data."""
+
+    callback: ScrubCallback | None = None
+    """
+    A function that is called for each match found by the scrubber.
+    If it returns `None`, the value is redacted.
+    Otherwise, the returned value replaces the matched value.
+    The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+    """
+
+    extra_patterns: Sequence[str] | None = None
+    """
+    A sequence of regular expressions to detect sensitive data that should be redacted.
+    For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
+    The specified patterns are combined with the default patterns.
+    """
+
+
+class BaseScrubber(ABC):
+    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
+    # Some of these are just here for performance.
+    SAFE_KEYS = {
+        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
+        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+        ATTRIBUTES_JSON_SCHEMA_KEY,
+        ATTRIBUTES_TAGS_KEY,
+        ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+        ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+        ATTRIBUTES_SPAN_TYPE_KEY,
+        ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
+        ATTRIBUTES_SAMPLE_RATE_KEY,
+        NULL_ARGS_KEY,
+        RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+        *STACK_INFO_KEYS,
+        SpanAttributes.EXCEPTION_STACKTRACE,  # See scrub_event_attributes
+        SpanAttributes.EXCEPTION_TYPE,
+        SpanAttributes.SCHEMA_URL,
+        SpanAttributes.HTTP_METHOD,
+        SpanAttributes.HTTP_STATUS_CODE,
+        SpanAttributes.HTTP_SCHEME,
+        SpanAttributes.HTTP_URL,
+        SpanAttributes.HTTP_TARGET,
+        SpanAttributes.HTTP_ROUTE,
+        SpanAttributes.DB_STATEMENT,
+        'db.plan',
+    }
+
+    @abstractmethod
+    def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
+
+    @abstractmethod
+    def scrub_value(
+        self, path: tuple[str | int, ...], value: Any
+    ) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
+
+
+class NoopScrubber(BaseScrubber):
+    def scrub_span(self, span: ReadableSpanDict):
+        pass
+
+    def scrub_value(
+        self, path: tuple[str | int, ...], value: Any
+    ) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+        return value, []
+
+
+class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
@@ -116,34 +185,6 @@ class SpanScrubber:
     This class is separate from Scrubber so that it can be instantiated more regularly
     and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
     """
-
-    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
-    # Some of these are just here for performance.
-    SAFE_KEYS = {
-        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
-        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
-        ATTRIBUTES_JSON_SCHEMA_KEY,
-        ATTRIBUTES_TAGS_KEY,
-        ATTRIBUTES_LOG_LEVEL_NAME_KEY,
-        ATTRIBUTES_LOG_LEVEL_NUM_KEY,
-        ATTRIBUTES_SPAN_TYPE_KEY,
-        ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
-        ATTRIBUTES_SAMPLE_RATE_KEY,
-        NULL_ARGS_KEY,
-        RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
-        *STACK_INFO_KEYS,
-        SpanAttributes.EXCEPTION_STACKTRACE,  # See scrub_event_attributes
-        SpanAttributes.EXCEPTION_TYPE,
-        SpanAttributes.SCHEMA_URL,
-        SpanAttributes.HTTP_METHOD,
-        SpanAttributes.HTTP_STATUS_CODE,
-        SpanAttributes.HTTP_SCHEME,
-        SpanAttributes.HTTP_URL,
-        SpanAttributes.HTTP_TARGET,
-        SpanAttributes.HTTP_ROUTE,
-        SpanAttributes.DB_STATEMENT,
-        'db.plan',
-    }
 
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # type: ignore
@@ -231,7 +272,7 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in self.SAFE_KEYS:
+                if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
