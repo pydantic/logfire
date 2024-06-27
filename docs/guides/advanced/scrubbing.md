@@ -82,8 +82,15 @@ Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `ins
 
 In short, don't format the message yourself. This is also a good practice in general for [other reasons](../onboarding_checklist/add_manual_tracing.md#messages-and-span-names).
 
-### Keep sensitive data out URLs
+### Keep sensitive data out of URLs
 
 The attribute `"http.url"` which is recorded by OpenTelemetry instrumentation libraries is considered safe so that URLs like `"http://example.com/users/123/authenticate"` are not redacted.
 
 As a general rule, not just for Logfire, assume that URLs (including query parameters) will be logged, so sensitive data should be put in the request body or headers instead.
+
+### Use parameterized database queries
+
+The `"db.statement"` attribute which is recorded by OpenTelemetry database instrumentation libraries is considered safe so that SQL queries like `"SELECT secret_value FROM table WHERE ..."` are not redacted.
+
+Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
+you use an interpolation method that's safe from SQL injection.
