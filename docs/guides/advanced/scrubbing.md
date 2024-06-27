@@ -2,14 +2,24 @@
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
-## Scrubbing more with custom patterns
+## Disabling scrubbing
 
-By default, the SDK looks for some sensitive regular expressions. To add your own patterns, set [`scrubbing_patterns`][logfire.configure(scrubbing_patterns)] to a list of regex strings:
+To disable scrubbing entirely, set [`scrubbing`][logfire.configure(scrubbing)] to `False`:
 
 ```python
 import logfire
 
-logfire.configure(scrubbing_patterns=['my_pattern'])
+logfire.configure(scrubbing=False)
+```
+
+## Scrubbing more with custom patterns
+
+By default, the SDK looks for some sensitive regular expressions. To add your own patterns, set [`extra_patterns`][logfire.ScrubbingOptions.extra_patterns] to a list of regex strings:
+
+```python
+import logfire
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=['my_pattern']))
 
 logfire.info('Hello', data={
     'key_matching_my_pattern': 'This string will be redacted because its key matches',
@@ -25,7 +35,7 @@ Here are the default scrubbing patterns:
 
 ## Scrubbing less with a callback
 
-On the other hand, if the scrubbing is to aggressive, you can pass a function to [`scrubbing_callback`][logfire.configure(scrubbing_callback)] to prevent certain data from being redacted.
+On the other hand, if the scrubbing is to aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
 
 The function will be called for each potential match found by the scrubber. If it returns `None`, the value is redacted. Otherwise, the returned value replaces the matched value. The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
 
@@ -43,7 +53,7 @@ def scrubbing_callback(match: logfire.ScrubMatch):
         # Return the original value to prevent redaction.
         return match.value
 
-logfire.configure(scrubbing_callback=scrubbing_callback)
+logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
 ## Security tips
