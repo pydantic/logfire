@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import pytest
 from dirty_equals import IsPartialDict
@@ -8,6 +9,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
+from logfire._internal.scrubbing import NoopScrubber
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 
@@ -250,4 +252,37 @@ def test_dont_scrub_resource(
             'yours': 'your_password',
             'other': 'safe=good',
         }
+    )
+
+
+def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, scrubbing=False)
+
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    assert config.scrubbing is False
+    assert isinstance(config.scrubber, NoopScrubber)
+
+    logfire.info('Password: {user_password}', user_password='my secret password')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Password: {user_password}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'Password: {user_password}',
+                    'logfire.msg': 'Password: my secret password',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_disable_scrubbing',
+                    'code.lineno': 123,
+                    'user_password': 'my secret password',
+                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{}}}',
+                },
+            }
+        ]
     )
