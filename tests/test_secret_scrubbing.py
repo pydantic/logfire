@@ -286,3 +286,26 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
             }
         ]
     )
+
+
+def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
+    def callback(match: logfire.ScrubMatch):
+        return str(match)
+
+    with pytest.warns(
+        DeprecationWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'
+    ):
+        logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)
+
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    assert config.scrubbing
+    assert config.scrubbing.extra_patterns == ['my_pattern']
+    assert config.scrubbing.callback is callback
+
+
+def test_scrubbing_deprecated_args_combined_with_new_options():
+    with pytest.raises(
+        ValueError,
+        match='Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time.',
+    ):
+        logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())

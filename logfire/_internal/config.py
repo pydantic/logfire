@@ -398,7 +398,7 @@ class _LogfireConfigData:
             scrubbing = ScrubbingOptions(**scrubbing)  # type: ignore
         if scrubbing is None:
             scrubbing = ScrubbingOptions()
-        self.scrubbing = scrubbing
+        self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
         self.scrubber: BaseScrubber = (
             Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NoopScrubber()
         )
