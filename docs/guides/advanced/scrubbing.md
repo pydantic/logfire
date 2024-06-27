@@ -66,7 +66,7 @@ User details: [Scrubbed due to 'password']
 
 ```python
 user = User(id=123, password='secret')
-logfire.info(f'User details: {user}')
+logfire.info('User details: ' + str(user))
 ```
 
 will log:
@@ -77,7 +77,10 @@ User details: User(id=123, password='secret')
 
 This is necessary so that safe messages such as 'Password is correct' are not redacted completely.
 
-In short, don't use f-strings or otherwise format the message yourself. This is also a good practice in general for non-security reasons.
+Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `inspect_arguments` is enabled (the default in Python 3.11+) and working correctly.
+[See here](../onboarding_checklist/add_manual_tracing.md#f-strings) for more information.
+
+In short, don't format the message yourself. This is also a good practice in general for [other reasons](../onboarding_checklist/add_manual_tracing.md#messages-and-span-names).
 
 ### Keep sensitive data out URLs
 
