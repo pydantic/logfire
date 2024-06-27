@@ -16,7 +16,7 @@ from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.exporters.tail_sampling import TailSamplingOptions
 from ._internal.main import Logfire, LogfireSpan
-from ._internal.scrubbing import ScrubMatch
+from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
@@ -108,6 +108,7 @@ __all__ = (
     'no_auto_trace',
     'METRICS_PREFERRED_TEMPORALITY',
     'ScrubMatch',
+    'ScrubbingOptions',
     'VERSION',
     'suppress_instrumentation',
     'StructlogProcessor',

@@ -183,8 +183,10 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
             return match
 
     logfire.configure(
-        scrubbing_patterns=['my_pattern'],
-        scrubbing_callback=callback,
+        scrubbing=logfire.ScrubbingOptions(
+            extra_patterns=['my_pattern'],
+            callback=callback,
+        ),
         send_to_logfire=False,
         console=False,
         id_generator=id_generator,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence, cast
 
@@ -67,9 +68,27 @@ class ScrubMatch:
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
-class Scrubber:
-    """Redacts potentially sensitive data."""
+@dataclass
+class ScrubbingOptions:
+    """Options for redacting sensitive data."""
 
+    callback: ScrubCallback | None = None
+    """
+    A function that is called for each match found by the scrubber.
+    If it returns `None`, the value is redacted.
+    Otherwise, the returned value replaces the matched value.
+    The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+    """
+
+    extra_patterns: Sequence[str] | None = None
+    """
+    A sequence of regular expressions to detect sensitive data that should be redacted.
+    For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
+    The specified patterns are combined with the default patterns.
+    """
+
+
+class BaseScrubber(ABC):
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
     # Some of these are just here for performance.
     SAFE_KEYS = {
@@ -97,6 +116,24 @@ class Scrubber:
         SpanAttributes.DB_STATEMENT,
         'db.plan',
     }
+
+    @abstractmethod
+    def scrub_span(self, span: ReadableSpanDict): ...
+
+    @abstractmethod
+    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any: ...
+
+
+class NoopScrubber(BaseScrubber):
+    def scrub_span(self, span: ReadableSpanDict):
+        pass
+
+    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any:
+        return value
+
+
+class Scrubber(BaseScrubber):
+    """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See scrubbing_patterns and scrubbing_callback in logfire.configure for more info on these parameters.
