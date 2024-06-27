@@ -118,10 +118,10 @@ class BaseScrubber(ABC):
     }
 
     @abstractmethod
-    def scrub_span(self, span: ReadableSpanDict): ...
+    def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
 
     @abstractmethod
-    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any: ...
+    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any: ...  # pragma: no cover
 
 
 class NoopScrubber(BaseScrubber):

@@ -291,7 +291,7 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
 
 
 def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
-    def callback(match: logfire.ScrubMatch):
+    def callback(match: logfire.ScrubMatch):  # pragma: no cover
         return str(match)
 
     with pytest.warns(
