@@ -130,18 +130,14 @@ class BaseScrubber(ABC):
     def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
 
     @abstractmethod
-    def scrub_value(
-        self, path: tuple[str | int, ...], value: Any
-    ) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
 
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
         pass
 
-    def scrub_value(
-        self, path: tuple[str | int, ...], value: Any
-    ) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
 
 
