@@ -11,6 +11,19 @@ def collect_package_info() -> dict[str, str]:
     Returns:
         A dicts with the package name and version.
     """
-    distributions = metadata.distributions()
-    distributions = sorted(distributions, key=lambda dist: (dist.name, dist.version))
-    return {dist.name: dist.version for dist in distributions}
+    try:
+        distributions = list(metadata.distributions())
+        try:
+            metas = [dist.metadata for dist in distributions]
+            pairs = [(meta['Name'], meta['Version']) for meta in metas]
+        except Exception:  # pragma: no cover
+            # Just in case `dist.metadata['Name']` stops working but `dist.name` still works,
+            # not that this is expected.
+            # Currently this is about 2x slower because `dist.name` and `dist.version` each call `dist.metadata`,
+            # which reads and parses a file and is not cached.
+            pairs = [(dist.name, dist.version) for dist in distributions]
+    except Exception:  # pragma: no cover
+        # Don't crash for this.
+        pairs = []
+
+    return dict(sorted(pairs))
