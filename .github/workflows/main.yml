@@ -73,7 +73,10 @@ jobs:
       - run: rye config --set-bool behavior.use-uv=true
       # Update all dependencies to the latest version possible
       - run: rye sync --update-all
-      - run: pip install uv && uv pip install logfire-api
+      - run: |
+          pip install uv
+          ls -ahl
+          uv pip install logfire-api
       - run: rye show
       - run: mkdir coverage
       - run: make test
