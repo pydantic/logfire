@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v0.45.0] (2024-06-29)
+
+* Add `scrubbing: ScrubbingOptions | False` parameter to `logfire.configure`, replacing `scrubbing_patterns` and `scrubbing_callback` by @alexmojaki in https://github.com/pydantic/logfire/pull/283
+* Fix and test unmapped SQLModels by @alexmojaki in https://github.com/pydantic/logfire/pull/286
+* Optimize `collect_package_info` by @alexmojaki in https://github.com/pydantic/logfire/pull/285
+
 ## [v0.44.0] (2024-06-26)
 
 * Prevent 'dictionary changed size during iteration' error in `install_auto_tracing` by @alexmojaki in https://github.com/pydantic/logfire/pull/277
@@ -182,6 +188,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.45.0]: https://github.com/pydantic/logfire/compare/v0.44.0...v0.45.0
 [v0.44.0]: https://github.com/pydantic/logfire/compare/v0.43.0...v0.44.0
 [v0.43.0]: https://github.com/pydantic/logfire/compare/v0.42.0...v0.43.0
 [v0.42.0]: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
