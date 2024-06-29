@@ -291,9 +291,7 @@ def is_sqlalchemy(obj: Any) -> bool:
     try:
         from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
 
-        if isinstance(obj, DeclarativeBase):
-            return True
-        return isinstance(obj.__class__, DeclarativeMeta)
+        return isinstance(obj, DeclarativeBase) or isinstance(obj.__class__, DeclarativeMeta)
     except ImportError:  # pragma: no cover
         return False
 
