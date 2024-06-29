@@ -282,6 +282,12 @@ def logfire_json_dumps(obj: Any) -> str:
 
 
 def is_sqlalchemy(obj: Any) -> bool:
+    if not hasattr(obj, '__mapper__'):
+        # A SQLModel without `table=True` will pass `isinstance(obj.__class__, DeclarativeMeta)` (I don't know how)
+        # but will fail when retrieving data, specifically when calling `sqlalchemy.inspect`
+        # or when getting the `__mapper__` attribute.
+        return False
+
     try:
         from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
 

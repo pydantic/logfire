@@ -26,6 +26,7 @@ from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.orm.decl_api import MappedAsDataclass
 from sqlalchemy.sql.schema import ForeignKey
+from sqlmodel import SQLModel
 
 import logfire
 from logfire.testing import TestExporter
@@ -68,6 +69,10 @@ class MyComplexDataclass:
 @pydantic_dataclass(config=pydantic_model_config)
 class MyPydanticComplexDataclass:
     t: MyPydanticDataclass
+
+
+class MySQLModel(SQLModel):
+    s: int
 
 
 class Generator:
@@ -512,6 +517,12 @@ class StrSubclass(str):
                 },
             },
             id='pydantic_model_with_extra',
+        ),
+        pytest.param(
+            MySQLModel(s=10),
+            's=10',
+            '{"s":10}',
+            {'type': 'object', 'title': 'MySQLModel', 'x-python-datatype': 'PydanticModel'},
         ),
         pytest.param(
             MyDataclass(10),
