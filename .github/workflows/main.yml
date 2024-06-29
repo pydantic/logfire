@@ -75,9 +75,7 @@ jobs:
       - run: rye sync --update-all
       - run: |
           pip install uv
-          ls -ahl
-          cat logfire-api/pyproject.toml
-          uv pip install -e logfire-api
+          uv pip install "logfire-api @ file://logfire-api"
       - run: rye show
       - run: mkdir coverage
       - run: make test
