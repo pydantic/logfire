@@ -145,6 +145,9 @@ except ImportError:
         class TailSamplingOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class ScrubbingOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 
