@@ -13,6 +13,7 @@ sources = pydantic tests docs/plugins
 install: .rye .pre-commit
 	rye show
 	rye sync --no-lock
+	uv pip install -e logfire-api
 	pre-commit install --install-hooks
 
 .PHONY: format  # Format the code

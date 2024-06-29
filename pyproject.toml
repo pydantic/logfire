@@ -133,7 +133,6 @@ dev-dependencies = [
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel",
-    "logfire-api @ file://logfire-api",
     "mypy>=1.10.0",
 ]
 
