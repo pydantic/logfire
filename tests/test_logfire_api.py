@@ -113,7 +113,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('install_auto_tracing')
 
     assert hasattr(logfire_api, 'instrument')
-    logfire_api.instrument(lambda: None)  # pragma: no branch
+
+    @logfire_api.instrument()
+    def func() -> None: ...
+
+    func()
     logfire__all__.remove('instrument')
 
     for member in [m for m in ('instrument_flask', 'instrument_fastapi', 'instrument_starlette')]:

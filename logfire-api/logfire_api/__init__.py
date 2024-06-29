@@ -11,7 +11,7 @@ try:
     sys.modules[__name__] = logfire_module
 
 except ImportError:
-    if not TYPE_CHECKING:
+    if not TYPE_CHECKING:  # pragma: no branch
         LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal']
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
@@ -20,7 +20,7 @@ except ImportError:
 
         class LogfireSpan:
             def __getattr__(self, attr):
-                return MagicMock()
+                return MagicMock()  # pragma: no cover
 
             def __enter__(self):
                 return self
@@ -29,7 +29,7 @@ except ImportError:
 
         class Logfire:
             def __getattr__(self, attr):
-                return MagicMock()
+                return MagicMock()  # pragma: no cover
 
             def __init__(self, *args, **kwargs) -> None: ...
 
@@ -60,7 +60,7 @@ except ImportError:
 
             def force_flush(self, *args, **kwargs) -> None: ...
 
-            def log_slow_async_callbacks(self, *args, **kwargs) -> None: ...
+            def log_slow_async_callbacks(self, *args, **kwargs) -> None: ...  # pragma: no branch
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
