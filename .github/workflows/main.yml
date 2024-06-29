@@ -77,7 +77,7 @@ jobs:
           pip install uv
           ls -ahl
           cat logfire-api/pyproject.toml
-          uv pip install logfire-api
+          uv pip install -e logfire-api
       - run: rye show
       - run: mkdir coverage
       - run: make test
