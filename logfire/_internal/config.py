@@ -778,7 +778,7 @@ class LogfireConfig(_LogfireConfigData):
             _frame, stacklevel = get_user_frame_and_stacklevel()
             warnings.warn(
                 f'{message} until `logfire.configure()` has been called. '
-                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=false in pyproject.toml to suppress this warning.',
+                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
                 stacklevel=stacklevel,
             )
