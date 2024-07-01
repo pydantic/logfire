@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import dataclasses
+import functools
 import json
 import os
 import re
@@ -749,7 +750,14 @@ class LogfireConfig(_LogfireConfigData):
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
+
+            self._ensure_flush_after_lambda()
+
             return self._tracer_provider
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        self._meter_provider.force_flush(timeout_millis)
+        return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
@@ -796,6 +804,37 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.base_url)
+
+    def _ensure_flush_after_lambda(self):
+        def wrap(f: Any):  # pragma: no cover
+            @functools.wraps(f)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    self.force_flush(timeout_millis=3000)
+                except Exception:
+                    import traceback
+
+                    traceback.print_exc()
+
+                return f(*args, **kwargs)
+
+            return wrapper
+
+        for mod in list(sys.modules.values()):
+            try:
+                client = getattr(mod, 'LambdaRuntimeClient', None)
+            except Exception:  # pragma: no cover
+                continue
+            if not client:  # pragma: no branch
+                continue
+            try:  # pragma: no cover
+                if getattr(client, '_instrumented_by_logfire', False):
+                    continue
+                client._instrumented_by_logfire = True
+                client.post_invocation_error = wrap(client.post_invocation_error)
+                client.post_invocation_result = wrap(client.post_invocation_result)
+            except Exception:
+                continue
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:

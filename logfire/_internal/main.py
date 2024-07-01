@@ -745,15 +745,15 @@ class Logfire:
         )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
-        """Force flush all spans.
+        """Force flush all spans and metrics.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush was successful.
+            Whether the flush of spans was successful.
         """
-        return self._tracer_provider.force_flush(timeout_millis)
+        return self._config.force_flush(timeout_millis)
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
