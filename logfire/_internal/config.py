@@ -828,13 +828,12 @@ class LogfireConfig(_LogfireConfigData):
             if not client:  # pragma: no branch
                 continue
             try:  # pragma: no cover
-                if getattr(client, '_instrumented_by_logfire', False):
-                    continue
-                client._instrumented_by_logfire = True
                 client.post_invocation_error = wrap(client.post_invocation_error)
                 client.post_invocation_result = wrap(client.post_invocation_result)
-            except Exception:
-                continue
+            except Exception:  # pragma: no cover
+                import traceback
+
+                traceback.print_exc()
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
