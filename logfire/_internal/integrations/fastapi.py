@@ -36,8 +36,9 @@ def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     for route in app.routes:
         if isinstance(route, Mount):
             _app: Any = route.app
-            mounted_apps.append(_app)
-            mounted_apps += find_mounted_apps(_app)
+            if isinstance(_app, FastAPI):
+                mounted_apps.append(_app)
+                mounted_apps += find_mounted_apps(_app)
     return mounted_apps
 
 
