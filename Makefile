@@ -13,6 +13,7 @@ sources = pydantic tests docs/plugins
 install: .rye .pre-commit
 	rye show
 	rye sync --no-lock
+	uv pip install -e logfire-api
 	pre-commit install --install-hooks
 
 .PHONY: format  # Format the code
@@ -28,6 +29,10 @@ lint:
 .PHONY: test  # Run the tests
 test:
 	rye run coverage run -m pytest
+
+.PHONY: generate-stubs  # Generate stubs for logfire-api
+generate-stubs:
+	rye run generate-stubs
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov: test
