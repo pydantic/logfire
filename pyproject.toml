@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.44.0"
+version = "0.45.1"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -132,8 +132,7 @@ dev-dependencies = [
     "asyncpg",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
-    # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
-    "typing-extensions<4.12",
+    "sqlmodel",
 ]
 
 [tool.rye.scripts]
@@ -191,7 +190,7 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*"]
+exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme"]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]

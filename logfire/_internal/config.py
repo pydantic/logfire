@@ -74,7 +74,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
-from .scrubbing import Scrubber, ScrubCallback
+from .scrubbing import BaseScrubber, NoopScrubber, Scrubber, ScrubbingOptions, ScrubCallback
 from .stack_info import get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
@@ -159,6 +159,7 @@ def configure(
     fast_shutdown: bool = False,
     scrubbing_patterns: Sequence[str] | None = None,
     scrubbing_callback: ScrubCallback | None = None,
+    scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     tail_sampling: TailSamplingOptions | None = None,
 ) -> None:
@@ -206,13 +207,9 @@ def configure(
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
-        scrubbing_patterns: A sequence of regular expressions to detect sensitive data that should be redacted.
-            For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
-            The specified patterns are combined with the default patterns.
-        scrubbing_callback: A function that is called for each match found by the scrubber.
-            If it returns `None`, the value is redacted.
-            Otherwise, the returned value replaces the matched value.
-            The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+        scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
+        scrubbing_patterns: Deprecated, use `scrubbing=logfire.ScrubbingOptions(extra_patterns=[...])` instead.
+        scrubbing_callback: Deprecated, use `scrubbing=logfire.ScrubbingOptions(callback=...)` instead.
         inspect_arguments: Whether to enable
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
@@ -230,6 +227,18 @@ def configure(
             'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
+    if scrubbing_callback or scrubbing_patterns:
+        if scrubbing is not None:
+            raise ValueError(
+                'Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time. '
+                'Use only `scrubbing`.'
+            )
+        warnings.warn(
+            'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
+            'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
+            DeprecationWarning,
+        )
+        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)
 
     GLOBAL_CONFIG.configure(
         base_url=base_url,
@@ -251,8 +260,7 @@ def configure(
         additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
-        scrubbing_patterns=scrubbing_patterns,
-        scrubbing_callback=scrubbing_callback,
+        scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         tail_sampling=tail_sampling,
     )
@@ -325,11 +333,8 @@ class _LogfireConfigData:
     fast_shutdown: bool
     """Whether to shut down exporters and providers quickly, mostly used for tests"""
 
-    scrubbing_patterns: Sequence[str] | None
-    """A sequence of regular expressions to detect sensitive data that should be redacted."""
-
-    scrubbing_callback: ScrubCallback | None
-    """A function that is called for each match found by the scrubber."""
+    scrubbing: ScrubbingOptions | Literal[False]
+    """Options for redacting sensitive data, or False to disable."""
 
     inspect_arguments: bool
     """Whether to enable f-string magic"""
@@ -361,8 +366,7 @@ class _LogfireConfigData:
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
-        scrubbing_patterns: Sequence[str] | None,
-        scrubbing_callback: ScrubCallback | None,
+        scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         tail_sampling: TailSamplingOptions | None,
     ) -> None:
@@ -389,10 +393,16 @@ class _LogfireConfigData:
                 'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
             )
 
-        # We save `scrubbing_patterns` and `scrubbing_callback` just so that they can be serialized and deserialized.
-        self.scrubbing_patterns = scrubbing_patterns
-        self.scrubbing_callback = scrubbing_callback
-        self.scrubber = Scrubber(scrubbing_patterns, scrubbing_callback)
+        # We save `scrubbing` just so that it can be serialized and deserialized.
+        if isinstance(scrubbing, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            scrubbing = ScrubbingOptions(**scrubbing)  # type: ignore
+        if scrubbing is None:
+            scrubbing = ScrubbingOptions()
+        self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
+        self.scrubber: BaseScrubber = (
+            Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NoopScrubber()
+        )
 
         if isinstance(console, dict):
             # This is particularly for deserializing from a dict as in executors.py
@@ -463,8 +473,7 @@ class LogfireConfig(_LogfireConfigData):
         additional_metric_readers: Sequence[MetricReader] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         fast_shutdown: bool = False,
-        scrubbing_patterns: Sequence[str] | None = None,
-        scrubbing_callback: ScrubCallback | None = None,
+        scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         tail_sampling: TailSamplingOptions | None = None,
     ) -> None:
@@ -496,8 +505,7 @@ class LogfireConfig(_LogfireConfigData):
             additional_metric_readers=additional_metric_readers,
             pydantic_plugin=pydantic_plugin,
             fast_shutdown=fast_shutdown,
-            scrubbing_patterns=scrubbing_patterns,
-            scrubbing_callback=scrubbing_callback,
+            scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             tail_sampling=tail_sampling,
         )
@@ -533,8 +541,7 @@ class LogfireConfig(_LogfireConfigData):
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
-        scrubbing_patterns: Sequence[str] | None,
-        scrubbing_callback: ScrubCallback | None,
+        scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         tail_sampling: TailSamplingOptions | None,
     ) -> None:
@@ -560,8 +567,7 @@ class LogfireConfig(_LogfireConfigData):
                 additional_metric_readers,
                 pydantic_plugin,
                 fast_shutdown,
-                scrubbing_patterns,
-                scrubbing_callback,
+                scrubbing,
                 inspect_arguments,
                 tail_sampling,
             )
@@ -782,7 +788,7 @@ class LogfireConfig(_LogfireConfigData):
             _frame, stacklevel = get_user_frame_and_stacklevel()
             warnings.warn(
                 f'{message} until `logfire.configure()` has been called. '
-                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=false in pyproject.toml to suppress this warning.',
+                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
                 stacklevel=stacklevel,
             )
