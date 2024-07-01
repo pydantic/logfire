@@ -753,7 +753,6 @@ class Logfire:
         Returns:
             Whether the flush was successful.
         """
-        self._meter_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
