@@ -16,8 +16,8 @@ from typing_extensions import NotRequired, TypedDict
 import logfire
 from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
-from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import BaseScrubber
+from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
+from .scrubbing import BaseScrubber, ScrubbedNote
 from .utils import truncate_string
 
 
@@ -46,20 +46,21 @@ class ChunksFormatter(Formatter):
         # Returns
         # 1. A list of chunks
         # 2. A dictionary of extra attributes to add to the span/log.
-        #      These can come from evaluating values in f-strings.
+        #      These can come from evaluating values in f-strings,
+        #      or from noting scrubbed values.
         # 3. The final message template, which may differ from `format_string` if it was an f-string.
         if fstring_frame:
             result = self._fstring_chunks(kwargs, scrubber, fstring_frame)
             if result:  # returns None if failed
                 return result
 
-        chunks = self._vformat_chunks(
+        chunks, extra_attrs = self._vformat_chunks(
             format_string,
             kwargs=kwargs,
             scrubber=scrubber,
         )
-        # When there's no f-string magic, there's no extra attributes or changes in the template string.
-        return chunks, {}, format_string
+        # When there's no f-string magic, there's no changes in the template string.
+        return chunks, extra_attrs, format_string
 
     def _fstring_chunks(
         self,
@@ -197,6 +198,7 @@ class ChunksFormatter(Formatter):
         new_template = ''
 
         extra_attrs: dict[str, Any] = {}
+        scrubbed: list[ScrubbedNote] = []
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
@@ -224,9 +226,12 @@ class ChunksFormatter(Formatter):
 
                 # Format the value according to the format spec, converting to a string.
                 formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
-                formatted = self._clean_value(source, formatted, scrubber)
+                formatted, value_scrubbed = self._clean_value(source, formatted, scrubber)
+                scrubbed += value_scrubbed
                 result.append({'v': formatted, 't': 'arg'})
 
+        if scrubbed:
+            extra_attrs[ATTRIBUTES_SCRUBBED_KEY] = scrubbed
         return result, extra_attrs, new_template
 
     def _vformat_chunks(
@@ -237,7 +242,7 @@ class ChunksFormatter(Formatter):
         scrubber: BaseScrubber,
         recursion_depth: int = 2,
         auto_arg_index: int = 0,
-    ) -> list[LiteralChunk | ArgChunk]:
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
         if recursion_depth < 0:  # pragma: no cover
             raise ValueError('Max string recursion exceeded')
@@ -246,6 +251,7 @@ class ChunksFormatter(Formatter):
         used_args: set[str | int] = set()
         # We currently don't use positional arguments
         args = ()
+        scrubbed: list[ScrubbedNote] = []
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:
@@ -313,21 +319,24 @@ class ChunksFormatter(Formatter):
                     value = self.NONE_REPR
                 else:
                     value = self.format_field(obj, format_spec)
-                    value = self._clean_value(field_name, value, scrubber)
+                    value, value_scrubbed = self._clean_value(field_name, value, scrubber)
+                    scrubbed += value_scrubbed
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
                 result.append(d)
 
-        return result
+        extra_attrs = {ATTRIBUTES_SCRUBBED_KEY: scrubbed} if scrubbed else {}
+        return result, extra_attrs
 
-    def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> str:
+    def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> tuple[str, list[ScrubbedNote]]:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
+        scrubbed: list[ScrubbedNote] = []
         if field_name not in scrubber.SAFE_KEYS:
-            value = scrubber.scrub(('message', field_name), value)
-        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+            value, scrubbed = scrubber.scrub_value(('message', field_name), value)
+        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT), scrubbed
 
 
 chunks_formatter = ChunksFormatter()

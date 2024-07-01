@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
 
 import pytest
-from dirty_equals import IsPartialDict
+from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -62,6 +63,14 @@ def test_scrub_attribute(exporter: TestExporter):
                     'authr': "[Scrubbed due to 'auth']",
                     'authorization': "[Scrubbed due to 'auth']",
                     'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
+                            {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
+                            {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
+                            {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
+                        ]
+                    ),
                 },
             }
         ]
@@ -90,6 +99,12 @@ def test_scrub_message(exporter: TestExporter):
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
                     'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {'path': ['message', 'user'], 'matched_substring': 'password'},
+                            {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
+                        ]
+                    ),
                     'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
                 },
             }
@@ -140,6 +155,26 @@ def test_scrub_events(exporter: TestExporter):
                     'logfire.msg': 'get_password',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {
+                                'path': ['otel_events', 0, 'attributes', 'password'],
+                                'matched_substring': 'password',
+                            },
+                            {
+                                'path': ['otel_events', 1, 'attributes', 'exception.message'],
+                                'matched_substring': 'Password',
+                            },
+                            {
+                                'path': ['otel_events', 1, 'attributes', 'exception.stacktrace'],
+                                'matched_substring': 'secret',
+                            },
+                            {
+                                'path': ['otel_events', 2, 'attributes', 'exception.message'],
+                                'matched_substring': 'Password',
+                            },
+                        ]
+                    ),
                 },
                 'events': [
                     {
@@ -227,6 +262,7 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
                     ),
                     'other': "[Scrubbed due to 'my_pattern']",
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
+                    'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
                 },
             }
         ]
@@ -311,3 +347,41 @@ def test_scrubbing_deprecated_args_combined_with_new_options():
         match='Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time.',
     ):
         logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())
+
+
+@pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')
+def test_fstring_magic_scrubbing(exporter: TestExporter):
+    password = 'secret-password'
+    name = 'John'
+    logfire.info(f'User: {name}, password: {password}', foo=1234)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'User: {name}, password: {password}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'User: {name}, password: {password}',
+                    'logfire.msg': "User: John, password: [Scrubbed due to 'secret']",
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_fstring_magic_scrubbing',
+                    'code.lineno': 123,
+                    'foo': 1234,
+                    'name': 'John',
+                    'password': "[Scrubbed due to 'password']",
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{},"name":{},"password":{}}}',
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {'path': ['message', 'password'], 'matched_substring': 'secret'},
+                            {'path': ['attributes', 'password'], 'matched_substring': 'password'},
+                        ]
+                    ),
+                },
+            }
+        ]
+    )

@@ -28,6 +28,7 @@ from pathlib import PosixPath
 from types import GeneratorType
 from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 
+from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, safe_repr
@@ -154,11 +155,15 @@ def attributes_json_schema(properties: JsonSchemaProperties) -> str:
 # This becomes the value of `properties` above.
 def attributes_json_schema_properties(attributes: dict[str, Any]) -> JsonSchemaProperties:
     return JsonSchemaProperties(
-        # NOTE: The code related attributes are merged with the logfire function attributes on
-        # `install_auto_tracing` and when using our stdlib logging handler. We need to remove them
-        # from the JSON Schema, as we only want to have the ones that the user passes in.
-        {key: create_json_schema(value, set()) for key, value in attributes.items() if key not in STACK_INFO_KEYS}
+        {key: create_json_schema(value, set()) for key, value in attributes.items() if key not in EXCLUDE_KEYS}
     )
+
+
+# Attributes from STACK_INFO_KEYS are merged with the logfire function attributes on
+# `install_auto_tracing` and when using our stdlib logging handler. We need to remove them
+# from the JSON Schema, as we only want to have the ones that the user passes in.
+# ATTRIBUTES_SCRUBBED_KEY can be set when formatting a message.
+EXCLUDE_KEYS = STACK_INFO_KEYS | {ATTRIBUTES_SCRUBBED_KEY}
 
 
 def _dataclass_schema(obj: Any, seen: set[int]) -> JsonDict:
