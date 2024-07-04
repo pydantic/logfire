@@ -751,7 +751,7 @@ class LogfireConfig(_LogfireConfigData):
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
 
-            self._ensure_flush_after_lambda()
+            self._ensure_flush_after_aws_lambda()
 
             return self._tracer_provider
 
@@ -813,7 +813,7 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.base_url)
 
-    def _ensure_flush_after_lambda(self):
+    def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
 
         This way Logfire will just work in Lambda without the user needing to know anything.
@@ -838,6 +838,7 @@ class LogfireConfig(_LogfireConfigData):
         # https://github.com/getsentry/sentry-python/blob/eab218c91ae2b894df18751e347fd94972a4fe06/sentry_sdk/integrations/aws_lambda.py#L280-L314
         # So we just look for the client class in all modules.
         # This feels inefficient but it appears be a tiny fraction of the time `configure` takes anyway.
+        # We convert the modules to a list in case something gets imported during the loop and the dict gets modified.
         for mod in list(sys.modules.values()):
             try:
                 client = getattr(mod, 'LambdaRuntimeClient', None)
