@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v0.46.0] (2024-07-05)
+
+* Add `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/268
+* Use exponential histogram buckets by @alexmojaki in https://github.com/pydantic/logfire/pull/282
+
 ## [v0.45.1] (2024-07-01)
 
 * Fix ignore no config warning message by @ba1mn in https://github.com/pydantic/logfire/pull/292
@@ -193,6 +198,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
 [v0.45.1]: https://github.com/pydantic/logfire/compare/v0.45.0...v0.45.1
 [v0.45.0]: https://github.com/pydantic/logfire/compare/v0.44.0...v0.45.0
 [v0.44.0]: https://github.com/pydantic/logfire/compare/v0.43.0...v0.44.0
