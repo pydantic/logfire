@@ -1263,7 +1263,14 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'values': '{"path_param": "[Scrubbed due to \'auth\']", "foo": "foo_val", "password": "[Scrubbed due to \'password\']", "testauthorization": "[Scrubbed due to \'auth\']"}',
+                    'values': IsJson(
+                        {
+                            'path_param': "[Scrubbed due to 'auth']",
+                            'foo': 'foo_val',
+                            'password': "[Scrubbed due to 'password']",
+                            'testauthorization': "[Scrubbed due to 'auth']",
+                        }
+                    ),
                     'errors': '[]',
                     'custom_attr': 'custom_value',
                     'http.method': 'GET',
@@ -1272,6 +1279,13 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.null_args': ('fastapi.route.operation_id',),
                     'logfire.json_schema': '{"type":"object","properties":{"values":{"type":"object"},"errors":{"type":"array"},"custom_attr":{},"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
                     'logfire.tags': ('fastapi',),
+                    'logfire.scrubbed': IsJson(
+                        [
+                            {'path': ['attributes', 'values', 'path_param'], 'matched_substring': 'auth'},
+                            {'path': ['attributes', 'values', 'password'], 'matched_substring': 'password'},
+                            {'path': ['attributes', 'values', 'testauthorization'], 'matched_substring': 'auth'},
+                        ]
+                    ),
                 },
             },
             {
@@ -1344,6 +1358,9 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/secret/{path_param}',
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                     'http.status_code': 200,
+                    'logfire.scrubbed': IsJson(
+                        [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
+                    ),
                 },
             },
         ]

@@ -130,6 +130,9 @@ ATTRIBUTES_LOGGING_ARGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logging_args'
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""
 
+ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
+"""Key in OTEL attributes with metadata about parts of a span that have been scrubbed."""
+
 NULL_ARGS_KEY = 'logfire.null_args'
 """Key in OTEL attributes that collects attributes with a null (None) value."""
 
