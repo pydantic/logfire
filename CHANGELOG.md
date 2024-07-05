@@ -4,6 +4,8 @@
 
 * Add `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/268
 * Use exponential histogram buckets by @alexmojaki in https://github.com/pydantic/logfire/pull/282
+* Add attribute noting details of scrubbed values by @alexmojaki in https://github.com/pydantic/logfire/pull/278
+* Ensure `force_flush` at end of AWS Lambda invocation by @alexmojaki in https://github.com/pydantic/logfire/pull/296
 
 ## [v0.45.1] (2024-07-01)
 
