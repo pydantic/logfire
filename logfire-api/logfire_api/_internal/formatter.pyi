@@ -7,7 +7,7 @@ from .utils import truncate_string as truncate_string
 from _typeshed import Incomplete
 from logfire._internal.stack_info import get_user_frame_and_stacklevel as get_user_frame_and_stacklevel
 from string import Formatter
-from types import CodeType
+from types import CodeType as CodeType
 from typing import Any, Final, Literal, Mapping
 from typing_extensions import NotRequired, TypedDict
 

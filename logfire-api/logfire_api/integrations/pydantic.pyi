@@ -4,8 +4,8 @@ from .._internal.utils import get_version as get_version
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from logfire import LogfireSpan as LogfireSpan
-from pydantic.plugin import SchemaKind as SchemaKind, SchemaTypePath as SchemaTypePath
-from pydantic_core import CoreConfig as CoreConfig, CoreSchema as CoreSchema
+from pydantic.plugin import SchemaKind, SchemaTypePath
+from pydantic_core import CoreConfig, CoreSchema
 from typing import Any, Literal, TypeVar, TypedDict
 from typing_extensions import ParamSpec
 

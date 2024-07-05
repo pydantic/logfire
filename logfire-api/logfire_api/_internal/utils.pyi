@@ -2,13 +2,13 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import Event as Event, ReadableSpan as ReadableSpan
+from opentelemetry.sdk.trace import Event as Event, ReadableSpan
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.status import Status
 from opentelemetry.util import types as otel_types
 from packaging.version import Version
 from pathlib import Path
-from requests import RequestException, Response as Response
+from requests import RequestException, Response
 from typing import Any, Mapping, Sequence, TypeVar, TypedDict
 
 T = TypeVar('T')

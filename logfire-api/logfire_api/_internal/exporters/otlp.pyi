@@ -3,8 +3,8 @@ from ..stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
 from ..utils import logger as logger, truncate_string as truncate_string
 from .wrapper import WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
-from functools import cached_property as cached_property
-from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan
+from functools import cached_property
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
 from typing import Any, Mapping, Sequence

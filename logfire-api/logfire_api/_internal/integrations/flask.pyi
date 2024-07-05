@@ -1,4 +1,4 @@
-from flask.app import Flask as Flask
+from flask.app import Flask
 from typing import Any
 
 def instrument_flask(app: Flask, **kwargs: Any):

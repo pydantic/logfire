@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
-from opentelemetry import context as context
-from opentelemetry.sdk.metrics.export import AggregationTemporality as AggregationTemporality, MetricExportResult as MetricExportResult, MetricExporter, MetricsData as MetricsData
+from opentelemetry import context
+from opentelemetry.sdk.metrics.export import AggregationTemporality as AggregationTemporality, MetricExportResult, MetricExporter, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation as Aggregation
-from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan, Span as Span, SpanProcessor
-from opentelemetry.sdk.trace.export import SpanExportResult as SpanExportResult, SpanExporter
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
 from typing import Any, Sequence
 
 class WrapperSpanExporter(SpanExporter):

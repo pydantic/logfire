@@ -1,9 +1,8 @@
-import abc
 import dataclasses
 from _typeshed import Incomplete
 from abc import ABC
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge
-from opentelemetry.util.types import Attributes as Attributes
+from opentelemetry.util.types import Attributes
 from threading import Lock
 from typing import Generic, Sequence, TypeVar
 from weakref import WeakSet
@@ -25,7 +24,6 @@ class ProxyMeterProvider(MeterProvider):
     def set_meter_provider(self, meter_provider: MeterProvider) -> None: ...
     def shutdown(self, timeout_millis: float = 30000) -> None: ...
     def force_flush(self, timeout_millis: float = 30000) -> None: ...
-    def __init__(self, *generated_args, provider, meters=..., lock=..., **generated_kwargs) -> None: ...
 
 class _ProxyMeter(Meter):
     def __init__(self, meter: Meter, name: str, version: str | None, schema_url: str | None) -> None: ...
@@ -44,12 +42,12 @@ class _ProxyMeter(Meter):
     def create_observable_up_down_counter(self, name: str, callbacks: Sequence[CallbackT] | None = None, unit: str = '', description: str = '') -> ObservableUpDownCounter: ...
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
 
-class _ProxyInstrument(ABC, Generic[InstrumentT], metaclass=abc.ABCMeta):
+class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def __init__(self, instrument: InstrumentT, name: str, unit: str, description: str) -> None: ...
     def on_meter_set(self, meter: Meter) -> None:
         """Called when a real meter is set on the creating _ProxyMeter."""
 
-class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC, metaclass=abc.ABCMeta):
+class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
     def __init__(self, instrument: InstrumentT, name: str, callbacks: Sequence[CallbackT] | None, unit: str, description: str) -> None: ...
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):

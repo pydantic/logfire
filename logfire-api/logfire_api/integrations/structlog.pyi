@@ -1,6 +1,6 @@
 from .._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY
 from _typeshed import Incomplete
-from structlog.types import EventDict as EventDict, WrappedLogger as WrappedLogger
+from structlog.types import EventDict, WrappedLogger
 
 RESERVED_ATTRS: Incomplete
 

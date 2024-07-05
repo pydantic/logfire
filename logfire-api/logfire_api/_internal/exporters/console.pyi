@@ -2,7 +2,7 @@ from ..constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY
 from ..json_formatter import json_args_value_formatter as json_args_value_formatter
 from _typeshed import Incomplete
 from collections.abc import Sequence
-from opentelemetry.sdk.trace import Event as Event, ReadableSpan as ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
 from typing import TextIO
 

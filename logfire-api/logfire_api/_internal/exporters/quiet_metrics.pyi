@@ -1,6 +1,6 @@
 from .wrapper import WrapperMetricExporter as WrapperMetricExporter
 from opentelemetry.sdk.metrics._internal.export import MetricExportResult
-from opentelemetry.sdk.metrics._internal.point import MetricsData as MetricsData
+from opentelemetry.sdk.metrics._internal.point import MetricsData
 from typing import Any
 
 class QuietMetricExporter(WrapperMetricExporter):

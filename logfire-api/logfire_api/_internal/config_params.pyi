@@ -4,7 +4,7 @@ from .exporters.console import ConsoleColorsValues as ConsoleColorsValues
 from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete
 from dataclasses import dataclass
-from functools import cached_property as cached_property
+from functools import cached_property
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from pathlib import Path
 from typing import Any, Callable, TypeVar
@@ -21,7 +21,6 @@ class ConfigParam:
     allow_file_config: bool = ...
     default: Any = ...
     tp: Any = ...
-    def __init__(self, env_vars, allow_file_config=..., default=..., tp=...) -> None: ...
 
 @dataclass
 class _DefaultCallback:
@@ -30,7 +29,6 @@ class _DefaultCallback:
     A good example is when we want to check if we are running under pytest and set a default value based on that.
     """
     callback: Callable[[], Any]
-    def __init__(self, callback) -> None: ...
 
 BASE_URL: Incomplete
 SEND_TO_LOGFIRE: Incomplete
@@ -80,6 +78,5 @@ class ParamManager:
         """
     @cached_property
     def pydantic_plugin(self): ...
-    def __init__(self, config_from_file) -> None: ...
 
 def default_param_manager(): ...

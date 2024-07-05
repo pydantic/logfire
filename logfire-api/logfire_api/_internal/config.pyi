@@ -20,14 +20,14 @@ from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerPro
 from .utils import UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, get_version as get_version, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
-from functools import cached_property as cached_property
+from functools import cached_property
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.version import VERSION as VERSION
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
-from opentelemetry.sdk.trace import SpanProcessor as SpanProcessor
-from opentelemetry.sdk.trace.export import SpanExporter as SpanExporter
-from opentelemetry.sdk.trace.id_generator import IdGenerator as IdGenerator
+from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
 from typing_extensions import Self
@@ -45,7 +45,6 @@ class ConsoleOptions:
     include_timestamps: bool = ...
     verbose: bool = ...
     min_log_level: LevelName = ...
-    def __init__(self, colors=..., span_style=..., include_timestamps=..., verbose=..., min_log_level=...) -> None: ...
 
 @dataclass
 class PydanticPlugin:
@@ -53,7 +52,6 @@ class PydanticPlugin:
     record: PydanticPluginRecordValues = ...
     include: set[str] = ...
     exclude: set[str] = ...
-    def __init__(self, record=..., include=..., exclude=...) -> None: ...
 
 def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, project_name: str | None = None, service_name: str | None = None, service_version: str | None = None, trace_sample_rate: float | None = None, console: ConsoleOptions | Literal[False] | None = None, show_summary: bool | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, base_url: str | None = None, collect_system_metrics: bool | None = None, id_generator: IdGenerator | None = None, ns_timestamp_generator: Callable[[], int] | None = None, processors: None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None, metric_readers: None = None, additional_metric_readers: Sequence[MetricReader] | None = None, pydantic_plugin: PydanticPlugin | None = None, fast_shutdown: bool = False, scrubbing_patterns: Sequence[str] | None = None, scrubbing_callback: ScrubCallback | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, tail_sampling: TailSamplingOptions | None = None) -> None:
     """Configure the logfire SDK.
@@ -140,7 +138,6 @@ class _LogfireConfigData:
     scrubbing: ScrubbingOptions | Literal[False]
     inspect_arguments: bool
     tail_sampling: TailSamplingOptions | None
-    def __init__(self, base_url, send_to_logfire, token, project_name, service_name, trace_sample_rate, console, show_summary, data_dir, collect_system_metrics, id_generator, ns_timestamp_generator, additional_span_processors, pydantic_plugin, default_span_processor, fast_shutdown, scrubbing, inspect_arguments, tail_sampling) -> None: ...
 
 class LogfireConfig(_LogfireConfigData):
     def __init__(self, base_url: str | None = None, send_to_logfire: bool | None = None, token: str | None = None, project_name: str | None = None, service_name: str | None = None, service_version: str | None = None, trace_sample_rate: float | None = None, console: ConsoleOptions | Literal[False] | None = None, show_summary: bool | None = None, config_dir: Path | None = None, data_dir: Path | None = None, collect_system_metrics: bool | None = None, id_generator: IdGenerator | None = None, ns_timestamp_generator: Callable[[], int] | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None, additional_metric_readers: Sequence[MetricReader] | None = None, pydantic_plugin: PydanticPlugin | None = None, fast_shutdown: bool = False, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, tail_sampling: TailSamplingOptions | None = None) -> None:
@@ -291,7 +288,6 @@ class LogfireCredentials:
         """Write a credentials file to the given path."""
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
-    def __init__(self, token, project_name, project_url, logfire_api_url) -> None: ...
 
 def get_git_revision_hash() -> str:
     """Get the current git commit hash."""

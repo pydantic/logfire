@@ -20,7 +20,6 @@ class LogfireFinder(MetaPathFinder):
         particularly finding the module's source code and filename.
         If it finds a module spec that matches the filter, it returns a new spec that uses the LogfireLoader.
         """
-    def __init__(self, logfire, modules_filter, min_duration) -> None: ...
 
 @dataclass
 class LogfireLoader(Loader):
@@ -37,4 +36,3 @@ class LogfireLoader(Loader):
     def create_module(self, spec: ModuleSpec): ...
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""
-    def __init__(self, plain_spec, source, logfire, min_duration) -> None: ...

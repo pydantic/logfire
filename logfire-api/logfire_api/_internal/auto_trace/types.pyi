@@ -20,6 +20,5 @@ class AutoTraceModule:
         If a prefix contains any characters other than letters, numbers, and dots,
         then it will be treated as a regular expression.
         """
-    def __init__(self, name, filename) -> None: ...
 
 def get_module_pattern(module: str): ...

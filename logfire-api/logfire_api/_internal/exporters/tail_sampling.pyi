@@ -1,16 +1,15 @@
 from _typeshed import Incomplete
 from dataclasses import dataclass
-from functools import cached_property as cached_property
+from functools import cached_property
 from logfire._internal.constants import ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
-from opentelemetry import context as context
-from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan, Span as Span, SpanProcessor as SpanProcessor
+from opentelemetry import context
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 @dataclass
 class TailSamplingOptions:
     level: LevelName | None = ...
     duration: float | None = ...
-    def __init__(self, level=..., duration=...) -> None: ...
 
 @dataclass
 class TraceBuffer:
@@ -19,7 +18,6 @@ class TraceBuffer:
     ended: list[ReadableSpan]
     @cached_property
     def first_span(self) -> Span: ...
-    def __init__(self, started, ended) -> None: ...
 
 class TailSamplingProcessor(WrapperSpanProcessor):
     """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""

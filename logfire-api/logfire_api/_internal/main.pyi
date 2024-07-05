@@ -16,16 +16,16 @@ from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider
 from .utils import handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
-from fastapi import FastAPI as FastAPI
-from flask.app import Flask as Flask
-from functools import cached_property as cached_property
-from opentelemetry.metrics import CallbackT as CallbackT, Counter as Counter, Histogram as Histogram, UpDownCounter as UpDownCounter, _Gauge as Gauge
+from fastapi import FastAPI
+from flask.app import Flask
+from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span as Span
-from opentelemetry.trace import Tracer as Tracer
+from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
-from starlette.applications import Starlette as Starlette
+from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
+from types import TracebackType as TracebackType
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
 from typing_extensions import LiteralString
 
@@ -847,6 +847,7 @@ class FastLogfireSpan:
 class LogfireSpan(ReadableSpan):
     end_on_exit: bool
     def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
     @property

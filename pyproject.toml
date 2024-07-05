@@ -96,7 +96,6 @@ dev-dependencies = [
     "requests",
     "sqlalchemy",
     "pandas",
-    "numpy<2.0.0",
     "attrs",
     "openai",
     "opentelemetry-instrumentation-aiohttp-client",
@@ -143,7 +142,7 @@ docs = "mkdocs build"
 # no strict so you can build the docs without insiders packages
 docs-serve = "mkdocs serve --no-strict"
 generate-stubs = { chain = ["generate-stubs:stubgen", "generate-stubs:sync"] }
-"generate-stubs:stubgen" = "stubgen -p logfire --include-docstrings"
+"generate-stubs:stubgen" = "stubgen -p logfire --include-docstrings --no-analysis"
 "generate-stubs:sync" = "rsync -a out/logfire/ logfire-api/logfire_api/"
 
 [tool.hatch.metadata]

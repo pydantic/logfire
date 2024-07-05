@@ -1,4 +1,4 @@
-from starlette.applications import Starlette as Starlette
+from starlette.applications import Starlette
 from typing import Any
 
 def instrument_starlette(app: Starlette, **kwargs: Any):

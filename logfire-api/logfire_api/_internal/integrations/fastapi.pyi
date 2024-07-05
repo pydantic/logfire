@@ -1,8 +1,7 @@
 from ..main import Logfire as Logfire
 from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_code_object_info
 from _typeshed import Incomplete
-from fastapi import FastAPI as FastAPI
-from fastapi.routing import APIWebSocketRoute as APIWebSocketRoute
+from fastapi import FastAPI
 from starlette.requests import Request
 from starlette.websockets import WebSocket
 from typing import Any, Awaitable, Callable, ContextManager, Iterable
