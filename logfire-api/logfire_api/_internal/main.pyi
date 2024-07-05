@@ -309,13 +309,13 @@ class Logfire:
             A new Logfire instance with the given settings applied.
         """
     def force_flush(self, timeout_millis: int = 3000) -> bool:
-        """Force flush all spans.
+        """Force flush all spans and metrics.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush was successful.
+            Whether the flush of spans was successful.
         """
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.

@@ -15,7 +15,7 @@ from inline_snapshot import snapshot
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.trace import StatusCode
 from pydantic import BaseModel
 from pydantic_core import ValidationError
@@ -2570,3 +2570,14 @@ def test_otel_status_code(exporter: TestExporter):
 
     assert exporter.exported_spans[0].status.status_code == StatusCode.UNSET
     assert exporter.exported_spans[1].status.status_code == StatusCode.ERROR
+
+
+def test_force_flush(exporter: TestExporter):
+    logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[BatchSpanProcessor(exporter)])
+    logfire.info('hi')
+
+    assert not exporter.exported_spans_as_dict()
+
+    logfire.force_flush()
+
+    assert len(exporter.exported_spans_as_dict()) == 1

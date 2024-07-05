@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import dataclasses
+import functools
 import json
 import os
 import re
@@ -759,7 +760,22 @@ class LogfireConfig(_LogfireConfigData):
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
+
+            self._ensure_flush_after_aws_lambda()
+
             return self._tracer_provider
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        """Force flush all spans and metrics.
+
+        Args:
+            timeout_millis: The timeout in milliseconds.
+
+        Returns:
+            Whether the flush of spans was successful.
+        """
+        self._meter_provider.force_flush(timeout_millis)
+        return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
@@ -806,6 +822,47 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.base_url)
+
+    def _ensure_flush_after_aws_lambda(self):
+        """Ensure that `force_flush` is called after an AWS Lambda invocation.
+
+        This way Logfire will just work in Lambda without the user needing to know anything.
+        Without the `force_flush`, spans may just remain in the queue when the Lambda runtime is frozen.
+        """
+
+        def wrap_client_post_invocation_method(client_method: Any):  # pragma: no cover
+            @functools.wraps(client_method)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    self.force_flush(timeout_millis=3000)
+                except Exception:
+                    import traceback
+
+                    traceback.print_exc()
+
+                return client_method(*args, **kwargs)
+
+            return wrapper
+
+        # This suggests that the lambda runtime module moves around a lot:
+        # https://github.com/getsentry/sentry-python/blob/eab218c91ae2b894df18751e347fd94972a4fe06/sentry_sdk/integrations/aws_lambda.py#L280-L314
+        # So we just look for the client class in all modules.
+        # This feels inefficient but it appears be a tiny fraction of the time `configure` takes anyway.
+        # We convert the modules to a list in case something gets imported during the loop and the dict gets modified.
+        for mod in list(sys.modules.values()):
+            try:
+                client = getattr(mod, 'LambdaRuntimeClient', None)
+            except Exception:  # pragma: no cover
+                continue
+            if not client:  # pragma: no branch
+                continue
+            try:  # pragma: no cover
+                client.post_invocation_error = wrap_client_post_invocation_method(client.post_invocation_error)
+                client.post_invocation_result = wrap_client_post_invocation_method(client.post_invocation_result)
+            except Exception:  # pragma: no cover
+                import traceback
+
+                traceback.print_exc()
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
