@@ -4,8 +4,9 @@ import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
+import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
@@ -19,6 +20,7 @@ from .constants import (
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
+    ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     NULL_ARGS_KEY,
@@ -46,12 +48,14 @@ DEFAULT_PATTERNS = [
     'credit[._ -]?card',
 ]
 
+JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
+
 
 @dataclass
 class ScrubMatch:
     """An object passed to the [`scrubbing_callback`][logfire.configure(scrubbing_callback)] function."""
 
-    path: tuple[str | int, ...]
+    path: JsonPath
     """The path to the value in the span being considered for redaction, e.g. `('attributes', 'password')`."""
 
     value: Any
@@ -66,6 +70,11 @@ class ScrubMatch:
 
 # See scrubbing_callback in logfire.configure for more info on this type.
 ScrubCallback = Callable[[ScrubMatch], Any]
+
+
+class ScrubbedNote(TypedDict):
+    path: JsonPath
+    matched_substring: str
 
 
 @dataclass
@@ -121,15 +130,15 @@ class BaseScrubber(ABC):
     def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
 
     @abstractmethod
-    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any: ...  # pragma: no cover
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
 
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
         pass
 
-    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any:
-        return value
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+        return value, []
 
 
 class Scrubber(BaseScrubber):
@@ -146,6 +155,39 @@ class Scrubber(BaseScrubber):
         if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
             return
 
+        span_scrubber = SpanScrubber(self)
+        span_scrubber.scrub_span(span)
+        if span_scrubber.scrubbed:
+            attributes = span['attributes']
+            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
+            try:
+                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
+            except json.JSONDecodeError:  # pragma: no cover
+                already_scrubbed = []
+            span['attributes'] = {
+                **attributes,
+                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
+            }
+
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        span_scrubber = SpanScrubber(self)
+        result = span_scrubber.scrub(path, value)
+        return result, span_scrubber.scrubbed
+
+
+class SpanScrubber:
+    """Does the actual scrubbing work.
+
+    This class is separate from Scrubber so that it can be instantiated more regularly
+    and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
+    """
+
+    def __init__(self, parent: Scrubber):
+        self._pattern = parent._pattern  # type: ignore
+        self._callback = parent._callback  # type: ignore
+        self.scrubbed: list[ScrubbedNote] = []
+
+    def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
@@ -203,7 +245,7 @@ class Scrubber(BaseScrubber):
 
         return new_attributes
 
-    def scrub(self, path: tuple[str | int, ...], value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
@@ -226,7 +268,7 @@ class Scrubber(BaseScrubber):
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in self.SAFE_KEYS:
+                if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
@@ -241,4 +283,6 @@ class Scrubber(BaseScrubber):
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
             return result
-        return f'[Scrubbed due to {match.pattern_match.group(0)!r}]'
+        matched_substring = match.pattern_match.group(0)
+        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+        return f'[Scrubbed due to {matched_substring!r}]'
