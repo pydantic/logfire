@@ -149,6 +149,8 @@ jobs:
 
       - name: Publish logfire to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
       - name: Build logfire-api
         run: rye build
@@ -158,3 +160,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: logfire-api/dist
+          verbose: true
