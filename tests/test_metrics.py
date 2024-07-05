@@ -90,6 +90,19 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
     histogram.record(300)
     histogram.record(4000)
 
+    # Here's a bit of explanation behind the produced data.
+    # These two numbers define the 'layout' of the exponential histogram buckets for this data.
+    # They're specific to this batch of data, i.e. they account for 300 and 4000, not 1 and 20
+    offset = 263  # somewhat high because 300 is far from 0
+    scale = 5  # meaning we're a *bit* 'zoomed in' because 300 and 4000 are somewhat close in the grand scheme of things
+    bucket_counts = [0] * 128
+    # 300 goes in 'bucket 0', 4000 goes in 'bucket 119'
+    buckets = {0: 300, 119: 4000}
+    for i, value in buckets.items():
+        bucket_counts[i] = 1  # i.e. 1 value in this bucket
+        # These are the bounds of the bucket
+        assert 2 ** ((offset + i) / 2**scale) < value < 2 ** ((offset + i + 1) / 2**scale)
+
     assert get_collected_metrics(metrics_reader) == snapshot(
         [
             {
@@ -104,24 +117,11 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
                             'time_unix_nano': IsInt(),
                             'count': 2,
                             'sum': 4300,
-                            'bucket_counts': [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-                            'explicit_bounds': [
-                                0,
-                                5,
-                                10,
-                                25,
-                                50,
-                                75,
-                                100,
-                                250,
-                                500,
-                                750,
-                                1000,
-                                2500,
-                                5000,
-                                7500,
-                                10000,
-                            ],
+                            'scale': scale,
+                            'zero_count': 0,
+                            'positive': {'offset': offset, 'bucket_counts': bucket_counts},
+                            'negative': {'offset': 0, 'bucket_counts': [0]},
+                            'flags': 0,
                             'min': 300,
                             'max': 4000,
                         }
