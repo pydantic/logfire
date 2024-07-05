@@ -145,19 +145,15 @@ jobs:
 
       - uses: eifinger/setup-rye@v2
       - run: rye config --set-bool behavior.use-uv=true
-      - run: rye build
 
-      - name: Publish logfire to PyPI
+      - name: Build logfire
+        run: rye build
+
+      - name: Build logfire-api
+        run: rye build --pyproject logfire-api/pyproject.toml --out dist
+
+      - name: Publish artifacts to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-
-      - name: Build logfire-api
-        run: rye build
-        working-directory: logfire-api/
-
-      - name: Publish logfire-api to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: logfire-api/dist
           verbose: true
