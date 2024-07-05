@@ -275,7 +275,8 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
         logging.error('test')  # sanity check
 
         # This causes OTEL to log a warning.
-        # Unlike the test above, there's no risk of recursion since the exporter doesn't raise errors.
+        # Unlike the test_recursive_logging* tests above,
+        # there's no risk of recursion since the exporter doesn't raise errors.
         # So the log appears in the exported spans below.
         Status(description=4)  # type: ignore
 
