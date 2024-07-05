@@ -56,9 +56,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'LevelName')
     logfire__all__.remove('LevelName')
 
-    assert hasattr(logfire_api, 'LogfireSpan')
-    with logfire_api.span('test span'):
-        ...
+    with logfire_api.span('test span') as span:
+        assert isinstance(span, logfire_api.LogfireSpan)
+        span.set_attribute('foo', 'bar')
     logfire__all__.remove('LogfireSpan')
     logfire__all__.remove('span')
 
@@ -123,6 +123,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     for member in [m for m in ('instrument_flask', 'instrument_fastapi', 'instrument_starlette')]:
         assert hasattr(logfire_api, member), member
         getattr(logfire_api, member)(app=MagicMock())
+        logfire__all__.remove(member)
+
+    for member in [m for m in ('instrument_openai', 'instrument_anthropic')]:
+        assert hasattr(logfire_api, member), member
+        with getattr(logfire_api, member)():
+            ...
         logfire__all__.remove(member)
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:

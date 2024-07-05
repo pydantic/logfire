@@ -3,7 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 import importlib
 import sys
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ContextManager, Literal
+from contextlib import nullcontext
 from unittest.mock import MagicMock
 
 try:
@@ -26,6 +27,24 @@ except ImportError:
                 return self
 
             def __exit__(self, *args, **kwargs) -> None: ...
+
+            @property
+            def message_template(self) -> str:  # pragma: no cover
+                return ''
+
+            @property
+            def tags(self) -> Sequence[str]:  # pragma: no cover
+                return []
+
+            @property
+            def message(self) -> str:  # pragma: no cover
+                return ''
+
+            @message.setter
+            def message(self, message: str): ...  # pragma: no cover
+
+            def is_recording(self) -> bool:  # pragma: no cover
+                return False
 
         class Logfire:
             def __getattr__(self, attr):
@@ -60,7 +79,8 @@ except ImportError:
 
             def force_flush(self, *args, **kwargs) -> None: ...
 
-            def log_slow_async_callbacks(self, *args, **kwargs) -> None: ...  # pragma: no branch
+            def log_slow_async_callbacks(self, *args, **kwargs) -> None: # pragma: no branch
+                return nullcontext()
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
@@ -70,7 +90,8 @@ except ImportError:
 
                 return decorator
 
-            def instrument_fastapi(self, *args, **kwargs) -> None: ...
+            def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
 
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
@@ -92,9 +113,11 @@ except ImportError:
 
             def instrument_asyncpg(self, *args, **kwargs) -> None: ...
 
-            def instrument_anthropic(self, *args, **kwargs) -> None: ...
+            def instrument_anthropic(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
 
-            def instrument_openai(self, *args, **kwargs) -> None: ...
+            def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
 
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
