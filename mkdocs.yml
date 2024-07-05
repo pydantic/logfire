@@ -119,6 +119,7 @@ nav:
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
       - Third Party:
+          - Third Party: integrations/third_party/index.md
           - Mirascope: integrations/third_party/mirascope.md
           - LiteLLM: integrations/third_party/litellm.md
       - Use Cases:
