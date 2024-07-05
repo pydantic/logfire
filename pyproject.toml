@@ -96,6 +96,7 @@ dev-dependencies = [
     "requests",
     "sqlalchemy",
     "pandas",
+    "numpy<2.0.0",
     "attrs",
     "openai",
     "opentelemetry-instrumentation-aiohttp-client",

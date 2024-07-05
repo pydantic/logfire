@@ -5,13 +5,13 @@ from ._internal.constants import LevelName as LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.exporters.tail_sampling import TailSamplingOptions as TailSamplingOptions
 from ._internal.main import Logfire as Logfire, LogfireSpan as LogfireSpan
-from ._internal.scrubbing import ScrubMatch as ScrubMatch
+from ._internal.scrubbing import ScrubMatch as ScrubMatch, ScrubbingOptions as ScrubbingOptions
 from ._internal.utils import suppress_instrumentation as suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler as LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION as VERSION
 
-__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'ConsoleOptions', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'error', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_fastapi', 'instrument_openai', 'instrument_anthropic', 'instrument_asyncpg', 'instrument_httpx', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_sqlalchemy', 'instrument_redis', 'instrument_pymongo', 'AutoTraceModule', 'with_tags', 'with_settings', 'shutdown', 'load_spans_from_file', 'no_auto_trace', 'METRICS_PREFERRED_TEMPORALITY', 'ScrubMatch', 'VERSION', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'TailSamplingOptions']
+__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'ConsoleOptions', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'error', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_fastapi', 'instrument_openai', 'instrument_anthropic', 'instrument_asyncpg', 'instrument_httpx', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_sqlalchemy', 'instrument_redis', 'instrument_pymongo', 'AutoTraceModule', 'with_tags', 'with_settings', 'shutdown', 'load_spans_from_file', 'no_auto_trace', 'METRICS_PREFERRED_TEMPORALITY', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'TailSamplingOptions']
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
