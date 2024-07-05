@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from logging import Logger, getLogger
 from typing import Any, Sequence
 
@@ -195,6 +196,20 @@ class MockLoggingHandler(logging.Handler):
         self.emit = self.logs.append  # type: ignore
 
 
+@contextmanager
+def logfire_logging_handler_on_root_logger():
+    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
+    logger = getLogger()
+    test_logging_handler = MockLoggingHandler()
+    logfire_logging_handler = LogfireLoggingHandler(fallback=test_logging_handler)
+    logger.addHandler(logfire_logging_handler)
+    try:
+        yield test_logging_handler
+    finally:
+        # Don't mess with the root logger longer than needed.
+        logger.removeHandler(logfire_logging_handler)
+
+
 def test_recursive_logging_from_opentelemetry() -> None:
     class ExceptionExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]):
@@ -205,22 +220,13 @@ def test_recursive_logging_from_opentelemetry() -> None:
         additional_span_processors=[SimpleSpanProcessor(ExceptionExporter())],
     )
 
-    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
-    logger = getLogger()
-    test_logging_handler = MockLoggingHandler()
-    logfire_logging_handler = LogfireLoggingHandler(fallback=test_logging_handler)
-    logger.addHandler(logfire_logging_handler)
-
-    try:
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
         # This calls ExceptionExporter.export which causes OTEL to log an exception.
         # That log call goes to LogfireLoggingHandler.emit, which usually tries to emit another logfire log,
         # causing another stdlib log from OTEL, potentially leading to infinite recursion.
         # Recursion is prevented by OTEL suppressing instrumentation, so the second logfire log isn't emitted.
         # But when we detect this, we use the fallback handler instead, so this tests that.
         logfire.info('test')
-    finally:
-        # Don't mess with the root logger longer than needed.
-        logger.removeHandler(logfire_logging_handler)
 
     [record] = test_logging_handler.logs
     # This is the message logged by OTEL.
@@ -234,37 +240,28 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
     }
     logfire.configure(**config_kwargs)
 
-    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
-    logger = getLogger()
-    test_logging_handler = MockLoggingHandler()
-    logfire_logging_handler = LogfireLoggingHandler(fallback=test_logging_handler)
-    logger.addHandler(logfire_logging_handler)
-
-    try:
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
         for _ in range(1000):
             if test_logging_handler.logs:
                 break
             logfire.info('test')
 
-        logfire.force_flush()
+    logfire.force_flush()
 
-        [record] = test_logging_handler.logs
-        # This is the message logged by OTEL.
-        assert record.message == 'Queue is full, likely spans will be dropped.'
+    [record] = test_logging_handler.logs
+    # This is the message logged by OTEL.
+    assert record.message == 'Queue is full, likely spans will be dropped.'
 
-        assert exporter.exported_spans
-        for span in exporter.exported_spans:
-            assert span.name == 'test'
+    assert exporter.exported_spans
+    for span in exporter.exported_spans:
+        assert span.name == 'test'
 
-        exporter.clear()
-        test_logging_handler.logs.clear()
+    exporter.clear()
 
-        logfire.shutdown()
+    logfire.shutdown()
 
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
         logfire.info('after shutdown')
-    finally:
-        # Don't mess with the root logger longer than needed.
-        logger.removeHandler(logfire_logging_handler)
 
     [record] = test_logging_handler.logs
     # This is the message logged by OTEL.
@@ -274,20 +271,15 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
 
 
 def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
-    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
-    logger = getLogger()
-    logfire_logging_handler = LogfireLoggingHandler()
-    logger.addHandler(logfire_logging_handler)
-    try:
-        logger.error('test')  # sanity check
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
+        logging.error('test')  # sanity check
 
         # This causes OTEL to log a warning.
         # Unlike the test above, there's no risk of recursion since the exporter doesn't raise errors.
         # So the log appears in the exported spans below.
         Status(description=4)  # type: ignore
-    finally:
-        # Don't mess with the root logger longer than needed.
-        logger.removeHandler(logfire_logging_handler)
+
+    assert not test_logging_handler.logs
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
