@@ -8,6 +8,8 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Status, StatusCode
 
+import logfire
+
 from ..constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -41,7 +43,8 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         if is_instrumentation_suppressed():
             return
         _set_log_level_on_asgi_send_receive_spans(span)
-        super().on_start(span, parent_context)
+        with logfire.suppress_instrumentation():
+            super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         if is_instrumentation_suppressed():
@@ -52,7 +55,8 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         _set_error_level_and_status(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
-        super().on_end(span)
+        with logfire.suppress_instrumentation():
+            super().on_end(span)
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
