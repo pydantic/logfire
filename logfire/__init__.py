@@ -6,12 +6,7 @@ from typing import Any
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
-from ._internal.config import (
-    METRICS_PREFERRED_TEMPORALITY,
-    ConsoleOptions,
-    PydanticPlugin,
-    configure,
-)
+from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.exporters.tail_sampling import TailSamplingOptions
@@ -91,9 +86,10 @@ __all__ = (
     'span',
     'instrument',
     'log',
-    'info',
+    'trace',
     'debug',
     'notice',
+    'info',
     'warn',
     'error',
     'fatal',
@@ -101,9 +97,24 @@ __all__ = (
     'log_slow_async_callbacks',
     'install_auto_tracing',
     'instrument_fastapi',
+    'instrument_openai',
+    'instrument_anthropic',
+    'instrument_asyncpg',
+    'instrument_httpx',
+    'instrument_requests',
+    'instrument_psycopg',
+    'instrument_django',
+    'instrument_flask',
+    'instrument_starlette',
+    'instrument_aiohttp_client',
+    'instrument_sqlalchemy',
+    'instrument_redis',
+    'instrument_pymongo',
     'AutoTraceModule',
     'with_tags',
+    'with_settings',
     # 'with_trace_sample_rate',
+    'shutdown',
     'load_spans_from_file',
     'no_auto_trace',
     'METRICS_PREFERRED_TEMPORALITY',

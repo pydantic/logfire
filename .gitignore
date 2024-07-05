@@ -6,3 +6,6 @@ __pycache__
 *.env
 /scratch/
 /.coverage
+
+# stubgen
+out
