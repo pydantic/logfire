@@ -9,7 +9,9 @@ LOGGING_TO_OTEL_LEVEL_NUMBERS: Incomplete
 ATTRIBUTES_LOG_LEVEL_NAME_KEY: Incomplete
 ATTRIBUTES_LOG_LEVEL_NUM_KEY: Incomplete
 
+
 def log_level_attributes(level: LevelName | int) -> dict[str, otel_types.AttributeValue]: ...
+
 
 SpanTypeType: Incomplete
 ATTRIBUTES_SPAN_TYPE_KEY: Incomplete
@@ -21,6 +23,7 @@ DISABLE_CONSOLE_KEY: Incomplete
 ATTRIBUTES_JSON_SCHEMA_KEY: Incomplete
 ATTRIBUTES_LOGGING_ARGS_KEY: Incomplete
 ATTRIBUTES_VALIDATION_ERROR_KEY: str
+ATTRIBUTES_SCRUBBED_KEY: str
 NULL_ARGS_KEY: str
 PENDING_SPAN_NAME_SUFFIX: str
 LOGFIRE_BASE_URL: str

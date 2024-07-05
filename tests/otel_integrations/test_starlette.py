@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from dirty_equals import IsJson
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
@@ -178,6 +179,9 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/secret/{path_param}',
                     'logfire.level_num': 17,
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
+                    'logfire.scrubbed': IsJson(
+                        [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
+                    ),
                 },
                 'events': [
                     {
