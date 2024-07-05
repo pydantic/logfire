@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v0.46.1] (2024-07-05)
+
+* Fix release process for `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/303
+
 ## [v0.46.0] (2024-07-05)
 
 * Add `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/268
