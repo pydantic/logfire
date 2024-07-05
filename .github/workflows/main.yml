@@ -157,4 +157,4 @@ jobs:
       - name: Publish logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: logfire-api/
+          packages-dir: logfire-api/dist
