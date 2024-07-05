@@ -241,17 +241,22 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
     logfire.configure(**config_kwargs)
 
     with logfire_logging_handler_on_root_logger() as test_logging_handler:
-        for _ in range(1000):
+        for _ in range(1000):  # just preventing an infinite loop, this should break much sooner.
             if test_logging_handler.logs:
+                # Stop when we get the log we want caused by a full queue.
+                # It's not easy to predict when this will happen since the queue is processed in a separate thread.
                 break
             logfire.info('test')
 
     logfire.force_flush()
 
     [record] = test_logging_handler.logs
-    # This is the message logged by OTEL.
+    # This is the message logged by OTEL, in BatchSpanProcessor.on_end.
+    # We're testing that it doesn't get converted to a logfire log by LogfireLoggingHandler.
+    # To prevent that, MainSpanProcessorWrapper.on_end uses suppress_instrumentation.
     assert record.message == 'Queue is full, likely spans will be dropped.'
 
+    # Ensure that we got some of the spans from `logfire.info('test')` above and nothing else.
     assert exporter.exported_spans
     for span in exporter.exported_spans:
         assert span.name == 'test'
@@ -261,10 +266,10 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
     logfire.shutdown()
 
     with logfire_logging_handler_on_root_logger() as test_logging_handler:
-        logfire.info('after shutdown')
+        logfire.info('spans after shutdown are dropped')
 
     [record] = test_logging_handler.logs
-    # This is the message logged by OTEL.
+    # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
     assert record.message == 'Already shutdown, dropping span.'
 
     assert not exporter.exported_spans
