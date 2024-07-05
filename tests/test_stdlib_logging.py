@@ -241,7 +241,7 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
     logfire.configure(**config_kwargs)
 
     with logfire_logging_handler_on_root_logger() as test_logging_handler:
-        for _ in range(1000):  # just preventing an infinite loop, this should break much sooner.
+        for _ in range(1000):  # just preventing an infinite loop, this should break much sooner.  # pragma: no branch
             if test_logging_handler.logs:
                 # Stop when we get the log we want caused by a full queue.
                 # It's not easy to predict when this will happen since the queue is processed in a separate thread.
