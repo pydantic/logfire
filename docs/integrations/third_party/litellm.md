@@ -1,4 +1,4 @@
-# LiteLLM 
+# LiteLLM
 
 LiteLLM allows you to call over 100 Large Language Models (LLMs) using the same input/output format. It also supports Logfire for logging and monitoring.
 

@@ -36,6 +36,7 @@ from opentelemetry.sdk.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
@@ -729,7 +730,16 @@ class LogfireConfig(_LogfireConfigData):
 
             tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
 
-            meter_provider = MeterProvider(metric_readers=metric_readers, resource=resource)
+            meter_provider = MeterProvider(
+                metric_readers=metric_readers,
+                resource=resource,
+                views=[
+                    View(
+                        instrument_type=Histogram,
+                        aggregation=ExponentialBucketHistogramAggregation(),
+                    )
+                ],
+            )
             if self.collect_system_metrics:
                 configure_metrics(meter_provider)
 
@@ -778,7 +788,7 @@ class LogfireConfig(_LogfireConfigData):
             _frame, stacklevel = get_user_frame_and_stacklevel()
             warnings.warn(
                 f'{message} until `logfire.configure()` has been called. '
-                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=false in pyproject.toml to suppress this warning.',
+                f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
                 stacklevel=stacklevel,
             )

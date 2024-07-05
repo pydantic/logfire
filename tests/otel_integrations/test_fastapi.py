@@ -11,6 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.params import Header
 from fastapi.security import SecurityScopes
+from fastapi.staticfiles import StaticFiles
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
@@ -75,6 +76,7 @@ def app():
     app = FastAPI()
     first_lvl_app = FastAPI()
     second_lvl_app = FastAPI()
+    app.mount('/static', StaticFiles(), name='static')  # https://github.com/pydantic/logfire/issues/288
     app.mount('/first_lvl', first_lvl_app)
     first_lvl_app.mount('/second_lvl', second_lvl_app)
 

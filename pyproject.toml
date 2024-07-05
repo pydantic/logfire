@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.44.0"
+version = "0.45.1"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -132,8 +132,8 @@ dev-dependencies = [
     "asyncpg",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
-    # Can remove this when https://github.com/python/typing_extensions/commit/53bcdded534494674f893112f71d3be344d65363 is released
-    "typing-extensions<4.12",
+    "sqlmodel",
+    "mypy>=1.10.0",
 ]
 
 [tool.rye.scripts]
@@ -141,6 +141,9 @@ typecheck = "pyright"
 docs = "mkdocs build"
 # no strict so you can build the docs without insiders packages
 docs-serve = "mkdocs serve --no-strict"
+generate-stubs = { chain = ["generate-stubs:stubgen", "generate-stubs:sync"] }
+"generate-stubs:stubgen" = "stubgen -p logfire --include-docstrings --no-analysis"
+"generate-stubs:sync" = "rsync -a out/logfire/ logfire-api/logfire_api/"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -154,6 +157,7 @@ include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
+extend-exclude = ["logfire-api/logfire_api/*"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -166,7 +170,10 @@ extend-select = [
     "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
 ] # add "T" to disallow prints
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
-isort = { combine-as-imports = true, known-first-party = ["logfire"] }
+isort = { combine-as-imports = true, known-first-party = [
+    "logfire",
+    "logfire_api",
+] }
 mccabe = { max-complexity = 14 }
 ignore = [
     "D107", # ignore missing docstring in __init__ methods
@@ -182,6 +189,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
 "docs/**/*.py" = ["D"]
+"logfire-api/logfire_api/**/*.py" = ["D"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -191,7 +199,7 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*"]
+exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme", "out", "logfire-api"]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]
