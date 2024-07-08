@@ -19,6 +19,7 @@ from ..constants import (
     PENDING_SPAN_NAME_SUFFIX,
     log_level_attributes,
 )
+from ..db_statement_summary import message_from_db_statement
 from ..scrubbing import BaseScrubber
 from ..utils import ReadableSpanDict, is_instrumentation_suppressed, span_to_dict, truncate_string
 from .wrapper import WrapperSpanProcessor
@@ -53,6 +54,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         _tweak_asgi_send_receive_spans(span_dict)
         _tweak_sqlalchemy_connect_spans(span_dict)
         _tweak_http_spans(span_dict)
+        _summarize_db_statement(span_dict)
         _set_error_level_and_status(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
@@ -241,3 +243,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     if message != name:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: message}
+
+
+def _summarize_db_statement(span: ReadableSpanDict):
+    attributes = span['attributes']
+    message: str | None = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+    summary = message_from_db_statement(attributes, message, span['name'])
+    if summary is not None:
+        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
