@@ -91,12 +91,12 @@ def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
     if span['name'] != 'connect':
         return
     scope = span['instrumentation_scope']
-    if scope is None or scope.name != 'opentelemetry.instrumentation.sqlalchemy':
+    if scope is None or scope.name != 'opentelemetry.instrumentation.sqlalchemy':  # pragma: no cover
         return
     attributes = span['attributes']
     # We never expect db.statement to be in the attributes here.
     # This is just to be extra sure that we're not accidentally hiding an actual query span.
-    if SpanAttributes.DB_SYSTEM not in attributes or SpanAttributes.DB_STATEMENT in attributes:
+    if SpanAttributes.DB_SYSTEM not in attributes or SpanAttributes.DB_STATEMENT in attributes:  # pragma: no cover
         return
     span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
