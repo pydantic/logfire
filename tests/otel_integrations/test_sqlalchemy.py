@@ -63,6 +63,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'connect',
                     'db.name': 'example.db',
                     'db.system': 'sqlite',
+                    'logfire.level_num': 5,
                 },
             },
             {
@@ -118,6 +119,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'connect',
                     'db.name': 'example.db',
                     'db.system': 'sqlite',
+                    'logfire.level_num': 5,
                 },
             },
             {
@@ -159,6 +161,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'connect',
                     'db.name': 'example.db',
                     'db.system': 'sqlite',
+                    'logfire.level_num': 5,
                 },
             },
             {
