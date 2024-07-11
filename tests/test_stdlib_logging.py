@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from logging import Logger, getLogger
-from typing import Sequence
+from typing import Any, Sequence
 
 import pytest
 from dirty_equals import IsJson, IsPositiveInt
 from inline_snapshot import snapshot
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import Status
 
 import logfire
@@ -188,6 +189,27 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
     )
 
 
+class MockLoggingHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.logs: list[logging.LogRecord] = []
+        self.emit = self.logs.append  # type: ignore
+
+
+@contextmanager
+def logfire_logging_handler_on_root_logger():
+    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
+    logger = getLogger()
+    test_logging_handler = MockLoggingHandler()
+    logfire_logging_handler = LogfireLoggingHandler(fallback=test_logging_handler)
+    logger.addHandler(logfire_logging_handler)
+    try:
+        yield test_logging_handler
+    finally:
+        # Don't mess with the root logger longer than needed.
+        logger.removeHandler(logfire_logging_handler)
+
+
 def test_recursive_logging_from_opentelemetry() -> None:
     class ExceptionExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]):
@@ -198,49 +220,72 @@ def test_recursive_logging_from_opentelemetry() -> None:
         additional_span_processors=[SimpleSpanProcessor(ExceptionExporter())],
     )
 
-    class TestLoggingHandler(logging.Handler):
-        def __init__(self):
-            super().__init__()
-            self.logs: list[logging.LogRecord] = []
-            self.emit = self.logs.append  # type: ignore
-
-    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
-    logger = getLogger()
-    test_logging_handler = TestLoggingHandler()
-    logfire_logging_handler = LogfireLoggingHandler(fallback=test_logging_handler)
-    logger.addHandler(logfire_logging_handler)
-
-    try:
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
         # This calls ExceptionExporter.export which causes OTEL to log an exception.
         # That log call goes to LogfireLoggingHandler.emit, which usually tries to emit another logfire log,
         # causing another stdlib log from OTEL, potentially leading to infinite recursion.
         # Recursion is prevented by OTEL suppressing instrumentation, so the second logfire log isn't emitted.
         # But when we detect this, we use the fallback handler instead, so this tests that.
         logfire.info('test')
-    finally:
-        # Don't mess with the root logger longer than needed.
-        logger.removeHandler(logfire_logging_handler)
 
     [record] = test_logging_handler.logs
     # This is the message logged by OTEL.
     assert record.message == 'Exception while exporting Span.'
 
 
+def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs = {
+        **config_kwargs,
+        'additional_span_processors': [BatchSpanProcessor(exporter, max_queue_size=1, max_export_batch_size=1)],
+    }
+    logfire.configure(**config_kwargs)
+
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
+        for _ in range(1000):  # just preventing an infinite loop, this should break much sooner.  # pragma: no branch
+            if test_logging_handler.logs:
+                # Stop when we get the log we want caused by a full queue.
+                # It's not easy to predict when this will happen since the queue is processed in a separate thread.
+                break
+            logfire.info('test')
+
+    logfire.force_flush()
+
+    [record] = test_logging_handler.logs
+    # This is the message logged by OTEL, in BatchSpanProcessor.on_end.
+    # We're testing that it doesn't get converted to a logfire log by LogfireLoggingHandler.
+    # To prevent that, MainSpanProcessorWrapper.on_end uses suppress_instrumentation.
+    assert record.message == 'Queue is full, likely spans will be dropped.'
+
+    # Ensure that we got some of the spans from `logfire.info('test')` above and nothing else.
+    assert exporter.exported_spans
+    for span in exporter.exported_spans:
+        assert span.name == 'test'
+
+    exporter.clear()
+
+    logfire.shutdown()
+
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
+        logfire.info('spans after shutdown are dropped')
+
+    [record] = test_logging_handler.logs
+    # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
+    assert record.message == 'Already shutdown, dropping span.'
+
+    assert not exporter.exported_spans
+
+
 def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
-    # Add our handler to the root logger (not the logger fixture) to get internal logs from OTEL.
-    logger = getLogger()
-    logfire_logging_handler = LogfireLoggingHandler()
-    logger.addHandler(logfire_logging_handler)
-    try:
-        logger.error('test')  # sanity check
+    with logfire_logging_handler_on_root_logger() as test_logging_handler:
+        logging.error('test')  # sanity check
 
         # This causes OTEL to log a warning.
-        # Unlike the test above, there's no risk of recursion since the exporter doesn't raise errors.
+        # Unlike the test_recursive_logging* tests above,
+        # there's no risk of recursion since the exporter doesn't raise errors.
         # So the log appears in the exported spans below.
         Status(description=4)  # type: ignore
-    finally:
-        # Don't mess with the root logger longer than needed.
-        logger.removeHandler(logfire_logging_handler)
+
+    assert not test_logging_handler.logs
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

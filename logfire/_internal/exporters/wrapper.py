@@ -8,6 +8,8 @@ from opentelemetry.sdk.metrics.view import Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+import logfire
+
 
 class WrapperSpanExporter(SpanExporter):
     """A base class for SpanExporters that wrap another exporter."""
@@ -60,7 +62,9 @@ class WrapperSpanProcessor(SpanProcessor):
         self.processor.on_end(span)
 
     def shutdown(self) -> None:
-        self.processor.shutdown()
+        with logfire.suppress_instrumentation():
+            self.processor.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self.processor.force_flush(timeout_millis)  # pragma: no cover
+        with logfire.suppress_instrumentation():
+            return self.processor.force_flush(timeout_millis)

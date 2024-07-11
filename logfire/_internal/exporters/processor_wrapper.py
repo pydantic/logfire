@@ -8,6 +8,8 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Status, StatusCode
 
+import logfire
+
 from ..constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -41,18 +43,21 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         if is_instrumentation_suppressed():
             return
         _set_log_level_on_asgi_send_receive_spans(span)
-        super().on_start(span, parent_context)
+        with logfire.suppress_instrumentation():
+            super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         if is_instrumentation_suppressed():
             return
         span_dict = span_to_dict(span)
         _tweak_asgi_send_receive_spans(span_dict)
+        _tweak_sqlalchemy_connect_spans(span_dict)
         _tweak_http_spans(span_dict)
         _set_error_level_and_status(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
-        super().on_end(span)
+        with logfire.suppress_instrumentation():
+            super().on_end(span)
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
@@ -78,6 +83,22 @@ def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
     """
     if _is_asgi_send_receive_span(span.name, span.instrumentation_scope):
         span.set_attributes(log_level_attributes('debug'))
+
+
+def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
+    # Set the sqlalchemy 'connect' span to debug level so that it's hidden by default.
+    # https://pydanticlogfire.slack.com/archives/C06EDRBSAH3/p1720205732316029
+    if span['name'] != 'connect':
+        return
+    scope = span['instrumentation_scope']
+    if scope is None or scope.name != 'opentelemetry.instrumentation.sqlalchemy':  # pragma: no cover
+        return
+    attributes = span['attributes']
+    # We never expect db.statement to be in the attributes here.
+    # This is just to be extra sure that we're not accidentally hiding an actual query span.
+    if SpanAttributes.DB_SYSTEM not in attributes or SpanAttributes.DB_STATEMENT in attributes:  # pragma: no cover
+        return
+    span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
 
 def _tweak_asgi_send_receive_spans(span: ReadableSpanDict) -> None:
