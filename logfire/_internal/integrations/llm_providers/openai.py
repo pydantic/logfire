@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, LiteralString
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
@@ -25,42 +25,48 @@ __all__ = (
 )
 
 
+class EndpointConfigError(ValueError):
+    pass
+
+
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
-    json_data = options.json_data
-    if not isinstance(json_data, dict):
-        raise ValueError('Expected `options.json_data` to be a dictionary')
-    if 'model' not in json_data:
-        # all OpenAI API calls have a model AFAIK
-        raise ValueError('`model` not found in request data')
 
+    model = options.json_data.get('model') if isinstance(options.json_data, dict) else None
     if url == '/chat/completions':
+        message_template: LiteralString = 'Chat Completion'
+        if model:
+            message_template += ' {request_data[model]!r}'
         return EndpointConfig(
-            message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            message_template=message_template,
+            span_data={'request_data': options.json_data},
             content_from_stream=content_from_chat_completions,
         )
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': options.json_data},
             content_from_stream=content_from_completions,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': options.json_data},
             content_from_stream=None,
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': options.json_data},
             content_from_stream=None,
         )
     else:
-        raise ValueError(f'Unknown OpenAI API endpoint: `{url}`')
+        return EndpointConfig(
+            message_template='OpenAI API call to {url!r}',
+            span_data={'url': url, 'request_data': options},
+            content_from_stream=None,
+        )
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:
