@@ -38,7 +38,7 @@ class ChunksFormatter(Formatter):
     def chunks(
         self,
         format_string: str,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         fstring_frame: types.FrameType | None = None,
@@ -49,25 +49,29 @@ class ChunksFormatter(Formatter):
         #      These can come from evaluating values in f-strings,
         #      or from noting scrubbed values.
         # 3. The final message template, which may differ from `format_string` if it was an f-string.
+        extra_attrs = {}
         if fstring_frame:
-            result = self._fstring_chunks(kwargs, scrubber, fstring_frame)
-            if result:  # returns None if failed
-                return result
+            nodes = self._args_nodes(fstring_frame)
+            if nodes:  # returns None if failed
+                arg_node, pos_args_nodes, source = nodes
+                pos_args: tuple[Any] = kwargs.get('logfire.pos_args', ())  # type: ignore
+                extra_attrs = self._pos_args_attrs(pos_args_nodes, pos_args, source)
+                kwargs.pop('logfire.pos_args', None)
+                if isinstance(arg_node, ast.JoinedStr):
+                    result = self._fstring_chunks(kwargs, scrubber, fstring_frame.f_back, arg_node, source)
+                    result[1].update(extra_attrs)
+                    return result
 
-        chunks, extra_attrs = self._vformat_chunks(
+        chunks, chunks_extra_attrs = self._vformat_chunks(
             format_string,
             kwargs=kwargs,
             scrubber=scrubber,
         )
+        extra_attrs.update(chunks_extra_attrs)
         # When there's no f-string magic, there's no changes in the template string.
         return chunks, extra_attrs, format_string
 
-    def _fstring_chunks(
-        self,
-        kwargs: Mapping[str, Any],
-        scrubber: BaseScrubber,
-        frame: types.FrameType,
-    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
+    def _args_nodes(self, frame: types.FrameType):
         # `frame` is the frame of the method that's being called by the user,
         # so that we can tell if `logfire.log` is being called.
         called_code = frame.f_code
@@ -139,11 +143,13 @@ class ChunksFormatter(Formatter):
             # the argument that might be the f-string is the second argument and it can be named.
             if len(call_node.args) >= 2:
                 arg_node = call_node.args[1]
+                pos_args_nodes = call_node.args[2:]
             else:
                 # Find the arg named 'msg_template'
                 for keyword in call_node.keywords:
                     if keyword.arg == 'msg_template':
                         arg_node = keyword.value
+                        pos_args_nodes = []
                         break
                 else:
                     warn_inspect_arguments(
@@ -153,6 +159,7 @@ class ChunksFormatter(Formatter):
                     return None
         elif call_node.args:
             arg_node = call_node.args[0]
+            pos_args_nodes = call_node.args[1:]
         else:
             # Very unlikely.
             warn_inspect_arguments(
@@ -161,11 +168,16 @@ class ChunksFormatter(Formatter):
             )
             return None
 
-        if not isinstance(arg_node, ast.JoinedStr):
-            # Not an f-string, not a problem.
-            # Just use normal formatting.
-            return None
+        return arg_node, pos_args_nodes, ex.source
 
+    def _fstring_chunks(
+        self,
+        kwargs: Mapping[str, Any],
+        scrubber: BaseScrubber,
+        frame: types.FrameType,
+        arg_node: ast.JoinedStr,
+        ex_source: executing.Source,
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
         # We have an f-string AST node.
         # Now prepare the namespaces that we will use to evaluate the components.
         global_vars = frame.f_globals
@@ -203,7 +215,7 @@ class ChunksFormatter(Formatter):
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
                 value = node_value.value
-                assert type(value) is str  # noqa
+                assert type(value) is str
                 result.append({'v': value, 't': 'lit'})
                 new_template += value
             else:
@@ -211,7 +223,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
+                source, value_code, formatted_code = compile_formatted_value(node_value, ex_source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -233,6 +245,14 @@ class ChunksFormatter(Formatter):
         if scrubbed:
             extra_attrs[ATTRIBUTES_SCRUBBED_KEY] = scrubbed
         return result, extra_attrs, new_template
+
+    def _pos_args_attrs(self, pos_args_nodes, pos_args: tuple[Any], source: executing.Source):
+        extra_attrs = {}
+        if pos_args and len(pos_args_nodes) == len(pos_args):
+            for pos_arg_node, pos_arg in zip(pos_args_nodes, pos_args):
+                node_source = get_node_source_text(pos_arg_node, source)
+                extra_attrs[node_source] = pos_arg
+        return extra_attrs
 
     def _vformat_chunks(
         self,
@@ -310,7 +330,8 @@ class ChunksFormatter(Formatter):
                     format_spec,  # type: ignore[arg-type]
                     args,
                     kwargs,
-                    used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
+                    used_args,
+                    # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
                     recursion_depth - 1,
                     auto_arg_index=auto_arg_index,
                 )

@@ -74,12 +74,10 @@ if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.websockets import WebSocket
 
-
 try:
     from pydantic import ValidationError
 except ImportError:  # pragma: no cover
     ValidationError = None
-
 
 # This is the type of the exc_info/_exc_info parameter of the log methods.
 # sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
@@ -484,7 +482,7 @@ class Logfire:
         self,
         msg_template: str,
         /,
-        *,
+        *positional_attributes: Any,
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
@@ -511,6 +509,8 @@ class Logfire:
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
+        if positional_attributes:
+            attributes['logfire.pos_args'] = positional_attributes
         return self._span(
             msg_template,
             attributes,

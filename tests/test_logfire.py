@@ -2581,3 +2581,33 @@ def test_force_flush(exporter: TestExporter):
     logfire.force_flush()
 
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='arguments magic is only for 3.9+')
+def test_positional_args(exporter: TestExporter):
+    x = 1
+    with logfire.span('span', x, [x]):
+        pass
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_positional_args',
+                    'code.lineno': 123,
+                    'x': 1,
+                    '[x]': '[1]',
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.pos_args":{"type":"array","x-python-datatype":"tuple"},"x":{},"[x]":{"type":"array"}}}',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
