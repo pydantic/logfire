@@ -6,7 +6,6 @@ from typing import AsyncIterator, Iterator
 import anthropic
 import httpx
 import pytest
-from anthropic._models import FinalRequestOptions
 from anthropic.types import (
     Completion,
     Message,
@@ -29,7 +28,6 @@ from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 from logfire.testing import TestExporter
 
 
@@ -501,35 +499,24 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Unable to instrument {suffix} API call: {error}',
+                'name': 'Anthropic API call to {url!r}',
                 'context': {'is_remote': False, 'span_id': 1, 'trace_id': 1},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 1000000000,
+                'end_time': 2000000000,
                 'attributes': {
-                    'logfire.span_type': 'log',
+                    'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
-                    'logfire.msg': 'Unable to instrument Anthropic API call: Unknown Anthropic API endpoint: `/v1/complete`',
+                    'request_data': '{"max_tokens_to_sample":1000,"model":"claude-2.1","prompt":"prompt"}',
+                    'url': '/v1/complete',
+                    'async': False,
+                    'logfire.msg_template': 'Anthropic API call to {url!r}',
+                    'logfire.msg': "Anthropic API call to '/v1/complete'",
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_unknown_method',
                     'code.lineno': 123,
-                    'error': 'Unknown Anthropic API endpoint: `/v1/complete`',
-                    'kwargs': IsStr(),
                     'logfire.json_schema': IsStr(),
-                    'suffix': 'Anthropic',
                 },
             }
         ]
     )
-
-
-def test_get_endpoint_config_json_not_dict():
-    with pytest.raises(ValueError, match='Expected `options.json_data` to be a dictionary'):
-        get_endpoint_config(FinalRequestOptions(method='POST', url='...'))
-
-
-def test_get_endpoint_config_unknown_url():
-    with pytest.raises(ValueError, match='Unknown Anthropic API endpoint: `/foobar/`'):
-        get_endpoint_config(FinalRequestOptions(method='POST', url='/foobar/', json_data={'model': 'foobar'}))

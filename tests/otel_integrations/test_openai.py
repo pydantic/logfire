@@ -11,7 +11,6 @@ from dirty_equals import IsJson
 from dirty_equals._strings import IsStr
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
-from openai._models import FinalRequestOptions
 from openai.types import (
     completion,
     completion_choice,
@@ -26,7 +25,6 @@ from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
-from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 from logfire._internal.utils import suppress_instrumentation
 from logfire.testing import TestExporter
 
@@ -177,8 +175,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ],
             ).model_dump(mode='json'),
         )
-    else:
-        assert request.url == 'https://api.openai.com/v1/files', f'Unexpected URL: {request.url}'
+    elif request.url == 'https://api.openai.com/v1/files':
         return httpx.Response(
             200,
             json=file_object.FileObject(
@@ -191,6 +188,31 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 status='uploaded',
             ).model_dump(mode='json'),
         )
+    elif request.url == 'https://api.openai.com/v1/assistants':
+        return httpx.Response(
+            200,
+            json={
+                'id': 'asst_abc123',
+                'object': 'assistant',
+                'created_at': 1698984975,
+                'name': 'Math Tutor',
+                'description': None,
+                'model': 'gpt-4-turbo',
+                'instructions': 'You are a personal math tutor. When asked a question, write and run Python code to answer the question.',
+                'tools': [{'type': 'code_interpreter'}],
+                'metadata': {},
+                'top_p': 1.0,
+                'temperature': 1.0,
+                'response_format': 'auto',
+            },
+        )
+    elif request.url == 'https://api.openai.com/v1/threads':
+        return httpx.Response(
+            200,
+            json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
+        )
+    else:  # pragma: no cover
+        raise ValueError(f'Unexpected request to {request.url!r}')
 
 
 @pytest.fixture
@@ -858,29 +880,28 @@ async def test_async_openai_suppressed(instrumented_async_client: openai.AsyncCl
     assert exporter.exported_spans_as_dict() == []
 
 
-def test_unknown_method(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+def test_create_files(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.files.create(file=BytesIO(b'file contents'), purpose='fine-tune')
     assert response.filename == 'test.txt'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Unable to instrument {suffix} API call: {error}',
+                'name': 'OpenAI API call to {url!r}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 1000000000,
+                'end_time': 2000000000,
                 'attributes': {
-                    'logfire.span_type': 'log',
+                    'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'suffix': 'OpenAI',
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
-                    'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
+                    'request_data': '{"purpose":"fine-tune"}',
+                    'url': '/files',
+                    'async': False,
+                    'logfire.msg_template': 'OpenAI API call to {url!r}',
+                    'logfire.msg': "OpenAI API call to '/files'",
                     'code.filepath': 'test_openai.py',
-                    'code.function': 'test_unknown_method',
+                    'code.function': 'test_create_files',
                     'code.lineno': 123,
-                    'error': '`model` not found in request data',
-                    'kwargs': IsStr(),
                     'logfire.json_schema': IsStr(),
                 },
             }
@@ -888,41 +909,100 @@ def test_unknown_method(instrumented_client: openai.Client, exporter: TestExport
     )
 
 
-async def test_async_unknown_method(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
+async def test_create_files_async(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
     response = await instrumented_async_client.files.create(file=BytesIO(b'file contents'), purpose='fine-tune')
     assert response.filename == 'test.txt'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Unable to instrument {suffix} API call: {error}',
+                'name': 'OpenAI API call to {url!r}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 1000000000,
+                'end_time': 2000000000,
                 'attributes': {
-                    'logfire.span_type': 'log',
+                    'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': 'Unable to instrument {suffix} API call: {error}',
-                    'logfire.msg': 'Unable to instrument OpenAI API call: `model` not found in request data',
+                    'request_data': '{"purpose":"fine-tune"}',
+                    'url': '/files',
+                    'async': True,
+                    'logfire.msg_template': 'OpenAI API call to {url!r}',
+                    'logfire.msg': "OpenAI API call to '/files'",
                     'code.filepath': 'test_openai.py',
-                    'code.function': 'test_async_unknown_method',
+                    'code.function': 'test_create_files_async',
                     'code.lineno': 123,
-                    'error': '`model` not found in request data',
-                    'kwargs': IsStr(),
                     'logfire.json_schema': IsStr(),
-                    'suffix': 'OpenAI',
                 },
             }
         ]
     )
 
 
-def test_get_endpoint_config_json_not_dict():
-    with pytest.raises(ValueError, match='Expected `options.json_data` to be a dictionary'):
-        get_endpoint_config(FinalRequestOptions(method='POST', url='...'))
+def test_create_assistant(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    assistant = instrumented_client.beta.assistants.create(
+        name='Math Tutor',
+        instructions='You are a personal math tutor. Write and run code to answer math questions.',
+        tools=[{'type': 'code_interpreter'}],
+        model='gpt-4o',
+    )
+    assert assistant.name == 'Math Tutor'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'OpenAI API call to {url!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('LLM',),
+                    'request_data': IsJson(
+                        {
+                            'model': 'gpt-4o',
+                            'instructions': 'You are a personal math tutor. Write and run code to answer math questions.',
+                            'name': 'Math Tutor',
+                            'tools': [{'type': 'code_interpreter'}],
+                        }
+                    ),
+                    'url': '/assistants',
+                    'async': False,
+                    'logfire.msg_template': 'OpenAI API call to {url!r}',
+                    'logfire.msg': "OpenAI API call to '/assistants'",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_create_assistant',
+                    'code.lineno': 123,
+                    'logfire.json_schema': IsStr(),
+                },
+            }
+        ]
+    )
 
 
-def test_get_endpoint_config_unknown_url():
-    with pytest.raises(ValueError, match='Unknown OpenAI API endpoint: `/foobar/`'):
-        get_endpoint_config(FinalRequestOptions(method='POST', url='/foobar/', json_data={'model': 'foobar'}))
+def test_create_thread(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    thread = instrumented_client.beta.threads.create()
+    assert thread.id == 'thread_abc123'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'OpenAI API call to {url!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('LLM',),
+                    'request_data': '{}',
+                    'url': '/threads',
+                    'async': False,
+                    'logfire.msg_template': 'OpenAI API call to {url!r}',
+                    'logfire.msg': "OpenAI API call to '/threads'",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_create_thread',
+                    'code.lineno': 123,
+                    'logfire.json_schema': IsStr(),
+                },
+            }
+        ]
+    )

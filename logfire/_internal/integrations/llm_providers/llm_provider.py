@@ -20,7 +20,7 @@ def instrument_llm_provider(
     client: Any,
     suppress_otel: bool,
     scope_suffix: str,
-    get_endpoint_config_fn: Callable[[Any], EndpointConfig | None],
+    get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
 ) -> ContextManager[None]:
@@ -77,10 +77,6 @@ def instrument_llm_provider(
             return None, None, kwargs
 
         options = kwargs['options']
-        if options is None:
-            # This happens for not-yet-supported APIs, including beta.threads
-            return None, None, kwargs
-
         try:
             message_template, span_data, content_from_stream = get_endpoint_config_fn(options)
         except ValueError as exc:
