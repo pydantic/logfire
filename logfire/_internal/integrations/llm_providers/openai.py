@@ -30,7 +30,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     url = options.url
 
     json_data = options.json_data
-    if not isinstance(json_data, dict):
+    if not isinstance(json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         json_data = {}
 
