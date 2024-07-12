@@ -12,7 +12,6 @@ If you need help getting started with **Pydantic Logfire** or with advanced usag
 
 The [Pydantic Logfire Slack][slack] is a great place to ask questions, and get help and chat about Logfire.
 
-
 ## :simple-github: GitHub Issues
 
 The [Logfire GitHub Issues][github-issues] are a great place to ask questions, and give us feedback.
