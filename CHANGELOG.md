@@ -204,6 +204,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
 [v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
 [v0.45.1]: https://github.com/pydantic/logfire/compare/v0.45.0...v0.45.1
 [v0.45.0]: https://github.com/pydantic/logfire/compare/v0.44.0...v0.45.0
