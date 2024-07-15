@@ -81,9 +81,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     elif json_body['system'] == 'tool response':
         return httpx.Response(
             200,
-            json=Message(
+            json=Message.model_construct(
                 id='test_id',
-                content=[dict(id='id', input={'param': 'param'}, name='tool', type='tool_use')],  # type: ignore
+                content=[dict(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
                 model='claude-3-haiku-20240307',
                 role='assistant',
                 type='message',
