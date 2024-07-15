@@ -76,7 +76,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ]
             chunks_dicts = ANY_ADAPTER.dump_python(chunks)
             return httpx.Response(
-                200, text=''.join(f'event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
+                200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
     elif json_body['system'] == 'tool response':
         return httpx.Response(
