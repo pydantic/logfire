@@ -8,8 +8,7 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 if TYPE_CHECKING:
     from wsgiref.types import WSGIEnvironment
 
-    from opentelemetry.metrics import MeterProvider
-    from opentelemetry.trace import Span, TracerProvider
+    from opentelemetry.trace import Span
     from typing_extensions import Protocol, TypedDict, Unpack
 
     class RequestHook(Protocol):
@@ -21,11 +20,9 @@ if TYPE_CHECKING:
     class FlaskInstrumentKwargs(TypedDict, total=False):
         request_hook: RequestHook | None
         response_hook: RequestHook | None
-        tracer_provider: TracerProvider | None
         excluded_urls: str | None
         enable_commenter: bool | None
         commenter_options: dict[str, str] | None
-        meter_provider: MeterProvider | None
 
 
 def instrument_flask(app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]):

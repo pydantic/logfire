@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 
 if TYPE_CHECKING:
-    from opentelemetry.metrics import MeterProvider
-    from opentelemetry.trace import Span, TracerProvider
+    from opentelemetry.trace import Span
     from redis import Connection
     from typing_extensions import Protocol, TypedDict, Unpack
 
@@ -19,8 +18,6 @@ if TYPE_CHECKING:
     class RedisInstrumentKwargs(TypedDict, total=False):
         request_hook: RequestHook | None
         response_hook: ResponseHook | None
-        tracer_provider: TracerProvider | None
-        meter_provider: MeterProvider | None
         skip_dep_check: bool
 
 

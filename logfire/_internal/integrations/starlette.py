@@ -6,8 +6,7 @@ from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
 
 if TYPE_CHECKING:
-    from opentelemetry.metrics import MeterProvider
-    from opentelemetry.trace import Span, TracerProvider
+    from opentelemetry.trace import Span
     from typing_extensions import Protocol, TypedDict, Unpack
 
     class ServerRequestHook(Protocol):
@@ -23,8 +22,6 @@ if TYPE_CHECKING:
         server_request_hook: ServerRequestHook | None
         client_request_hook: ClientRequestHook | None
         client_response_hook: ClientResponseHook | None
-        tracer_provider: TracerProvider | None
-        meter_provider: MeterProvider | None
 
 
 def instrument_starlette(app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]):
