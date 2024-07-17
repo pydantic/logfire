@@ -73,7 +73,14 @@ if TYPE_CHECKING:
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+    from typing_extensions import Unpack
 
+    from .integrations.flask import FlaskInstrumentKwargs
+    from .integrations.psycopg import PsycopgInstrumentKwargs
+    from .integrations.pymongo import PymongoInstrumentKwargs
+    from .integrations.redis import RedisInstrumentKwargs
+    from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
+    from .integrations.starlette import StarletteInstrumentKwargs
 
 try:
     from pydantic import ValidationError
@@ -1103,7 +1110,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
@@ -1127,7 +1134,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_psycopg(conn_or_module, **kwargs)
 
-    def instrument_flask(self, app: Flask, **kwargs: Any):
+    def instrument_flask(self, app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -1139,7 +1146,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(app, **kwargs)
 
-    def instrument_starlette(self, app: Starlette, **kwargs: Any):
+    def instrument_starlette(self, app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -1163,7 +1170,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(**kwargs)
 
-    def instrument_sqlalchemy(self, **kwargs: Any):
+    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
@@ -1175,7 +1182,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(**kwargs)
 
-    def instrument_pymongo(self, **kwargs: Any):
+    def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
@@ -1187,7 +1194,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_pymongo(**kwargs)
 
-    def instrument_redis(self, **kwargs: Any):
+    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
