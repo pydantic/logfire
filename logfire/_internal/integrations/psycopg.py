@@ -23,7 +23,6 @@ if TYPE_CHECKING:  # pragma: no cover
     class PsycopgInstrumentKwargs(TypedDict, total=False):
         enable_commenter: bool
         commenter_options: CommenterOptions
-        skip_dep_check: bool
 
 
 PACKAGE_NAMES = ('psycopg', 'psycopg2')

@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 
 if TYPE_CHECKING:
-    from opentelemetry.metrics import MeterProvider
-    from opentelemetry.trace import TracerProvider
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from typing_extensions import Protocol, TypedDict, Unpack
 
@@ -24,8 +22,6 @@ if TYPE_CHECKING:
         response_hook: ResponseHook | None
         failed_hook: FailedHook | None
         capture_statement: bool | None
-        tracer_provider: TracerProvider | None
-        meter_provider: MeterProvider | None
         skip_dep_check: bool
 
 
