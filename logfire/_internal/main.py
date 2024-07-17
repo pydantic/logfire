@@ -76,6 +76,7 @@ if TYPE_CHECKING:
     from typing_extensions import Unpack
 
     from .integrations.flask import FlaskInstrumentKwargs
+    from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
@@ -1109,7 +1110,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
