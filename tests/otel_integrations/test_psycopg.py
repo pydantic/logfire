@@ -23,17 +23,17 @@ def test_check_version():
 
 
 def test_instrument_psycopg():
-    original_connect = psycopg.connect  # type: ignore
+    original_connect = psycopg.connect
 
     instrument_psycopg(psycopg)
-    assert original_connect is not psycopg.connect  # type: ignore
+    assert original_connect is not psycopg.connect
     PsycopgInstrumentor().uninstrument()  # type: ignore
-    assert original_connect is psycopg.connect  # type: ignore
+    assert original_connect is psycopg.connect
 
     instrument_psycopg('psycopg')
-    assert original_connect is not psycopg.connect  # type: ignore
+    assert original_connect is not psycopg.connect
     PsycopgInstrumentor().uninstrument()  # type: ignore
-    assert original_connect is psycopg.connect  # type: ignore
+    assert original_connect is psycopg.connect
 
 
 def test_instrument_psycopg2():
@@ -51,15 +51,15 @@ def test_instrument_psycopg2():
 
 
 def test_instrument_both():
-    original_connect = psycopg.connect  # type: ignore
+    original_connect = psycopg.connect
     original_connect2 = psycopg2.connect
 
     instrument_psycopg()
-    assert original_connect is not psycopg.connect  # type: ignore
+    assert original_connect is not psycopg.connect
     assert original_connect2 is not psycopg2.connect
     PsycopgInstrumentor().uninstrument()  # type: ignore
     Psycopg2Instrumentor().uninstrument()  # type: ignore
-    assert original_connect is psycopg.connect  # type: ignore
+    assert original_connect is psycopg.connect
     assert original_connect2 is psycopg2.connect
 
 

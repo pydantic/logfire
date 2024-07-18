@@ -11,13 +11,24 @@ from packaging.requirements import Requirement
 if TYPE_CHECKING:  # pragma: no cover
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+    from typing_extensions import TypedDict, Unpack
 
     Instrumentor = PsycopgInstrumentor | Psycopg2Instrumentor
+
+    class CommenterOptions(TypedDict, total=False):
+        db_driver: bool
+        db_framework: bool
+        opentelemetry_values: bool
+
+    class PsycopgInstrumentKwargs(TypedDict, total=False):
+        enable_commenter: bool
+        commenter_options: CommenterOptions
+
 
 PACKAGE_NAMES = ('psycopg', 'psycopg2')
 
 
-def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
+def instrument_psycopg(conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
     """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_psycopg` method for details.
@@ -50,7 +61,7 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Any):
     raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
 
-def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
+def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
     try:
         instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
     except ImportError:
@@ -78,7 +89,7 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Any):
         instrumentor.instrument_connection(conn)
 
 
-def check_version(name: str, version: str, instrumentor: Instrumentor):
+def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:
     with contextlib.suppress(Exception):  # it's not worth raising an exception if this fails somehow.
         for dep in instrumentor.instrumentation_dependencies():
             req = Requirement(dep)  # dep is a string like 'psycopg >= 3.1.0'

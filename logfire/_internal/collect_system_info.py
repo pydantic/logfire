@@ -15,7 +15,7 @@ def collect_package_info() -> dict[str, str]:
         distributions = list(metadata.distributions())
         try:
             metas = [dist.metadata for dist in distributions]
-            pairs = [(meta['Name'], meta['Version']) for meta in metas]
+            pairs = [(meta['Name'], meta.get('Version', 'UNKNOWN')) for meta in metas if meta.get('Name')]
         except Exception:  # pragma: no cover
             # Just in case `dist.metadata['Name']` stops working but `dist.name` still works,
             # not that this is expected.
