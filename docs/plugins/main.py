@@ -140,7 +140,8 @@ def install_logfire(markdown: str, page: Page) -> str:
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
-    if not page.file.src_uri.startswith('integrations/third_party/'):
+    uri = page.file.src_uri
+    if uri == 'integrations/third_party/index.md' or not uri.startswith('integrations/third_party/'):
         return markdown
 
     note = """

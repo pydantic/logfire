@@ -1,10 +1,11 @@
 from __future__ import annotations as _annotations
 
 import json
-from typing import AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Iterator
 
 import anthropic
 import httpx
+import pydantic
 import pytest
 from anthropic._models import FinalRequestOptions
 from anthropic.types import (
@@ -13,16 +14,10 @@ from anthropic.types import (
     MessageDeltaUsage,
     MessageStartEvent,
     MessageStopEvent,
-    RawContentBlockDeltaEvent,
-    RawContentBlockStartEvent,
-    RawContentBlockStopEvent,
-    RawMessageDeltaEvent,
     TextBlock,
     TextDelta,
-    ToolUseBlock,
     Usage,
 )
-from anthropic.types.raw_message_delta_event import Delta
 from dirty_equals import IsJson
 from dirty_equals._strings import IsStr
 from httpx._transports.mock import MockTransport
@@ -31,6 +26,8 @@ from inline_snapshot import snapshot
 import logfire
 from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 from logfire.testing import TestExporter
+
+ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:
@@ -66,32 +63,27 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ),
                     type='message_start',
                 ),
-                RawContentBlockStartEvent(
-                    content_block=TextBlock(text='', type='text'), index=0, type='content_block_start'
-                ),
-                RawContentBlockDeltaEvent(
-                    delta=TextDelta(text='The answer', type='text_delta'), index=0, type='content_block_delta'
-                ),
-                RawContentBlockDeltaEvent(
-                    delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'
-                ),
-                RawContentBlockStopEvent(index=0, type='content_block_stop'),
-                RawMessageDeltaEvent(
-                    delta=Delta(stop_reason='end_turn', stop_sequence=None),
+                dict(content_block=TextBlock(text='', type='text'), index=0, type='content_block_start'),
+                dict(delta=TextDelta(text='The answer', type='text_delta'), index=0, type='content_block_delta'),
+                dict(delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'),
+                dict(index=0, type='content_block_stop'),
+                dict(
+                    delta=dict(stop_reason='end_turn', stop_sequence=None),
                     type='message_delta',
                     usage=MessageDeltaUsage(output_tokens=55),
                 ),
                 MessageStopEvent(type='message_stop'),
             ]
+            chunks_dicts = ANY_ADAPTER.dump_python(chunks)  # type: ignore
             return httpx.Response(
-                200, text=''.join(f'event: {chunk.type}\ndata: {chunk.model_dump_json()}\n\n' for chunk in chunks)
+                200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
     elif json_body['system'] == 'tool response':
         return httpx.Response(
             200,
-            json=Message(
+            json=Message.model_construct(
                 id='test_id',
-                content=[ToolUseBlock(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
+                content=[dict(id='id', input={'param': 'param'}, name='tool', type='tool_use')],
                 model='claude-3-haiku-20240307',
                 role='assistant',
                 type='message',
@@ -341,9 +333,9 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     )
     with response as stream:
         combined = ''.join(
-            chunk.delta.text
+            chunk.delta.text  # type: ignore
             for chunk in stream
-            if isinstance(chunk, RawContentBlockDeltaEvent) and isinstance(chunk.delta, TextDelta)
+            if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
         )
     assert combined == 'The answer is secret'
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -385,7 +377,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -405,9 +397,9 @@ async def test_async_messages_stream(
     )
     async with response as stream:
         chunk_content = [
-            chunk.delta.text
+            chunk.delta.text  # type: ignore
             async for chunk in stream
-            if isinstance(chunk, RawContentBlockDeltaEvent) and isinstance(chunk.delta, TextDelta)
+            if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
         ]
         combined = ''.join(chunk_content)
     assert combined == 'The answer is secret'
@@ -450,7 +442,7 @@ async def test_async_messages_stream(
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":3}',
+                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
@@ -465,10 +457,8 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
         system='tool response',
         messages=[],
     )
-    assert isinstance(response.content[0], ToolUseBlock)
     content = response.content[0]
-    assert isinstance(content, ToolUseBlock)
-    assert content.input == {'param': 'param'}
+    assert content.input == {'param': 'param'}  # type: ignore
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
