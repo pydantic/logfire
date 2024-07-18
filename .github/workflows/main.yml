@@ -121,7 +121,7 @@ jobs:
           uv pip install "logfire-api @ file://logfire-api"
       - run: rye show
       - run: mkdir coverage
-      - run: make test
+      - run: make test-integration
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}
       - name: store coverage files
