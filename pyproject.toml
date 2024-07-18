@@ -114,6 +114,7 @@ dev-dependencies = [
     "opentelemetry-instrumentation-psycopg2",
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
+    "opentelemetry-instrumentation-celery",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
@@ -134,6 +135,7 @@ dev-dependencies = [
     "anthropic>=0.27.0",
     "sqlmodel",
     "mypy>=1.10.0",
+    "celery>=5.4.0",
 ]
 
 [tool.rye.scripts]
@@ -199,11 +201,22 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme", "out", "logfire-api"]
+exclude = [
+    "docs/**/*.py",
+    "site/**/*.py",
+    ".venv",
+    "venv*",
+    "ignoreme",
+    "out",
+    "logfire-api",
+]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]
+# By default, we don't run integration tests.
+addopts = ["-m", "not integration"]
 xfail_strict = true
+markers = ['integration: mark a test as an integration test']
 filterwarnings = [
     "error",
     # fastapi uses deprecated pydantic functions

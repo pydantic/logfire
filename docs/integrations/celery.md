@@ -27,14 +27,13 @@ Below we have a minimal example using Celery. You can run it with `celery -A tas
 import logfire
 from celery import Celery
 from celery.signals import worker_process_init
-from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 
 logfire.configure()
 
 @worker_process_init.connect(weak=False)
 def init_celery_tracing(*args, **kwargs):
-    CeleryInstrumentor().instrument()
+    logfire.instrument_celery()
 
 app = Celery("tasks", broker="pyamqp://localhost//")  # (1)!
 
