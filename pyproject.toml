@@ -114,6 +114,7 @@ dev-dependencies = [
     "opentelemetry-instrumentation-psycopg2",
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
+    "opentelemetry-instrumentation-celery",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
@@ -135,7 +136,6 @@ dev-dependencies = [
     "sqlmodel",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "opentelemetry-instrumentation-celery>=0.46b0",
 ]
 
 [tool.rye.scripts]
