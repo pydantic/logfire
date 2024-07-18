@@ -88,7 +88,7 @@ jobs:
           path: coverage
 
   test-integration:
-    name: test on ${{ matrix.python-version }}
+    name: integration test on ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -157,7 +157,7 @@ jobs:
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [lint, docs, test, coverage]
+    needs: [lint, docs, test, test-integration, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
