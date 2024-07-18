@@ -27,7 +27,7 @@ import logfire
 from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 from logfire.testing import TestExporter
 
-ANY_ADAPTER = pydantic.TypeAdapter(Any)
+ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:
@@ -74,7 +74,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ),
                 MessageStopEvent(type='message_stop'),
             ]
-            chunks_dicts = ANY_ADAPTER.dump_python(chunks)
+            chunks_dicts = ANY_ADAPTER.dump_python(chunks)  # type: ignore
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )

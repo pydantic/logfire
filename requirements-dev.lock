@@ -6,6 +6,7 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
+#   generate-hashes: false
 
 -e file:.
 aiohttp==3.9.5
@@ -13,7 +14,7 @@ aiosignal==1.3.1
     # via aiohttp
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.30.0
+anthropic==0.31.2
 anyio==4.3.0
     # via anthropic
     # via httpx
@@ -34,7 +35,7 @@ black==24.4.2
     # via inline-snapshot
 blinker==1.8.2
     # via flask
-certifi==2024.6.2
+certifi==2024.7.4
     # via httpcore
     # via httpx
     # via requests
@@ -54,7 +55,7 @@ cloudpickle==3.0.0
 colorama==0.4.6
     # via griffe
     # via mkdocs-material
-coverage==7.5.4
+coverage==7.6.0
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
@@ -64,7 +65,7 @@ distlib==0.3.8
 distro==1.9.0
     # via anthropic
     # via openai
-django==5.0.6
+django==5.0.7
 dnspython==2.6.1
     # via email-validator
     # via pymongo
@@ -74,7 +75,7 @@ eval-type-backport==0.2.0
 executing==2.0.1
     # via inline-snapshot
     # via logfire
-fastapi==0.111.0
+fastapi==0.111.1
 fastapi-cli==0.0.4
     # via fastapi
 filelock==3.15.4
@@ -90,7 +91,7 @@ ghp-import==2.1.0
     # via mkdocs
 googleapis-common-protos==1.63.2
     # via opentelemetry-exporter-otlp-proto-http
-griffe==0.47.0
+griffe==0.48.0
     # via mkdocstrings-python
 h11==0.14.0
     # via httpcore
@@ -103,9 +104,9 @@ httpx==0.27.0
     # via anthropic
     # via fastapi
     # via openai
-huggingface-hub==0.23.4
+huggingface-hub==0.24.0
     # via tokenizers
-identify==2.5.36
+identify==2.6.0
     # via pre-commit
 idna==3.7
     # via anyio
@@ -118,7 +119,7 @@ importlib-metadata==7.1.0
     # via opentelemetry-instrumentation-flask
 iniconfig==2.0.0
     # via pytest
-inline-snapshot==0.10.2
+inline-snapshot==0.11.0
 itsdangerous==2.2.0
     # via flask
 jinja2==3.1.4
@@ -158,7 +159,7 @@ mkdocs-autorefs==1.0.1
 mkdocs-get-deps==0.2.0
     # via mkdocs
 mkdocs-glightbox==0.4.0
-mkdocs-material==9.5.27
+mkdocs-material==9.5.29
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocstrings==0.25.1
@@ -167,7 +168,7 @@ mkdocstrings-python==1.10.5
 multidict==6.0.5
     # via aiohttp
     # via yarl
-mypy==1.10.0
+mypy==1.10.1
 mypy-extensions==1.0.0
     # via black
     # via mypy
@@ -176,7 +177,7 @@ nodeenv==1.9.1
     # via pyright
 numpy==2.0.0
     # via pandas
-openai==1.35.7
+openai==1.35.14
 opentelemetry-api==1.25.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
@@ -277,8 +278,6 @@ opentelemetry-util-http==0.46b0
     # via opentelemetry-instrumentation-requests
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-wsgi
-orjson==3.10.5
-    # via fastapi
 packaging==24.1
     # via black
     # via huggingface-hub
@@ -306,16 +305,16 @@ protobuf==4.25.3
     # via opentelemetry-proto
 psutil==5.9.8
     # via opentelemetry-instrumentation-system-metrics
-psycopg==3.1.19
-psycopg-binary==3.1.19
+psycopg==3.2.1
+psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic==2.7.4
+pydantic==2.8.2
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.18.4
+pydantic-core==2.20.1
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
@@ -324,7 +323,7 @@ pymdown-extensions==10.8.1
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pyright==1.1.369
+pyright==1.1.372
 pytest==8.2.2
     # via pytest-django
     # via pytest-pretty
@@ -364,8 +363,8 @@ rich==13.7.1
     # via logfire
     # via pytest-pretty
     # via typer
-ruff==0.5.0
-setuptools==70.1.1
+ruff==0.5.2
+setuptools==71.0.1
     # via opentelemetry-instrumentation
 shellingham==1.5.4
     # via typer
@@ -379,12 +378,12 @@ sniffio==1.3.1
     # via openai
 sqlalchemy==2.0.31
     # via sqlmodel
-sqlmodel==0.0.19
-sqlparse==0.5.0
+sqlmodel==0.0.20
+sqlparse==0.5.1
     # via django
 starlette==0.37.2
     # via fastapi
-structlog==24.2.0
+structlog==24.4.0
 tokenizers==0.19.1
     # via anthropic
 toml==0.10.2
@@ -411,8 +410,6 @@ typing-extensions==4.12.2
     # via typer
 tzdata==2024.1
     # via pandas
-ujson==5.10.0
-    # via fastapi
 urllib3==2.2.2
     # via requests
 uvicorn==0.30.1

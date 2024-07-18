@@ -388,12 +388,14 @@ def parse_info(_args: argparse.Namespace) -> None:
     related_packages: list[tuple[int, str, str]] = []
 
     for dist in importlib_metadata.distributions():
-        name = dist.metadata['Name']
+        metadata = dist.metadata
+        name = metadata.get('Name', '')
+        version = metadata.get('Version', 'UNKNOWN')
         index = package_names.get(name)
         if index is not None:
-            related_packages.append((index, name, dist.version))
+            related_packages.append((index, name, version))
         if name.startswith('opentelemetry'):
-            related_packages.append((otel_index, name, dist.version))
+            related_packages.append((otel_index, name, version))
 
     toml_lines = (
         f'logfire="{VERSION}"',
