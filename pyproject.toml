@@ -238,7 +238,6 @@ filterwarnings = [
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
     # ignore DeprecationWarning from httpx - Marcelo knows why this is happening
     "ignore:The 'app' shortcut is now deprecated.*:DeprecationWarning:httpx*:",
-    "ignore: Implicit None on return values is deprecated and will raise KeyErrors.:DeprecationWarning:importlib_metadata",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
