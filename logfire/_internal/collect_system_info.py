@@ -22,8 +22,7 @@ def collect_package_info() -> dict[str, str]:
             # Currently this is about 2x slower because `dist.name` and `dist.version` each call `dist.metadata`,
             # which reads and parses a file and is not cached.
             pairs = [(dist.name, dist.version) for dist in distributions]
+        return dict(sorted(pairs))
     except Exception:  # pragma: no cover
         # Don't crash for this.
-        pairs = []
-
-    return dict(sorted(pairs))
+        return {}
