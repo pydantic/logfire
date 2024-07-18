@@ -5,13 +5,9 @@ from typing import TYPE_CHECKING
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 if TYPE_CHECKING:
-    from opentelemetry.metrics import MeterProvider
-    from opentelemetry.trace import TracerProvider
     from typing_extensions import TypedDict, Unpack
 
     class CeleryInstrumentKwargs(TypedDict, total=False):
-        tracer_provider: TracerProvider | None
-        meter_provider: MeterProvider | None
         skip_dep_check: bool
 
 
