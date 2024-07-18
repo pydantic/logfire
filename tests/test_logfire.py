@@ -1970,7 +1970,7 @@ def test_inspect_arguments(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'logfire.msg_template': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                     'logfire.msg': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                     'logfire.span_type': 'span',
