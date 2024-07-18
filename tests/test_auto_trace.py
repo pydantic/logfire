@@ -59,9 +59,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 1000000000,
                 'attributes': {
-                    'code.filepath': 'foo.py',
+                    'code.filepath': 'events.py',
                     'code.lineno': 123,
-                    'code.function': 'bar',
+                    'code.function': '_run',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.span_type': 'pending_span',
@@ -78,7 +78,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
+                    'code.function': 'bar',
                     'logfire.msg_template': 'Calling async_gen via @instrument',
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'Calling async_gen via @instrument',
@@ -94,7 +94,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'gen',
+                    'code.function': 'async_gen',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
                     'logfire.span_type': 'pending_span',
@@ -111,7 +111,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'gen',
+                    'code.function': 'async_gen',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('auto-trace',),
@@ -127,7 +127,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
+                    'code.function': 'bar',
                     'logfire.msg_template': 'Calling async_gen via @instrument',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Calling async_gen via @instrument',
@@ -140,9 +140,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 7000000000,
                 'attributes': {
-                    'code.filepath': 'foo.py',
+                    'code.filepath': 'events.py',
                     'code.lineno': 123,
-                    'code.function': 'bar',
+                    'code.function': '_run',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('auto-trace',),
@@ -455,7 +455,7 @@ def test_min_duration(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'simple_nesting.py',
                     'code.lineno': 123,
-                    'code.function': 'func2',
+                    'code.function': 'func1',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func2',
                     'logfire.tags': ('auto-trace',),
                     'logfire.span_type': 'span',
@@ -469,9 +469,9 @@ def test_min_duration(exporter: TestExporter):
                 'start_time': 9000000000,
                 'end_time': 16000000000,
                 'attributes': {
-                    'code.filepath': 'simple_nesting.py',
+                    'code.filepath': 'test_auto_trace.py',
                     'code.lineno': 123,
-                    'code.function': 'func1',
+                    'code.function': 'test_min_duration',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func1',
                     'logfire.tags': ('auto-trace',),
                     'logfire.span_type': 'span',

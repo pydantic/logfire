@@ -64,7 +64,7 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_with_no_args.<locals>.foo',
+                    'code.function': 'test_instrument_with_no_args',
                     'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_args.<locals>.foo',
@@ -616,7 +616,7 @@ def test_instrument(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument.<locals>.hello_world',
+                    'code.function': 'test_instrument',
                     'a': 123,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=123',
@@ -634,7 +634,7 @@ def test_instrument(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument.<locals>.hello_world',
+                    'code.function': 'test_instrument',
                     'a': 123,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
@@ -664,7 +664,7 @@ def test_instrument_extract_false(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_extract_false.<locals>.hello_world',
+                    'code.function': 'test_instrument_extract_false',
                     'logfire.msg_template': 'hello {a}!',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'hello {a}!',
@@ -692,7 +692,7 @@ def test_instrument_complex_args(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_complex_args.<locals>.hello_world',
+                    'code.function': 'test_instrument_complex_args',
                     'logfire.msg_template': 'hello {thing}!',
                     'logfire.msg': "hello {'a': 123}!",
                     'logfire.json_schema': '{"type":"object","properties":{"thing":{"type":"object"}}}',
@@ -726,7 +726,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_validation_error_on_instrument.<locals>.run',
+                    'code.function': 'test_validation_error_on_instrument',
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=haha',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',

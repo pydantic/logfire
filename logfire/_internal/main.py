@@ -213,7 +213,7 @@ class Logfire:
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
         try:
-            attributes = {**attributes, **get_stack_info_from_frame(inspect.currentframe().f_back.f_back)}  # type: ignore
+            attributes = {**attributes, **get_stack_info_from_frame(inspect.currentframe().f_back.f_back.f_back)}  # type: ignore
             span = self._spans_tracer.start_span(name=name, attributes=attributes)
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
