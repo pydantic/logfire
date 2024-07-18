@@ -1055,7 +1055,7 @@ def test_function_validator(exporter: TestExporter):
     MyNumber = Annotated[int, AfterValidator(double)]
 
     config = ConfigDict(plugin_settings={'logfire': {'record': 'all'}})
-    MyNumberAdapter = TypeAdapter(MyNumber, config=config)
+    MyNumberAdapter = TypeAdapter(MyNumber, config=config)  # type: ignore
 
     assert MyNumberAdapter.validate_python(3) == 6
 
