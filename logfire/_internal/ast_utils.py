@@ -11,7 +11,6 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_TAGS_KEY,
 )
-from .stack_info import StackInfo, get_filepath_attribute
 from .utils import uniquify_sequence
 
 
@@ -94,13 +93,8 @@ class BaseTransformer(ast.NodeTransformer):
     def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
         raise NotImplementedError()
 
-    def logfire_method_arg_values(self, qualname: str, lineno: int) -> tuple[str, dict[str, otel_types.AttributeValue]]:
-        stack_info: StackInfo = {
-            **get_filepath_attribute(self.filename),
-            'code.lineno': lineno,
-            'code.function': qualname,
-        }
-        attributes: dict[str, otel_types.AttributeValue] = {**stack_info}  # type: ignore
+    def logfire_method_arg_values(self, qualname: str) -> tuple[str, dict[str, otel_types.AttributeValue]]:
+        attributes: dict[str, otel_types.AttributeValue] = {}
 
         logfire_args = self.logfire_args
         msg_template = logfire_args.msg_template or f'Calling {self.module_name}.{qualname}'

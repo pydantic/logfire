@@ -59,7 +59,7 @@ from .json_schema import (
     create_json_schema,
 )
 from .metrics import ProxyMeterProvider
-from .stack_info import get_user_stack_info
+from .stack_info import get_stack_info_from_frame, get_user_stack_info
 from .tracer import ProxyTracerProvider
 from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
 
@@ -86,7 +86,6 @@ try:
     from pydantic import ValidationError
 except ImportError:  # pragma: no cover
     ValidationError = None
-
 
 # This is the type of the exc_info/_exc_info parameter of the log methods.
 # sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
@@ -208,17 +207,21 @@ class Logfire:
             log_internal_error()
             return NoopSpan()  # type: ignore
 
-    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
+    def __fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
         try:
+            attributes = {**attributes, **get_stack_info_from_frame(inspect.currentframe().f_back.f_back)}  # type: ignore
             span = self._spans_tracer.start_span(name=name, attributes=attributes)
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
+
+    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
+        return self.__fast_span(name, attributes)
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
@@ -234,7 +237,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(function_args):
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(user_attributes(function_args))
-            return self._fast_span(name, attributes)
+            return self.__fast_span(name, attributes)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore

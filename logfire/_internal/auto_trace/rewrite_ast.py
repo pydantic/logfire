@@ -99,7 +99,7 @@ class AutoTraceTransformer(BaseTransformer):
         index = len(self.context_factories)
         span_factory = partial(
             self.logfire_instance._fast_span,  # type: ignore
-            *self.logfire_method_arg_values(qualname, node.lineno),
+            *self.logfire_method_arg_values(qualname),
         )
         if self.min_duration > 0:
             config = self.logfire_instance._config  # type: ignore

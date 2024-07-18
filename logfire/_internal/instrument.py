@@ -121,7 +121,7 @@ class InstrumentTransformer(BaseTransformer):
         )
 
     def logfire_method_arg_nodes(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> list[ast.expr]:
-        msg, attributes = self.logfire_method_arg_values(qualname, node.lineno)
+        msg, attributes = self.logfire_method_arg_values(qualname)
         attributes_stmt = ast.parse(repr(attributes)).body[0]
         assert isinstance(attributes_stmt, ast.Expr)
         attributes_node = attributes_stmt.value

@@ -276,9 +276,6 @@ class Class3:
             (
                 'Calling module.name.func.<locals>.Class.method',
                 {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 8,
-                    'code.function': 'func.<locals>.Class.method',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method',
                     'logfire.tags': ('auto-trace',),
                 },
@@ -286,9 +283,6 @@ class Class3:
             (
                 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                 {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 16,
-                    'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                     'logfire.tags': ('auto-trace',),
                 },
@@ -296,9 +290,6 @@ class Class3:
             (
                 'Calling module.name.func.<locals>.Class.method2',
                 {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 12,
-                    'code.function': 'func.<locals>.Class.method2',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2',
                     'logfire.tags': ('auto-trace',),
                 },
@@ -306,9 +297,6 @@ class Class3:
             (
                 'Calling module.name.func',
                 {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 2,
-                    'code.function': 'func',
                     'logfire.msg_template': 'Calling module.name.func',
                     'logfire.tags': ('auto-trace',),
                 },
@@ -316,9 +304,6 @@ class Class3:
             (
                 'Calling module.name.Class3.method4',
                 {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 26,
-                    'code.function': 'Class3.method4',
                     'logfire.msg_template': 'Calling module.name.Class3.method4',
                     'logfire.tags': ('auto-trace',),
                 },
