@@ -48,7 +48,7 @@ def celery_worker(celery_app: Celery) -> Iterator[WorkController]:
         yield worker
 
 
-def test_instrument_celery(celery_app: Celery, celery_worker: WorkController, exporter: TestExporter) -> None:
+def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
     logfire.instrument_celery()
 
     # Send and wait for the task to be executed

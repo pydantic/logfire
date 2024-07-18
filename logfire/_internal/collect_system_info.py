@@ -24,6 +24,6 @@ def collect_package_info() -> dict[str, str]:
             pairs = [(dist.name, dist.version) for dist in distributions]
     except Exception:  # pragma: no cover
         # Don't crash for this.
-        return []
+        pairs = []
 
     return dict(sorted(pairs))
