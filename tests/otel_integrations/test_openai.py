@@ -703,7 +703,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":3}',
+                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },

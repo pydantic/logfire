@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import anthropic
-from anthropic.types import Message, RawContentBlockDeltaEvent, RawContentBlockStartEvent, TextBlock, TextDelta
+from anthropic.types import Message, TextBlock, TextDelta
 
 from .types import EndpointConfig
 
@@ -43,10 +43,10 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
-    if isinstance(chunk, RawContentBlockStartEvent):
-        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else ''
-    if isinstance(chunk, RawContentBlockDeltaEvent):
-        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else ''
+    if hasattr(chunk, 'content_block'):
+        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # type: ignore
+    if hasattr(chunk, 'delta'):
+        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # type: ignore
     return None
 
 
@@ -55,7 +55,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     if isinstance(response, Message):  # pragma: no branch
         block = response.content[0]
         message: dict[str, Any] = {'role': 'assistant'}
-        if isinstance(block, TextBlock):
+        if block.type == 'text':
             message['content'] = block.text
         else:
             message['tool_calls'] = [

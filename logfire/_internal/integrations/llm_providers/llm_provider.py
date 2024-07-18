@@ -180,7 +180,7 @@ def record_streaming(
 
     def record_chunk(chunk: Any) -> Any:
         chunk_content = content_from_stream(chunk)
-        if chunk_content is not None:
+        if chunk_content:
             content.append(chunk_content)
 
     timer = logire_llm._config.ns_timestamp_generator  # type: ignore
