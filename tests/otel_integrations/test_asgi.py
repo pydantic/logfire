@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from opentelemetry.propagate import inject
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -24,7 +23,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
         logfire.info('inside request handler')
         return PlainTextResponse('middleware test')
 
-    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(OpenTelemetryMiddleware)])  # type: ignore
+    app = Starlette(routes=[Route('/', homepage)], middleware=[Middleware(logfire.instrument_asgi)])  # type: ignore
 
     client = TestClient(app)
     with logfire.span('outside request handler'):
@@ -143,7 +142,7 @@ def test_asgi_middleware_with_lifespan(exporter: TestExporter):
         yield
         cleanup_complete = True
 
-    app = Starlette(lifespan=lifespan, middleware=[Middleware(OpenTelemetryMiddleware)])  # type: ignore
+    app = Starlette(lifespan=lifespan, middleware=[Middleware(logfire.instrument_asgi)])  # type: ignore
 
     with TestClient(app):
         assert startup_complete
