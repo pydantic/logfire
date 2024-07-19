@@ -35,6 +35,7 @@ except redis.exceptions.ConnectionError:
 @pytest.fixture
 def celery_app() -> Iterator[Celery]:
     app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+    celery_app.conf.update(worker_hijack_root_logger=False)  # type: ignore
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
