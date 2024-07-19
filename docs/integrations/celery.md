@@ -1,6 +1,7 @@
 # Celery
 
-The [OpenTelemetry Instrumentation Celery][opentelemetry-celery] package can be used to instrument [Celery][celery].
+The [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] method will create a span for every task
+executed by your Celery workers.
 
 ## Installation
 
@@ -46,7 +47,8 @@ add.delay(42, 50)
 
 1. Install `pyamqp` with `pip install pyamqp`.
 
-You can read more about the Celery OpenTelemetry package [here][opentelemetry-celery].
+The keyword arguments of [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] are passed to the
+[`CeleryInstrumentor().instrument()`][opentelemetry.instrumentation.celery.CeleryInstrumentor] method.
 
 [celery]: https://docs.celeryq.dev/en/stable/
 [opentelemetry-celery]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html

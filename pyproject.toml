@@ -213,8 +213,6 @@ exclude = [
 venvPath = ".venv"
 
 [tool.pytest.ini_options]
-# By default, we don't run integration tests.
-addopts = ["-m", "not integration"]
 xfail_strict = true
 markers = ['integration: mark a test as an integration test']
 filterwarnings = [

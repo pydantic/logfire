@@ -37,7 +37,7 @@ def celery_app() -> Celery:
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
-        ...
+        return 'hello'
 
     return app
 
@@ -53,7 +53,8 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
 
     # Send and wait for the task to be executed
     result = celery_app.send_task('tasks.say_hello')  # type: ignore
-    result.get(timeout=10)  # type: ignore
+    value = result.get(timeout=10)  # type: ignore
+    assert value == 'hello'
 
     # There are two spans:
     # 1. Trigger the task with `send_task`.
