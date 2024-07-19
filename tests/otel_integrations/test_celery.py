@@ -18,6 +18,7 @@ from celery.contrib.testing.worker import start_worker
 from celery.worker.worker import WorkController
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 import logfire
 from logfire.testing import TestExporter
@@ -32,14 +33,18 @@ except redis.exceptions.ConnectionError:
 
 
 @pytest.fixture
-def celery_app() -> Celery:
+def celery_app() -> Iterator[Celery]:
     app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
         return 'hello'
 
-    return app
+    logfire.instrument_celery()
+    try:
+        yield app
+    finally:
+        CeleryInstrumentor().uninstrument()  # type: ignore
 
 
 @pytest.fixture(autouse=True)
@@ -49,8 +54,6 @@ def celery_worker(celery_app: Celery) -> Iterator[WorkController]:
 
 
 def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
-    logfire.instrument_celery()
-
     # Send and wait for the task to be executed
     result = celery_app.send_task('tasks.say_hello')  # type: ignore
     value = result.get(timeout=10)  # type: ignore
