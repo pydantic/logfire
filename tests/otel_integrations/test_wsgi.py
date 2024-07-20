@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from flask import Flask
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
@@ -12,7 +11,7 @@ from logfire.testing import TestExporter
 
 def test_wsgi_middleware(exporter: TestExporter) -> None:
     app = Flask(__name__)
-    app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)
+    app.wsgi_app = logfire.instrument_wsgi(app.wsgi_app)  # type: ignore
 
     @app.route('/')
     def homepage():  # type: ignore

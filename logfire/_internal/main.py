@@ -64,6 +64,8 @@ from .tracer import ProxyTracerProvider
 from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
+    from wsgiref.types import WSGIApplication
+
     import anthropic
     import openai
     from django.http import HttpRequest, HttpResponse
@@ -75,12 +77,16 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from logfire._internal.integrations.asgi import ASGIApp, ASGIInstrumentKwargs
+    from logfire._internal.integrations.wsgi import WSGIInstrumentKwargs
+
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
+
 
 try:
     from pydantic import ValidationError
@@ -1157,6 +1163,30 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_starlette(app, **kwargs)
+
+    def instrument_asgi(self, app: ASGIApp, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry ASGI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html)
+        library, specifically `ASGIInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+        """
+        from .integrations.asgi import instrument_asgi
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_asgi(app, **kwargs)
+
+    def instrument_wsgi(self, app: WSGIApplication, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the
+        [OpenTelemetry WSGI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html)
+        library, specifically `WSGIInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+        """
+        from .integrations.wsgi import instrument_wsgi
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_wsgi(app, **kwargs)
 
     def instrument_aiohttp_client(self, **kwargs: Any):
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.

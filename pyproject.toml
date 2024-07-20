@@ -52,6 +52,7 @@ dependencies = [
 
 [project.optional-dependencies]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
+asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0"]
@@ -66,6 +67,7 @@ psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
+wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -198,7 +200,15 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = ["docs/**/*.py", "site/**/*.py", ".venv", "venv*", "ignoreme", "out", "logfire-api"]
+exclude = [
+    "docs/**/*.py",
+    "site/**/*.py",
+    ".venv",
+    "venv*",
+    "ignoreme",
+    "out",
+    "logfire-api",
+]
 venvPath = ".venv"
 
 [tool.pytest.ini_options]
