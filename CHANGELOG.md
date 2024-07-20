@@ -1,5 +1,15 @@
 # Release Notes
 
+## [v0.47.0] (2024-07-20)
+
+* Fix recursive logging from OTEL's `BatchSpanProcessor` by @alexmojaki in https://github.com/pydantic/logfire/pull/306
+* Set sqlalchemy 'connect' spans to debug level by @alexmojaki in https://github.com/pydantic/logfire/pull/307
+* Add type hints to instrument methods by @Kludex in https://github.com/pydantic/logfire/pull/320
+* Handle older versions of anthropic by @alexmojaki in https://github.com/pydantic/logfire/pull/316
+* Update dependencies, handle change in importlib by @alexmojaki in https://github.com/pydantic/logfire/pull/323
+* Summarize db.statement in message by @alexmojaki in https://github.com/pydantic/logfire/pull/308
+* Handle and test other OpenAI/Anthropic  client methods by @alexmojaki in https://github.com/pydantic/logfire/pull/312
+
 ## [v0.46.1] (2024-07-05)
 
 * Fix release process for `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/303
@@ -204,6 +214,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
 [v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
 [v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
 [v0.45.1]: https://github.com/pydantic/logfire/compare/v0.45.0...v0.45.1
