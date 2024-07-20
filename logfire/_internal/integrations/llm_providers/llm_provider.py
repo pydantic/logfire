@@ -76,14 +76,7 @@ def instrument_llm_provider(
         if is_instrumentation_suppressed():
             return None, None, kwargs
 
-        options = kwargs['options']
-        try:
-            message_template, span_data, content_from_stream = get_endpoint_config_fn(options)
-        except ValueError as exc:
-            logfire_llm.warn(
-                'Unable to instrument {suffix} API call: {error}', suffix=scope_suffix, error=str(exc), kwargs=kwargs
-            )
-            return None, None, kwargs
+        message_template, span_data, content_from_stream = get_endpoint_config_fn(kwargs['options'])
 
         span_data['async'] = is_async
 

@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
     from ...main import LogfireSpan
 
-
 __all__ = (
     'get_endpoint_config',
     'on_response',
@@ -25,8 +24,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for Anthropic depending on the url."""
     url = options.url
     json_data = options.json_data
-    if not isinstance(json_data, dict):
-        raise ValueError('Expected `options.json_data` to be a dictionary')
+    if not isinstance(json_data, dict):  # pragma: no cover
+        # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
+        json_data = {}
 
     if url == '/v1/messages':
         return EndpointConfig(
@@ -35,7 +35,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             content_from_stream=content_from_messages,
         )
     else:
-        raise ValueError(f'Unknown Anthropic API endpoint: `{url}`')
+        return EndpointConfig(
+            message_template='Anthropic API call to {url!r}',
+            span_data={'request_data': json_data, 'url': url},
+            content_from_stream=None,
+        )
 
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:

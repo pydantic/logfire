@@ -84,7 +84,6 @@ dev-dependencies = [
     "aiohttp",
     "redis",
     "pymongo",
-    "starlette",
     "fastapi",
     "Flask",
     "django",
