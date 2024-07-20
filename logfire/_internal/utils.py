@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import traceback
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
@@ -227,7 +228,11 @@ def suppress_instrumentation():
 
 def log_internal_error():
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception('Internal error in Logfire')
+        full_stack = traceback.extract_stack()
+        limit = 10  # this should generally be enough frames to see where the problematic call came from
+        parent_frames = full_stack[-limit:-1]
+        formatted_frames = '\n'.join(traceback.format_list(parent_frames))
+        logger.exception(f'Internal error in Logfire. Frames above traceback: {formatted_frames}')
 
 
 @contextmanager
