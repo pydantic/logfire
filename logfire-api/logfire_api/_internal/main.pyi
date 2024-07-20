@@ -9,6 +9,12 @@ from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConf
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
+from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
+from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
+from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
+from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
+from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
+from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -27,7 +33,7 @@ from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from types import TracebackType as TracebackType
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
-from typing_extensions import LiteralString
+from typing_extensions import LiteralString, Unpack
 
 ExcInfo: typing.TypeAlias
 
@@ -542,7 +548,7 @@ class Logfire:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `request_hook` and `response_hook`.
         """
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Any):
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
@@ -561,14 +567,14 @@ class Logfire:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
-    def instrument_flask(self, app: Flask, **kwargs: Any):
+    def instrument_flask(self, app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
         library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
         """
-    def instrument_starlette(self, app: Starlette, **kwargs: Any):
+    def instrument_starlette(self, app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -582,21 +588,21 @@ class Logfire:
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_sqlalchemy(self, **kwargs: Any):
+    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_pymongo(self, **kwargs: Any):
+    def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
             library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_redis(self, **kwargs: Any):
+    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
