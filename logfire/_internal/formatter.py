@@ -203,7 +203,7 @@ class ChunksFormatter(Formatter):
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
                 value = node_value.value
-                assert type(value) is str  # noqa
+                assert type(value) is str
                 result.append({'v': value, 't': 'lit'})
                 new_template += value
             else:
