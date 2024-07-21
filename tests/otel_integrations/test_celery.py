@@ -29,7 +29,7 @@ pytestmark = [pytest.mark.integration]
 try:
     client = redis.Redis()
     client.ping()  # type: ignore
-except redis.exceptions.ConnectionError:
+except redis.exceptions.ConnectionError:  # pragma: no cover
     pytestmark.append(pytest.mark.skip('Redis is not running'))
 
 
