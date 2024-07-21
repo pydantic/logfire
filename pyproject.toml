@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.46.1"
+version = "0.47.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -84,7 +84,6 @@ dev-dependencies = [
     "aiohttp",
     "redis",
     "pymongo",
-    "starlette",
     "fastapi",
     "Flask",
     "django",

@@ -74,7 +74,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'PRAGMA example.db',
+                    'logfire.msg': 'PRAGMA main.table_info("auth_records")',
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -88,7 +88,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 6000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'PRAGMA example.db',
+                    'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -102,7 +102,10 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'CREATE example.db',
+                    'logfire.msg': """\
+CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
+)\
+""",
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -130,7 +133,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'select example.db',
+                    'logfire.msg': 'select * from auth_records',
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -144,7 +147,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 14000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'INSERT example.db',
+                    'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -172,7 +175,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 18000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SELECT example.db',
+                    'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
                     'db.statement': 'SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',
@@ -186,7 +189,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'end_time': 20000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'DELETE example.db',
+                    'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': 'example.db',

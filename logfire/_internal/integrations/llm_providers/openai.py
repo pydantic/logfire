@@ -28,12 +28,11 @@ __all__ = (
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
+
     json_data = options.json_data
-    if not isinstance(json_data, dict):
-        raise ValueError('Expected `options.json_data` to be a dictionary')
-    if 'model' not in json_data:
-        # all OpenAI API calls have a model AFAIK
-        raise ValueError('`model` not found in request data')
+    if not isinstance(json_data, dict):  # pragma: no cover
+        # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
+        json_data = {}
 
     if url == '/chat/completions':
         return EndpointConfig(
@@ -60,7 +59,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             content_from_stream=None,
         )
     else:
-        raise ValueError(f'Unknown OpenAI API endpoint: `{url}`')
+        return EndpointConfig(
+            message_template='OpenAI API call to {url!r}',
+            span_data={'request_data': json_data, 'url': url},
+            content_from_stream=None,
+        )
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:
