@@ -8,6 +8,7 @@ We have a docker compose file that you can use to start Redis:
     ```
 """
 
+import logging
 from typing import Iterator
 
 import pytest
@@ -35,7 +36,6 @@ except redis.exceptions.ConnectionError:
 @pytest.fixture
 def celery_app() -> Iterator[Celery]:
     app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
-    celery_app.conf.update(worker_hijack_root_logger=False)  # type: ignore
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
@@ -50,7 +50,8 @@ def celery_app() -> Iterator[Celery]:
 
 @pytest.fixture(autouse=True)
 def celery_worker(celery_app: Celery) -> Iterator[WorkController]:
-    with start_worker(celery_app, perform_ping_check=False) as worker:  # type: ignore
+    logger = logging.getLogger()
+    with start_worker(celery_app, perform_ping_check=False, loglevel=logger.level) as worker:  # type: ignore
         yield worker
 
 
