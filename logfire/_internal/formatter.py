@@ -8,7 +8,7 @@ import warnings
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import Any, Final, Literal, Mapping
+from typing import Any, Final, Literal
 
 import executing
 from typing_extensions import NotRequired, TypedDict
@@ -38,7 +38,7 @@ class ChunksFormatter(Formatter):
     def chunks(
         self,
         format_string: str,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         fstring_frame: types.FrameType | None = None,
@@ -64,7 +64,7 @@ class ChunksFormatter(Formatter):
 
     def _fstring_chunks(
         self,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         scrubber: BaseScrubber,
         frame: types.FrameType,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
@@ -236,7 +236,7 @@ class ChunksFormatter(Formatter):
     def _vformat_chunks(
         self,
         format_string: str,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         recursion_depth: int = 2,
@@ -246,8 +246,6 @@ class ChunksFormatter(Formatter):
         if recursion_depth < 0:  # pragma: no cover
             raise ValueError('Max string recursion exceeded')
         result: list[LiteralChunk | ArgChunk] = []
-        # here just to satisfy the call to `_vformat` below
-        used_args: set[str | int] = set()
         # We currently don't use positional arguments
         args = ()
         scrubbed: list[ScrubbedNote] = []
@@ -304,14 +302,9 @@ class ChunksFormatter(Formatter):
                     obj = self.convert_field(obj, conversion)
 
                 # expand the format spec, if needed
-                format_spec, auto_arg_index = self._vformat(
-                    format_spec,  # type: ignore[arg-type]
-                    args,
-                    kwargs,
-                    used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
-                    recursion_depth - 1,
-                    auto_arg_index=auto_arg_index,
-                )
+                # TODO use _vformat_chunks and increment recursion depth
+                # TODO test errors in nested format specs
+                format_spec = logfire_format(format_spec or '', kwargs, scrubber)
 
                 if obj is None:
                     value = self.NONE_REPR
@@ -368,7 +361,7 @@ def logfire_format_with_magic(
             fstring_frame=fstring_frame,
         )
         return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
-    except Exception:  # pragma: no cover
+    except Exception:
         log_internal_error()
         return format_string, {}, format_string
 
@@ -462,11 +455,11 @@ class FormattingFailedWarning(Warning):
 def warn_formatting(msg: str):
     _frame, stacklevel = get_user_frame_and_stacklevel()
     warnings.warn(
-        'Failed to format the message. Ensure you are either '
-        '(1) passing an f-string directly, with inspect_arguments enabled and working, or '
-        '(2) passing a str.format-style template, not a preformatted string. '
-        'See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names. '
-        f'The problem was: {msg}',
+        f'Ensure you are either:\n'
+        '    (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
+        '    (2) passing a str.format-style template, not a preformatted string.\n'
+        '    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
+        f'    The problem was: {msg}',
         stacklevel=stacklevel,
         category=FormattingFailedWarning,
     )
