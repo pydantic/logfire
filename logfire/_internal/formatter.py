@@ -18,7 +18,7 @@ from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import BaseScrubber, ScrubbedNote
-from .utils import truncate_string
+from .utils import log_internal_error, truncate_string
 
 
 class LiteralChunk(TypedDict):
@@ -202,8 +202,7 @@ class ChunksFormatter(Formatter):
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
-                value = node_value.value
-                assert type(value) is str  # noqa
+                value: str = node_value.value
                 result.append({'v': value, 't': 'lit'})
                 new_template += value
             else:
@@ -362,13 +361,17 @@ def logfire_format_with_magic(
     # 2. A dictionary of extra attributes to add to the span/log.
     #      These can come from evaluating values in f-strings.
     # 3. The final message template, which may differ from `format_string` if it was an f-string.
-    chunks, extra_attrs, new_template = chunks_formatter.chunks(
-        format_string,
-        kwargs,
-        scrubber=scrubber,
-        fstring_frame=fstring_frame,
-    )
-    return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    try:
+        chunks, extra_attrs, new_template = chunks_formatter.chunks(
+            format_string,
+            kwargs,
+            scrubber=scrubber,
+            fstring_frame=fstring_frame,
+        )
+        return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return format_string, {}, format_string
 
 
 @lru_cache
