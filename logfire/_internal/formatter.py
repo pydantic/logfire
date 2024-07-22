@@ -297,8 +297,7 @@ class ChunksFormatter(Formatter):
                     except KeyError:
                         obj = '{' + field_name + '}'
                         field = exc.args[0]
-                        _frame, stacklevel = get_user_frame_and_stacklevel()
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
+                        warn_formatting(f'The field {{{field}}} is not defined.')
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -454,3 +453,20 @@ def warn_inspect_arguments(msg: str, stacklevel: int):
     ) + msg
     warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=stacklevel)
     logfire.log('warn', msg)
+
+
+class FormattingFailedWarning(Warning):
+    pass
+
+
+def warn_formatting(msg: str):
+    _frame, stacklevel = get_user_frame_and_stacklevel()
+    warnings.warn(
+        'Failed to format the message. Ensure you are either '
+        '(1) passing an f-string directly, with inspect_arguments enabled and working, or '
+        '(2) passing a str.format-style template, not a preformatted string. '
+        'See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names. '
+        f'The problem was: {msg}',
+        stacklevel=stacklevel,
+        category=FormattingFailedWarning,
+    )

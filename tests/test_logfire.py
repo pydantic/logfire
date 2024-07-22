@@ -31,7 +31,7 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
-from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
@@ -40,7 +40,7 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 @pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
 def test_log_methods_without_kwargs(method: str):
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
         getattr(logfire, method)('{foo}', bar=2)
 
     warning = warnings.pop()
@@ -77,7 +77,7 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
 
 
 def test_instrument_without_kwargs():
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
 
         @logfire.instrument('{foo}')
         def home() -> None: ...
@@ -89,7 +89,7 @@ def test_instrument_without_kwargs():
 
 
 def test_span_without_kwargs() -> None:
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
         with logfire.span('test {foo}'):
             pass  # pragma: no cover
 
@@ -1192,7 +1192,7 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
 
 
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning, match=r'missing') as warnings:
+    with pytest.warns(FormattingFailedWarning, match=r'missing') as warnings:
         span = logfire.span('{present} {missing}', present='here')
 
     assert len(warnings) == 1
