@@ -2,7 +2,7 @@ import pytest
 import requests
 import requests_mock
 
-from logfire._internal.utils import UnexpectedResponse
+from logfire._internal.utils import UnexpectedResponse, handle_internal_errors
 
 
 def test_raise_for_status() -> None:
@@ -15,3 +15,9 @@ def test_raise_for_status() -> None:
     s = str(exc_info.value)
     assert s.startswith('Unexpected response 503')
     assert 'body: this is the body' in s
+
+
+def test_reraise_internal_exception():
+    with pytest.raises(ZeroDivisionError):
+        with handle_internal_errors():
+            str(1 / 0)

@@ -232,7 +232,7 @@ def log_internal_error():
         # in tests for easier debugging.
         current_test = os.environ.get('PYTEST_CURRENT_TEST', '')
         reraise = bool(current_test and 'test_internal_exception' not in current_test)
-    except Exception:
+    except Exception:  # pragma: no cover
         reraise = False
     if reraise:
         raise
