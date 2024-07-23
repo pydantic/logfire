@@ -17,7 +17,7 @@ import logfire
 from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import BaseScrubber, ScrubbedNote
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
 from .utils import log_internal_error, truncate_string
 
 
@@ -304,7 +304,7 @@ class ChunksFormatter(Formatter):
                 # expand the format spec, if needed
                 # TODO use _vformat_chunks and increment recursion depth
                 # TODO test errors in nested format specs
-                format_spec = logfire_format(format_spec or '', kwargs, scrubber)
+                format_spec = logfire_format(format_spec or '', kwargs, NOOP_SCRUBBER)
 
                 if obj is None:
                     value = self.NONE_REPR
