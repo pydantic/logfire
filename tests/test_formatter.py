@@ -141,3 +141,13 @@ def test_missing_field_with_brackets():
 def test_missing_key_in_brackets():
     with warns_failed("The fields 'b' and 'a[b]' are not defined."):
         logfire_format('{a[b]}', {'a': {}, 'b': 1}, NOOP_SCRUBBER)
+
+
+def test_empty_braces():
+    with warns_failed('Empty curly brackets `{}` are not allowed. A field name is required.'):
+        logfire_format('{}', {}, NOOP_SCRUBBER)
+
+
+def test_empty_braces_in_brackets():
+    with warns_failed('Error getting field {a[]}: Empty attribute in format string'):
+        logfire_format('{a[]}', {'a': {}}, NOOP_SCRUBBER)

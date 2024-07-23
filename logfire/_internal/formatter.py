@@ -271,15 +271,12 @@ class ChunksFormatter(Formatter):
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except IndexError:
+                    raise KnownFormattingError('Formatting numbered fields with positional arguments is not allowed.')
+                except KeyError as exc1:
                     if field_name == '':
                         raise KnownFormattingError(
                             'Empty curly brackets `{}` are not allowed. A field name is required.'
                         )
-                    else:
-                        raise KnownFormattingError(
-                            'Formatting numbered fields with positional arguments is not allowed.'
-                        )
-                except KeyError as exc1:
                     missing = str(exc1)
                     if missing == repr(field_name):
                         raise KnownFormattingError(f'The field {{{field_name}}} is not defined.') from exc1
@@ -289,6 +286,8 @@ class ChunksFormatter(Formatter):
                         obj = kwargs[field_name]
                     except KeyError as exc2:
                         raise KnownFormattingError(f'The fields {str(exc1)} and {str(exc2)} are not defined.') from exc2
+                except Exception as exc:
+                    raise KnownFormattingError(f'Error getting field {{{field_name}}}: {exc}') from exc
 
                 # do any conversion on the resulting object
                 if conversion is not None:
