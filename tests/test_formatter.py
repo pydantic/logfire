@@ -6,7 +6,7 @@ import pytest
 from inline_snapshot import snapshot
 
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
-from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, ScrubbedNote, Scrubber
+from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
@@ -159,7 +159,7 @@ def test_numbered_fields():
 
 
 class BadScrubber(Scrubber):
-    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+    def scrub_value(self, path: JsonPath, value: Any):
         raise ValueError('bad scrubber')
 
 
