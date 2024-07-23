@@ -292,7 +292,10 @@ class ChunksFormatter(Formatter):
 
                 # do any conversion on the resulting object
                 if conversion is not None:
-                    obj = self.convert_field(obj, conversion)
+                    try:
+                        obj = self.convert_field(obj, conversion)
+                    except Exception as exc:
+                        raise KnownFormattingError(f'Error converting field {{{field_name}}}: {exc}') from exc
 
                 # expand the format spec, if needed
                 # TODO test errors in nested format specs
