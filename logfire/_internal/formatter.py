@@ -240,11 +240,10 @@ class ChunksFormatter(Formatter):
         *,
         scrubber: BaseScrubber,
         recursion_depth: int = 2,
-        auto_arg_index: int = 0,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
-        if recursion_depth < 0:  # pragma: no cover
-            raise ValueError('Max string recursion exceeded')
+        if recursion_depth < 0:
+            raise KnownFormattingError('Max format spec recursion exceeded')
         result: list[LiteralChunk | ArgChunk] = []
         # We currently don't use positional arguments
         args = ()
@@ -259,19 +258,6 @@ class ChunksFormatter(Formatter):
                 # this is some markup, find the object and do
                 #  the formatting
 
-                # handle arg indexing when empty field_names are given.
-                if field_name == '':  # pragma: no cover
-                    if auto_arg_index is False:
-                        raise ValueError('cannot switch from manual field specification to automatic field numbering')
-                    field_name = str(auto_arg_index)
-                    auto_arg_index += 1
-                elif field_name.isdigit():  # pragma: no cover
-                    if auto_arg_index:
-                        raise ValueError('cannot switch from manual field  to automatic field numbering')
-                    # disable auto arg incrementing, if it gets
-                    # used later on, then an exception will be raised
-                    auto_arg_index = False
-
                 # ADDED BY US:
                 if field_name.endswith('='):
                     if result and result[-1]['t'] == 'lit':
@@ -280,21 +266,29 @@ class ChunksFormatter(Formatter):
                         result.append({'v': field_name, 't': 'lit'})
                     field_name = field_name[:-1]
 
-                # we have lots of type ignores here since Formatter is typed as requiring kwargs to be a
-                # dict, but we expect `Sequence[dict[str, Any]]` in get_value - effectively `Formatter` is really
-                # generic over the type of the kwargs
-
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
-                except KeyError as exc:
+                except IndexError:
+                    if field_name == '':
+                        raise KnownFormattingError(
+                            'Empty curly brackets `{}` are not allowed. A field name is required.'
+                        )
+                    else:
+                        raise KnownFormattingError(
+                            'Formatting numbered fields with positional arguments is not allowed.'
+                        )
+                except KeyError as exc1:
+                    missing = str(exc1)
+                    if missing == repr(field_name):
+                        raise KnownFormattingError(f'The field {{{field_name}}} is not defined.') from exc1
+
                     try:
                         # fall back to getting a key with the dots in the name
                         obj = kwargs[field_name]
                     except KeyError as exc2:
-                        field = exc.args[0]
-                        raise KnownFormattingError(f'The field {{{field}}} is not defined.') from exc2
+                        raise KnownFormattingError(f'The fields {str(exc1)} and {str(exc2)} are not defined.') from exc2
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -310,7 +304,10 @@ class ChunksFormatter(Formatter):
                 if obj is None:
                     value = self.NONE_REPR
                 else:
-                    value = self.format_field(obj, format_spec)
+                    try:
+                        value = self.format_field(obj, format_spec)
+                    except Exception as exc:
+                        raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
                     value, value_scrubbed = self._clean_value(field_name, value, scrubber)
                     scrubbed += value_scrubbed
                 d: ArgChunk = {'v': value, 't': 'arg'}
