@@ -6,7 +6,7 @@ import pytest
 from inline_snapshot import snapshot
 
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
-from logfire._internal.scrubbing import NOOP_SCRUBBER, Scrubber
+from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, ScrubbedNote, Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
@@ -156,3 +156,16 @@ def test_empty_braces_in_brackets():
 def test_numbered_fields():
     with warns_failed('Numeric field names are not allowed.'):
         logfire_format('{1}', {'1': 'a'}, NOOP_SCRUBBER)
+
+
+class BadScrubber(Scrubber):
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        raise ValueError('bad scrubber')
+
+
+def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
+    assert logfire_format('{a}', {'a': 'b'}, BadScrubber([])) == '{a}'
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == 'Internal error in Logfire'
+    assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore
