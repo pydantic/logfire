@@ -292,10 +292,9 @@ class ChunksFormatter(Formatter):
                     try:
                         # fall back to getting a key with the dots in the name
                         obj = kwargs[field_name]
-                    except KeyError:
-                        obj = '{' + field_name + '}'
+                    except KeyError as exc2:
                         field = exc.args[0]
-                        warn_formatting(f'The field {{{field}}} is not defined.')
+                        raise KnownFormattingError(f'The field {{{field}}} is not defined.') from exc2
 
                 # do any conversion on the resulting object
                 if conversion is not None:
@@ -363,9 +362,11 @@ def logfire_format_with_magic(
             fstring_frame=fstring_frame,
         )
         return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    except KnownFormattingError as e:
+        warn_formatting(str(e) or str(e.__cause__))
     except Exception:
         log_internal_error()
-        return format_string, {}, format_string
+    return format_string, {}, format_string
 
 
 @lru_cache
@@ -450,6 +451,10 @@ def warn_inspect_arguments(msg: str, stacklevel: int):
     logfire.log('warn', msg)
 
 
+class KnownFormattingError(Exception):
+    pass
+
+
 class FormattingFailedWarning(Warning):
     pass
 
@@ -457,9 +462,10 @@ class FormattingFailedWarning(Warning):
 def warn_formatting(msg: str):
     _frame, stacklevel = get_user_frame_and_stacklevel()
     warnings.warn(
-        f'Ensure you are either:\n'
-        '    (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
-        '    (2) passing a str.format-style template, not a preformatted string.\n'
+        f'\n'
+        f'    Ensure you are either:\n'
+        '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
+        '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
         '    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
         f'    The problem was: {msg}',
         stacklevel=stacklevel,
