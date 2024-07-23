@@ -302,9 +302,11 @@ class ChunksFormatter(Formatter):
                     obj = self.convert_field(obj, conversion)
 
                 # expand the format spec, if needed
-                # TODO use _vformat_chunks and increment recursion depth
                 # TODO test errors in nested format specs
-                format_spec = logfire_format(format_spec or '', kwargs, NOOP_SCRUBBER)
+                format_spec_chunks, _ = self._vformat_chunks(
+                    format_spec or '', kwargs, scrubber=NOOP_SCRUBBER, recursion_depth=recursion_depth - 1
+                )
+                format_spec = ''.join(chunk['v'] for chunk in format_spec_chunks)
 
                 if obj is None:
                     value = self.NONE_REPR
