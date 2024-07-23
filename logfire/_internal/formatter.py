@@ -271,7 +271,7 @@ class ChunksFormatter(Formatter):
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except IndexError:
-                    raise KnownFormattingError('Formatting numbered fields with positional arguments is not allowed.')
+                    raise KnownFormattingError('Numeric field names are not allowed.')
                 except KeyError as exc1:
                     if field_name == '':
                         raise KnownFormattingError(
@@ -297,7 +297,6 @@ class ChunksFormatter(Formatter):
                         raise KnownFormattingError(f'Error converting field {{{field_name}}}: {exc}') from exc
 
                 # expand the format spec, if needed
-                # TODO test errors in nested format specs
                 format_spec_chunks, _ = self._vformat_chunks(
                     format_spec or '', kwargs, scrubber=NOOP_SCRUBBER, recursion_depth=recursion_depth - 1
                 )

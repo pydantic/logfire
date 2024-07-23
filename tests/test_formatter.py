@@ -151,3 +151,8 @@ def test_empty_braces():
 def test_empty_braces_in_brackets():
     with warns_failed('Error getting field {a[]}: Empty attribute in format string'):
         logfire_format('{a[]}', {'a': {}}, NOOP_SCRUBBER)
+
+
+def test_numbered_fields():
+    with warns_failed('Numeric field names are not allowed.'):
+        logfire_format('{1}', {'1': 'a'}, NOOP_SCRUBBER)
