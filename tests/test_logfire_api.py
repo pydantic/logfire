@@ -42,6 +42,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api = logfire_api_factory()
     assert logfire_api is not None
 
+    for member in dir(logfire_api):
+        if member.startswith('instrument_'):
+            assert member in logfire__all__, member
+
     assert hasattr(logfire_api, 'Logfire')
     assert module_name in str(logfire_api.Logfire())
     logfire__all__.remove('Logfire')

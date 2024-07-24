@@ -2,13 +2,13 @@ import ast
 import executing
 import types
 from .constants import ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT as MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import BaseScrubber as BaseScrubber, ScrubbedNote as ScrubbedNote
-from .utils import truncate_string as truncate_string
+from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubbedNote as ScrubbedNote
+from .utils import log_internal_error as log_internal_error, truncate_string as truncate_string
 from _typeshed import Incomplete
 from logfire._internal.stack_info import get_user_frame_and_stacklevel as get_user_frame_and_stacklevel
 from string import Formatter
 from types import CodeType as CodeType
-from typing import Any, Final, Literal, Mapping
+from typing import Any, Final, Literal
 from typing_extensions import NotRequired, TypedDict
 
 class LiteralChunk(TypedDict):
@@ -22,7 +22,7 @@ class ArgChunk(TypedDict):
 
 class ChunksFormatter(Formatter):
     NONE_REPR: Final[str]
-    def chunks(self, format_string: str, kwargs: Mapping[str, Any], *, scrubber: BaseScrubber, fstring_frame: types.FrameType | None = None) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]: ...
+    def chunks(self, format_string: str, kwargs: dict[str, Any], *, scrubber: BaseScrubber, fstring_frame: types.FrameType | None = None) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]: ...
 
 chunks_formatter: Incomplete
 
@@ -48,3 +48,13 @@ def get_stacklevel(frame: types.FrameType): ...
 class InspectArgumentsFailedWarning(Warning): ...
 
 def warn_inspect_arguments(msg: str, stacklevel: int): ...
+
+class KnownFormattingError(Exception):
+    """An error raised when there's something wrong with a format string or the field values.
+
+    In other words this should correspond to errors that would be raised when using `str.format`,
+    and generally indicate a user error, most likely that they weren't trying to pass a template string at all.
+    """
+class FormattingFailedWarning(UserWarning): ...
+
+def warn_formatting(msg: str): ...

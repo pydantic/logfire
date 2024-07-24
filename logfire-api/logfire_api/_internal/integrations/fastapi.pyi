@@ -1,5 +1,6 @@
 from ..main import Logfire as Logfire
 from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_code_object_info
+from ..utils import maybe_capture_server_headers as maybe_capture_server_headers
 from _typeshed import Incomplete
 from fastapi import FastAPI
 from starlette.requests import Request
@@ -8,7 +9,7 @@ from typing import Any, Awaitable, Callable, ContextManager, Iterable
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
-def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, **opentelemetry_kwargs: Any) -> ContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.

@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v0.48.0] (2024-07-24)
+
+* Add `instrument_celery` method by @Kludex in https://github.com/pydantic/logfire/pull/322
+* `capture_headers` by @alexmojaki in https://github.com/pydantic/logfire/pull/318
+* Handle message formatting errors by @alexmojaki in https://github.com/pydantic/logfire/pull/329
+* Handle logging `None` with `loguru` by @alexmojaki in https://github.com/pydantic/logfire/pull/331
+
 ## [v0.47.0] (2024-07-20)
 
 * Fix recursive logging from OTEL's `BatchSpanProcessor` by @alexmojaki in https://github.com/pydantic/logfire/pull/306
@@ -214,6 +221,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
 [v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
 [v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
 [v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
