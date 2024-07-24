@@ -156,6 +156,8 @@ def test_empty_braces_in_brackets():
 def test_numbered_fields():
     with warns_failed('Numeric field names are not allowed.'):
         logfire_format('{1}', {'1': 'a'}, NOOP_SCRUBBER)
+    with warns_failed('Numeric field names are not allowed.'):
+        logfire_format('{2.3}', {'2': 'a'}, NOOP_SCRUBBER)
 
 
 class BadScrubber(Scrubber):
