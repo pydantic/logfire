@@ -28,6 +28,7 @@ instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
+instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
 instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
 instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
 instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
