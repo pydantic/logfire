@@ -257,6 +257,8 @@ class ChunksFormatter(Formatter):
             if field_name is not None:
                 # this is some markup, find the object and do
                 #  the formatting
+                if field_name == '':
+                    raise KnownFormattingError('Empty curly brackets `{}` are not allowed. A field name is required.')
 
                 # ADDED BY US:
                 if field_name.endswith('='):
@@ -273,10 +275,6 @@ class ChunksFormatter(Formatter):
                 except IndexError:
                     raise KnownFormattingError('Numeric field names are not allowed.')
                 except KeyError as exc1:
-                    if field_name == '':
-                        raise KnownFormattingError(
-                            'Empty curly brackets `{}` are not allowed. A field name is required.'
-                        )
                     missing = str(exc1)
                     if missing == repr(field_name):
                         raise KnownFormattingError(f'The field {{{field_name}}} is not defined.') from exc1
