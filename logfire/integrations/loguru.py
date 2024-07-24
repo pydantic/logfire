@@ -37,13 +37,13 @@ class LogfireHandler(LogfireLoggingHandler):
             frame = inspect.currentframe()
             while frame:  # pragma: no branch
                 if frame.f_code is _LOG_METHOD_CODE:
-                    msg_template = frame.f_locals.get('message')
-                    if msg_template is not None:
-                        attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
+                    frame_locals = frame.f_locals
+                    if 'message' in frame_locals:
+                        attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = frame_locals['message']
                     else:  # pragma: no cover
                         _warn_inspection_failure()
 
-                    args = frame.f_locals.get('args')
+                    args = frame_locals.get('args')
                     if isinstance(args, (tuple, list)):
                         if args:
                             attributes[ATTRIBUTES_LOGGING_ARGS_KEY] = args
@@ -51,7 +51,7 @@ class LogfireHandler(LogfireLoggingHandler):
                         _warn_inspection_failure()
 
                     if record.exc_info:
-                        original_record = frame.f_locals.get('log_record')
+                        original_record = frame_locals.get('log_record')
                         if isinstance(original_record, dict):
                             message = original_record.get('message')  # type: ignore
                             if isinstance(message, str) and record.msg.startswith(
