@@ -363,7 +363,11 @@ def logfire_format_with_magic(
     except KnownFormattingError as e:
         warn_formatting(str(e) or str(e.__cause__))
     except Exception:
+        # This is an unexpected error that likely indicates a bug in our logic.
+        # Handle it here so that the span/log still gets created, just without a nice message.
         log_internal_error()
+
+    # Formatting failed, so just use the original format string as the message.
     return format_string, {}, format_string
 
 
@@ -450,7 +454,11 @@ def warn_inspect_arguments(msg: str, stacklevel: int):
 
 
 class KnownFormattingError(Exception):
-    pass
+    """An error raised when there's something wrong with a format string or the field values.
+
+    In other words this should correspond to errors that would be raised when using `str.format`,
+    and generally indicate a user error, most likely that they weren't trying to pass a template string at all.
+    """
 
 
 class FormattingFailedWarning(Warning):
