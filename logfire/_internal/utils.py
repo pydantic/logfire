@@ -247,3 +247,9 @@ def handle_internal_errors():
         yield
     except Exception:
         log_internal_error()
+
+
+def maybe_capture_server_headers(capture: bool):
+    if capture:
+        os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST'] = '.*'
+        os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE'] = '.*'

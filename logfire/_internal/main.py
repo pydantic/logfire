@@ -88,7 +88,6 @@ try:
 except ImportError:  # pragma: no cover
     ValidationError = None
 
-
 # This is the type of the exc_info/_exc_info parameter of the log methods.
 # sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
 # We just need the exception, but we allow the user to pass the tuple because:
@@ -822,6 +821,7 @@ class Logfire:
         self,
         app: FastAPI,
         *,
+        capture_headers: bool = False,
         request_attributes_mapper: Callable[
             [
                 Request | WebSocket,
@@ -838,6 +838,7 @@ class Logfire:
 
         Args:
             app: The FastAPI app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
             request_attributes_mapper: A function that takes a [`Request`][fastapi.Request] or [`WebSocket`][fastapi.WebSocket]
                 and a dictionary of attributes and returns a new dictionary of attributes.
                 The input dictionary will contain:
@@ -877,6 +878,7 @@ class Logfire:
         return instrument_fastapi(
             self,
             app,
+            capture_headers=capture_headers,
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
@@ -1064,6 +1066,7 @@ class Logfire:
 
     def instrument_django(
         self,
+        capture_headers: bool = False,
         is_sql_commentor_enabled: bool | None = None,
         request_hook: Callable[[Span, HttpRequest], None] | None = None,
         response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
@@ -1077,6 +1080,7 @@ class Logfire:
         library.
 
         Args:
+            capture_headers: Set to `True` to capture all request and response headers.
             is_sql_commentor_enabled: Adds comments to SQL queries performed by Django,
                 so that database logs have additional context.
 
@@ -1103,6 +1107,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_django(
+            capture_headers=capture_headers,
             is_sql_commentor_enabled=is_sql_commentor_enabled,
             request_hook=request_hook,
             response_hook=response_hook,
@@ -1147,8 +1152,12 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_psycopg(conn_or_module, **kwargs)
 
-    def instrument_flask(self, app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
+    def instrument_flask(
+        self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
+    ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
+
+        Set `capture_headers` to `True` to capture all request and response headers.
 
         Uses the
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
@@ -1157,10 +1166,14 @@ class Logfire:
         from .integrations.flask import instrument_flask
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_flask(app, **kwargs)
+        return instrument_flask(app, capture_headers=capture_headers, **kwargs)
 
-    def instrument_starlette(self, app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
+    def instrument_starlette(
+        self, app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]
+    ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
+
+        Set `capture_headers` to `True` to capture all request and response headers.
 
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
@@ -1169,7 +1182,7 @@ class Logfire:
         from .integrations.starlette import instrument_starlette
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_starlette(app, **kwargs)
+        return instrument_starlette(app, capture_headers=capture_headers, **kwargs)
 
     def instrument_aiohttp_client(self, **kwargs: Any):
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.

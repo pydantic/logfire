@@ -1,5 +1,7 @@
 from typing import Any
 
+from logfire._internal.utils import maybe_capture_server_headers
+
 try:
     from opentelemetry.instrumentation.django import DjangoInstrumentor
 except ModuleNotFoundError:
@@ -10,9 +12,10 @@ except ModuleNotFoundError:
     )
 
 
-def instrument_django(**kwargs: Any):
+def instrument_django(*, capture_headers: bool = False, **kwargs: Any):
     """Instrument the `django` module so that spans are automatically created for each web request.
 
     See the `Logfire.instrument_django` method for details.
     """
+    maybe_capture_server_headers(capture_headers)
     DjangoInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]

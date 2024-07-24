@@ -33,10 +33,12 @@ def app():
 
     app = Starlette(routes=routes)
     try:
-        logfire.instrument_starlette(app)
+        logfire.instrument_starlette(app, capture_headers=True)
         yield app
     finally:
         StarletteInstrumentor.uninstrument_app(app)
+        del os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST']
+        del os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE']
 
 
 @pytest.fixture()
@@ -138,6 +140,13 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'net.peer.ip': 'testclient',
                     'net.peer.port': 50000,
                     'http.route': '/ws',
+                    'http.request.header.host': ('testserver',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept_encoding': ('gzip, deflate',),
+                    'http.request.header.user_agent': ('testclient',),
+                    'http.request.header.connection': ('upgrade',),
+                    'http.request.header.sec_websocket_key': ('testserver==',),
+                    'http.request.header.sec_websocket_version': ('13',),
                     'http.status_code': 200,
                 },
             },
