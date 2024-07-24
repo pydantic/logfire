@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
@@ -1050,6 +1051,18 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_httpx(**kwargs)
+
+    def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+        """Instrument `celery` so that spans are automatically created for each task.
+
+        Uses the
+        [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
+        library.
+        """
+        from .integrations.celery import instrument_celery
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_celery(**kwargs)
 
     def instrument_django(
         self,
