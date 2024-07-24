@@ -129,11 +129,22 @@ def test_missing_field():
 
 
 def test_missing_field_with_dot():
+    assert logfire_format('{a.b}', {'a.b': 123}, NOOP_SCRUBBER) == '123'
+
+    def a():
+        pass
+
+    a.b = 456  # type: ignore
+    assert logfire_format('{a.b}', {'a': a, 'a.b': 123}, NOOP_SCRUBBER) == '456'
+
     with warns_failed("The fields 'a' and 'a.b' are not defined."):
         logfire_format('{a.b}', {'b': 1}, NOOP_SCRUBBER)
 
 
 def test_missing_field_with_brackets():
+    assert logfire_format('{a[b]}', {'a[b]': 123}, NOOP_SCRUBBER) == '123'
+    assert logfire_format('{a[b]}', {'a': {'b': 456}, 'b': 1}, NOOP_SCRUBBER) == '456'
+
     with warns_failed("The fields 'a' and 'a[b]' are not defined."):
         logfire_format('{a[b]}', {'b': 1}, NOOP_SCRUBBER)
 
