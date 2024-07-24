@@ -30,6 +30,10 @@ lint:
 test:
 	rye run coverage run -m pytest
 
+.PHONY: test-integration  # Run the integration tests
+test-integration:
+	rye run coverage run -m pytest -m 'integration'
+
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
 	rye run generate-stubs
