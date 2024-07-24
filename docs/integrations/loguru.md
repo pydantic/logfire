@@ -6,6 +6,8 @@
 import logfire
 from loguru import logger
 
+logfire.configure()
+
 logger.configure(handlers=[logfire.loguru_handler()])
 logger.info('Hello, {name}!', name='World')
 ```
