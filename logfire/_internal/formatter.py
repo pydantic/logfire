@@ -275,15 +275,17 @@ class ChunksFormatter(Formatter):
                 except IndexError:
                     raise KnownFormattingError('Numeric field names are not allowed.')
                 except KeyError as exc1:
-                    missing = str(exc1)
-                    if missing == repr(field_name):
+                    if str(exc1) == repr(field_name):
                         raise KnownFormattingError(f'The field {{{field_name}}} is not defined.') from exc1
 
                     try:
-                        # fall back to getting a key with the dots in the name
+                        # field_name is something like 'a.b' or 'a[b]'
+                        # Evaluating that expression failed, so now just try getting the whole thing from kwargs.
+                        # In particular, OTEL attributes with dots in their names are normal and handled here.
                         obj = kwargs[field_name]
                     except KeyError as exc2:
-                        raise KnownFormattingError(f'The fields {str(exc1)} and {str(exc2)} are not defined.') from exc2
+                        # e.g. neither 'a' nor 'a.b' is defined
+                        raise KnownFormattingError(f'The fields {exc1} and {exc2} are not defined.') from exc2
                 except Exception as exc:
                     raise KnownFormattingError(f'Error getting field {{{field_name}}}: {exc}') from exc
 
