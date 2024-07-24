@@ -8,7 +8,7 @@ import warnings
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import Any, Final, Literal, Mapping
+from typing import Any, Final, Literal
 
 import executing
 from typing_extensions import NotRequired, TypedDict
@@ -17,8 +17,8 @@ import logfire
 from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import BaseScrubber, ScrubbedNote
-from .utils import truncate_string
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
+from .utils import log_internal_error, truncate_string
 
 
 class LiteralChunk(TypedDict):
@@ -38,7 +38,7 @@ class ChunksFormatter(Formatter):
     def chunks(
         self,
         format_string: str,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         fstring_frame: types.FrameType | None = None,
@@ -64,7 +64,7 @@ class ChunksFormatter(Formatter):
 
     def _fstring_chunks(
         self,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         scrubber: BaseScrubber,
         frame: types.FrameType,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str] | None:
@@ -236,18 +236,15 @@ class ChunksFormatter(Formatter):
     def _vformat_chunks(
         self,
         format_string: str,
-        kwargs: Mapping[str, Any],
+        kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         recursion_depth: int = 2,
-        auto_arg_index: int = 0,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any]]:
         """Copied from `string.Formatter._vformat` https://github.com/python/cpython/blob/v3.11.4/Lib/string.py#L198-L247 then altered."""
-        if recursion_depth < 0:  # pragma: no cover
-            raise ValueError('Max string recursion exceeded')
+        if recursion_depth < 0:
+            raise KnownFormattingError('Max format spec recursion exceeded')
         result: list[LiteralChunk | ArgChunk] = []
-        # here just to satisfy the call to `_vformat` below
-        used_args: set[str | int] = set()
         # We currently don't use positional arguments
         args = ()
         scrubbed: list[ScrubbedNote] = []
@@ -260,19 +257,8 @@ class ChunksFormatter(Formatter):
             if field_name is not None:
                 # this is some markup, find the object and do
                 #  the formatting
-
-                # handle arg indexing when empty field_names are given.
-                if field_name == '':  # pragma: no cover
-                    if auto_arg_index is False:
-                        raise ValueError('cannot switch from manual field specification to automatic field numbering')
-                    field_name = str(auto_arg_index)
-                    auto_arg_index += 1
-                elif field_name.isdigit():  # pragma: no cover
-                    if auto_arg_index:
-                        raise ValueError('cannot switch from manual field  to automatic field numbering')
-                    # disable auto arg incrementing, if it gets
-                    # used later on, then an exception will be raised
-                    auto_arg_index = False
+                if field_name == '':
+                    raise KnownFormattingError('Empty curly brackets `{}` are not allowed. A field name is required.')
 
                 # ADDED BY US:
                 if field_name.endswith('='):
@@ -282,42 +268,47 @@ class ChunksFormatter(Formatter):
                         result.append({'v': field_name, 't': 'lit'})
                     field_name = field_name[:-1]
 
-                # we have lots of type ignores here since Formatter is typed as requiring kwargs to be a
-                # dict, but we expect `Sequence[dict[str, Any]]` in get_value - effectively `Formatter` is really
-                # generic over the type of the kwargs
-
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
-                except KeyError as exc:
+                except IndexError:
+                    raise KnownFormattingError('Numeric field names are not allowed.')
+                except KeyError as exc1:
+                    if str(exc1) == repr(field_name):
+                        raise KnownFormattingError(f'The field {{{field_name}}} is not defined.') from exc1
+
                     try:
-                        # fall back to getting a key with the dots in the name
+                        # field_name is something like 'a.b' or 'a[b]'
+                        # Evaluating that expression failed, so now just try getting the whole thing from kwargs.
+                        # In particular, OTEL attributes with dots in their names are normal and handled here.
                         obj = kwargs[field_name]
-                    except KeyError:
-                        obj = '{' + field_name + '}'
-                        field = exc.args[0]
-                        _frame, stacklevel = get_user_frame_and_stacklevel()
-                        warnings.warn(f"The field '{field}' is not defined.", stacklevel=stacklevel)
+                    except KeyError as exc2:
+                        # e.g. neither 'a' nor 'a.b' is defined
+                        raise KnownFormattingError(f'The fields {exc1} and {exc2} are not defined.') from exc2
+                except Exception as exc:
+                    raise KnownFormattingError(f'Error getting field {{{field_name}}}: {exc}') from exc
 
                 # do any conversion on the resulting object
                 if conversion is not None:
-                    obj = self.convert_field(obj, conversion)
+                    try:
+                        obj = self.convert_field(obj, conversion)
+                    except Exception as exc:
+                        raise KnownFormattingError(f'Error converting field {{{field_name}}}: {exc}') from exc
 
                 # expand the format spec, if needed
-                format_spec, auto_arg_index = self._vformat(
-                    format_spec,  # type: ignore[arg-type]
-                    args,
-                    kwargs,
-                    used_args,  # TODO(lig): using `_arg_used` from above seems logical here but needs more thorough testing
-                    recursion_depth - 1,
-                    auto_arg_index=auto_arg_index,
+                format_spec_chunks, _ = self._vformat_chunks(
+                    format_spec or '', kwargs, scrubber=NOOP_SCRUBBER, recursion_depth=recursion_depth - 1
                 )
+                format_spec = ''.join(chunk['v'] for chunk in format_spec_chunks)
 
                 if obj is None:
                     value = self.NONE_REPR
                 else:
-                    value = self.format_field(obj, format_spec)
+                    try:
+                        value = self.format_field(obj, format_spec)
+                    except Exception as exc:
+                        raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
                     value, value_scrubbed = self._clean_value(field_name, value, scrubber)
                     scrubbed += value_scrubbed
                 d: ArgChunk = {'v': value, 't': 'arg'}
@@ -361,13 +352,23 @@ def logfire_format_with_magic(
     # 2. A dictionary of extra attributes to add to the span/log.
     #      These can come from evaluating values in f-strings.
     # 3. The final message template, which may differ from `format_string` if it was an f-string.
-    chunks, extra_attrs, new_template = chunks_formatter.chunks(
-        format_string,
-        kwargs,
-        scrubber=scrubber,
-        fstring_frame=fstring_frame,
-    )
-    return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    try:
+        chunks, extra_attrs, new_template = chunks_formatter.chunks(
+            format_string,
+            kwargs,
+            scrubber=scrubber,
+            fstring_frame=fstring_frame,
+        )
+        return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    except KnownFormattingError as e:
+        warn_formatting(str(e) or str(e.__cause__))
+    except Exception:
+        # This is an unexpected error that likely indicates a bug in our logic.
+        # Handle it here so that the span/log still gets created, just without a nice message.
+        log_internal_error()
+
+    # Formatting failed, so just use the original format string as the message.
+    return format_string, {}, format_string
 
 
 @lru_cache
@@ -450,3 +451,29 @@ def warn_inspect_arguments(msg: str, stacklevel: int):
     ) + msg
     warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=stacklevel)
     logfire.log('warn', msg)
+
+
+class KnownFormattingError(Exception):
+    """An error raised when there's something wrong with a format string or the field values.
+
+    In other words this should correspond to errors that would be raised when using `str.format`,
+    and generally indicate a user error, most likely that they weren't trying to pass a template string at all.
+    """
+
+
+class FormattingFailedWarning(UserWarning):
+    pass
+
+
+def warn_formatting(msg: str):
+    _frame, stacklevel = get_user_frame_and_stacklevel()
+    warnings.warn(
+        f'\n'
+        f'    Ensure you are either:\n'
+        '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
+        '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
+        '    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
+        f'    The problem was: {msg}',
+        stacklevel=stacklevel,
+        category=FormattingFailedWarning,
+    )

@@ -31,7 +31,7 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
 )
-from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
@@ -40,11 +40,19 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 @pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
 def test_log_methods_without_kwargs(method: str):
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning) as warnings:
         getattr(logfire, method)('{foo}', bar=2)
 
-    warning = warnings.pop()
+    [warning] = warnings
     assert warning.filename.endswith('test_logfire.py')
+    assert str(warning.message) == snapshot("""\
+
+    Ensure you are either:
+      (1) passing an f-string directly, with inspect_arguments enabled and working, or
+      (2) passing a literal `str.format`-style template, not a preformatted string.
+    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.
+    The problem was: The field {foo} is not defined.\
+""")
 
 
 def test_instrument_with_no_args(exporter: TestExporter) -> None:
@@ -77,7 +85,7 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
 
 
 def test_instrument_without_kwargs():
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
 
         @logfire.instrument('{foo}')
         def home() -> None: ...
@@ -89,7 +97,7 @@ def test_instrument_without_kwargs():
 
 
 def test_span_without_kwargs() -> None:
-    with pytest.warns(UserWarning, match="The field 'foo' is not defined.") as warnings:
+    with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
         with logfire.span('test {foo}'):
             pass  # pragma: no cover
 
@@ -1192,7 +1200,7 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
 
 
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning, match=r'missing') as warnings:
+    with pytest.warns(FormattingFailedWarning, match=r'missing') as warnings:
         span = logfire.span('{present} {missing}', present='here')
 
     assert len(warnings) == 1
@@ -1217,7 +1225,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                     'code.function': 'test_format_attribute_added_after_pending_span_sent',
                     'present': 'here',
                     'logfire.msg_template': '{present} {missing}',
-                    'logfire.msg': 'here {missing}',
+                    'logfire.msg': '{present} {missing}',
                     'logfire.json_schema': '{"type":"object","properties":{"present":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
@@ -1235,7 +1243,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
                     'code.function': 'test_format_attribute_added_after_pending_span_sent',
                     'present': 'here',
                     'logfire.msg_template': '{present} {missing}',
-                    'logfire.msg': 'here {missing}',
+                    'logfire.msg': '{present} {missing}',
                     'logfire.json_schema': '{"type":"object","properties":{"present":{},"missing":{}}}',
                     'logfire.span_type': 'span',
                     'missing': 'value',

@@ -1,14 +1,17 @@
+import contextlib
 from collections import ChainMap
+from types import SimpleNamespace
 from typing import Any, Mapping
 
+import pytest
 from inline_snapshot import snapshot
 
-from logfire._internal.formatter import chunks_formatter, logfire_format
-from logfire._internal.scrubbing import Scrubber
+from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
+from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
-    result, _extra_attrs, _span_name = chunks_formatter.chunks(format_string, kwargs, scrubber=Scrubber([]))
+    result, _extra_attrs, _span_name = chunks_formatter.chunks(format_string, dict(kwargs), scrubber=Scrubber([]))
     return result
 
 
@@ -81,3 +84,97 @@ def test_truncate():
         ' 3'
     )
     assert len(message) == snapshot(261)
+
+
+@contextlib.contextmanager
+def warns_failed(msg: str):
+    with pytest.warns(FormattingFailedWarning) as record:
+        yield
+    [warning] = record
+    assert str(warning.message).endswith(f'The problem was: {msg}')
+
+
+class BadRepr:
+    def __repr__(self):
+        raise ValueError('bad repr')
+
+
+def test_conversion_error():
+    with warns_failed('Error converting field {a}: bad repr'):
+        logfire_format('{a!r}', {'a': BadRepr()}, NOOP_SCRUBBER)
+
+
+def test_formatting_error():
+    with warns_failed('Error formatting field {a}: bad repr'):
+        logfire_format('{a}', {'a': BadRepr()}, NOOP_SCRUBBER)
+
+
+def test_formatting_error_with_spec():
+    with warns_failed("Error formatting field {a}: Unknown format code 'c' for object of type 'str'"):
+        logfire_format('{a:c}', {'a': 'b'}, NOOP_SCRUBBER)
+
+
+def test_format_spec_error():
+    with warns_failed("Error formatting field {b}: Unknown format code 'c' for object of type 'str'"):
+        logfire_format('{a:{b:c}}', {'a': '1', 'b': '2'}, NOOP_SCRUBBER)
+
+
+def test_recursion_error():
+    with warns_failed('Max format spec recursion exceeded'):
+        logfire_format('{a:{a:{a:{a:5}}}}', {'a': 1}, NOOP_SCRUBBER)
+
+
+def test_missing_field():
+    with warns_failed('The field {a} is not defined.'):
+        logfire_format('{a}', {}, NOOP_SCRUBBER)
+
+
+def test_missing_field_with_dot():
+    assert logfire_format('{a.b}', {'a.b': 123}, NOOP_SCRUBBER) == '123'
+    assert logfire_format('{a.b}', {'a': SimpleNamespace(b=456), 'a.b': 123}, NOOP_SCRUBBER) == '456'
+
+    with warns_failed("The fields 'a' and 'a.b' are not defined."):
+        logfire_format('{a.b}', {'b': 1}, NOOP_SCRUBBER)
+
+
+def test_missing_field_with_brackets():
+    assert logfire_format('{a[b]}', {'a[b]': 123}, NOOP_SCRUBBER) == '123'
+    assert logfire_format('{a[b]}', {'a': {'b': 456}, 'b': 1}, NOOP_SCRUBBER) == '456'
+
+    with warns_failed("The fields 'a' and 'a[b]' are not defined."):
+        logfire_format('{a[b]}', {'b': 1}, NOOP_SCRUBBER)
+
+
+def test_missing_key_in_brackets():
+    with warns_failed("The fields 'b' and 'a[b]' are not defined."):
+        logfire_format('{a[b]}', {'a': {}, 'b': 1}, NOOP_SCRUBBER)
+
+
+def test_empty_braces():
+    with warns_failed('Empty curly brackets `{}` are not allowed. A field name is required.'):
+        logfire_format('{}', {}, NOOP_SCRUBBER)
+
+
+def test_empty_braces_in_brackets():
+    with warns_failed('Error getting field {a[]}: Empty attribute in format string'):
+        logfire_format('{a[]}', {'a': {}}, NOOP_SCRUBBER)
+
+
+def test_numbered_fields():
+    with warns_failed('Numeric field names are not allowed.'):
+        logfire_format('{1}', {'1': 'a'}, NOOP_SCRUBBER)
+    with warns_failed('Numeric field names are not allowed.'):
+        logfire_format('{2.3}', {'2': 'a'}, NOOP_SCRUBBER)
+
+
+class BadScrubber(Scrubber):
+    def scrub_value(self, path: JsonPath, value: Any):
+        raise ValueError('bad scrubber')
+
+
+def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
+    assert logfire_format('{a}', {'a': 'b'}, BadScrubber([])) == '{a}'
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == 'Internal error in Logfire'
+    assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore

@@ -141,6 +141,9 @@ class NoopScrubber(BaseScrubber):
         return value, []
 
 
+NOOP_SCRUBBER = NoopScrubber()
+
+
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 

@@ -75,7 +75,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
-from .scrubbing import BaseScrubber, NoopScrubber, Scrubber, ScrubbingOptions, ScrubCallback
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
 from .stack_info import get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
@@ -402,7 +402,7 @@ class _LogfireConfigData:
             scrubbing = ScrubbingOptions()
         self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
         self.scrubber: BaseScrubber = (
-            Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NoopScrubber()
+            Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NOOP_SCRUBBER
         )
 
         if isinstance(console, dict):
