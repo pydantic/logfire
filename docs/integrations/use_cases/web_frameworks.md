@@ -15,7 +15,10 @@ Otherwise, check if your server uses [WSGI](../wsgi.md) or [ASGI](../asgi.md) an
 
 ## Capturing HTTP server request and response headers
 
-There are three environment variables to tell the OpenTelemetry instrumentation libraries to capture request and response headers:
+Some methods (e.g. `logfire.instrument_fastapi()`) allow you to pass `capture_headers=True` to record all request and response headers in the spans,
+and that's all you usually need.
+
+If you want more control, there are three environment variables to tell the OpenTelemetry instrumentation libraries to capture request and response headers:
 
 - `OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST`
 - `OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE`
@@ -30,6 +33,8 @@ OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST=".*"
 OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE=".*"
 ```
 
+(this is what `capture_headers=True` does)
+
 To specifically capture the `content-type` request header and request headers starting with `X-`:
 
 ```
@@ -41,6 +46,8 @@ To replace the `Authorization` header value with `[REDACTED]` to avoid leaking u
 ```
 OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SANITIZE_FIELDS="Authorization"
 ```
+
+(although usually it's better to rely on **Logfire**'s [scrubbing](../../guides/advanced/scrubbing.md) feature)
 
 ## Query HTTP requests duration per percentile
 

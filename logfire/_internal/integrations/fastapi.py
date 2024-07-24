@@ -16,6 +16,7 @@ from starlette.websockets import WebSocket
 
 from ..main import Logfire
 from ..stack_info import StackInfo, get_code_object_info
+from ..utils import maybe_capture_server_headers
 
 try:
     from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
@@ -46,6 +47,7 @@ def instrument_fastapi(
     logfire_instance: Logfire,
     app: FastAPI,
     *,
+    capture_headers: bool = False,
     request_attributes_mapper: Callable[
         [
             Request | WebSocket,
@@ -68,6 +70,7 @@ def instrument_fastapi(
         excluded_urls = ','.join(excluded_urls)
 
     if use_opentelemetry_instrumentation:  # pragma: no branch
+        maybe_capture_server_headers(capture_headers)
         FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls, **opentelemetry_kwargs)  # type: ignore
 
     registry = patch_fastapi()

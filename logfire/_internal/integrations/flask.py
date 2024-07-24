@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from flask.app import Flask
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
+from logfire._internal.utils import maybe_capture_server_headers
+
 if TYPE_CHECKING:
     from wsgiref.types import WSGIEnvironment
 
@@ -25,9 +27,10 @@ if TYPE_CHECKING:
         commenter_options: dict[str, str] | None
 
 
-def instrument_flask(app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]):
+def instrument_flask(app: Flask, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]):
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_flask` method for details.
     """
+    maybe_capture_server_headers(capture_headers)
     FlaskInstrumentor().instrument_app(app, **kwargs)  # type: ignore[reportUnknownMemberType]
