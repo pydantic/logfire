@@ -461,7 +461,7 @@ class KnownFormattingError(Exception):
     """
 
 
-class FormattingFailedWarning(Warning):
+class FormattingFailedWarning(UserWarning):
     pass
 
 
