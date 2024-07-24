@@ -63,6 +63,8 @@ jobs:
           echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
+      - name: Setup services
+        run: docker-compose up -d
       - name: set up python
         uses: actions/setup-python@v5
         with:
