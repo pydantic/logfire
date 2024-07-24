@@ -227,6 +227,16 @@ def suppress_instrumentation():
 
 
 def log_internal_error():
+    try:
+        # Unless we're specifically testing this function, we should reraise the exception
+        # in tests for easier debugging.
+        current_test = os.environ.get('PYTEST_CURRENT_TEST', '')
+        reraise = bool(current_test and 'test_internal_exception' not in current_test)
+    except Exception:  # pragma: no cover
+        reraise = False
+    if reraise:
+        raise
+
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
         logger.exception('Internal error in Logfire')
 
