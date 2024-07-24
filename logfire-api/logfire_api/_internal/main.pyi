@@ -9,6 +9,7 @@ from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConf
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
+from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
@@ -365,11 +366,12 @@ class Logfire:
                 Otherwise, the first time(s) each function is called, it will be timed but not traced.
                 Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
-    def instrument_fastapi(self, app: FastAPI, *, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Args:
             app: The FastAPI app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
             request_attributes_mapper: A function that takes a [`Request`][fastapi.Request] or [`WebSocket`][fastapi.WebSocket]
                 and a dictionary of attributes and returns a new dictionary of attributes.
                 The input dictionary will contain:
@@ -510,7 +512,14 @@ class Logfire:
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
         library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_django(self, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[Span, HttpRequest], None] | None = None, response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+        """Instrument `celery` so that spans are automatically created for each task.
+
+        Uses the
+        [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
+        library.
+        """
+    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[Span, HttpRequest], None] | None = None, response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
 
         Uses the
@@ -518,6 +527,7 @@ class Logfire:
         library.
 
         Args:
+            capture_headers: Set to `True` to capture all request and response headers.
             is_sql_commentor_enabled: Adds comments to SQL queries performed by Django,
                 so that database logs have additional context.
 
@@ -567,15 +577,19 @@ class Logfire:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
-    def instrument_flask(self, app: Flask, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
+
+        Set `capture_headers` to `True` to capture all request and response headers.
 
         Uses the
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
         library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
         """
-    def instrument_starlette(self, app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
+    def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
+
+        Set `capture_headers` to `True` to capture all request and response headers.
 
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)

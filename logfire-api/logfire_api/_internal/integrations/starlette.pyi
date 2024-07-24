@@ -1,3 +1,4 @@
+from logfire._internal.utils import maybe_capture_server_headers as maybe_capture_server_headers
 from opentelemetry.trace import Span
 from starlette.applications import Starlette
 from typing import Any
@@ -17,7 +18,7 @@ class StarletteInstrumentKwargs(TypedDict, total=False):
     client_request_hook: ClientRequestHook | None
     client_response_hook: ClientResponseHook | None
 
-def instrument_starlette(app: Starlette, **kwargs: Unpack[StarletteInstrumentKwargs]):
+def instrument_starlette(app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]):
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_starlette` method for details.

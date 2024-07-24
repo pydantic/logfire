@@ -14,7 +14,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendin
 from .exporters.tail_sampling import TailSamplingOptions as TailSamplingOptions, TailSamplingProcessor as TailSamplingProcessor
 from .integrations.executors import instrument_executors as instrument_executors
 from .metrics import ProxyMeterProvider as ProxyMeterProvider, configure_metrics as configure_metrics
-from .scrubbing import BaseScrubber as BaseScrubber, NoopScrubber as NoopScrubber, ScrubCallback as ScrubCallback, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
+from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubCallback as ScrubCallback, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import get_user_frame_and_stacklevel as get_user_frame_and_stacklevel
 from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, get_version as get_version, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation

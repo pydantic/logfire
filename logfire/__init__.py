@@ -102,6 +102,7 @@ __all__ = (
     'instrument_anthropic',
     'instrument_asyncpg',
     'instrument_httpx',
+    'instrument_celery',
     'instrument_requests',
     'instrument_psycopg',
     'instrument_django',

@@ -79,7 +79,7 @@ except ImportError:
 
             def force_flush(self, *args, **kwargs) -> None: ...
 
-            def log_slow_async_callbacks(self, *args, **kwargs) -> None: # pragma: no branch
+            def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no branch
                 return nullcontext()
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
@@ -143,6 +143,7 @@ except ImportError:
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
+        instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
