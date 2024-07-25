@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
-    from opentelemetry.metrics import _Gauge as Gauge
+    from opentelemetry.metrics import _Gauge as Gauge  # type: ignore
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket

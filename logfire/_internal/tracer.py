@@ -50,19 +50,14 @@ class ProxyTracerProvider(TracerProvider):
 
     def get_tracer(
         self,
-        instrumenting_module_name: str,
-        instrumenting_library_version: str | None = None,
-        schema_url: str | None = None,
+        *args: Any,
         is_span_tracer: bool = True,
+        **kwargs: Any,
     ) -> _ProxyTracer:
         with self.lock:
 
             def make() -> Tracer:
-                return self.provider.get_tracer(
-                    instrumenting_module_name=instrumenting_module_name,
-                    instrumenting_library_version=instrumenting_library_version,
-                    schema_url=schema_url,
-                )
+                return self.provider.get_tracer(*args, **kwargs)
 
             tracer = _ProxyTracer(make(), self, is_span_tracer)
             self.tracers[tracer] = make

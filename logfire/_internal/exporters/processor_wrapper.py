@@ -136,7 +136,13 @@ def _tweak_asgi_send_receive_spans(span: ReadableSpanDict) -> None:
 
 def _is_asgi_send_receive_span(name: str, instrumentation_scope: InstrumentationScope | None) -> bool:
     return (
-        instrumentation_scope is not None and instrumentation_scope.name == 'opentelemetry.instrumentation.asgi'
+        instrumentation_scope is not None
+        and instrumentation_scope.name
+        in (
+            'opentelemetry.instrumentation.asgi',
+            'opentelemetry.instrumentation.starlette',
+            'opentelemetry.instrumentation.fastapi',
+        )
     ) and (name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive')))
 
 
