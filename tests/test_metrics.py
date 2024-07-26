@@ -146,7 +146,7 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
                     'data_points': [
                         {
                             'attributes': {},
-                            'start_time_unix_nano': 0,
+                            'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 1,
                         }
@@ -169,7 +169,7 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
                     'data_points': [
                         {
                             'attributes': {},
-                            'start_time_unix_nano': 0,
+                            'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 24,
                         }
@@ -278,7 +278,7 @@ def test_create_metric_gauge_callback(metrics_reader: InMemoryMetricReader) -> N
                     'data_points': [
                         {
                             'attributes': {},
-                            'start_time_unix_nano': 0,
+                            'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 4000,
                         }

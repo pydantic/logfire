@@ -24,7 +24,7 @@ from opentelemetry.util.types import Attributes
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
-    from opentelemetry.metrics import _Gauge
+    from opentelemetry.metrics import _Gauge  # type: ignore
 
     Gauge = _Gauge
 except ImportError:  # pragma: no cover
@@ -99,10 +99,12 @@ class ProxyMeterProvider(MeterProvider):
         name: str,
         version: str | None = None,
         schema_url: str | None = None,
+        *args: Any,
+        **kwargs: Any,
     ) -> Meter:
         with self.lock:
             meter = _ProxyMeter(
-                self.provider.get_meter(name, version=version, schema_url=schema_url),
+                self.provider.get_meter(name, version=version, schema_url=schema_url, *args, **kwargs),
                 name,
                 version,
                 schema_url,
