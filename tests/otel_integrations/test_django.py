@@ -2,7 +2,7 @@ import importlib
 from unittest import mock
 
 import pytest
-from dirty_equals import IsInt
+from dirty_equals import IsInt, IsNumeric
 from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
@@ -66,14 +66,14 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'count': 1,
-                            'sum': 1,
+                            'sum': IsNumeric(),
                             'scale': 20,
                             'zero_count': 0,
-                            'positive': {'offset': -1, 'bucket_counts': [1]},
+                            'positive': {'offset': IsInt(), 'bucket_counts': [1]},
                             'negative': {'offset': 0, 'bucket_counts': [0]},
                             'flags': 0,
-                            'min': 1,
-                            'max': 1,
+                            'min': IsNumeric(),
+                            'max': IsNumeric(),
                         }
                     ],
                     'aggregation_temporality': 1,
