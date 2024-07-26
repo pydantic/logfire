@@ -2,24 +2,85 @@ import importlib
 from unittest import mock
 
 import pytest
+from dirty_equals import IsInt
 from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.django
 from logfire.testing import TestExporter
+from tests.test_metrics import get_collected_metrics
 
 
-def test_good_route(client: Client, exporter: TestExporter):
+def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMemoryMetricReader):
     logfire.instrument_django()
     response: HttpResponse = client.get(  # type: ignore
         '/django_test_app/123/?very_long_query_param_name=very+long+query+param+value&foo=1'
     )
     assert response.status_code == 200
     assert response.content == b'item_id: 123'
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'http.server.active_requests',
+                'description': 'Number of active HTTP server requests.',
+                'unit': '{request}',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {
+                                'http.method': 'GET',
+                                'http.server_name': 'testserver',
+                                'http.scheme': 'http',
+                                'http.flavor': '1.1',
+                            },
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 0,
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': False,
+                },
+            },
+            {
+                'name': 'http.server.duration',
+                'description': 'Duration of HTTP server requests.',
+                'unit': 'ms',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {
+                                'http.method': 'GET',
+                                'http.server_name': 'testserver',
+                                'http.scheme': 'http',
+                                'net.host.port': 80,
+                                'http.flavor': '1.1',
+                                'http.status_code': 200,
+                            },
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'count': 1,
+                            'sum': 1,
+                            'scale': 20,
+                            'zero_count': 0,
+                            'positive': {'offset': -1, 'bucket_counts': [1]},
+                            'negative': {'offset': 0, 'bucket_counts': [0]},
+                            'flags': 0,
+                            'min': 1,
+                            'max': 1,
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                },
+            },
+        ]
+    )
 
     # TODO route and target should consistently start with /, including in the name/message
     assert exporter.exported_spans_as_dict() == snapshot(
