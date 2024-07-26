@@ -5,7 +5,7 @@ Use [LiteLLM Proxy](https://docs.litellm.ai/docs/simple_proxy) to Log OpenAI, Az
 Use LiteLLM Proxy for:
 - Calling 100+ LLMs OpenAI, Azure, Vertex, Bedrock/etc. in the OpenAI ChatCompletions & Completions format
 - Automatically Log all requests to Logfire (
-For more details, [check the official LiteLLM documentation.](https://docs.litellm.ai/docs/observability/logfire_integration))
+For more details, [check the official LiteLLM documentation](https://docs.litellm.ai/docs/observability/logfire_integration)).
 
 
 ## Step 1. Create a Config for LiteLLM proxy
