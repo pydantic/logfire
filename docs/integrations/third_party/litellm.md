@@ -27,7 +27,8 @@ litellm_settings:
 ```
 
 Step 2. Start litellm proxy
-Enter your `LOGFIRE_TOKEN` in the docker run command
+Enter your `LOGFIRE_TOKEN` in the docker run command:
+
 ```shell
 docker run \
     -v $(pwd)/litellm_config.yaml:/app/config.yaml \
