@@ -48,7 +48,7 @@ class LogfireHandler(LogfireLoggingHandler):
             while frame:  # pragma: no branch
                 if frame.f_code is _LOG_METHOD_CODE:
                     frame_locals = frame.f_locals
-                    if 'message' in frame_locals:
+                    if 'message' in frame_locals:  # pragma: no branch
                         attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = frame_locals['message']
                     else:  # pragma: no cover
                         warn_at_user_stacklevel(
@@ -56,7 +56,7 @@ class LogfireHandler(LogfireLoggingHandler):
                         )
 
                     args = frame_locals.get('args')
-                    if isinstance(args, (tuple, list)):
+                    if isinstance(args, (tuple, list)):  # pragma: no branch
                         if args:
                             attributes[ATTRIBUTES_LOGGING_ARGS_KEY] = args
                     else:  # pragma: no cover
@@ -67,7 +67,7 @@ class LogfireHandler(LogfireLoggingHandler):
                         isinstance(original_record, dict)
                         and isinstance(message := original_record.get('message'), str)
                         and message in record.msg
-                    ):
+                    ):  # pragma: no branch
                         # `record.msg` may include a traceback added by Loguru,
                         # replace it with the original message.
                         attributes[ATTRIBUTES_MESSAGE_KEY] = message
@@ -79,7 +79,7 @@ class LogfireHandler(LogfireLoggingHandler):
                     break
 
                 frame = frame.f_back
-            else:
+            else:  # pragma: no cover
                 warn_at_user_stacklevel(
                     'Failed to find loguru log frame to extract detailed information', LoguruInspectionFailed
                 )
