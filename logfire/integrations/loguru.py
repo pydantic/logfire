@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import inspect
-import warnings
 from logging import LogRecord
+from pathlib import Path
 from typing import Any
 
-from loguru import logger
+import loguru
 
 from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY
+from .._internal.stack_info import warn_at_user_stacklevel
 from .logging import LogfireLoggingHandler
+
+LOGURU_PATH = Path(loguru.__file__).parent
+
+
+class LoguruInspectionFailed(RuntimeWarning):
+    """Warning raised when magic introspection of loguru stack frames fails.
+
+    This may happen if the loguru library changes in a way that breaks the introspection.
+    """
 
 
 class LogfireHandler(LogfireLoggingHandler):
@@ -41,48 +51,46 @@ class LogfireHandler(LogfireLoggingHandler):
                     if 'message' in frame_locals:
                         attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = frame_locals['message']
                     else:  # pragma: no cover
-                        _warn_inspection_failure()
+                        warn_at_user_stacklevel(
+                            'Failed to extract message template (span name) for loguru log.', LoguruInspectionFailed
+                        )
 
                     args = frame_locals.get('args')
                     if isinstance(args, (tuple, list)):
                         if args:
                             attributes[ATTRIBUTES_LOGGING_ARGS_KEY] = args
                     else:  # pragma: no cover
-                        _warn_inspection_failure()
+                        warn_at_user_stacklevel('Failed to extract args for loguru log.', LoguruInspectionFailed)
 
-                    if record.exc_info:
-                        original_record = frame_locals.get('log_record')
-                        if isinstance(original_record, dict):
-                            message = original_record.get('message')  # type: ignore
-                            if isinstance(message, str) and record.msg.startswith(
-                                message + '\nTraceback (most recent call last):'
-                            ):
-                                # `record.msg` includes a traceback added by Loguru,
-                                # replace it with the original message.
-                                attributes[ATTRIBUTES_MESSAGE_KEY] = message
-                            else:  # pragma: no cover
-                                _warn_inspection_failure()
-                        else:  # pragma: no cover
-                            _warn_inspection_failure()
+                    original_record: dict[str, Any] | None = frame_locals.get('log_record')
+                    if (
+                        isinstance(original_record, dict)
+                        and isinstance(message := original_record.get('message'), str)
+                        and message in record.msg
+                    ):
+                        # `record.msg` may include a traceback added by Loguru,
+                        # replace it with the original message.
+                        attributes[ATTRIBUTES_MESSAGE_KEY] = message
+                    else:  # pragma: no cover
+                        warn_at_user_stacklevel(
+                            'Failed to extract original message for loguru log.', LoguruInspectionFailed
+                        )
 
                     break
 
                 frame = frame.f_back
+            else:
+                warn_at_user_stacklevel(
+                    'Failed to find loguru log frame to extract detailed information', LoguruInspectionFailed
+                )
 
         return attributes
 
 
-def _warn_inspection_failure() -> None:  # pragma: no cover
-    warnings.warn(
-        'Failed to extract info from loguru logger. '
-        'This may affect span names and/or positional arguments. '
-        'Please report an issue to logfire.',
-        RuntimeWarning,
-    )
-
-
 try:
-    _LOG_METHOD_CODE = inspect.unwrap(type(logger)._log).__code__  # type: ignore
+    _LOG_METHOD_CODE = inspect.unwrap(type(loguru.logger)._log).__code__  # type: ignore
 except Exception:  # pragma: no cover
     _LOG_METHOD_CODE = None  # type: ignore
-    _warn_inspection_failure()
+    warn_at_user_stacklevel(
+        'Failed to find loguru log method code to extract detailed information', LoguruInspectionFailed
+    )
