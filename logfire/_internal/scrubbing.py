@@ -124,6 +124,10 @@ class BaseScrubber(ABC):
         SpanAttributes.HTTP_ROUTE,
         SpanAttributes.DB_STATEMENT,
         'db.plan',
+        # Newer semantic conventions
+        SpanAttributes.URL_FULL,
+        SpanAttributes.URL_PATH,
+        SpanAttributes.URL_QUERY,
     }
 
     @abstractmethod
