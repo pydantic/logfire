@@ -26,7 +26,7 @@ litellm_settings:
   callbacks: ["logfire"] # 👈 Set logfire as a callback
 ```
 
-Step 2. Start litellm proxy
+Step 2. Start the LiteLLM proxy
 Enter your `LOGFIRE_TOKEN` in the docker run command:
 
 ```shell
