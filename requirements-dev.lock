@@ -191,6 +191,7 @@ mypy==1.11.0
 mypy-extensions==1.0.0
     # via black
     # via mypy
+mysql-connector-python==8.4.0
 nodeenv==1.9.1
     # via pre-commit
     # via pyright
@@ -209,6 +210,7 @@ opentelemetry-api==1.26.0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-flask
     # via opentelemetry-instrumentation-httpx
+    # via opentelemetry-instrumentation-mysql
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
     # via opentelemetry-instrumentation-pymongo
@@ -235,6 +237,7 @@ opentelemetry-instrumentation==0.47b0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-flask
     # via opentelemetry-instrumentation-httpx
+    # via opentelemetry-instrumentation-mysql
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
     # via opentelemetry-instrumentation-pymongo
@@ -251,12 +254,14 @@ opentelemetry-instrumentation-asgi==0.47b0
 opentelemetry-instrumentation-asyncpg==0.47b0
 opentelemetry-instrumentation-celery==0.47b0
 opentelemetry-instrumentation-dbapi==0.47b0
+    # via opentelemetry-instrumentation-mysql
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
 opentelemetry-instrumentation-django==0.47b0
 opentelemetry-instrumentation-fastapi==0.47b0
 opentelemetry-instrumentation-flask==0.47b0
 opentelemetry-instrumentation-httpx==0.47b0
+opentelemetry-instrumentation-mysql==0.47b0
 opentelemetry-instrumentation-psycopg==0.47b0
 opentelemetry-instrumentation-psycopg2==0.47b0
 opentelemetry-instrumentation-pymongo==0.47b0

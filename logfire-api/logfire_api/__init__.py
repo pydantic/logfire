@@ -154,6 +154,7 @@ except ImportError:
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
+        instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 
         def no_auto_trace(x):
