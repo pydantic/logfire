@@ -76,7 +76,7 @@ from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
-from .stack_info import get_user_frame_and_stacklevel
+from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
@@ -801,12 +801,10 @@ class LogfireConfig(_LogfireConfigData):
 
     def warn_if_not_initialized(self, message: str):
         if not self._initialized and not self.ignore_no_config:
-            _frame, stacklevel = get_user_frame_and_stacklevel()
-            warnings.warn(
+            warn_at_user_stacklevel(
                 f'{message} until `logfire.configure()` has been called. '
                 f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
-                stacklevel=stacklevel,
             )
 
     @cached_property

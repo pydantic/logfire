@@ -14,10 +14,10 @@ import executing
 from typing_extensions import NotRequired, TypedDict
 
 import logfire
-from logfire._internal.stack_info import get_user_frame_and_stacklevel
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
+from .stack_info import warn_at_user_stacklevel
 from .utils import log_internal_error, truncate_string
 
 
@@ -466,14 +466,12 @@ class FormattingFailedWarning(UserWarning):
 
 
 def warn_formatting(msg: str):
-    _frame, stacklevel = get_user_frame_and_stacklevel()
-    warnings.warn(
+    warn_at_user_stacklevel(
         f'\n'
         f'    Ensure you are either:\n'
         '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
         '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
         '    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
         f'    The problem was: {msg}',
-        stacklevel=stacklevel,
         category=FormattingFailedWarning,
     )
