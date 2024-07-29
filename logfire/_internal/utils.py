@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
 from opentelemetry import context, trace as trace_api
@@ -15,6 +17,8 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.status import Status
 from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
+
+from logfire._internal.stack_info import is_user_code
 
 if TYPE_CHECKING:
     from packaging.version import Version
@@ -252,15 +256,59 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception('Internal error in Logfire')
+        logger.exception('Internal error in Logfire', exc_info=internal_error_tb())
 
 
-@contextmanager
-def handle_internal_errors():
+def internal_error_tb() -> Any:
+    exc_type, exc_val, original_tb = sys.exc_info()
+    tb = original_tb
+    try:
+        assert tb and tb.tb_frame
+        if tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
+            tb = tb.tb_next
+        while tb and tb.tb_frame and tb.tb_frame.f_code.co_filename == contextmanager.__code__.co_filename:
+            tb = tb.tb_next
+
+        frame = inspect.currentframe()
+        assert frame
+        frame = frame.f_back
+        assert frame
+        if frame.f_code is log_internal_error.__code__:
+            frame = frame.f_back
+            assert frame
+            if frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
+                frame = frame.f_back
+                assert frame and frame.f_code.co_name == '__exit__'
+                frame = frame.f_back
+                assert frame
+                frame = frame.f_back
+            else:
+                frame = frame.f_back
+        while frame and not is_user_code(frame.f_code):
+            tb = TracebackType(tb_next=tb, tb_frame=frame, tb_lasti=frame.f_lasti, tb_lineno=frame.f_lineno)
+            frame = frame.f_back
+        for _ in range(3):
+            if not frame:
+                break
+            tb = TracebackType(tb_next=tb, tb_frame=frame, tb_lasti=frame.f_lasti, tb_lineno=frame.f_lineno)
+            frame = frame.f_back
+
+        assert exc_val
+        exc_val = exc_val.with_traceback(tb)
+        return exc_type, exc_val, tb
+    except Exception:
+        return exc_type, exc_val, original_tb
+
+
+def _handle_internal_errors():
     try:
         yield
     except Exception:
         log_internal_error()
+
+
+_HANDLE_INTERNAL_ERRORS_CODE = _handle_internal_errors.__code__
+handle_internal_errors = contextmanager(_handle_internal_errors)
 
 
 def maybe_capture_server_headers(capture: bool):
