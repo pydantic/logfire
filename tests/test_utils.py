@@ -27,8 +27,12 @@ def test_reraise_internal_exception():
 
 
 def test_internal_exception_tb(caplog: pytest.LogCaptureFixture):
+    # Pretend that `internal_logfire_code_example` is a module within logfire,
+    # so all frames from it should be included.
     logfire._internal.stack_info.NON_USER_CODE_PREFIXES += (internal_logfire_code_example.__file__,)
+
     user_code_example.user1()
+
     tracebacks = [
         r.exc_text.replace(  # type: ignore
             user_code_example.__file__,
@@ -39,6 +43,14 @@ def test_internal_exception_tb(caplog: pytest.LogCaptureFixture):
         )
         for r in caplog.records
     ]
+
+    # Important notes about these tracebacks:
+    # - They should look very similar to each other, regardless of how log_internal_error was called.
+    # - They should include all frames from internal_logfire_code_example.py.
+    # - They should include exactly 3 frames from user_code_example.py.
+    # - They should look seamless, with each frame pointing to the next one.
+    # - There should be no sign of logfire's internal error handling code.
+    # - The two files should be isolated and stable so that the exact traceback contents can be asserted.
     assert tracebacks == snapshot(
         [
             """\
