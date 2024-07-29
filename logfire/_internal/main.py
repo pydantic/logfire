@@ -9,18 +9,7 @@ import warnings
 from functools import cached_property, partial
 from time import time
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    ContextManager,
-    Iterable,
-    Literal,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -75,8 +64,10 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from .integrations.asyncpg import AsyncPGInstrumentKwargs
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
+    from .integrations.httpx import HTTPXInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
@@ -1033,14 +1024,14 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_asyncpg(self):
+    def instrument_asyncpg(self, **kwargs: AsyncPGInstrumentKwargs) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asyncpg()
+        return instrument_asyncpg(**kwargs)
 
-    def instrument_httpx(self, **kwargs: Any):
+    def instrument_httpx(self, **kwargs: HTTPXInstrumentKwargs) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
         Uses the
