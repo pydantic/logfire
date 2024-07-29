@@ -1,41 +1,29 @@
-"""This module contains tests for the Celery integration.
-
-To be able to run those tests, you need to have Redis running on localhost:6379.
-We have a docker compose file that you can use to start Redis:
-
-    ```bash
-    docker compose up -d redis
-    ```
-"""
-
 import logging
-from typing import Iterator
+from typing import Generator, Iterator
 
 import pytest
-import redis
-import redis.exceptions
 from celery import Celery
 from celery.contrib.testing.worker import start_worker
 from celery.worker.worker import WorkController
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from testcontainers.redis import RedisContainer
 
 import logfire
 from logfire.testing import TestExporter
 
-pytestmark = [pytest.mark.integration]
 
-try:
-    client = redis.Redis()
-    client.ping()  # type: ignore
-except redis.exceptions.ConnectionError:  # pragma: no cover
-    pytestmark.append(pytest.mark.skip('Redis is not running'))
+@pytest.fixture(scope='module', autouse=True)
+def redis_container() -> Generator[RedisContainer, None, None]:
+    with RedisContainer('redis:latest') as redis:
+        yield redis
 
 
 @pytest.fixture
-def celery_app() -> Iterator[Celery]:
-    app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+def celery_app(redis_container: RedisContainer) -> Iterator[Celery]:
+    redis_uri = f'redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0'
+    app = Celery('tasks', broker=redis_uri, backend=redis_uri)
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
