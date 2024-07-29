@@ -285,7 +285,7 @@ def _internal_error_exc_info() -> Any:
         assert frame
         frame = frame.f_back
 
-        if frame and frame.f_code is log_internal_error.__code__:
+        if frame and frame.f_code is log_internal_error.__code__:  # pragma: no branch
             # This function is always called from log_internal_error, so skip that frame.
             frame = frame.f_back
             assert frame
@@ -310,7 +310,7 @@ def _internal_error_exc_info() -> Any:
 
         # Add up to 3 frames from user code.
         for _ in range(3):
-            if not frame:
+            if not frame:  # pragma: no cover
                 break
             tb = TracebackType(tb_next=tb, tb_frame=frame, tb_lasti=frame.f_lasti, tb_lineno=frame.f_lineno)
             frame = frame.f_back
@@ -318,7 +318,7 @@ def _internal_error_exc_info() -> Any:
         assert exc_val
         exc_val = exc_val.with_traceback(tb)
         return exc_type, exc_val, tb
-    except Exception:
+    except Exception:  # pragma: no cover
         return exc_type, exc_val, original_tb
 
 
