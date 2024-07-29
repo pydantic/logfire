@@ -37,3 +37,4 @@ def is_user_code(code: CodeType) -> bool:
         and they are always called directly from the enclosing function so it makes sense to skip them.
         On the other hand, generator expressions and lambdas might be called far away from where they are defined.
     """
+def warn_at_user_stacklevel(msg: str, category: type[Warning]): ...

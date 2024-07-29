@@ -9,8 +9,10 @@ from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConf
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
+from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
+from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
@@ -503,9 +505,9 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self):
+    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
-    def instrument_httpx(self, **kwargs: Any):
+    def instrument_httpx(self, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
         Uses the

@@ -3,9 +3,9 @@ import executing
 import types
 from .constants import ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT as MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubbedNote as ScrubbedNote
+from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .utils import log_internal_error as log_internal_error, truncate_string as truncate_string
 from _typeshed import Incomplete
-from logfire._internal.stack_info import get_user_frame_and_stacklevel as get_user_frame_and_stacklevel
 from string import Formatter
 from types import CodeType as CodeType
 from typing import Any, Final, Literal
