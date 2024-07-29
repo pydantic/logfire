@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import sys
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from types import CodeType, FrameType
@@ -97,3 +98,8 @@ def is_user_code(code: CodeType) -> bool:
         str(Path(code.co_filename).absolute()).startswith(PREFIXES)
         or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )
+
+
+def warn_at_user_stacklevel(msg: str, category: type[Warning]):
+    _frame, stacklevel = get_user_frame_and_stacklevel()
+    warnings.warn(msg, stacklevel=stacklevel, category=category)
