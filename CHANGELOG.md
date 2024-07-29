@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v0.48.1] (2024-07-29)
+
+* Handle newer opentelemetry versions by @alexmojaki in https://github.com/pydantic/logfire/pull/337
+* More lenient handling of loguru message mismatch and better warnings by @alexmojaki in https://github.com/pydantic/logfire/pull/338
+* Add better type hints for HTTPX and AsyncPG by @Kludex in https://github.com/pydantic/logfire/pull/342
+* Handle `setuptools` changing `sys.path` for importing `packaging.version` by @alexmojaki in https://github.com/pydantic/logfire/pull/344
+
 ## [v0.48.0] (2024-07-24)
 
 * Add `instrument_celery` method by @Kludex in https://github.com/pydantic/logfire/pull/322
@@ -221,6 +228,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1
 [v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
 [v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
 [v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
