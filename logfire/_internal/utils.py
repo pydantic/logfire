@@ -256,10 +256,10 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception('Internal error in Logfire', exc_info=internal_error_tb())
+        logger.exception('Internal error in Logfire', exc_info=_internal_error_tb())
 
 
-def internal_error_tb() -> Any:
+def _internal_error_tb() -> Any:
     exc_type, exc_val, original_tb = sys.exc_info()
     tb = original_tb
     try:
