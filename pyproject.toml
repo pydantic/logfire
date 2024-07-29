@@ -135,6 +135,7 @@ dev-dependencies = [
     "sqlmodel",
     "mypy>=1.10.0",
     "celery>=5.4.0",
+    "testcontainers>=4.7.2",
 ]
 
 [tool.rye.scripts]
@@ -213,7 +214,6 @@ venvPath = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
-markers = ['integration: mark a test as an integration test']
 filterwarnings = [
     "error",
     # fastapi uses deprecated pydantic functions
