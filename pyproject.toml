@@ -135,7 +135,7 @@ dev-dependencies = [
     "sqlmodel",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers>=4.7.2",
+    "testcontainers",
 ]
 
 [tool.rye.scripts]
