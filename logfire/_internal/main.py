@@ -1024,14 +1024,14 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_asyncpg(self, **kwargs: AsyncPGInstrumentKwargs) -> None:
+    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_asyncpg(**kwargs)
 
-    def instrument_httpx(self, **kwargs: HTTPXInstrumentKwargs) -> None:
+    def instrument_httpx(self, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
         Uses the
