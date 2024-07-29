@@ -16,6 +16,9 @@ from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
+# Emit both new and old semantic convention attribute names
+os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+
 
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
