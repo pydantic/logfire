@@ -256,37 +256,59 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception('Internal error in Logfire', exc_info=_internal_error_tb())
+        logger.exception('Internal error in Logfire', exc_info=_internal_error_exc_info())
 
 
-def _internal_error_tb() -> Any:
+def _internal_error_exc_info() -> Any:
+    """Returns an exc_info tuple with a nicely tweaked traceback."""
     exc_type, exc_val, original_tb = sys.exc_info()
-    tb = original_tb
     try:
-        assert tb and tb.tb_frame
-        if tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
-            tb = tb.tb_next
-        while tb and tb.tb_frame and tb.tb_frame.f_code.co_filename == contextmanager.__code__.co_filename:
+        # First remove redundant frames already in the traceback about where the error was raised.
+        tb = original_tb
+        if tb and tb.tb_frame and tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
+            # Skip the 'yield' line in _handle_internal_errors
             tb = tb.tb_next
 
+        if (
+            tb
+            and tb.tb_frame
+            and tb.tb_frame.f_code.co_filename == contextmanager.__code__.co_filename
+            and tb.tb_frame.f_code.co_name == 'inner'
+        ):
+            # Skip the 'inner' function frame when handle_internal_errors is used as a decorator.
+            # It looks like `return func(*args, **kwds)`
+            tb = tb.tb_next
+
+        # Now add useful outer frames that give context, but skipping frames that are just about handling the error.
         frame = inspect.currentframe()
+        # Skip this frame right here.
         assert frame
         frame = frame.f_back
-        assert frame
-        if frame.f_code is log_internal_error.__code__:
+
+        if frame and frame.f_code is log_internal_error.__code__:
+            # This function is always called from log_internal_error, so skip that frame.
             frame = frame.f_back
             assert frame
+
             if frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
+                # Skip the line in _handle_internal_errors that calls log_internal_error
                 frame = frame.f_back
+                # Skip the frame defining the _handle_internal_errors context manager
                 assert frame and frame.f_code.co_name == '__exit__'
                 frame = frame.f_back
                 assert frame
+                # Skip the frame calling the context manager, on the `with` line.
                 frame = frame.f_back
             else:
+                # `log_internal_error()` was called directly, so just skip that frame. No context manager stuff.
                 frame = frame.f_back
+
+        # Now add all remaining frames from internal logfire code.
         while frame and not is_user_code(frame.f_code):
             tb = TracebackType(tb_next=tb, tb_frame=frame, tb_lasti=frame.f_lasti, tb_lineno=frame.f_lineno)
             frame = frame.f_back
+
+        # Add up to 3 frames from user code.
         for _ in range(3):
             if not frame:
                 break
