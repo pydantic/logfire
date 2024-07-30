@@ -322,15 +322,15 @@ def _internal_error_exc_info() -> Any:
         return exc_type, exc_val, original_tb
 
 
-def _handle_internal_errors():
+@contextmanager
+def handle_internal_errors():
     try:
         yield
     except Exception:
         log_internal_error()
 
 
-_HANDLE_INTERNAL_ERRORS_CODE = _handle_internal_errors.__code__
-handle_internal_errors = contextmanager(_handle_internal_errors)
+_HANDLE_INTERNAL_ERRORS_CODE = inspect.unwrap(handle_internal_errors).__code__
 
 
 def maybe_capture_server_headers(capture: bool):
