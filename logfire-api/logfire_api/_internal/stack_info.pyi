@@ -7,7 +7,7 @@ STACK_INFO_KEYS: Incomplete
 SITE_PACKAGES_DIR: Incomplete
 PYTHON_LIB_DIR: Incomplete
 LOGFIRE_DIR: Incomplete
-PREFIXES: Incomplete
+NON_USER_CODE_PREFIXES: Incomplete
 
 def get_filepath_attribute(file: str) -> StackInfo: ...
 def get_code_object_info(code: CodeType) -> StackInfo: ...
