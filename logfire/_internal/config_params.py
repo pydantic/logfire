@@ -7,7 +7,7 @@ from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Callable, Literal, Set, TypeVar
 
-from opentelemetry.sdk.environment_variables import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME
+from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
 
 from logfire.exceptions import LogfireConfigError
@@ -61,7 +61,7 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_CURRENT_TEST' not in
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off
-BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL', OTEL_EXPORTER_OTLP_ENDPOINT], allow_file_config=True, default=LOGFIRE_BASE_URL)
+BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """Use to set the base URL of the Logfire backend."""
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool)
 """Whether to send spans to Logfire."""
