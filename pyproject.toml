@@ -139,6 +139,8 @@ dev-dependencies = [
     "celery>=5.4.0",
     "testcontainers",
     "mysql-connector-python~=8.0",
+    "pymysql",
+    "cryptography",
 ]
 
 [tool.rye.scripts]

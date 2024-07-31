@@ -9,18 +9,7 @@ import warnings
 from functools import cached_property, partial
 from time import time
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    ContextManager,
-    Iterable,
-    Literal,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -78,8 +67,8 @@ if TYPE_CHECKING:
     from .integrations.asyncpg import AsyncPGInstrumentKwargs
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
-    from .integrations.mysql import MySQLInstrumentKwargs
     from .integrations.httpx import HTTPXInstrumentKwargs
+    from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
@@ -98,8 +87,8 @@ except ImportError:  # pragma: no cover
 # 2. It mirrors the exc_info argument of the stdlib logging methods
 # 3. The argument name exc_info is very suggestive of the sys function.
 ExcInfo: typing.TypeAlias = Union[
-    "tuple[type[BaseException], BaseException, TracebackType | None]",
-    "tuple[None, None, None]",
+    'tuple[type[BaseException], BaseException, TracebackType | None]',
+    'tuple[None, None, None]',
     BaseException,
     bool,
     None,
@@ -116,7 +105,7 @@ class Logfire:
         sample_rate: float | None = None,
         tags: Sequence[str] = (),
         console_log: bool = True,
-        otel_scope: str = "logfire",
+        otel_scope: str = 'logfire',
     ) -> None:
         self._tags = tuple(tags)
         self._config = config
@@ -144,9 +133,7 @@ class Logfire:
     def _spans_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(
-        self, *, is_span_tracer: bool, otel_scope: str | None = None
-    ) -> Tracer:  # pragma: no cover
+    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str | None = None) -> Tracer:  # pragma: no cover
         return self._tracer_provider.get_tracer(
             self._otel_scope if otel_scope is None else otel_scope,
             VERSION,
@@ -186,9 +173,7 @@ class Logfire:
             otlp_attributes = user_attributes(merged_attributes)
 
             if json_schema_properties := attributes_json_schema_properties(attributes):
-                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(
-                    json_schema_properties
-                )
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
             tags = (self._tags or ()) + tuple(_tags or ())
             if tags:
@@ -215,9 +200,7 @@ class Logfire:
             log_internal_error()
             return NoopSpan()  # type: ignore
 
-    def _fast_span(
-        self, name: str, attributes: otel_types.Attributes
-    ) -> FastLogfireSpan:
+    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
@@ -230,10 +213,7 @@ class Logfire:
             return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
-        self,
-        name: str,
-        attributes: dict[str, otel_types.AttributeValue],
-        function_args: dict[str, Any],
+        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
     ) -> FastLogfireSpan:
         """A version of `_span` used by `@instrument` with `extract_args=True`.
 
@@ -242,15 +222,9 @@ class Logfire:
         """
         try:
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-            attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(
-                msg_template, function_args, self._config.scrubber
-            )
-            if json_schema_properties := attributes_json_schema_properties(
-                function_args
-            ):
-                attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(
-                    json_schema_properties
-                )
+            attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
+            if json_schema_properties := attributes_json_schema_properties(function_args):
+                attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(user_attributes(function_args))
             return self._fast_span(name, attributes)
         except Exception:  # pragma: no cover
@@ -285,9 +259,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("trace", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('trace', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def debug(
         self,
@@ -317,9 +291,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("debug", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('debug', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def info(
         self,
@@ -349,9 +323,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("info", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('info', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def notice(
         self,
@@ -381,9 +355,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("notice", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('notice', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def warn(
         self,
@@ -413,9 +387,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("warn", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('warn', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def error(
         self,
@@ -445,9 +419,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("error", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('error', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def fatal(
         self,
@@ -477,9 +451,9 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("fatal", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('fatal', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def exception(
         self,
@@ -501,9 +475,9 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-        if any(k.startswith("_") for k in attributes):  # pragma: no cover
-            raise ValueError("Attribute keys cannot start with an underscore.")
-        self.log("error", msg_template, attributes, tags=_tags, exc_info=_exc_info)
+        if any(k.startswith('_') for k in attributes):  # pragma: no cover
+            raise ValueError('Attribute keys cannot start with an underscore.')
+        self.log('error', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
     def span(
         self,
@@ -534,8 +508,8 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-        if any(k.startswith("_") for k in attributes):
-            raise ValueError("Attribute keys cannot start with an underscore.")
+        if any(k.startswith('_') for k in attributes):
+            raise ValueError('Attribute keys cannot start with an underscore.')
         return self._span(
             msg_template,
             attributes,
@@ -573,9 +547,7 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
         """
-        args = LogfireArgs(
-            tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args
-        )
+        args = LogfireArgs(tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args)
         return instrument(self, args)
 
     def log(
@@ -648,16 +620,14 @@ class Logfire:
 
             otlp_attributes = user_attributes(merged_attributes)
             otlp_attributes = {
-                ATTRIBUTES_SPAN_TYPE_KEY: "log",
+                ATTRIBUTES_SPAN_TYPE_KEY: 'log',
                 **log_level_attributes(level),
                 ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
                 ATTRIBUTES_MESSAGE_KEY: msg,
                 **otlp_attributes,
             }
             if json_schema_properties := attributes_json_schema_properties(attributes):
-                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(
-                    json_schema_properties
-                )
+                otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
             tags = self._tags + tuple(tags or ())
             if tags:
@@ -676,9 +646,7 @@ class Logfire:
             start_time = self._config.ns_timestamp_generator()
 
             if custom_scope_suffix:
-                tracer = self._get_tracer(
-                    is_span_tracer=False, otel_scope=f"logfire.{custom_scope_suffix}"
-                )
+                tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
             else:
                 tracer = self._logs_tracer
 
@@ -696,9 +664,7 @@ class Logfire:
                 if isinstance(exc_info, BaseException):
                     _record_exception(span, exc_info)
                 elif exc_info is not None:  # pragma: no cover
-                    raise TypeError(
-                        f"Invalid type for exc_info: {exc_info.__class__.__name__}"
-                    )
+                    raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
             span.end(start_time)
 
@@ -735,7 +701,7 @@ class Logfire:
             A new Logfire instance with the sampling ratio applied.
         """
         if sample_rate > 1 or sample_rate < 0:
-            raise ValueError("sample_rate must be between 0 and 1")
+            raise ValueError('sample_rate must be between 0 and 1')
         return Logfire(
             config=self._config,
             tags=self._tags,
@@ -774,11 +740,7 @@ class Logfire:
             tags=self._tags + tuple(tags),
             sample_rate=self._sample_rate,
             console_log=self._console_log if console_log is None else console_log,
-            otel_scope=(
-                self._otel_scope
-                if custom_scope_suffix is None
-                else f"logfire.{custom_scope_suffix}"
-            ),
+            otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
         )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
@@ -792,9 +754,7 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def log_slow_async_callbacks(
-        self, slow_duration: float = 0.1
-    ) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -815,7 +775,7 @@ class Logfire:
         self,
         modules: Sequence[str] | Callable[[AutoTraceModule], bool],
         *,
-        check_imported_modules: Literal["error", "warn", "ignore"] = "error",
+        check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
         min_duration: float = 0,
     ) -> None:
         """Install automatic tracing.
@@ -844,31 +804,24 @@ class Logfire:
                 Otherwise, the first time(s) each function is called, it will be timed but not traced.
                 Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
-        install_auto_tracing(
-            self,
-            modules,
-            check_imported_modules=check_imported_modules,
-            min_duration=min_duration,
-        )
+        install_auto_tracing(self, modules, check_imported_modules=check_imported_modules, min_duration=min_duration)
 
     def _warn_if_not_initialized_for_instrumentation(self):
-        self.config.warn_if_not_initialized("Instrumentation will have no effect")
+        self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_fastapi(
         self,
         app: FastAPI,
         *,
         capture_headers: bool = False,
-        request_attributes_mapper: (
-            Callable[
-                [
-                    Request | WebSocket,
-                    dict[str, Any],
-                ],
-                dict[str, Any] | None,
-            ]
-            | None
-        ) = None,
+        request_attributes_mapper: Callable[
+            [
+                Request | WebSocket,
+                dict[str, Any],
+            ],
+            dict[str, Any] | None,
+        ]
+        | None = None,
         use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
         **opentelemetry_kwargs: Any,
@@ -926,13 +879,11 @@ class Logfire:
 
     def instrument_openai(
         self,
-        openai_client: (
-            openai.OpenAI
-            | openai.AsyncOpenAI
-            | type[openai.OpenAI]
-            | type[openai.AsyncOpenAI]
-            | None
-        ) = None,
+        openai_client: openai.OpenAI
+        | openai.AsyncOpenAI
+        | type[openai.OpenAI]
+        | type[openai.AsyncOpenAI]
+        | None = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -987,18 +938,14 @@ class Logfire:
         import openai
 
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
-        from .integrations.llm_providers.openai import (
-            get_endpoint_config,
-            is_async_client,
-            on_response,
-        )
+        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
             openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
-            "OpenAI",
+            'OpenAI',
             get_endpoint_config,
             on_response,
             is_async_client,
@@ -1006,13 +953,11 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: (
-            anthropic.Anthropic
-            | anthropic.AsyncAnthropic
-            | type[anthropic.Anthropic]
-            | type[anthropic.AsyncAnthropic]
-            | None
-        ) = None,
+        anthropic_client: anthropic.Anthropic
+        | anthropic.AsyncAnthropic
+        | type[anthropic.Anthropic]
+        | type[anthropic.AsyncAnthropic]
+        | None = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -1066,11 +1011,7 @@ class Logfire:
         """
         import anthropic
 
-        from .integrations.llm_providers.anthropic import (
-            get_endpoint_config,
-            is_async_client,
-            on_response,
-        )
+        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1078,7 +1019,7 @@ class Logfire:
             self,
             anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
             suppress_other_instrumentation,
-            "Anthropic",
+            'Anthropic',
             get_endpoint_config,
             on_response,
             is_async_client,
@@ -1179,9 +1120,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_requests(excluded_urls=excluded_urls, **kwargs)
 
-    def instrument_psycopg(
-        self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]
-    ) -> None:
+    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
@@ -1206,11 +1145,7 @@ class Logfire:
         return instrument_psycopg(conn_or_module, **kwargs)
 
     def instrument_flask(
-        self,
-        app: Flask,
-        *,
-        capture_headers: bool = False,
-        **kwargs: Unpack[FlaskInstrumentKwargs],
+        self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1226,11 +1161,7 @@ class Logfire:
         return instrument_flask(app, capture_headers=capture_headers, **kwargs)
 
     def instrument_starlette(
-        self,
-        app: Starlette,
-        *,
-        capture_headers: bool = False,
-        **kwargs: Unpack[StarletteInstrumentKwargs],
+        self, app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1257,9 +1188,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(**kwargs)
 
-    def instrument_sqlalchemy(
-        self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]
-    ) -> None:
+    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
@@ -1295,21 +1224,31 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(**kwargs)
 
-    def instrument_mysql(self, **kwargs: Unpack[MySQLInstrumentKwargs]) -> None:
-        """Instrument the `mysql` module so that spans are automatically created for each operation.
+    def instrument_mysql(
+        self,
+        conn: MySQLConnection = None,
+        **kwargs: Unpack[MySQLInstrumentKwargs],
+    ) -> MySQLConnection:
+        """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry MySQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/mysql/mysql.html)
-        library, specifically `MySQLInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library.
+
+        Args:
+            conn: The `mysql` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
+
         """
         from .integrations.mysql import instrument_mysql
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_mysql(**kwargs)
+        return instrument_mysql(conn, **kwargs)
 
-    def metric_counter(
-        self, name: str, *, unit: str = "", description: str = ""
-    ) -> Counter:
+    def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
 
         A counter is a cumulative metric that represents a single numerical value that only ever goes up.
@@ -1339,9 +1278,7 @@ class Logfire:
         """
         return self._config.meter.create_counter(name, unit, description)
 
-    def metric_histogram(
-        self, name: str, *, unit: str = "", description: str = ""
-    ) -> Histogram:
+    def metric_histogram(self, name: str, *, unit: str = '', description: str = '') -> Histogram:
         """Create a histogram metric.
 
         A histogram is a metric that samples observations (usually things like request durations or response sizes).
@@ -1369,9 +1306,7 @@ class Logfire:
         """
         return self._config.meter.create_histogram(name, unit, description)
 
-    def metric_gauge(
-        self, name: str, *, unit: str = "", description: str = ""
-    ) -> Gauge:
+    def metric_gauge(self, name: str, *, unit: str = '', description: str = '') -> Gauge:
         """Create a gauge metric.
 
         Gauge is a synchronous instrument which can be used to record non-additive measurements.
@@ -1399,9 +1334,7 @@ class Logfire:
         """
         return self._config.meter.create_gauge(name, unit, description)
 
-    def metric_up_down_counter(
-        self, name: str, *, unit: str = "", description: str = ""
-    ) -> UpDownCounter:
+    def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
         """Create an up-down counter metric.
 
         An up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
@@ -1440,8 +1373,8 @@ class Logfire:
         name: str,
         *,
         callbacks: Sequence[CallbackT],
-        unit: str = "",
-        description: str = "",
+        unit: str = '',
+        description: str = '',
     ) -> None:
         """Create a counter metric that uses a callback to collect observations.
 
@@ -1483,12 +1416,7 @@ class Logfire:
         self._config.meter.create_observable_counter(name, callbacks, unit, description)
 
     def metric_gauge_callback(
-        self,
-        name: str,
-        callbacks: Sequence[CallbackT],
-        *,
-        unit: str = "",
-        description: str = "",
+        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
     ) -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
@@ -1528,12 +1456,7 @@ class Logfire:
         self._config.meter.create_observable_gauge(name, callbacks, unit, description)
 
     def metric_up_down_counter_callback(
-        self,
-        name: str,
-        callbacks: Sequence[CallbackT],
-        *,
-        unit: str = "",
-        description: str = "",
+        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
     ) -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
 
@@ -1570,13 +1493,9 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        self._config.meter.create_observable_up_down_counter(
-            name, callbacks, unit, description
-        )
+        self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
-    def shutdown(
-        self, timeout_millis: int = 30_000, flush: bool = True
-    ) -> bool:  # pragma: no cover
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
         """Shut down all tracers and meters.
 
         This will clean up any resources used by the tracers and meters and flush any remaining spans and metrics.
@@ -1611,7 +1530,7 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ("_span", "_token", "_atexit")
+    __slots__ = ('_span', '_token', '_atexit')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
@@ -1623,12 +1542,7 @@ class FastLogfireSpan:
         return self
 
     @handle_internal_errors()
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: Any,
-    ) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         atexit.unregister(self._atexit)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
@@ -1670,9 +1584,7 @@ class LogfireSpan(ReadableSpan):
                     attributes=self._otlp_attributes,
                 )
             if self._token is None:  # pragma: no branch
-                self._token = context_api.attach(
-                    trace_api.set_span_in_context(self._span)
-                )
+                self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
             self._atexit = partial(self.__exit__, None, None, None)
             atexit.register(self._atexit)
@@ -1680,12 +1592,7 @@ class LogfireSpan(ReadableSpan):
         return self
 
     @handle_internal_errors()
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: Any,
-    ) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
 
@@ -1733,13 +1640,12 @@ class LogfireSpan(ReadableSpan):
         exits.
         """
         if self._span is None:  # pragma: no cover
-            raise RuntimeError("Span has not been started")
+            raise RuntimeError('Span has not been started')
         if self._span.is_recording():
             with handle_internal_errors():
                 if self._added_attributes:
                     self._span.set_attribute(
-                        ATTRIBUTES_JSON_SCHEMA_KEY,
-                        attributes_json_schema(self._json_schema_properties),
+                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
                     )
 
                 self._span.end()
@@ -1776,7 +1682,7 @@ class LogfireSpan(ReadableSpan):
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.
         """
         if self._span is None:
-            raise RuntimeError("Span has not been started")
+            raise RuntimeError('Span has not been started')
 
         # Check if the span has been sampled out first, since _record_exception is somewhat expensive.
         if not self._span.is_recording():
@@ -1803,7 +1709,7 @@ class LogfireSpan(ReadableSpan):
             self._span.set_attributes(attributes)
 
     def _get_attribute(self, key: str, default: Any) -> Any:
-        attributes = getattr(self._span, "attributes", self._otlp_attributes)
+        attributes = getattr(self._span, 'attributes', self._otlp_attributes)
         return attributes.get(key, default)
 
 
@@ -1832,18 +1738,13 @@ class NoopSpan:
     def __enter__(self) -> NoopSpan:
         return self
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: Any,
-    ) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         pass
 
     # Implement methods/properties that return something to get the type right.
     @property
     def message_template(self) -> str:  # pragma: no cover
-        return ""
+        return ''
 
     @property
     def tags(self) -> Sequence[str]:  # pragma: no cover
@@ -1851,7 +1752,7 @@ class NoopSpan:
 
     @property
     def message(self) -> str:  # pragma: no cover
-        return ""
+        return ''
 
     # This is required to make `span.message = ` not raise an error.
     @message.setter
@@ -1890,10 +1791,10 @@ def _record_exception(
         span.set_status(
             trace_api.Status(
                 status_code=trace_api.StatusCode.ERROR,
-                description=f"{exception.__class__.__name__}: {exception}",
+                description=f'{exception.__class__.__name__}: {exception}',
             )
         )
-        span.set_attributes(log_level_attributes("error"))
+        span.set_attributes(log_level_attributes('error'))
 
     attributes = {**(attributes or {})}
     if ValidationError is not None and isinstance(exception, ValidationError):
@@ -1910,21 +1811,13 @@ def _record_exception(
         # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
         # ignoring the passed exception.
         # So we override the stacktrace attribute with the correct one.
-        stacktrace = "".join(
-            traceback.format_exception(
-                type(exception), exception, exception.__traceback__
-            )
-        )
+        stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
 
-    span.record_exception(
-        exception, attributes=attributes, timestamp=timestamp, escaped=escaped
-    )
+    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 
-AttributesValueType = TypeVar(
-    "AttributesValueType", bound=Union[Any, otel_types.AttributeValue]
-)
+AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
 
 
 def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
@@ -1950,13 +1843,13 @@ def set_user_attribute(
     """
     otel_value: otel_types.AttributeValue
     if value is None:
-        otel_value = cast("list[str]", otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
+        otel_value = cast('list[str]', otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
         key = NULL_ARGS_KEY
     elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
-                f"Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), "
-                " if you need support for sending larger integers, please open a feature request",
+                f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
+                ' if you need support for sending larger integers, please open a feature request',
                 UserWarning,
             )
             otel_value = str(value)
@@ -1970,5 +1863,5 @@ def set_user_attribute(
     return key, otel_value
 
 
-_PARAMS = ParamSpec("_PARAMS")
-_RETURN = TypeVar("_RETURN")
+_PARAMS = ParamSpec('_PARAMS')
+_RETURN = TypeVar('_RETURN')

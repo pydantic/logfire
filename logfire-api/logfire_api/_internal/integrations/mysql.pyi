@@ -32,6 +32,3 @@ def instrument_mysql(
 
     See the `Logfire.instrument_mysql` method for details.
     """
-    if conn is not None:
-        return MySQLInstrumentor().instrument_connection(conn)  # type: ignore[reportUnknownMemberType]
-    return MySQLInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]

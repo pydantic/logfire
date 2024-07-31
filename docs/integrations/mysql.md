@@ -48,6 +48,7 @@ import mysql.connector
 
 logfire.configure()
 
+# To instrument the whole module:
 logfire.instrument_mysql()
 
 connection = mysql.connector.connect(
@@ -58,6 +59,9 @@ connection = mysql.connector.connect(
     port=3306,
     use_pure=True,
 )
+
+# Or instrument just the connection:
+# connection = logfire.instrument_mysql(connection)
 
 with logfire.span('Create table and insert data'), connection.cursor() as cursor:
     cursor.execute(
