@@ -2,8 +2,6 @@
 
 The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] method can be used to instrument the [MySQL Connector/Python][mysql-connector] database driver with **Logfire**, creating a span for every query.
 
-See the documentation for the [OpenTelemetry MySQL Instrumentation][opentelemetry-mysql].
-
 ## Installation
 
 Install `logfire` with the `mysql` extra:
@@ -79,7 +77,9 @@ with logfire.span('Create table and insert data'), connection.cursor() as cursor
         print(row)  # Print each row
 ```
 
-If you go to your project on the UI, you will see the span created by the script.
+[`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] uses the
+**OpenTelemetry MySQL Instrumentation** package,
+which you can find more information about [here][opentelemetry-mysql].
 
 [opentelemetry-mysql]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/mysql/mysql.html
 [mysql]: https://www.mysql.com/
