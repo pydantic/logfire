@@ -6,6 +6,7 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
+#   generate-hashes: false
 
 -e file:.
 aiohttp==3.9.5
@@ -43,8 +44,6 @@ certifi==2024.7.4
     # via httpcore
     # via httpx
     # via requests
-cffi==1.16.0
-    # via cryptography
 cfgv==3.4.0
     # via pre-commit
 charset-normalizer==3.3.2
@@ -72,7 +71,6 @@ colorama==0.4.6
     # via griffe
     # via mkdocs-material
 coverage==7.6.0
-cryptography==43.0.0
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
@@ -342,8 +340,6 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pycparser==2.22
-    # via cffi
 pydantic==2.8.2
     # via anthropic
     # via fastapi
@@ -358,7 +354,6 @@ pymdown-extensions==10.8.1
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pymysql==1.1.1
 pyright==1.1.373
 pytest==8.3.1
     # via pytest-django

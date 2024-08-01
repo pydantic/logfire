@@ -139,8 +139,9 @@ dev-dependencies = [
     "celery>=5.4.0",
     "testcontainers",
     "mysql-connector-python~=8.0",
-    "pymysql",
-    "cryptography",
+    # Python 3.8 requires an older version of testcontainers, which in turn needs these for a mysql container
+    "pymysql; python_version < '3.9'",
+    "cryptography; python_version < '3.9'",
 ]
 
 [tool.rye.scripts]
