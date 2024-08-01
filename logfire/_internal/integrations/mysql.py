@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from mysql.connector.pooling import PooledMySQLConnection
     from typing_extensions import TypedDict, TypeVar, Unpack
 
-    MySQLConnection = TypeVar('MySQLConnection', PooledMySQLConnection, MySQLConnectionAbstract, None)
+    MySQLConnection = TypeVar('MySQLConnection', bound=PooledMySQLConnection | MySQLConnectionAbstract | None)
 
     class MySQLInstrumentKwargs(TypedDict, total=False):
         skip_dep_check: bool

@@ -1,6 +1,6 @@
 # MySQL
 
-The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] function can be used to instrument the [MySQL][mysql] database supporting [MySQL connector][mysql-connector] with **Logfire**.
+The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] method can be used to instrument the [MySQL Connector/Python][mysql-connector] database driver with **Logfire**, creating a span for every query.
 
 See the documentation for the [OpenTelemetry MySQL Instrumentation][opentelemetry-mysql].
 

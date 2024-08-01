@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import mysql.connector
 import pytest
 from dirty_equals import IsInt
@@ -19,7 +17,7 @@ def mysql_container():
         yield mysql_container
 
 
-def get_mysql_connection(mysql_container: MySqlContainer) -> Any:
+def get_mysql_connection(mysql_container: MySqlContainer):
     host = mysql_container.get_container_host_ip()
     port = mysql_container.get_exposed_port(3306)
     connection = mysql.connector.connect(host=host, port=port, user='test', password='test', database='test')
