@@ -14,7 +14,10 @@ from unittest.mock import call, patch
 import pytest
 import requests_mock
 from inline_snapshot import snapshot
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.metrics import get_meter_provider
+from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import (
@@ -40,6 +43,7 @@ from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.fallback import FallbackSpanExporter
 from logfire._internal.exporters.file import WritingFallbackWarning
 from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper
+from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
@@ -1334,7 +1338,7 @@ def test_configure_fstring_python_38():
         logfire.configure(send_to_logfire=False, inspect_arguments=True)
 
 
-def test_default_span_processors(monkeypatch: pytest.MonkeyPatch):
+def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo', collect_system_metrics=False)
 
@@ -1351,20 +1355,33 @@ def test_default_span_processors(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert pending_span_processor.other_processors == (console_processor, send_to_logfire_processor)
 
+    [logfire_metric_reader] = get_metric_readers()
+    assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
+    assert isinstance(logfire_metric_reader._exporter, QuietMetricExporter)  # type: ignore
 
-def test_custom_span_processor():
-    custom_processor = SimpleSpanProcessor(ConsoleSpanExporter())
-    logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[custom_processor])
+
+def test_custom_exporters():
+    custom_span_processor = SimpleSpanProcessor(ConsoleSpanExporter())
+    custom_metric_reader = InMemoryMetricReader()
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        additional_span_processors=[custom_span_processor],
+        additional_metric_readers=[custom_metric_reader],
+    )
 
     [custom_processor_wrapper] = get_span_processors()
-
     assert isinstance(custom_processor_wrapper, MainSpanProcessorWrapper)
-    assert custom_processor_wrapper.processor is custom_processor
+    assert custom_processor_wrapper.processor is custom_span_processor
+
+    [custom_metric_reader2] = get_metric_readers()
+    assert custom_metric_reader2 is custom_metric_reader
 
 
 def test_otel_exporter_env_var():
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint'}):
-        logfire.configure(send_to_logfire=False, console=False)
+        logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
 
     [otel_processor] = get_span_processors()
 
@@ -1373,6 +1390,15 @@ def test_otel_exporter_env_var():
     assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
     assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
 
+    [otel_metric_reader] = get_metric_readers()
+    assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
+    assert isinstance(otel_metric_reader._exporter, OTLPMetricExporter)  # type: ignore
+    assert otel_metric_reader._exporter._endpoint == 'otel_endpoint/v1/metrics'  # type: ignore
+
 
 def get_span_processors() -> Iterable[SpanProcessor]:
     return get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+
+
+def get_metric_readers() -> Iterable[SpanProcessor]:
+    return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
