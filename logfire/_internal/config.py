@@ -722,9 +722,10 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 ]
 
-            tracer_provider.add_span_processor(
-                PendingSpanProcessor(self.id_generator, tuple(processors_with_pending_spans))
-            )
+            if processors_with_pending_spans:
+                tracer_provider.add_span_processor(
+                    PendingSpanProcessor(self.id_generator, tuple(processors_with_pending_spans))
+                )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)

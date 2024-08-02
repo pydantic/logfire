@@ -16,7 +16,8 @@ import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter, SpanExportResult
+from opentelemetry.trace import get_tracer_provider
 from pytest import LogCaptureFixture
 
 import logfire
@@ -28,10 +29,14 @@ from logfire._internal.config import (
     LogfireCredentials,
     sanitize_project_name,
 )
+from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.fallback import FallbackSpanExporter
 from logfire._internal.exporters.file import WritingFallbackWarning
+from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper
+from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
+from logfire._internal.tracer import PendingSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -1320,3 +1325,23 @@ def test_configure_fstring_python_38():
         match=r'Inspecting arguments is only supported in Python 3.9\+ and only recommended in Python 3.11\+.',
     ):
         logfire.configure(send_to_logfire=False, inspect_arguments=True)
+
+
+def test_default_span_processors(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    logfire.configure(send_to_logfire=True, token='foo', collect_system_metrics=False)
+
+    [console_processor, send_to_logfire_processor, pending_span_processor] = (  # type: ignore
+        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    )
+
+    assert isinstance(console_processor, MainSpanProcessorWrapper)
+    assert isinstance(console_processor.processor, SimpleSpanProcessor)
+    assert isinstance(console_processor.processor.span_exporter, ShowParentsConsoleSpanExporter)
+
+    assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
+    assert isinstance(send_to_logfire_processor.processor, BatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.processor.span_exporter, RemovePendingSpansExporter)
+
+    assert isinstance(pending_span_processor, PendingSpanProcessor)
+    assert pending_span_processor.other_processors == (console_processor, send_to_logfire_processor)
