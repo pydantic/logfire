@@ -270,6 +270,20 @@ class PendingSpanProcessor(SpanProcessor):
             processor.on_end(pending_span)
 
 
+def with_pending_spans(processor: SpanProcessor) -> SpanProcessor:
+    processor._with_pending_spans = True  # type: ignore
+    return processor
+
+
+def has_pending_spans(processor: SpanProcessor) -> bool:
+    from logfire.testing import TestExporter
+
+    if isinstance(getattr(processor, 'span_exporter', None), TestExporter):
+        return True
+
+    return getattr(processor, '_with_pending_spans', False)
+
+
 def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:
     """Determine if a span should be sampled.
 

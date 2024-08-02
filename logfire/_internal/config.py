@@ -78,7 +78,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
 from .stack_info import warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor, ProxyTracerProvider
+from .tracer import PendingSpanProcessor, ProxyTracerProvider, has_pending_spans, with_pending_spans
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
@@ -621,12 +621,14 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.shutdown()
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
-            processors: list[SpanProcessor] = []
+            processors_with_pending_spans: list[SpanProcessor] = []
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                # Most span processors added to the tracer provider should also be recorded in the `processors` list
-                # so that they can be used by the final pending span processor.
+                # Some span processors added to the tracer provider should also be recorded in
+                # `processors_with_pending_spans` so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
+                has_pending = has_pending_spans(span_processor)
+
                 if self.tail_sampling:
                     span_processor = TailSamplingProcessor(
                         span_processor,
@@ -638,7 +640,8 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
-                processors.append(span_processor)
+                if has_pending:
+                    processors_with_pending_spans.append(span_processor)
 
             if self.additional_span_processors is not None:
                 for processor in self.additional_span_processors:
@@ -653,13 +656,15 @@ class LogfireConfig(_LogfireConfigData):
                     assert self.console.span_style == 'show-parents'
                     exporter_cls = ShowParentsConsoleSpanExporter
                 add_span_processor(
-                    SimpleSpanProcessor(
-                        exporter_cls(
-                            colors=self.console.colors,
-                            include_timestamp=self.console.include_timestamps,
-                            verbose=self.console.verbose,
-                            min_log_level=self.console.min_log_level,
-                        ),
+                    with_pending_spans(
+                        SimpleSpanProcessor(
+                            exporter_cls(
+                                colors=self.console.colors,
+                                include_timestamp=self.console.include_timestamps,
+                                verbose=self.console.verbose,
+                                min_log_level=self.console.min_log_level,
+                            ),
+                        )
                     )
                 )
 
@@ -698,7 +703,7 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                 )
                 span_exporter = RemovePendingSpansExporter(span_exporter)
-                add_span_processor(self.default_span_processor(span_exporter))
+                add_span_processor(with_pending_spans(self.default_span_processor(span_exporter)))
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
@@ -717,7 +722,9 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 ]
 
-            tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
+            tracer_provider.add_span_processor(
+                PendingSpanProcessor(self.id_generator, tuple(processors_with_pending_spans))
+            )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
