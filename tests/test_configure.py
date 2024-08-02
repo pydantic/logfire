@@ -7,7 +7,7 @@ import sys
 import threading
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 from unittest import mock
 from unittest.mock import call, patch
 
@@ -16,7 +16,7 @@ import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
@@ -1338,9 +1338,7 @@ def test_default_span_processors(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo', collect_system_metrics=False)
 
-    [console_processor, send_to_logfire_processor, pending_span_processor] = (  # type: ignore
-        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
-    )
+    [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
     assert isinstance(console_processor, MainSpanProcessorWrapper)
     assert isinstance(console_processor.processor, SimpleSpanProcessor)
@@ -1358,9 +1356,7 @@ def test_custom_span_processor():
     custom_processor = SimpleSpanProcessor(ConsoleSpanExporter())
     logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[custom_processor])
 
-    [custom_processor_wrapper] = (  # type: ignore
-        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
-    )
+    [custom_processor_wrapper] = get_span_processors()
 
     assert isinstance(custom_processor_wrapper, MainSpanProcessorWrapper)
     assert custom_processor_wrapper.processor is custom_processor
@@ -1370,11 +1366,13 @@ def test_otel_exporter_env_var():
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint'}):
         logfire.configure(send_to_logfire=False, console=False)
 
-    [otel_processor] = (  # type: ignore
-        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
-    )
+    [otel_processor] = get_span_processors()
 
     assert isinstance(otel_processor, MainSpanProcessorWrapper)
     assert isinstance(otel_processor.processor, BatchSpanProcessor)
     assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
     assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
+
+
+def get_span_processors() -> Iterable[SpanProcessor]:
+    return get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
