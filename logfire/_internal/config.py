@@ -52,6 +52,7 @@ from typing_extensions import Self
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
+from ..testing import TestExporter
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .collect_system_info import collect_package_info
 from .config_params import ParamManager, PydanticPluginRecordValues
@@ -78,7 +79,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
 from .stack_info import warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor, ProxyTracerProvider, has_pending_spans, with_pending_spans
+from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
@@ -627,7 +628,10 @@ class LogfireConfig(_LogfireConfigData):
                 # Some span processors added to the tracer provider should also be recorded in
                 # `processors_with_pending_spans` so that they can be used by the final pending span processor.
                 # This means that `tracer_provider.add_span_processor` should only appear in two places.
-                has_pending = has_pending_spans(span_processor)
+                has_pending = isinstance(
+                    getattr(span_processor, 'span_exporter', None),
+                    (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
+                )
 
                 if self.tail_sampling:
                     span_processor = TailSamplingProcessor(
@@ -656,15 +660,13 @@ class LogfireConfig(_LogfireConfigData):
                     assert self.console.span_style == 'show-parents'
                     exporter_cls = ShowParentsConsoleSpanExporter
                 add_span_processor(
-                    with_pending_spans(
-                        SimpleSpanProcessor(
-                            exporter_cls(
-                                colors=self.console.colors,
-                                include_timestamp=self.console.include_timestamps,
-                                verbose=self.console.verbose,
-                                min_log_level=self.console.min_log_level,
-                            ),
-                        )
+                    SimpleSpanProcessor(
+                        exporter_cls(
+                            colors=self.console.colors,
+                            include_timestamp=self.console.include_timestamps,
+                            verbose=self.console.verbose,
+                            min_log_level=self.console.min_log_level,
+                        ),
                     )
                 )
 
@@ -703,7 +705,7 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                 )
                 span_exporter = RemovePendingSpansExporter(span_exporter)
-                add_span_processor(with_pending_spans(self.default_span_processor(span_exporter)))
+                add_span_processor(self.default_span_processor(span_exporter))
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
