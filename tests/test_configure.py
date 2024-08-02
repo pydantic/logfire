@@ -1380,11 +1380,11 @@ def test_custom_exporters():
 
 
 def test_otel_exporter_otlp_endpoint_env_var():
+    # Setting this env var creates an OTLPSpanExporter and an OTLPMetricExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint'}):
         logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
 
     [otel_processor] = get_span_processors()
-
     assert isinstance(otel_processor, MainSpanProcessorWrapper)
     assert isinstance(otel_processor.processor, BatchSpanProcessor)
     assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
@@ -1397,6 +1397,7 @@ def test_otel_exporter_otlp_endpoint_env_var():
 
 
 def test_otel_traces_exporter_env_var():
+    # Setting OTEL_TRACES_EXPORTER to something other than otlp prevents creating an OTLPSpanExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint2', 'OTEL_TRACES_EXPORTER': 'grpc'}):
         logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
 
@@ -1409,11 +1410,11 @@ def test_otel_traces_exporter_env_var():
 
 
 def test_otel_metrics_exporter_env_var():
+    # Setting OTEL_METRICS_EXPORTER to something other than otlp prevents creating an OTLPMetricExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint3', 'OTEL_METRICS_EXPORTER': 'none'}):
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-
     assert isinstance(otel_processor, MainSpanProcessorWrapper)
     assert isinstance(otel_processor.processor, BatchSpanProcessor)
     assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
@@ -1423,11 +1424,11 @@ def test_otel_metrics_exporter_env_var():
 
 
 def test_otel_exporter_otlp_traces_endpoint_env_var():
+    # Setting just OTEL_EXPORTER_OTLP_TRACES_ENDPOINT only creates an OTLPSpanExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT': 'otel_traces_endpoint'}):
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-
     assert isinstance(otel_processor, MainSpanProcessorWrapper)
     assert isinstance(otel_processor.processor, BatchSpanProcessor)
     assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
@@ -1437,6 +1438,7 @@ def test_otel_exporter_otlp_traces_endpoint_env_var():
 
 
 def test_otel_exporter_otlp_metrics_endpoint_env_var():
+    # Setting just OTEL_EXPORTER_OTLP_METRICS_ENDPOINT only creates an OTLPMetricExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
         logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
 
