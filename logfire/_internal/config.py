@@ -18,11 +18,12 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import metrics, trace
-from opentelemetry.environment_variables import OTEL_TRACES_EXPORTER
+from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
+    OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_RESOURCE_ATTRIBUTES,
@@ -203,8 +204,6 @@ def configure(
         metric_readers: Legacy argument, use `additional_metric_readers` instead.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
-            Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
-            is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
@@ -375,9 +374,6 @@ class _LogfireConfigData:
         param_manager = ParamManager.create(config_dir)
 
         self.base_url = param_manager.load_param('base_url', base_url)
-        self.metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) or urljoin(self.base_url, '/v1/metrics')
-        self.traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) or urljoin(self.base_url, '/v1/traces')
-
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
         self.project_name = param_manager.load_param('project_name', project_name)
@@ -696,27 +692,19 @@ class LogfireConfig(_LogfireConfigData):
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
-                otel_traces_exporter_env = os.getenv(OTEL_TRACES_EXPORTER)
-                otel_traces_exporter_env = otel_traces_exporter_env.lower() if otel_traces_exporter_env else None
-                if otel_traces_exporter_env is None or otel_traces_exporter_env == 'otlp':
-                    span_exporter = OTLPSpanExporter(endpoint=self.traces_endpoint, session=session)
-                    span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                    span_exporter = FallbackSpanExporter(
-                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
-                    )
-                    span_exporter = RemovePendingSpansExporter(span_exporter)
-                    add_span_processor(self.default_span_processor(span_exporter))
-
-                elif otel_traces_exporter_env != 'none':  # pragma: no cover
-                    raise ValueError(
-                        'OTEL_TRACES_EXPORTER must be "otlp", "none" or unset. Logfire does not support other exporters.'
-                    )
+                span_exporter = OTLPSpanExporter(endpoint=urljoin(self.base_url, '/v1/traces'), session=session)
+                span_exporter = RetryFewerSpansSpanExporter(span_exporter)
+                span_exporter = FallbackSpanExporter(
+                    span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
+                )
+                span_exporter = RemovePendingSpansExporter(span_exporter)
+                add_span_processor(self.default_span_processor(span_exporter))
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
                         QuietMetricExporter(
                             OTLPMetricExporter(
-                                endpoint=self.metrics_endpoint,
+                                endpoint=urljoin(self.base_url, '/v1/metrics'),
                                 headers=headers,
                                 session=session,
                                 # I'm pretty sure that this line here is redundant,
@@ -730,6 +718,18 @@ class LogfireConfig(_LogfireConfigData):
                 ]
 
             tracer_provider.add_span_processor(PendingSpanProcessor(self.id_generator, tuple(processors)))
+
+            otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
+            otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
+            otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
+            otlp_traces_exporter = os.getenv(OTEL_TRACES_EXPORTER, '').lower()
+            otlp_metrics_exporter = os.getenv(OTEL_METRICS_EXPORTER, '').lower()
+
+            if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
+                add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+
+            if (otlp_endpoint or otlp_metrics_endpoint) and otlp_metrics_exporter in ('otlp', ''):
+                metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
 
             meter_provider = MeterProvider(
                 metric_readers=metric_readers,
