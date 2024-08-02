@@ -14,9 +14,16 @@ from unittest.mock import call, patch
 import pytest
 import requests_mock
 from inline_snapshot import snapshot
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
 from opentelemetry.trace import get_tracer_provider
 from pytest import LogCaptureFixture
 
@@ -1345,3 +1352,29 @@ def test_default_span_processors(monkeypatch: pytest.MonkeyPatch):
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert pending_span_processor.other_processors == (console_processor, send_to_logfire_processor)
+
+
+def test_custom_span_processor():
+    custom_processor = SimpleSpanProcessor(ConsoleSpanExporter())
+    logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[custom_processor])
+
+    [custom_processor_wrapper] = (  # type: ignore
+        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    )
+
+    assert isinstance(custom_processor_wrapper, MainSpanProcessorWrapper)
+    assert custom_processor_wrapper.processor is custom_processor
+
+
+def test_otel_exporter_env_var():
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint'}):
+        logfire.configure(send_to_logfire=False, console=False)
+
+    [otel_processor] = (  # type: ignore
+        get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    )
+
+    assert isinstance(otel_processor, MainSpanProcessorWrapper)
+    assert isinstance(otel_processor.processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
