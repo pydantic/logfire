@@ -1396,6 +1396,32 @@ def test_otel_exporter_otlp_endpoint_env_var():
     assert otel_metric_reader._exporter._endpoint == 'otel_endpoint/v1/metrics'  # type: ignore
 
 
+def test_otel_traces_exporter_env_var():
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint2', 'OTEL_TRACES_EXPORTER': 'grpc'}):
+        logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
+
+    assert len(list(get_span_processors())) == 0
+
+    [otel_metric_reader] = get_metric_readers()
+    assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
+    assert isinstance(otel_metric_reader._exporter, OTLPMetricExporter)  # type: ignore
+    assert otel_metric_reader._exporter._endpoint == 'otel_endpoint2/v1/metrics'  # type: ignore
+
+
+def test_otel_metrics_exporter_env_var():
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint3', 'OTEL_METRICS_EXPORTER': 'none'}):
+        logfire.configure(send_to_logfire=False, console=False)
+
+    [otel_processor] = get_span_processors()
+
+    assert isinstance(otel_processor, MainSpanProcessorWrapper)
+    assert isinstance(otel_processor.processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
+
+    assert len(list(get_metric_readers())) == 0
+
+
 def test_otel_exporter_otlp_traces_endpoint_env_var():
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT': 'otel_traces_endpoint'}):
         logfire.configure(send_to_logfire=False, console=False)
