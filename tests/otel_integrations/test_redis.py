@@ -21,6 +21,11 @@ def redis(redis_container: RedisContainer) -> Redis:
     return redis_container.get_client()  # type: ignore
 
 
+@pytest.fixture
+def redis_port(redis_container: RedisContainer) -> str:
+    return redis_container.get_exposed_port(redis_container.port)
+
+
 @pytest.fixture(autouse=True)
 def uninstrument_redis():
     try:
@@ -29,7 +34,7 @@ def uninstrument_redis():
         RedisInstrumentor().uninstrument()  # type: ignore
 
 
-def test_instrument_redis(redis: Redis, exporter: TestExporter):
+def test_instrument_redis(redis: Redis, redis_port: str, exporter: TestExporter):
     logfire.instrument_redis()
 
     redis.set('my-key', 123)
@@ -49,7 +54,7 @@ def test_instrument_redis(redis: Redis, exporter: TestExporter):
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': 6379,
+                    'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                 },
@@ -58,7 +63,7 @@ def test_instrument_redis(redis: Redis, exporter: TestExporter):
     )
 
 
-def test_instrument_redis_with_capture_statement(redis: Redis, exporter: TestExporter):
+def test_instrument_redis_with_capture_statement(redis: Redis, redis_port: str, exporter: TestExporter):
     logfire.instrument_redis(capture_statement=True)
 
     redis.set('my-key', 123)
@@ -78,7 +83,7 @@ def test_instrument_redis_with_capture_statement(redis: Redis, exporter: TestExp
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': 6379,
+                    'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                 },
