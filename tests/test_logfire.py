@@ -1647,6 +1647,13 @@ def test_exc_info(exporter: TestExporter):
             'exception.escaped': 'False',
         }
 
+    for span in exporter.exported_spans[:-3]:
+        assert span.status.description is None
+
+    for span in exporter.exported_spans[-3:]:
+        assert span.status.status_code == StatusCode.ERROR
+        assert span.status.description == 'ValueError: an error'
+
 
 def test_span_level(exporter: TestExporter):
     with logfire.span('foo', _level='debug') as span:

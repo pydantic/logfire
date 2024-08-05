@@ -88,11 +88,11 @@ PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
-    UpDownCounter: AggregationTemporality.DELTA,
+    UpDownCounter: AggregationTemporality.CUMULATIVE,
     Histogram: AggregationTemporality.DELTA,
     ObservableCounter: AggregationTemporality.DELTA,
-    ObservableUpDownCounter: AggregationTemporality.DELTA,
-    ObservableGauge: AggregationTemporality.DELTA,
+    ObservableUpDownCounter: AggregationTemporality.CUMULATIVE,
+    ObservableGauge: AggregationTemporality.CUMULATIVE,
 }
 """This should be passed as the `preferred_temporality` argument of metric readers and exporters."""
 

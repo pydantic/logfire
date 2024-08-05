@@ -211,10 +211,10 @@ def test_create_metric_up_down_counter(metrics_reader: InMemoryMetricReader) -> 
                             'attributes': {},
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
-                            'value': 4300,
+                            'value': 4321,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': AggregationTemporality.CUMULATIVE,
                     'is_monotonic': False,
                 },
             }
@@ -313,10 +313,10 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
                             'attributes': {},
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
-                            'value': 4300,
+                            'value': 4321,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': AggregationTemporality.CUMULATIVE,
                     'is_monotonic': False,
                 },
             }
