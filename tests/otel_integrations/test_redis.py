@@ -16,6 +16,11 @@ def redis_container() -> Iterator[RedisContainer]:
         yield redis
 
 
+@pytest.fixture
+def redis(redis_container: RedisContainer) -> Redis:
+    return redis_container.get_client()  # type: ignore
+
+
 @pytest.fixture(autouse=True)
 def uninstrument_redis():
     try:
@@ -24,10 +29,9 @@ def uninstrument_redis():
         RedisInstrumentor().uninstrument()  # type: ignore
 
 
-def test_instrument_redis(exporter: TestExporter):
+def test_instrument_redis(redis: Redis, exporter: TestExporter):
     logfire.instrument_redis()
 
-    redis = Redis()
     redis.set('my-key', 123)
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -57,7 +61,6 @@ def test_instrument_redis(exporter: TestExporter):
 def test_instrument_redis_with_capture_statement(exporter: TestExporter):
     logfire.instrument_redis(capture_statement=True)
 
-    redis = Redis()
     redis.set('my-key', 123)
 
     assert exporter.exported_spans_as_dict() == snapshot(
