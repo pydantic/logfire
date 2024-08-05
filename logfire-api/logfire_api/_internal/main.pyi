@@ -552,7 +552,7 @@ class Logfire:
                 for future compatibility.
 
         """
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
@@ -597,7 +597,7 @@ class Logfire:
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
         library, specifically `StarletteInstrumentor.instrument_app()`, to which it passes `**kwargs`.
         """
-    def instrument_aiohttp_client(self, **kwargs: Any):
+    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
