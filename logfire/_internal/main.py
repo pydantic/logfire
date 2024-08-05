@@ -4,7 +4,6 @@ import atexit
 import inspect
 import sys
 import traceback
-import typing
 import warnings
 from functools import cached_property, partial
 from time import time
@@ -51,7 +50,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import SysExcInfo, handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -75,19 +74,20 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
+    from .utils import SysExcInfo
+
+    # This is the type of the exc_info/_exc_info parameter of the log methods.
+    # sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
+    # We just need the exception, but we allow the user to pass the tuple because:
+    # 1. It's convenient to pass the result of sys.exc_info() directly
+    # 2. It mirrors the exc_info argument of the stdlib logging methods
+    # 3. The argument name exc_info is very suggestive of the sys function.
+    ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
 try:
     from pydantic import ValidationError
 except ImportError:  # pragma: no cover
     ValidationError = None
-
-# This is the type of the exc_info/_exc_info parameter of the log methods.
-# sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
-# We just need the exception, but we allow the user to pass the tuple because:
-# 1. It's convenient to pass the result of sys.exc_info() directly
-# 2. It mirrors the exc_info argument of the stdlib logging methods
-# 3. The argument name exc_info is very suggestive of the sys function.
-ExcInfo: typing.TypeAlias = Union[SysExcInfo, BaseException, bool, None]
 
 
 class Logfire:
