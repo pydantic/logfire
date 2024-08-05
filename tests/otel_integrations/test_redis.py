@@ -28,7 +28,7 @@ def test_instrument_redis(exporter: TestExporter):
     logfire.instrument_redis()
 
     redis = Redis()
-    redis.set('my-key', 'my-value')  # type: ignore
+    redis.set('my-key', 'my-value')
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -58,7 +58,7 @@ def test_instrument_redis_with_capture_statement(exporter: TestExporter):
     logfire.instrument_redis(capture_statement=True)
 
     redis = Redis()
-    redis.set('my-key', 'my-value')  # type: ignore
+    redis.set('my-key', 'my-value')
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
