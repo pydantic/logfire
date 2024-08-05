@@ -16,7 +16,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import StatusCode, Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -26,6 +26,7 @@ from .auto_trace import AutoTraceModule, install_auto_tracing
 from .config import GLOBAL_CONFIG, LogfireConfig
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
@@ -33,6 +34,7 @@ from .constants import (
     ATTRIBUTES_TAGS_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     DISABLE_CONSOLE_KEY,
+    LEVEL_NUMBERS,
     NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
@@ -663,6 +665,11 @@ class Logfire:
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
                     _record_exception(span, exc_info)
+                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
+                        # Set the status description to the exception message.
+                        # OTEL only lets us set the description when the status code is ERROR,
+                        # which we only want to do when the log level is error.
+                        _set_exception_status(span, exc_info)
                 elif exc_info is not None:  # pragma: no cover
                     raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
@@ -1773,6 +1780,15 @@ def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
         _record_exception(span, exception, escaped=True)
 
 
+def _set_exception_status(span: trace_api.Span, exception: BaseException):
+    span.set_status(
+        trace_api.Status(
+            status_code=StatusCode.ERROR,
+            description=f'{exception.__class__.__name__}: {exception}',
+        )
+    )
+
+
 @handle_internal_errors()
 def _record_exception(
     span: trace_api.Span,
@@ -1788,12 +1804,7 @@ def _record_exception(
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
     if escaped:
-        span.set_status(
-            trace_api.Status(
-                status_code=trace_api.StatusCode.ERROR,
-                description=f'{exception.__class__.__name__}: {exception}',
-            )
-        )
+        _set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
     attributes = {**(attributes or {})}
