@@ -1,7 +1,6 @@
 import anthropic
 import openai
 import opentelemetry.trace as trace_api
-import typing
 from . import async_ as async_
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
@@ -38,7 +37,7 @@ from starlette.websockets import WebSocket as WebSocket
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
 from typing_extensions import LiteralString, ParamSpec, Unpack
 
-ExcInfo: typing.TypeAlias
+ExcInfo = SysExcInfo | BaseException | bool | None
 
 class Logfire:
     """The main logfire class."""

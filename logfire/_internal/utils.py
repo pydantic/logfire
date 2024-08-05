@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import sys
-import typing
 from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
@@ -23,6 +22,11 @@ from logfire._internal.stack_info import is_user_code
 
 if TYPE_CHECKING:
     from packaging.version import Version
+
+    SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
+    """
+    The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
+    """
 
 T = TypeVar('T')
 
@@ -258,15 +262,6 @@ def log_internal_error():
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
         logger.exception('Internal error in Logfire', exc_info=_internal_error_exc_info())
-
-
-SysExcInfo: typing.TypeAlias = Union[
-    'tuple[type[BaseException], BaseException, TracebackType | None]',
-    'tuple[None, None, None]',
-]
-"""
-The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
-"""
 
 
 def _internal_error_exc_info() -> SysExcInfo:
