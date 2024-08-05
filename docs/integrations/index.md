@@ -25,6 +25,7 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [Asyncpg](asyncpg.md)               | Databases               |
 | [Psycopg](psycopg.md)               | Databases               |
 | [PyMongo](pymongo.md)               | Databases               |
+| [MySQL](mysql.md)                   | Databases               |
 | [Redis](redis.md)                   | Databases               |
 | [Celery](celery.md)                 | Task Queue              |
 | [System Metrics](system_metrics.md) | System Metrics          |

@@ -68,6 +68,7 @@ if TYPE_CHECKING:
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import HTTPXInstrumentKwargs
+    from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
@@ -1222,6 +1223,30 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(**kwargs)
+
+    def instrument_mysql(
+        self,
+        conn: MySQLConnection = None,
+        **kwargs: Unpack[MySQLInstrumentKwargs],
+    ) -> MySQLConnection:
+        """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry MySQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/mysql/mysql.html)
+        library.
+
+        Args:
+            conn: The `mysql` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
+
+        """
+        from .integrations.mysql import instrument_mysql
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_mysql(conn, **kwargs)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
