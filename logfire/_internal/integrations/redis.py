@@ -21,9 +21,27 @@ if TYPE_CHECKING:
         skip_dep_check: bool
 
 
-def instrument_redis(**kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+def instrument_redis(capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
     """Instrument the `redis` module so that spans are automatically created for each operation.
 
     See the `Logfire.instrument_redis` method for details.
+
+    Args:
+        capture_statement: Whether to capture the statement being executed. Defaults to False.
+        **kwargs: Additional keyword arguments to pass to the `RedisInstrumentor.instrument` method.
     """
-    RedisInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    request_hook = kwargs.pop('request_hook', None)
+    if capture_statement:
+        request_hook = _capture_statement_hook(request_hook)
+
+    RedisInstrumentor().instrument(request_hook=request_hook, **kwargs)  # type: ignore[reportUnknownMemberType]
+
+
+def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:
+    def _capture_statement(span: Span, instance: Connection, *args: Any, **kwargs: Any) -> None:
+        command = ' '.join(args[0])
+        span.set_attribute('db.statement', command)
+        if request_hook is not None:
+            request_hook(span, instance, *args, **kwargs)
+
+    return _capture_statement
