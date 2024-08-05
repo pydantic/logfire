@@ -85,6 +85,7 @@ nav:
           - SQL Explorer: guides/web_ui/explore.md
       - Advanced User Guide:
           - Advanced User Guide: guides/advanced/index.md
+          - Alternative Backends: guides/advanced/alternative_backends.md
           - Sampling: guides/advanced/sampling.md
           - Scrubbing: guides/advanced/scrubbing.md
           - Testing: guides/advanced/testing.md
