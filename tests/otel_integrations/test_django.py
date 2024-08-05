@@ -46,7 +46,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                             'value': 0,
                         }
                     ],
-                    'aggregation_temporality': 1,
+                    'aggregation_temporality': 2,
                     'is_monotonic': False,
                 },
             },
