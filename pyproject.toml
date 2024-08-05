@@ -66,6 +66,7 @@ psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
+mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -114,6 +115,7 @@ dev-dependencies = [
     "opentelemetry-instrumentation-redis",
     "opentelemetry-instrumentation-pymongo",
     "opentelemetry-instrumentation-celery",
+    "opentelemetry-instrumentation-mysql",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
@@ -136,6 +138,10 @@ dev-dependencies = [
     "mypy>=1.10.0",
     "celery>=5.4.0",
     "testcontainers",
+    "mysql-connector-python~=8.0",
+    # Python 3.8 requires an older version of testcontainers, which in turn needs these for a mysql container
+    "pymysql; python_version < '3.9'",
+    "cryptography; python_version < '3.9'",
 ]
 
 [tool.rye.scripts]
