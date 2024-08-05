@@ -11,7 +11,7 @@ from .integrations.logging import LogfireLoggingHandler as LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION as VERSION
 
-__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'ConsoleOptions', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'error', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_fastapi', 'instrument_openai', 'instrument_anthropic', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_sqlalchemy', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'AutoTraceModule', 'with_tags', 'with_settings', 'shutdown', 'load_spans_from_file', 'no_auto_trace', 'METRICS_PREFERRED_TEMPORALITY', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'TailSamplingOptions']
+__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'ConsoleOptions', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_fastapi', 'instrument_openai', 'instrument_anthropic', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_sqlalchemy', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'AutoTraceModule', 'with_tags', 'with_settings', 'shutdown', 'load_spans_from_file', 'no_auto_trace', 'METRICS_PREFERRED_TEMPORALITY', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'TailSamplingOptions']
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -46,4 +46,5 @@ notice = DEFAULT_LOGFIRE_INSTANCE.notice
 warn = DEFAULT_LOGFIRE_INSTANCE.warn
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
+exception = DEFAULT_LOGFIRE_INSTANCE.exception
 __version__ = VERSION
