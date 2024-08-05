@@ -1,24 +1,13 @@
-from __future__ import annotations
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.pooling import PooledMySQLConnection
+from typing_extensions import TypeVar, TypedDict, Unpack
 
-from typing import TYPE_CHECKING
+MySQLConnection = TypeVar('MySQLConnection', bound=PooledMySQLConnection | MySQLConnectionAbstract | None)
 
-from opentelemetry.instrumentation.mysql import MySQLInstrumentor
+class MySQLInstrumentKwargs(TypedDict, total=False):
+    skip_dep_check: bool
 
-if TYPE_CHECKING:
-    from mysql.connector.abstracts import MySQLConnectionAbstract
-    from mysql.connector.pooling import PooledMySQLConnection
-    from typing_extensions import TypedDict, TypeVar, Unpack
-
-    MySQLConnection = TypeVar('MySQLConnection', PooledMySQLConnection, MySQLConnectionAbstract, None)
-
-    class MySQLInstrumentKwargs(TypedDict, total=False):
-        skip_dep_check: bool
-
-
-def instrument_mysql(
-    conn: MySQLConnection = None,
-    **kwargs: Unpack[MySQLInstrumentKwargs],
-) -> MySQLConnection:
+def instrument_mysql(conn: MySQLConnection = None, **kwargs: Unpack[MySQLInstrumentKwargs]) -> MySQLConnection:
     """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
     This function uses the OpenTelemetry MySQL Instrumentation library to instrument either the entire `mysql` module or a specific MySQL connection.
