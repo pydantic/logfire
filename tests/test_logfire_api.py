@@ -70,7 +70,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.log('info', 'test log')
     logfire__all__.remove('log')
 
-    for log_method in ['trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal']:
+    for log_method in ['trace', 'debug', 'info', 'notice', 'warn', 'error', 'exception', 'fatal']:
         assert hasattr(logfire_api, log_method)
         getattr(logfire_api, log_method)('test log')
         logfire__all__.remove(log_method)
