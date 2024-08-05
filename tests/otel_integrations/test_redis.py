@@ -58,7 +58,7 @@ def test_instrument_redis(redis: Redis, exporter: TestExporter):
     )
 
 
-def test_instrument_redis_with_capture_statement(exporter: TestExporter):
+def test_instrument_redis_with_capture_statement(redis: Redis, exporter: TestExporter):
     logfire.instrument_redis(capture_statement=True)
 
     redis.set('my-key', 123)
