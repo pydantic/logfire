@@ -38,9 +38,10 @@ def instrument_redis(capture_statement: bool = False, **kwargs: Unpack[RedisInst
 
 
 def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:
-    def _capture_statement(span: Span, instance: Connection, *args: Any, **kwargs: Any) -> None:
-        command = ' '.join(args[0])
-        span.set_attribute('db.statement', command)
+    def _capture_statement(
+        span: Span, instance: Connection, command: tuple[str, ...], *args: Any, **kwargs: Any
+    ) -> None:
+        span.set_attribute('db.statement', ' '.join(command))
         if request_hook is not None:
             request_hook(span, instance, *args, **kwargs)
 

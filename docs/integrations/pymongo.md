@@ -30,7 +30,7 @@ import logfire
 from pymongo import MongoClient
 
 logfire.configure()
-logfire.instrument_pymongo()  # (1)!
+logfire.instrument_pymongo()
 
 client = MongoClient()
 db = client["database"]
@@ -39,10 +39,10 @@ collection.insert_one({"name": "MongoDB"})
 collection.find_one()
 ```
 
-1. You can pass `capture_statement` to `logfire.instrument_pymongo()` to capture the MongoDB query. By default, it is set to `False`
-    given that MongoDB queries can contain sensitive information.
+!!! info
+    You can pass `capture_statement` to `logfire.instrument_redis()` to capture the Redis command.
 
----
+    By default, it is set to `False` given that Redis commands can contain sensitive information.
 
 The keyword arguments of `logfire.instrument_pymongo()` are passed to the `PymongoInstrumentor().instrument()` method of the OpenTelemetry pymongo Instrumentation package, read more about it [here][opentelemetry-pymongo].
 
