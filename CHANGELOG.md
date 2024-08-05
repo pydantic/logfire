@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v0.49.0] (2024-08-05)
+
+* Add `logfire.instrument_mysql()` by @aditkumar72 in https://github.com/pydantic/logfire/pull/341
+* Set OTEL status description when logging exceptions by @alexmojaki in https://github.com/pydantic/logfire/pull/348
+* Switch UpDownCounters to cumulative aggregation temporality by @alexmojaki in https://github.com/pydantic/logfire/pull/347
+* Log more info about internal errors by @alexmojaki in https://github.com/pydantic/logfire/pull/346
+
 ## [v0.48.1] (2024-07-29)
 
 * Handle newer opentelemetry versions by @alexmojaki in https://github.com/pydantic/logfire/pull/337
@@ -228,6 +235,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
 [v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1
 [v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
 [v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
