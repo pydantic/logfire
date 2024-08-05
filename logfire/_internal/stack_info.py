@@ -22,7 +22,7 @@ assert STACK_INFO_KEYS == {'code.filepath', 'code.lineno', 'code.function'}
 SITE_PACKAGES_DIR = str(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent.absolute())
 PYTHON_LIB_DIR = str(Path(inspect.__file__).parent.absolute())
 LOGFIRE_DIR = str(Path(logfire.__file__).parent.absolute())
-PREFIXES = (SITE_PACKAGES_DIR, PYTHON_LIB_DIR, LOGFIRE_DIR)
+NON_USER_CODE_PREFIXES = (SITE_PACKAGES_DIR, PYTHON_LIB_DIR, LOGFIRE_DIR)
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
@@ -95,7 +95,7 @@ def is_user_code(code: CodeType) -> bool:
         On the other hand, generator expressions and lambdas might be called far away from where they are defined.
     """
     return not (
-        str(Path(code.co_filename).absolute()).startswith(PREFIXES)
+        str(Path(code.co_filename).absolute()).startswith(NON_USER_CODE_PREFIXES)
         or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )
 
