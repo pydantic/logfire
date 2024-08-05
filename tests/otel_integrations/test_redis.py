@@ -28,7 +28,7 @@ def test_instrument_redis(exporter: TestExporter):
     logfire.instrument_redis()
 
     redis = Redis()
-    redis.set('my-key', 'my-value')
+    redis.set('my-key', 123)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -58,7 +58,7 @@ def test_instrument_redis_with_capture_statement(exporter: TestExporter):
     logfire.instrument_redis(capture_statement=True)
 
     redis = Redis()
-    redis.set('my-key', 'my-value')
+    redis.set('my-key', 123)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -70,8 +70,8 @@ def test_instrument_redis_with_capture_statement(exporter: TestExporter):
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SET my-key my-value',
-                    'db.statement': 'SET my-key my-value',
+                    'logfire.msg': 'SET my-key 123',
+                    'db.statement': 'SET my-key 123',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',

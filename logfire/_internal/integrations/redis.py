@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import functools
 from typing import TYPE_CHECKING, Any
 
 from opentelemetry.instrumentation.redis import RedisInstrumentor
+
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
+from logfire._internal.utils import truncate_string
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
@@ -38,10 +42,14 @@ def instrument_redis(capture_statement: bool = False, **kwargs: Unpack[RedisInst
 
 
 def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:
+    truncate_value = functools.partial(truncate_string, max_length=20, middle='...')
+
     def _capture_statement(
-        span: Span, instance: Connection, command: tuple[str, ...], *args: Any, **kwargs: Any
+        span: Span, instance: Connection, command: tuple[object, ...], *args: Any, **kwargs: Any
     ) -> None:
-        span.set_attribute('db.statement', ' '.join(command))
+        str_command = list(map(str, command))
+        span.set_attribute('db.statement', ' '.join(str_command))
+        span.set_attribute(ATTRIBUTES_MESSAGE_KEY, ' '.join(map(truncate_value, str_command)))
         if request_hook is not None:
             request_hook(span, instance, *args, **kwargs)
 
