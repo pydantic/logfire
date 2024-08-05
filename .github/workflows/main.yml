@@ -63,6 +63,10 @@ jobs:
           echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
+      - name: Pull Redis image
+        uses: docker://redis:latest
+      - name: Pull MySQL image
+        uses: docker://mysql:latest
       - name: set up python
         uses: actions/setup-python@v5
         with:
