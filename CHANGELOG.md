@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v0.49.1] (2024-08-05)
+
+* Add missing return on instrument methods by @Kludex in https://github.com/pydantic/logfire/pull/360
+* Add `logfire.exception()` to `logfire-api` by @Kludex in https://github.com/pydantic/logfire/pull/358
+* Remove `TypeAlias` from code source by @Kludex in https://github.com/pydantic/logfire/pull/359
+* Turn `ParamSpec` non-private by @Kludex in https://github.com/pydantic/logfire/pull/361
+
 ## [v0.49.0] (2024-08-05)
 
 * Add `logfire.instrument_mysql()` by @aditkumar72 in https://github.com/pydantic/logfire/pull/341
@@ -235,6 +242,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
 [v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
 [v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1
 [v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
