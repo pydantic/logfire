@@ -6,25 +6,25 @@ from . import async_ as async_
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
+from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
-from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider
-from .utils import handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from .utils import SysExcInfo as SysExcInfo, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
@@ -35,7 +35,6 @@ from opentelemetry.util import types as otel_types
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
-from types import TracebackType as TracebackType
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
 from typing_extensions import LiteralString, Unpack
 
@@ -619,8 +618,14 @@ class Logfire:
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
             library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_mysql(self, conn: MySQLConnection, **kwargs: Unpack[MySQLInstrumentKwargs],
-    ) -> MySQLConnection:
+    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+        """Instrument the `redis` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry Redis Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html)
+        library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+    def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Unpack[MySQLInstrumentKwargs]) -> MySQLConnection:
         """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
         Uses the
@@ -634,13 +639,6 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
 
-        """
-    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
-        """Instrument the `redis` module so that spans are automatically created for each operation.
-
-        Uses the
-        [OpenTelemetry Redis Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html)
-        library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
