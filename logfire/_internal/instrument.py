@@ -16,15 +16,12 @@ if TYPE_CHECKING:
     from .main import Logfire
 
 
-_PARAMS = ParamSpec('_PARAMS')
-_RETURN = TypeVar('_RETURN')
+P = ParamSpec('P')
+R = TypeVar('R')
 
 
-def instrument(
-    logfire: Logfire,
-    args: LogfireArgs,
-) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
-    def decorator(func: Callable[_PARAMS, _RETURN]) -> Callable[_PARAMS, _RETURN]:
+def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         # This creates a new function object with code compiled from a modified AST
         # from the original function's source code.
         # Since this doesn't wrap/call the original function,

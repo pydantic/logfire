@@ -519,7 +519,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         extract_args: bool = True,
-    ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -1867,5 +1867,5 @@ def set_user_attribute(
     return key, otel_value
 
 
-_PARAMS = ParamSpec('_PARAMS')
-_RETURN = TypeVar('_RETURN')
+P = ParamSpec('P')
+R = TypeVar('R')
