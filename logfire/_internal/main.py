@@ -1107,7 +1107,7 @@ class Logfire:
             **kwargs,
         )
 
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
@@ -1176,7 +1176,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_starlette(app, capture_headers=capture_headers, **kwargs)
 
-    def instrument_aiohttp_client(self, **kwargs: Any):
+    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
