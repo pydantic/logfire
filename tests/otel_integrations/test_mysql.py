@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import mysql.connector
 import pytest
 from dirty_equals import IsInt
@@ -9,6 +11,8 @@ from testcontainers.mysql import MySqlContainer
 
 import logfire
 from logfire.testing import TestExporter
+
+pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='MySQL testcontainers has problems in 3.8')
 
 
 @pytest.fixture(scope='module')
