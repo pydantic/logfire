@@ -18,6 +18,7 @@ from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKw
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
+from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -617,6 +618,22 @@ class Logfire:
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
             library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+    def instrument_mysql(self, conn: MySQLConnection, **kwargs: Unpack[MySQLInstrumentKwargs],
+    ) -> MySQLConnection:
+        """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry MySQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/mysql/mysql.html)
+        library.
+
+        Args:
+            conn: The `mysql` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
+
         """
     def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.

@@ -38,6 +38,7 @@ instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
 instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
+instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
@@ -112,6 +113,7 @@ __all__ = (
     'instrument_sqlalchemy',
     'instrument_redis',
     'instrument_pymongo',
+    'instrument_mysql',
     'AutoTraceModule',
     'with_tags',
     'with_settings',

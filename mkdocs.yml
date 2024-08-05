@@ -107,6 +107,7 @@ nav:
           - Asyncpg: integrations/asyncpg.md
           - Psycopg: integrations/psycopg.md
           - PyMongo: integrations/pymongo.md
+          - MySQL: integrations/mysql.md
           - Redis: integrations/redis.md
           - Celery: integrations/celery.md
           - System Metrics: integrations/system_metrics.md
