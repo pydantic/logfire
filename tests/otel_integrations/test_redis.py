@@ -23,7 +23,7 @@ def redis(redis_container: RedisContainer) -> Redis:
 
 @pytest.fixture
 def redis_port(redis_container: RedisContainer) -> str:
-    return redis_container.get_exposed_port(redis_container.port)
+    return redis_container.get_exposed_port(6379)
 
 
 @pytest.fixture(autouse=True)
