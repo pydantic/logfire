@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import sys
+import typing
 from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
@@ -259,9 +260,19 @@ def log_internal_error():
         logger.exception('Internal error in Logfire', exc_info=_internal_error_exc_info())
 
 
-def _internal_error_exc_info() -> Any:
+SysExcInfo: typing.TypeAlias = Union[
+    'tuple[type[BaseException], BaseException, TracebackType | None]',
+    'tuple[None, None, None]',
+]
+"""
+The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
+"""
+
+
+def _internal_error_exc_info() -> SysExcInfo:
     """Returns an exc_info tuple with a nicely tweaked traceback."""
-    exc_type, exc_val, original_tb = sys.exc_info()
+    original_exc_info: SysExcInfo = sys.exc_info()
+    exc_type, exc_val, original_tb = original_exc_info
     try:
         # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
@@ -315,11 +326,12 @@ def _internal_error_exc_info() -> Any:
             tb = TracebackType(tb_next=tb, tb_frame=frame, tb_lasti=frame.f_lasti, tb_lineno=frame.f_lineno)
             frame = frame.f_back
 
+        assert exc_type
         assert exc_val
         exc_val = exc_val.with_traceback(tb)
         return exc_type, exc_val, tb
     except Exception:  # pragma: no cover
-        return exc_type, exc_val, original_tb
+        return original_exc_info
 
 
 @contextmanager
