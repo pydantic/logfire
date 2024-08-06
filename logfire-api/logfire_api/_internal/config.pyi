@@ -1,6 +1,5 @@
 import dataclasses
 import requests
-from ..testing import TestExporter as TestExporter
 from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_logged_in as is_logged_in
 from .collect_system_info import collect_package_info as collect_package_info
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
@@ -13,6 +12,7 @@ from .exporters.processor_wrapper import MainSpanProcessorWrapper as MainSpanPro
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions as TailSamplingOptions, TailSamplingProcessor as TailSamplingProcessor
+from .exporters.test import TestExporter as TestExporter
 from .integrations.executors import instrument_executors as instrument_executors
 from .metrics import ProxyMeterProvider as ProxyMeterProvider, configure_metrics as configure_metrics
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubCallback as ScrubCallback, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
