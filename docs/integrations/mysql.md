@@ -18,23 +18,22 @@ demonstrate how to use **Logfire** with MySQL.
 First, we need to initialize a MySQL database. This can be easily done using Docker with the following command:
 
 ```bash
-docker run --name mysql \
-    -e MYSQL_ROOT_PASSWORD=secret \
-    -e MYSQL_DATABASE=database \
-    -e MYSQL_USER=user \
-    -e MYSQL_PASSWORD=secret \
-    -p 3306:3306 -d mysql
+docker run --name mysql \  # (1)!
+    -e MYSQL_ROOT_PASSWORD=secret \  # (2)!
+    -e MYSQL_DATABASE=database \  # (3)!
+    -e MYSQL_USER=user \  # (4)!
+    -e MYSQL_PASSWORD=secret \  # (5)!
+    -p 3306:3306 \  # (6)!
+    -d mysql  # (7)!
 ```
 
-This command accomplishes the following:
-
-- `--name mysql`: gives the container a name of "mysql".
-- `-e MYSQL_ROOT_PASSWORD=secret` sets the root password to "secret".
-- `-e MYSQL_DATABASE=database` creates a new database named "database".
-- `-e MYSQL_USER=user` creates a new user named "user".
-- `-e MYSQL_PASSWORD=secret` sets the password for the new user to "secret".
-- `-p 3306:3306` maps port 3306 inside Docker as port 3306 on the host machine.
-- `-d mysql` runs the container in the background and prints the container ID. The image is "mysql".
+1. `--name mysql`: This defines the name of the Docker container.
+2. `-e MYSQL_ROOT_PASSWORD=secret`: This sets a password for the MySQL root user.
+3. `-e MYSQL_DATABASE=database`: This creates a new database named "database", the same as the one used in your Python script.
+4. `-e MYSQL_USER=user`: This sets a user for the MySQL server.
+5. `-e MYSQL_PASSWORD=secret`: This sets a password for the MySQL server.
+6. `-p 3306:3306`: This makes the MySQL instance available on your local machine under port 3306.
+7. `-d mysql`: This denotes the Docker image to be used, in this case, "mysql", and starts the container in detached mode.
 
 ### Run the Python script
 
