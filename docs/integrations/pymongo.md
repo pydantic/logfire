@@ -30,7 +30,7 @@ import logfire
 from pymongo import MongoClient
 
 logfire.configure()
-logfire.instrument_pymongo(capture_statement=True)  # (1)!
+logfire.instrument_pymongo()
 
 client = MongoClient()
 db = client["database"]
@@ -39,12 +39,10 @@ collection.insert_one({"name": "MongoDB"})
 collection.find_one()
 ```
 
-1. The `capture_statement` parameter is set to `True` to capture the executed statements.
+!!! info
+    You can pass `capture_statement=True` to `logfire.instrument_pymongo()` to capture the queries.
 
-    This is the default behavior on other OpenTelemetry instrumentation packages, but it's
-    disabled by default in PyMongo.
-
----
+    By default, it is set to `False` to avoid capturing sensitive information.
 
 The keyword arguments of `logfire.instrument_pymongo()` are passed to the `PymongoInstrumentor().instrument()` method of the OpenTelemetry pymongo Instrumentation package, read more about it [here][opentelemetry-pymongo].
 
