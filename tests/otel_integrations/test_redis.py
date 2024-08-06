@@ -126,7 +126,7 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
     def request_hook(span: Span, instance: Connection, *args: Any, **kwargs: Any) -> None:
         span.set_attribute('potato', 'tomato')
 
-    logfire.instrument_redis(request_hook=request_hook)
+    logfire.instrument_redis(request_hook=request_hook, capture_statement=True)
 
     redis.set('my-key', 123)
 
@@ -140,8 +140,8 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SET ? ?',
-                    'db.statement': 'SET ? ?',
+                    'logfire.msg': 'SET my-key 123',
+                    'db.statement': 'SET my-key 123',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
