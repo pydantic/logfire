@@ -45,7 +45,7 @@ if __name__ == "__main__":
 ```
 
 !!! info
-    You can pass `capture_statement` to `logfire.instrument_redis()` to capture the Redis command.
+    You can pass `capture_statement=True` to `logfire.instrument_redis()` to capture the Redis command.
 
     By default, it is set to `False` given that Redis commands can contain sensitive information.
 
