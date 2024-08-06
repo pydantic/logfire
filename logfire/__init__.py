@@ -94,6 +94,7 @@ __all__ = (
     'info',
     'warn',
     'error',
+    'exception',
     'fatal',
     'force_flush',
     'log_slow_async_callbacks',

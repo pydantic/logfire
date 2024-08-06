@@ -1,7 +1,6 @@
 import anthropic
 import openai
 import opentelemetry.trace as trace_api
-import typing
 from . import async_ as async_
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
@@ -36,9 +35,9 @@ from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
-from typing_extensions import LiteralString, Unpack
+from typing_extensions import LiteralString, ParamSpec, Unpack
 
-ExcInfo: typing.TypeAlias
+ExcInfo = SysExcInfo | BaseException | bool | None
 
 class Logfire:
     """The main logfire class."""
@@ -217,7 +216,7 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -552,7 +551,7 @@ class Logfire:
                 for future compatibility.
 
         """
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
@@ -597,7 +596,7 @@ class Logfire:
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
         library, specifically `StarletteInstrumentor.instrument_app()`, to which it passes `**kwargs`.
         """
-    def instrument_aiohttp_client(self, **kwargs: Any):
+    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -962,3 +961,5 @@ def set_user_attribute(otlp_attributes: dict[str, otel_types.AttributeValue], ke
     Returns the final key and value that was added to the dictionary.
     The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
     """
+P = ParamSpec('P')
+R = TypeVar('R')

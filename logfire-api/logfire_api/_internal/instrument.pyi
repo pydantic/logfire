@@ -3,9 +3,13 @@ from .ast_utils import BaseTransformer as BaseTransformer, LogfireArgs as Logfir
 from .main import Logfire as Logfire
 from dataclasses import dataclass
 from types import CodeType
-from typing import Callable
+from typing import Callable, TypeVar
+from typing_extensions import ParamSpec
 
-def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]: ...
+P = ParamSpec('P')
+R = TypeVar('R')
+
+def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 def transform_code(func_code: CodeType, args: LogfireArgs): ...
 
 @dataclass
