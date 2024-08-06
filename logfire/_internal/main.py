@@ -1212,17 +1212,21 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_pymongo(**kwargs)
 
-    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+    def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry Redis Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html)
         library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
         from .integrations.redis import instrument_redis
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_redis(**kwargs)
+        return instrument_redis(capture_statement=capture_statement, **kwargs)
 
     def instrument_mysql(
         self,
