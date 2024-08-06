@@ -1,6 +1,8 @@
 # Release Notes
 
-## [v0.50.0] (2024-08-06)
+## [v0.50.1] (2024-08-06)
+
+(Previously released as `v0.50.0`, then yanked due to https://github.com/pydantic/logfire/issues/367)
 
 * **BREAKING CHANGES:** Separate sending to Logfire from using standard OTEL environment variables by @alexmojaki in https://github.com/pydantic/logfire/pull/351. See https://docs.pydantic.dev/logfire/guides/advanced/alternative_backends/ for details. Highlights:
   * `OTEL_EXPORTER_OTLP_ENDPOINT` is no longer just an alternative to `LOGFIRE_BASE_URL`. Setting `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, and/or `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` will set up appropriate exporters *in addition* to sending to Logfire, which must be turned off separately if desired. These are basic exporters relying on OTEL defaults. In particular they don't use our custom retrying logic.
