@@ -1,5 +1,6 @@
 import dataclasses
 import requests
+from ..testing import TestExporter as TestExporter
 from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_logged_in as is_logged_in
 from .collect_system_info import collect_package_info as collect_package_info
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
@@ -93,8 +94,6 @@ def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = No
         metric_readers: Legacy argument, use `additional_metric_readers` instead.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
-            Ensure that `preferred_temporality=logfire.METRICS_PREFERRED_TEMPORALITY`
-            is passed to the constructor of metric readers/exporters that accept the `preferred_temporality` argument.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.

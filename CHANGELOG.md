@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v0.50.0] (2024-08-06)
+
+* **BREAKING CHANGES:** Separate sending to Logfire from using standard OTEL environment variables by @alexmojaki in https://github.com/pydantic/logfire/pull/351. See https://docs.pydantic.dev/logfire/guides/advanced/alternative_backends/ for details. Highlights:
+  * `OTEL_EXPORTER_OTLP_ENDPOINT` is no longer just an alternative to `LOGFIRE_BASE_URL`. Setting `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, and/or `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` will set up appropriate exporters *in addition* to sending to Logfire, which must be turned off separately if desired. These are basic exporters relying on OTEL defaults. In particular they don't use our custom retrying logic.
+  * `LOGFIRE_BASE_URL` / `logfire.configure(base_url=...)` is now only intended for actual alternative Logfire backends, which are currently only available to Logfire developers, and unlike `OTEL_EXPORTER_OTLP_ENDPOINT` requires authenticating with Logfire.
+  * Pending spans are only sent to logfire-specific exporters.
+* Add `capture_statement` to Redis instrumentation by @Kludex in https://github.com/pydantic/logfire/pull/355
+
 ## [v0.49.1] (2024-08-05)
 
 * Add missing return on instrument methods by @Kludex in https://github.com/pydantic/logfire/pull/360
@@ -242,6 +250,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
 [v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
 [v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
 [v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1

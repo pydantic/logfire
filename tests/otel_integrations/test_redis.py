@@ -18,8 +18,9 @@ def redis_container() -> Iterator[RedisContainer]:
 
 
 @pytest.fixture
-def redis(redis_container: RedisContainer) -> Redis:
-    return redis_container.get_client()  # type: ignore
+def redis(redis_container: RedisContainer):
+    with redis_container.get_client() as redis:  # type: ignore
+        yield redis
 
 
 @pytest.fixture

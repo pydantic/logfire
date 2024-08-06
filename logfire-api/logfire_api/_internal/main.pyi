@@ -617,12 +617,16 @@ class Logfire:
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
             library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_redis(self, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+    def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry Redis Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html)
         library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
     def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Unpack[MySQLInstrumentKwargs]) -> MySQLConnection:
         """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
