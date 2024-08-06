@@ -4,7 +4,6 @@ import atexit
 import inspect
 import sys
 import traceback
-import typing
 import warnings
 from functools import cached_property, partial
 from time import time
@@ -51,7 +50,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import SysExcInfo, handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -75,19 +74,20 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
+    from .utils import SysExcInfo
+
+    # This is the type of the exc_info/_exc_info parameter of the log methods.
+    # sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
+    # We just need the exception, but we allow the user to pass the tuple because:
+    # 1. It's convenient to pass the result of sys.exc_info() directly
+    # 2. It mirrors the exc_info argument of the stdlib logging methods
+    # 3. The argument name exc_info is very suggestive of the sys function.
+    ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
 try:
     from pydantic import ValidationError
 except ImportError:  # pragma: no cover
     ValidationError = None
-
-# This is the type of the exc_info/_exc_info parameter of the log methods.
-# sys.exc_info() returns a tuple of (type, value, traceback) or (None, None, None).
-# We just need the exception, but we allow the user to pass the tuple because:
-# 1. It's convenient to pass the result of sys.exc_info() directly
-# 2. It mirrors the exc_info argument of the stdlib logging methods
-# 3. The argument name exc_info is very suggestive of the sys function.
-ExcInfo: typing.TypeAlias = Union[SysExcInfo, BaseException, bool, None]
 
 
 class Logfire:
@@ -519,7 +519,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         extract_args: bool = True,
-    ) -> Callable[[Callable[_PARAMS, _RETURN]], Callable[_PARAMS, _RETURN]]:
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -1107,7 +1107,7 @@ class Logfire:
             **kwargs,
         )
 
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any):
+    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
@@ -1176,7 +1176,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_starlette(app, capture_headers=capture_headers, **kwargs)
 
-    def instrument_aiohttp_client(self, **kwargs: Any):
+    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -1871,5 +1871,5 @@ def set_user_attribute(
     return key, otel_value
 
 
-_PARAMS = ParamSpec('_PARAMS')
-_RETURN = TypeVar('_RETURN')
+P = ParamSpec('P')
+R = TypeVar('R')
