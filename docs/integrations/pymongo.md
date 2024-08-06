@@ -40,7 +40,7 @@ collection.find_one()
 ```
 
 !!! info
-    You can pass `capture_statement` to `logfire.instrument_redis()` to capture the Redis command.
+    You can pass `capture_statement=True` to `logfire.instrument_pymongo()` to capture the queries.
 
     By default, it is set to `False` given that Redis commands can contain sensitive information.
 
