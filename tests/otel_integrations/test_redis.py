@@ -1,3 +1,4 @@
+import sys
 from typing import Any, Iterator
 
 import pytest
@@ -9,6 +10,9 @@ from testcontainers.redis import RedisContainer
 
 import logfire
 from logfire.testing import TestExporter
+
+# TODO find a better solution
+pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Redis testcontainers has problems in 3.8')
 
 
 @pytest.fixture(scope='module', autouse=True)
