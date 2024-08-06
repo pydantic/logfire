@@ -42,7 +42,7 @@ collection.find_one()
 !!! info
     You can pass `capture_statement=True` to `logfire.instrument_pymongo()` to capture the queries.
 
-    By default, it is set to `False` given that Redis commands can contain sensitive information.
+    By default, it is set to `False` to avoid capturing sensitive information.
 
 The keyword arguments of `logfire.instrument_pymongo()` are passed to the `PymongoInstrumentor().instrument()` method of the OpenTelemetry pymongo Instrumentation package, read more about it [here][opentelemetry-pymongo].
 
