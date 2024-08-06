@@ -51,6 +51,6 @@ def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestH
         span.set_attribute('db.statement', ' '.join(str_command))
         span.set_attribute(ATTRIBUTES_MESSAGE_KEY, ' '.join(map(truncate_value, str_command)))
         if request_hook is not None:
-            request_hook(span, instance, *args, **kwargs)
+            request_hook(span, instance, command, *args, **kwargs)
 
     return _capture_statement
