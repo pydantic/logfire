@@ -52,7 +52,6 @@ from typing_extensions import Self
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
-from ..testing import TestExporter
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .collect_system_info import collect_package_info
 from .config_params import ParamManager, PydanticPluginRecordValues
@@ -75,6 +74,7 @@ from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
+from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider, configure_metrics
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
