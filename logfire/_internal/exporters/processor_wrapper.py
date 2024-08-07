@@ -43,6 +43,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
     ) -> None:
         if is_instrumentation_suppressed():
             return
+        _set_log_level_on_asgi_send_receive_spans(span)
         with logfire.suppress_instrumentation():
             super().on_start(span, parent_context)
 
@@ -74,6 +75,16 @@ def _set_error_level_and_status(span: ReadableSpanDict) -> None:
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
         if isinstance(level, int) and level >= LEVEL_NUMBERS['error']:
             span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+
+
+def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
+    """Set the log level of ASGI send/receive spans to debug.
+
+    If a span doesn't have a level set, it defaults to 'info'. This is too high for ASGI send/receive spans,
+    which are generated for every request and are not particularly interesting.
+    """
+    if _is_asgi_send_receive_span(span.name, span.instrumentation_scope):
+        span.set_attributes(log_level_attributes('debug'))
 
 
 def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
