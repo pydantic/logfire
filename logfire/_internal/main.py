@@ -824,6 +824,7 @@ class Logfire:
         | None = None,
         use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
+        record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
     ) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -855,6 +856,10 @@ class Logfire:
                 will also instrument the app.
 
                 See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
+            record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
@@ -874,6 +879,7 @@ class Logfire:
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
+            record_send_receive=record_send_receive,
             **opentelemetry_kwargs,
         )
 

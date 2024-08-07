@@ -99,7 +99,7 @@ def auto_instrument_fastapi(app: FastAPI):
             return attributes
 
     # uninstrument at the end of each test
-    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper):
+    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper, record_send_receive=True):
         yield
 
 

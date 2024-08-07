@@ -17,6 +17,7 @@ from starlette.websockets import WebSocket
 from ..main import Logfire
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import maybe_capture_server_headers
+from .asgi import TweakAsgiTracerProvider
 
 try:
     from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
@@ -58,6 +59,7 @@ def instrument_fastapi(
     | None = None,
     use_opentelemetry_instrumentation: bool = True,
     excluded_urls: str | Iterable[str] | None = None,
+    record_send_receive: bool = False,
     **opentelemetry_kwargs: Any,
 ) -> ContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -71,7 +73,12 @@ def instrument_fastapi(
 
     if use_opentelemetry_instrumentation:  # pragma: no branch
         maybe_capture_server_headers(capture_headers)
-        FastAPIInstrumentor.instrument_app(app, excluded_urls=excluded_urls, **opentelemetry_kwargs)  # type: ignore
+        FastAPIInstrumentor.instrument_app(  # type: ignore
+            app,
+            excluded_urls=excluded_urls,
+            tracer_provider=TweakAsgiTracerProvider(record_send_receive, logfire_instance.config.get_tracer_provider()),
+            **opentelemetry_kwargs,
+        )
 
     registry = patch_fastapi()
     if app in registry:  # pragma: no cover
