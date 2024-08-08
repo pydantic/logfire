@@ -67,7 +67,7 @@ DEFAULT_CONFIG: ConfigDict = {
 if sys.platform == 'darwin':  # pragma: no cover
     # see https://github.com/giampaolo/psutil/issues/1219
     # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
-    DEFAULT_CONFIG.pop('system.network.connections')
+    DEFAULT_CONFIG.pop('system.network.connections', None)
 
 
 BASIC_METRICS: List[MetricName] = [
@@ -109,4 +109,5 @@ def parse_config(config: Config) -> ConfigDict:
 
 
 def instrument_system_metrics(meter_provider: MeterProvider, config: Any = 'basic') -> None:
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
     SystemMetricsInstrumentor(config=parse_config(config)).instrument(meter_provider=meter_provider)  # type: ignore

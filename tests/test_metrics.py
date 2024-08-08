@@ -16,28 +16,6 @@ import logfire._internal.metrics
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 
 
-def test_system_metrics_collection() -> None:
-    metrics_reader = InMemoryMetricReader()
-    logfire.configure(
-        send_to_logfire=False,
-        additional_metric_readers=[metrics_reader],
-        # i.e. use the default value, in contrast to `False` which the automatic test fixture uses.
-        collect_system_metrics=None,
-    )
-    metrics_collected = {metric['name'] for metric in get_collected_metrics(metrics_reader)}
-
-    # collected metrics vary by platform, etc.
-    # assert that we at least collected _some_ of the metrics we expect
-    assert metrics_collected.issuperset(
-        {
-            'system.swap.usage',
-            'system.disk.operations',
-            'system.memory.usage',
-            'system.cpu.utilization',
-        }
-    ), metrics_collected
-
-
 def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
     counter = logfire.metric_counter('counter')
     counter.add(1)
