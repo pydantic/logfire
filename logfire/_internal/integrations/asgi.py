@@ -11,19 +11,13 @@ from opentelemetry.trace.propagation import get_current_span
 from logfire import Logfire
 
 
-@dataclass
-class TweakAsgiSpansTracer(Tracer):
-    tracer: Tracer
-
-    def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
-        if name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive')):
-            return NonRecordingSpan(get_current_span(context).get_span_context())
-
-        return self.tracer.start_span(name, context, *args, **kwargs)
-
-    # This means that `with start_as_current_span(...):`
-    # is roughly equivalent to `with use_span(start_span(...)):`
-    start_as_current_span = SDKTracer.start_as_current_span
+def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
+    """If record_send_receive is False, return a TracerProvider that skips spans for ASGI send and receive events."""
+    tracer_provider = logfire_instance.config.get_tracer_provider()
+    if record_send_receive:
+        return tracer_provider
+    else:
+        return TweakAsgiTracerProvider(tracer_provider)
 
 
 @dataclass
@@ -34,9 +28,20 @@ class TweakAsgiTracerProvider(TracerProvider):
         return TweakAsgiSpansTracer(self.tracer_provider.get_tracer(*args, **kwargs))
 
 
-def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
-    tracer_provider = logfire_instance.config.get_tracer_provider()
-    if record_send_receive:
-        return tracer_provider
-    else:
-        return TweakAsgiTracerProvider(tracer_provider)
+@dataclass
+class TweakAsgiSpansTracer(Tracer):
+    tracer: Tracer
+
+    def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
+        if name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive')):
+            # These are the noisy spans we want to skip.
+            # Create a no-op span with the same SpanContext as the current span.
+            # This means that any spans created within will have the current span as their parent,
+            # as if this span didn't exist at all.
+            return NonRecordingSpan(get_current_span(context).get_span_context())
+
+        return self.tracer.start_span(name, context, *args, **kwargs)
+
+    # This means that `with start_as_current_span(...):`
+    # is roughly equivalent to `with use_span(start_span(...)):`
+    start_as_current_span = SDKTracer.start_as_current_span
