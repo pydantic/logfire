@@ -123,6 +123,8 @@ except ImportError:
 
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
+            def instrument_system_metrics(self, *args, **kwargs) -> None: ...
+
             def shutdown(self, *args, **kwargs) -> None: ...
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -158,6 +160,7 @@ except ImportError:
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
+        instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 
         def no_auto_trace(x):
