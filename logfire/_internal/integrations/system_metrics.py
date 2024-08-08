@@ -1,10 +1,13 @@
 import sys
-from typing import Any, Dict, Iterable, List, Literal, Optional, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Union, cast
 
 from opentelemetry.metrics import MeterProvider
 
 try:
-    from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
+    from opentelemetry.instrumentation.system_metrics import (
+        _DEFAULT_CONFIG,  # type: ignore
+        SystemMetricsInstrumentor,
+    )
 except ModuleNotFoundError:  # pragma: no cover
     raise RuntimeError(
         '`logfire.instrument_system_metrics()` requires the `opentelemetry-instrumentation-system-metrics` package.\n'
@@ -31,6 +34,10 @@ MetricName = Literal[
     'process.runtime.memory',
     'process.runtime.cpu.time',
     'process.runtime.gc_count',
+    'process.runtime.thread_count',
+    'process.runtime.cpu.utilization',
+    'process.runtime.context_switches',
+    'process.open_file_descriptor.count',
 ]
 
 ConfigString = Union[Literal['basic'], MetricName]
@@ -50,24 +57,11 @@ MEMORY_FIELDS = 'total available used free active inactive buffers cached shared
 
 # Based on opentelemetry/instrumentation/system_metrics/__init__.py
 DEFAULT_CONFIG: ConfigDict = {
+    **cast(ConfigDict, _DEFAULT_CONFIG),
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
     'system.memory.usage': MEMORY_FIELDS,
     'system.memory.utilization': MEMORY_FIELDS,
-    'system.swap.usage': ['used', 'free'],
-    'system.swap.utilization': ['used', 'free'],
-    'system.disk.io': ['read', 'write'],
-    'system.disk.operations': ['read', 'write'],
-    'system.disk.time': ['read', 'write'],
-    'system.network.dropped.packets': ['transmit', 'receive'],
-    'system.network.packets': ['transmit', 'receive'],
-    'system.network.errors': ['transmit', 'receive'],
-    'system.network.io': ['transmit', 'receive'],
-    'system.network.connections': ['family', 'type'],
-    'system.thread_count': None,
-    'process.runtime.memory': ['rss', 'vms'],
-    'process.runtime.cpu.time': ['user', 'system'],
-    'process.runtime.gc_count': None,
 }
 
 if sys.platform == 'darwin':  # pragma: no cover
@@ -94,7 +88,7 @@ def parse_config(config: Config) -> ConfigDict:
     if isinstance(config, dict):
         config_dict = config
     else:
-        config_dict: Dict[ConfigString, Optional[Iterable[str]]] = {}
+        config_dict = {}
         key: ConfigString
         for key in config:
             if key == 'basic':
