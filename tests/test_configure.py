@@ -461,7 +461,6 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         console_colors = "never"
         console_include_timestamp = false
         data_dir = "{tmp_path}"
-        collect_system_metrics = false
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
@@ -480,7 +479,6 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
-    assert GLOBAL_CONFIG.collect_system_metrics is False
     assert GLOBAL_CONFIG.pydantic_plugin.record == 'metrics'
     assert GLOBAL_CONFIG.pydantic_plugin.include == {'test1', 'test2'}
     assert GLOBAL_CONFIG.pydantic_plugin.exclude == {'test3', 'test4'}
@@ -553,7 +551,6 @@ def test_configure_fallback_path(tmp_path: str) -> None:
             token='abc1',
             default_span_processor=default_span_processor,
             additional_metric_readers=[InMemoryMetricReader()],
-            collect_system_metrics=False,
         )
         wait_for_check_token_thread()
 
@@ -583,7 +580,6 @@ def test_configure_service_version(tmp_path: str) -> None:
             token='abc2',
             service_version='1.2.3',
             additional_metric_readers=[InMemoryMetricReader()],
-            collect_system_metrics=False,
         )
 
         assert GLOBAL_CONFIG.service_version == '1.2.3'
@@ -591,7 +587,6 @@ def test_configure_service_version(tmp_path: str) -> None:
         configure(
             token='abc3',
             additional_metric_readers=[InMemoryMetricReader()],
-            collect_system_metrics=False,
         )
 
         assert GLOBAL_CONFIG.service_version == git_sha
@@ -603,7 +598,6 @@ def test_configure_service_version(tmp_path: str) -> None:
             configure(
                 token='abc4',
                 additional_metric_readers=[InMemoryMetricReader()],
-                collect_system_metrics=False,
             )
             assert GLOBAL_CONFIG.service_version is None
         finally:
@@ -866,7 +860,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         }
         request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
 
-        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('The project will be created in the organization "fake_org". Continue?', default=True),
@@ -901,7 +895,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             [create_project_response],
         )
 
-        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -960,7 +954,6 @@ def test_initialize_project_not_using_existing_project(
 
         logfire.configure(
             send_to_logfire=True,
-            collect_system_metrics=False,
         )
 
         assert confirm_mock.mock_calls == [
@@ -1001,7 +994,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         )
 
         with pytest.raises(SystemExit):
-            logfire.configure(data_dir=tmp_path, send_to_logfire=True, collect_system_metrics=False)
+            logfire.configure(data_dir=tmp_path, send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -1078,7 +1071,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             ],
         )
 
-        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=True)
 
         for request in request_mocker.request_history:
             assert request.headers['Authorization'] == 'fake_user_token'
@@ -1161,7 +1154,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             [create_project_response],
         )
 
-        logfire.configure(send_to_logfire=True, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=True)
 
         assert prompt_mock.mock_calls == [
             call(
@@ -1193,7 +1186,7 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
             )
         )
         with pytest.raises(RuntimeError, match='^expected$'):
-            configure(send_to_logfire=True, console=False, data_dir=data_dir, collect_system_metrics=False)
+            configure(send_to_logfire=True, console=False, data_dir=data_dir)
 
 
 def test_send_to_logfire_false() -> None:
@@ -1340,7 +1333,7 @@ def test_configure_fstring_python_38():
 
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
-    logfire.configure(send_to_logfire=True, token='foo', collect_system_metrics=False)
+    logfire.configure(send_to_logfire=True, token='foo')
 
     [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
@@ -1382,7 +1375,7 @@ def test_custom_exporters():
 def test_otel_exporter_otlp_endpoint_env_var():
     # Setting this env var creates an OTLPSpanExporter and an OTLPMetricExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint'}):
-        logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
     assert isinstance(otel_processor, MainSpanProcessorWrapper)
@@ -1399,7 +1392,7 @@ def test_otel_exporter_otlp_endpoint_env_var():
 def test_otel_traces_exporter_env_var():
     # Setting OTEL_TRACES_EXPORTER to something other than otlp prevents creating an OTLPSpanExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint2', 'OTEL_TRACES_EXPORTER': 'grpc'}):
-        logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=False, console=False)
 
     assert len(list(get_span_processors())) == 0
 
@@ -1440,7 +1433,7 @@ def test_otel_exporter_otlp_traces_endpoint_env_var():
 def test_otel_exporter_otlp_metrics_endpoint_env_var():
     # Setting just OTEL_EXPORTER_OTLP_METRICS_ENDPOINT only creates an OTLPMetricExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
-        logfire.configure(send_to_logfire=False, console=False, collect_system_metrics=False)
+        logfire.configure(send_to_logfire=False, console=False)
 
     assert len(list(get_span_processors())) == 0
 
