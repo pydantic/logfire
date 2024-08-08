@@ -69,6 +69,10 @@ async def get_secret(path_param: str, foo: str, password: str, testauthorization
     return {'foo': foo, 'password': password, 'testauthorization': testauthorization, 'path_param': path_param}
 
 
+async def echo_body(request: Request):
+    return await request.body()
+
+
 @pytest.fixture()
 def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
@@ -99,7 +103,7 @@ def auto_instrument_fastapi(app: FastAPI):
             return attributes
 
     # uninstrument at the end of each test
-    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper):
+    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper, record_send_receive=True):
         yield
 
 
@@ -1504,6 +1508,363 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.scrubbed': IsJson(
                         [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
                     ),
+                },
+            },
+        ]
+    )
+
+
+def make_request_hook_spans(record_send_receive: bool):
+    # Instrument an app with request hooks to make sure that they work.
+    # We make a new app here instead of using the fixtures because the same app can't be instrumented twice.
+    # Then make a request to it to generate spans.
+    # The tests then check that the spans are in the right place both with and without send/receive spans.
+    app = FastAPI()
+    # This endpoint reads the request body, which means that OTEL will create an ASGI receive span.
+    app.post('/echo_body')(echo_body)
+    client = TestClient(app)
+
+    with logfire.instrument_fastapi(
+        app,
+        record_send_receive=record_send_receive,
+        server_request_hook=lambda *_, **__: logfire.info('server_request_hook'),  # type: ignore
+        client_request_hook=lambda *_, **__: logfire.info('client_request_hook'),  # type: ignore
+        client_response_hook=lambda *_, **__: logfire.info('client_response_hook'),  # type: ignore
+    ):
+        response = client.post('/echo_body', content=b'hello')
+        assert response.status_code == 200
+        assert response.content == b'"hello"'
+
+
+def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
+    make_request_hook_spans(record_send_receive=False)
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'server_request_hook',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'server_request_hook',
+                    'logfire.msg': 'server_request_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.span_type': 'span',
+                    'values': '{}',
+                    'errors': '[]',
+                    'http.method': 'POST',
+                    'http.route': '/echo_body',
+                    'fastapi.route.name': 'echo_body',
+                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'logfire.json_schema': '{"type":"object","properties":{"values":{"type":"object"},"errors":{"type":"array"},"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                },
+            },
+            {
+                'name': 'client_request_hook',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_request_hook',
+                    'logfire.msg': 'client_request_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'method': 'POST',
+                    'http.route': '/echo_body',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'echo_body',
+                    'code.lineno': 123,
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'POST /echo_body (echo_body)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'client_response_hook',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_response_hook',
+                    'logfire.msg': 'client_response_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'client_response_hook',
+                'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_response_hook',
+                    'logfire.msg': 'client_response_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'POST /echo_body',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /echo_body',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/echo_body',
+                    'url.path': '/echo_body',
+                    'http.url': 'http://testserver/echo_body',
+                    'url.full': 'http://testserver/echo_body',
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/echo_body',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+        ]
+    )
+
+
+def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
+    make_request_hook_spans(record_send_receive=True)
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'server_request_hook',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'server_request_hook',
+                    'logfire.msg': 'server_request_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.span_type': 'span',
+                    'values': '{}',
+                    'errors': '[]',
+                    'http.method': 'POST',
+                    'http.route': '/echo_body',
+                    'fastapi.route.name': 'echo_body',
+                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'logfire.json_schema': '{"type":"object","properties":{"values":{"type":"object"},"errors":{"type":"array"},"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                },
+            },
+            {
+                'name': 'client_request_hook',
+                'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_request_hook',
+                    'logfire.msg': 'client_request_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'POST /echo_body http receive request',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /echo_body http receive request',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.request',
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'method': 'POST',
+                    'http.route': '/echo_body',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'echo_body',
+                    'code.lineno': 123,
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'POST /echo_body (echo_body)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.tags': ('fastapi',),
+                    'logfire.level_num': 5,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'client_response_hook',
+                'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                'start_time': 11000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_response_hook',
+                    'logfire.msg': 'client_response_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'POST /echo_body http send response.start',
+                'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 12000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /echo_body http send response.start',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.start',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+            {
+                'name': 'client_response_hook',
+                'context': {'trace_id': 1, 'span_id': 16, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 14, 'is_remote': False},
+                'start_time': 14000000000,
+                'end_time': 14000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'client_response_hook',
+                    'logfire.msg': 'client_response_hook',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': '<lambda>',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'POST /echo_body http send response.body',
+                'context': {'trace_id': 1, 'span_id': 14, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 13000000000,
+                'end_time': 15000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /echo_body http send response.body',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.body',
+                },
+            },
+            {
+                'name': 'POST /echo_body',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 16000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /echo_body',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/echo_body',
+                    'url.path': '/echo_body',
+                    'http.url': 'http://testserver/echo_body',
+                    'url.full': 'http://testserver/echo_body',
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/echo_body',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
                 },
             },
         ]
