@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import Tracer as SDKTracer
 from opentelemetry.trace import NonRecordingSpan, Span, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 
-from logfire import Logfire
+from logfire._internal.utils import is_asgi_send_receive_span_name
+
+if TYPE_CHECKING:
+    from logfire import Logfire
 
 
 def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
@@ -33,7 +36,7 @@ class TweakAsgiSpansTracer(Tracer):
     tracer: Tracer
 
     def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
-        if name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive')):
+        if is_asgi_send_receive_span_name(name):
             # These are the noisy spans we want to skip.
             # Create a no-op span with the same SpanContext as the current span.
             # This means that any spans created within will have the current span as their parent,
