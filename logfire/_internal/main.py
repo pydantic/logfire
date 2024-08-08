@@ -1167,11 +1167,21 @@ class Logfire:
         return instrument_flask(app, capture_headers=capture_headers, **kwargs)
 
     def instrument_starlette(
-        self, app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]
+        self,
+        app: Starlette,
+        *,
+        capture_headers: bool = False,
+        record_send_receive: bool = False,
+        **kwargs: Unpack[StarletteInstrumentKwargs],
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Set `capture_headers` to `True` to capture all request and response headers.
+
+        Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+        These are disabled by default to reduce overhead and the number of spans created,
+        since many can be created for a single request, and they are not often useful.
+        If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
 
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
@@ -1180,7 +1190,13 @@ class Logfire:
         from .integrations.starlette import instrument_starlette
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_starlette(app, capture_headers=capture_headers, **kwargs)
+        return instrument_starlette(
+            self,
+            app,
+            record_send_receive=record_send_receive,
+            capture_headers=capture_headers,
+            **kwargs,
+        )
 
     def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
