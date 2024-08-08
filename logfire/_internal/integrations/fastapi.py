@@ -17,7 +17,7 @@ from starlette.websockets import WebSocket
 from ..main import Logfire
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import maybe_capture_server_headers
-from .asgi import TweakAsgiTracerProvider
+from .asgi import tweak_asgi_spans_tracer_provider
 
 try:
     from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
@@ -76,7 +76,7 @@ def instrument_fastapi(
         FastAPIInstrumentor.instrument_app(  # type: ignore
             app,
             excluded_urls=excluded_urls,
-            tracer_provider=TweakAsgiTracerProvider(record_send_receive, logfire_instance.config.get_tracer_provider()),
+            tracer_provider=tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             **opentelemetry_kwargs,
         )
 

@@ -8,6 +8,8 @@ from opentelemetry.sdk.trace import Tracer as SDKTracer
 from opentelemetry.trace import NonRecordingSpan, Span, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 
+from logfire import Logfire
+
 
 @dataclass
 class TweakAsgiSpansTracer(Tracer):
@@ -26,12 +28,15 @@ class TweakAsgiSpansTracer(Tracer):
 
 @dataclass
 class TweakAsgiTracerProvider(TracerProvider):
-    record_send_receive: bool
     tracer_provider: TracerProvider
 
     def get_tracer(self, *args: Any, **kwargs: Any) -> Tracer:
-        tracer_provider = self.tracer_provider.get_tracer(*args, **kwargs)
-        if self.record_send_receive:
-            return tracer_provider
-        else:
-            return TweakAsgiSpansTracer(tracer_provider)
+        return TweakAsgiSpansTracer(self.tracer_provider.get_tracer(*args, **kwargs))
+
+
+def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
+    tracer_provider = logfire_instance.config.get_tracer_provider()
+    if record_send_receive:
+        return tracer_provider
+    else:
+        return TweakAsgiTracerProvider(tracer_provider)
