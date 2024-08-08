@@ -231,7 +231,6 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        collect_system_metrics=False,
     )
 
     # Note the values (or lack thereof) of each of these attributes in the exported span.
@@ -279,7 +278,6 @@ def test_dont_scrub_resource(
         id_generator=id_generator,
         ns_timestamp_generator=time_generator,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        collect_system_metrics=False,
     )
     logfire.info('hi')
     assert dict(exporter.exported_spans[0].resource.attributes) == IsPartialDict(

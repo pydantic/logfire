@@ -18,6 +18,7 @@ from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKw
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
+from .integrations.system_metrics import Config as SystemMetricsConfig
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -642,6 +643,12 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
 
+        """
+    def instrument_system_metrics(self, config: SystemMetricsConfig = 'basic'):
+        """Instrument the system metrics.
+
+        Args:
+            config: The system metrics configuration.
         """
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.

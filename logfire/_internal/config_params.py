@@ -17,14 +17,6 @@ from .constants import LOGFIRE_BASE_URL, LevelName
 from .exporters.console import ConsoleColorsValues
 from .utils import read_toml_file
 
-try:
-    import opentelemetry.instrumentation.system_metrics  # noqa: F401 # type: ignore
-
-    COLLECT_SYSTEM_METRICS_DEFAULT = True
-except ImportError:  # pragma: no cover
-    COLLECT_SYSTEM_METRICS_DEFAULT = False  # type: ignore
-
-
 T = TypeVar('T')
 
 slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
@@ -77,8 +69,6 @@ SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=
 """Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
-COLLECT_SYSTEM_METRICS = ConfigParam(env_vars=['LOGFIRE_COLLECT_SYSTEM_METRICS'], allow_file_config=True, default=COLLECT_SYSTEM_METRICS_DEFAULT, tp=bool)
-"""Whether to collect system metrics."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
 """Whether to enable/disable the console exporter."""
 CONSOLE_COLORS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_COLORS'], allow_file_config=True, default='auto', tp=ConsoleColorsValues)
@@ -120,7 +110,6 @@ CONFIG_PARAMS = {
     'trace_sample_rate': TRACE_SAMPLE_RATE,
     'show_summary': SHOW_SUMMARY,
     'data_dir': CREDENTIALS_DIR,
-    'collect_system_metrics': COLLECT_SYSTEM_METRICS,
     'console': CONSOLE,
     'console_colors': CONSOLE_COLORS,
     'console_span_style': CONSOLE_SPAN_STYLE,

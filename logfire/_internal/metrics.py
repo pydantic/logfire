@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-import sys
 from abc import ABC, abstractmethod
 from threading import Lock
 from typing import Any, Generic, Sequence, TypeVar
@@ -29,62 +28,6 @@ try:
     Gauge = _Gauge
 except ImportError:  # pragma: no cover
     Gauge = None
-
-# All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
-# except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
-# Docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times
-CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
-
-# All the virtual_memory fields provided by psutil across all platforms,
-# except for 'percent' which can be calculated as `(total - available) / total * 100`.
-# Docs: https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory
-MEMORY_FIELDS = 'total available used free active inactive buffers cached shared wired slab'.split()
-
-# Based on opentelemetry/instrumentation/system_metrics/__init__.py
-DEFAULT_CONFIG = {
-    'system.cpu.time': CPU_FIELDS,
-    'system.cpu.utilization': CPU_FIELDS,
-    'system.memory.usage': MEMORY_FIELDS,
-    'system.memory.utilization': MEMORY_FIELDS,
-    'system.swap.usage': ['used', 'free'],
-    'system.swap.utilization': ['used', 'free'],
-    'system.disk.io': ['read', 'write'],
-    'system.disk.operations': ['read', 'write'],
-    'system.disk.time': ['read', 'write'],
-    'system.network.dropped.packets': ['transmit', 'receive'],
-    'system.network.packets': ['transmit', 'receive'],
-    'system.network.errors': ['transmit', 'receive'],
-    'system.network.io': ['transmit', 'receive'],
-    'system.network.connections': ['family', 'type'],
-    'system.thread_count': None,
-    'process.runtime.memory': ['rss', 'vms'],
-    'process.runtime.cpu.time': ['user', 'system'],
-    'process.runtime.gc_count': None,
-}
-
-
-try:
-    from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
-
-    INSTRUMENTOR = SystemMetricsInstrumentor(config=DEFAULT_CONFIG)  # type: ignore
-except ImportError:  # pragma: no cover
-    INSTRUMENTOR = None  # type: ignore
-
-if sys.platform == 'darwin':  # pragma: no cover
-    # see https://github.com/giampaolo/psutil/issues/1219
-    # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
-    DEFAULT_CONFIG.pop('system.network.connections')
-
-
-def configure_metrics(meter_provider: MeterProvider) -> None:
-    if INSTRUMENTOR is None:  # pragma: no cover
-        raise RuntimeError('Install logfire[system-metrics] to use `collect_system_metrics=True`.')
-
-    # we need to call uninstrument() otherwise instrument() will do nothing
-    # even if the meter provider is different
-    if INSTRUMENTOR.is_instrumented_by_opentelemetry:
-        INSTRUMENTOR.uninstrument()  # type: ignore
-    INSTRUMENTOR.instrument(meter_provider=meter_provider)  # type: ignore
 
 
 # The following proxy classes are adapted from OTEL's SDK
