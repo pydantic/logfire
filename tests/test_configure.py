@@ -11,6 +11,7 @@ from typing import Any, Iterable, Sequence
 from unittest import mock
 from unittest.mock import call, patch
 
+import inline_snapshot.extra
 import pytest
 import requests_mock
 from inline_snapshot import snapshot
@@ -1449,3 +1450,23 @@ def get_span_processors() -> Iterable[SpanProcessor]:
 
 def get_metric_readers() -> Iterable[SpanProcessor]:
     return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+
+
+def test_collect_system_metrics_false():
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'ValueError: The `collect_system_metrics` argument has been removed. '
+            'System metrics are no longer collected by default.'
+        )
+    ):
+        logfire.configure(collect_system_metrics=False)  # type: ignore
+
+
+def test_collect_system_metrics_true():
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'ValueError: The `collect_system_metrics` argument has been removed. '
+            'Use `logfire.instrument_system_metrics()` instead.'
+        )
+    ):
+        logfire.configure(collect_system_metrics=True)  # type: ignore
