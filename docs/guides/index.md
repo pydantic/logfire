@@ -35,9 +35,6 @@ We cover additional topics in the **[Advanced User Guide](advanced/index.md)**, 
 * **[Sampling](advanced/sampling.md/#sampling):** Down-sample lower-priority traces to reduce costs.
 * **[Scrubbing](advanced/scrubbing.md):** Remove sensitive data from your logs and traces before sending them to Logfire.
 * **[Testing](advanced/testing.md):** Test your usage of Logfire.
-* **[Direct Database Connections](advanced/direct_database_connections.md):** Connect directly to a read-only postgres
-database containing your project's data. You can use this for ad-hoc querying, or with third-party
-business intelligence tools like Grafana, Tableau, Metabase, etc.
 * ... and more.
 
 ## **Integrations and Reference**
