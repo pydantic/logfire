@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import atexit
 import dataclasses
 import functools
 import json
@@ -81,6 +82,8 @@ from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, 
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
+
+OPEN_SPANS: set[Any] = set()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -765,6 +768,11 @@ class LogfireConfig(_LogfireConfigData):
                 self._has_set_providers = True
                 trace.set_tracer_provider(self._tracer_provider)
                 metrics.set_meter_provider(self._meter_provider)
+
+            @atexit.register
+            def _exit_all_spans():  # type: ignore[reportUnusedFunction]
+                for span in list(OPEN_SPANS):
+                    span.__exit__(None, None, None)
 
             self._initialized = True
 
