@@ -771,7 +771,7 @@ class LogfireConfig(_LogfireConfigData):
                 metrics.set_meter_provider(self._meter_provider)
 
             @atexit.register
-            def _exit_open_spans():  # type: ignore[reportUnusedFunction]
+            def _exit_open_spans():  # type: ignore[reportUnusedFunction]  # pragma: no cover
                 # Ensure that all open spans are closed when the program exits.
                 # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
                 # Registering this callback here after the OTEL one means that this runs first.
