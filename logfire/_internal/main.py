@@ -1533,6 +1533,7 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
+    # __weakref__ is needed for the OPEN_SPANS WeakSet.
     __slots__ = ('_span', '_token', '__weakref__')
 
     def __init__(self, span: trace_api.Span) -> None:

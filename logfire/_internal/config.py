@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from threading import RLock, Thread
-from typing import Any, Callable, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 from weakref import WeakSet
@@ -84,7 +84,11 @@ from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
-OPEN_SPANS: WeakSet[Any] = WeakSet()
+if TYPE_CHECKING:
+    from .main import FastLogfireSpan, LogfireSpan
+
+# NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
+OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
