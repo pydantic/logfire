@@ -16,6 +16,7 @@ from threading import RLock, Thread
 from typing import Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 from uuid import uuid4
+from weakref import WeakSet
 
 import requests
 from opentelemetry import metrics, trace
@@ -83,7 +84,7 @@ from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
 
-OPEN_SPANS: set[Any] = set()
+OPEN_SPANS: WeakSet[Any] = WeakSet()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
