@@ -1533,7 +1533,7 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ('_span', '_token')
+    __slots__ = ('_span', '_token', '__weakref__')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
