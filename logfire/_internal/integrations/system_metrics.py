@@ -55,7 +55,6 @@ CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.spli
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory
 MEMORY_FIELDS = 'total available used free active inactive buffers cached shared wired slab'.split()
 
-# Based on opentelemetry/instrumentation/system_metrics/__init__.py
 DEFAULT_CONFIG: ConfigDict = {
     **cast(ConfigDict, _DEFAULT_CONFIG),
     'system.cpu.time': CPU_FIELDS,
@@ -109,5 +108,4 @@ def parse_config(config: Config) -> ConfigDict:
 
 
 def instrument_system_metrics(meter_provider: MeterProvider, config: Any = 'basic') -> None:
-    SystemMetricsInstrumentor().uninstrument()  # type: ignore
     SystemMetricsInstrumentor(config=parse_config(config)).instrument(meter_provider=meter_provider)  # type: ignore

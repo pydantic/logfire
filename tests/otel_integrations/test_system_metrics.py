@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
@@ -29,6 +30,7 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
             'system.thread_count',
         ]
     )
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_single_system_metric_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -36,6 +38,7 @@ def test_single_system_metric_collection(metrics_reader: InMemoryMetricReader) -
     assert get_collected_metric_names(metrics_reader) == [
         'system.cpu.time',
     ]
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_list_with_basic_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -49,6 +52,7 @@ def test_list_with_basic_system_metrics_collection(metrics_reader: InMemoryMetri
             'system.thread_count',
         ]
     )
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -78,6 +82,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.thread_count',
         ]
     )
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_dict_with_basic_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -133,3 +138,4 @@ def test_dict_with_basic_system_metrics_collection(metrics_reader: InMemoryMetri
             'system.thread_count',
         ]
     )
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
