@@ -42,13 +42,20 @@ MetricName = Literal[
 
 ConfigString = Union[Literal['basic'], MetricName]
 ConfigDict = Dict[MetricName, Optional[Iterable[str]]]
-Config = Union[Literal['all'], ConfigString, Iterable[ConfigString], Dict[ConfigString, Optional[Iterable[str]]]]
+Config = Union[
+    Literal['all'],
+    ConfigString,
+    Iterable[ConfigString],
+    Dict[Union[ConfigString, Literal['all']], Optional[Iterable[str]]],
+]
 
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times
-CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
+# TODO
+# CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
+CPU_FIELDS = ['idle', 'iowait', 'user', 'system', 'irq', 'softirq']
 
 # All the virtual_memory fields provided by psutil across all platforms,
 # except for 'percent' which can be calculated as `(total - available) / total * 100`.
@@ -83,27 +90,26 @@ def parse_config(config: Config) -> ConfigDict:
             return DEFAULT_CONFIG
         config = [config]
 
-    config_dict: Dict[ConfigString, Optional[Iterable[str]]]
+    config_dict: Dict[Union[ConfigString, Literal['all']], Optional[Iterable[str]]]
     if isinstance(config, dict):
-        config_dict = config
+        config_dict = config.copy()  # type: ignore
     else:
-        config_dict = {}
-        key: ConfigString
-        for key in config:
-            if key == 'basic':
-                config_dict[key] = None
-            else:
-                config_dict[key] = DEFAULT_CONFIG[key]
+        config_dict = {key: None for key in config}
 
     result: ConfigDict = {}
+    for shortcut in ['basic', 'all']:
+        if shortcut in config_dict:
+            del config_dict[shortcut]
+            if shortcut == 'basic':
+                for metric in BASIC_METRICS:
+                    result[metric] = DEFAULT_CONFIG[metric]
+            elif shortcut == 'all':
+                result.update(DEFAULT_CONFIG)
+
     for key, value in config_dict.items():
-        if key == 'basic':
-            for metric in BASIC_METRICS:
-                result[metric] = DEFAULT_CONFIG[metric]
-        elif value is None:
-            result[key] = DEFAULT_CONFIG[key]
-        else:
-            result[key] = value
+        assert key not in ('basic', 'all')
+        result[key] = value or DEFAULT_CONFIG[key]
+
     return result
 
 

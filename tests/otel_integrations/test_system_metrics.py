@@ -87,9 +87,9 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
 
 def test_dict_with_basic_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     config: Config = {
-        'basic': None,
         'system.cpu.time': None,
         'system.cpu.utilization': ['idle'],
+        'basic': None,
     }
     assert parse_config(config) == snapshot(
         {
@@ -116,15 +116,11 @@ def test_dict_with_basic_system_metrics_collection(metrics_reader: InMemoryMetri
             ],
             'system.cpu.time': [
                 'idle',
+                'iowait',
                 'user',
                 'system',
                 'irq',
                 'softirq',
-                'nice',
-                'iowait',
-                'steal',
-                'interrupt',
-                'dpc',
             ],
         }
     )
