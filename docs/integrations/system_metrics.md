@@ -20,57 +20,52 @@ Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard
 
 ## Configuration
 
-By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics' dashboard. You can choose exactly which metrics to collect, and also how much information to collect about each metric, by passing an argument.
-Here's what it looks like to specify the default configuration in full detail:
+By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
 ```py
 logfire.instrument_system_metrics({
-    'system.cpu.utilization': ['idle', 'iowait', 'user', 'system', 'irq', 'softirq'],
+    'logfire.system.cpu.simple_utilization': None,
+    'system.memory.utilization': ['available'],
+    'system.swap.utilization': ['used'],
+})
+```
+
+To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`. This is equivalent to:
+
+```py
+logfire.instrument_system_metrics({
+    'logfire.system.cpu.simple_utilization': None,
+    'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
+    'system.cpu.utilization': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
+    'system.memory.usage': ['available', 'used', 'free', 'active', 'inactive', 'buffers', 'cached', 'shared', 'wired', 'slab', 'total'],
     'system.memory.utilization': ['available', 'used', 'free', 'active', 'inactive', 'buffers', 'cached', 'shared', 'wired', 'slab'],
     'system.swap.usage': ['used', 'free'],
-    # There are no fields to configure for 'system.thread_count', so the value is None.
+    'system.swap.utilization': ['used'],
+    'system.disk.io': ['read', 'write'],
+    'system.disk.operations': ['read', 'write'],
+    'system.disk.time': ['read', 'write'],
+    'system.network.dropped.packets': ['transmit', 'receive'],
+    'system.network.packets': ['transmit', 'receive'],
+    'system.network.errors': ['transmit', 'receive'],
+    'system.network.io': ['transmit', 'receive'],
     'system.thread_count': None,
+    'process.runtime.memory': ['rss', 'vms'],
+    'process.runtime.cpu.time': ['user', 'system'],
+    'process.runtime.gc_count': None,
+    'process.runtime.thread_count': None,
+    'process.runtime.cpu.utilization': None,
+    'process.runtime.context_switches': ['involuntary', 'voluntary'],
+    'process.open_file_descriptor.count': None,
 })
 ```
 
 Each key here is a metric name. The values have different meanings for different metrics. For example, for `system.cpu.utilization`, the value is a list of CPU modes. So there will be a separate row for each CPU core saying what percentage of time it spent idle, another row for the time spent waiting for IO, etc. There are no fields to configure for `system.thread_count`, so the value is `None`.
 
-To make it convenient to tweak the defaults, the argument can have many different shapes. To demonstrate, the following are all equivalent to the default:
+The first dict argument is merged with the base. For example, if you want to collect disk read operations (but not writes) you can write:
 
-```py
-# If you don't need to configure the details of any metric, you can just pass a list of metric names.
-logfire.instrument_system_metrics([
-    'system.cpu.utilization',
-    'system.memory.utilization',
-    'system.swap.usage',
-    'system.thread_count',
-])
-
-# If you need to configure the details of *some* metrics but not all,
-# you can pass a dict with values for the metrics you want to configure,
-# and `None` for the other metrics you just want to include with the default configuration.
-logfire.instrument_system_metrics({
-    'system.cpu.utilization': None,
-    'system.memory.utilization': None,
-    'system.swap.usage': None,
-    'system.thread_count': None,
-})
-
-
-# You can also pass a single metric name as a string, e.g:
-#   logfire.instrument_system_metrics('system.swap.usage')
-# The string 'basic' is a special shortcut for the default metric names.
-# You can also pass a list including 'basic' to add metrics to the default, e.g:
-#   logfire.instrument_system_metrics(['basic', 'system.network.io'])
-logfire.instrument_system_metrics('basic')
-
-# Or you can use 'basic' as a dict key with the value `None`
-# if you want to include and configure additional metrics.
-# You cannot set the dict value of 'basic' to anything else since it contains different metrics.
-logfire.instrument_system_metrics({'basic': None})
-```
-
-
+- `logfire.instrument_system_metrics({'system.disk.operations': ['read']})` to collect that data in addition to the basic defaults.
+- `logfire.instrument_system_metrics({'system.disk.operations': ['read']}, base='full')` to collect detailed data about all metrics, excluding disk write operations.
+- `logfire.instrument_system_metrics({'system.disk.operations': ['read']}, base=None)` to collect only disk read operations and nothing else.
 
 ### Available Metrics
 

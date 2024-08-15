@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover
     )
 
 MetricName = Literal[
+    'logfire.system.cpu.simple_utilization':None,
     'system.cpu.time',
     'system.cpu.utilization',
     'system.memory.usage',
@@ -49,32 +50,32 @@ Config = Union[
     Dict[Union[ConfigString, Literal['all']], Optional[Iterable[str]]],
 ]
 
-
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times
-# TODO
-# CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
-CPU_FIELDS = ['idle', 'iowait', 'user', 'system', 'irq', 'softirq']
+CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
 
 # All the virtual_memory fields provided by psutil across all platforms,
 # except for 'percent' which can be calculated as `(total - available) / total * 100`.
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory
-MEMORY_FIELDS = 'total available used free active inactive buffers cached shared wired slab'.split()
+MEMORY_FIELDS = 'available used free active inactive buffers cached shared wired slab'.split()
 
-DEFAULT_CONFIG: ConfigDict = {
+FULL_CONFIG: ConfigDict = {
     **cast(ConfigDict, _DEFAULT_CONFIG),
+    'logfire.system.cpu.simple_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
-    'system.memory.usage': MEMORY_FIELDS,
+    'system.memory.usage': MEMORY_FIELDS + ['total'],
     'system.memory.utilization': MEMORY_FIELDS,
+    'system.swap.utilization': ['used'],
 }
+
+print(FULL_CONFIG)
 
 if sys.platform == 'darwin':  # pragma: no cover
     # see https://github.com/giampaolo/psutil/issues/1219
     # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
-    DEFAULT_CONFIG.pop('system.network.connections', None)
-
+    FULL_CONFIG.pop('system.network.connections', None)
 
 BASIC_METRICS: List[MetricName] = [
     'system.thread_count',  # used by process count
@@ -87,7 +88,7 @@ BASIC_METRICS: List[MetricName] = [
 def parse_config(config: Config) -> ConfigDict:
     if isinstance(config, str):
         if config == 'all':
-            return DEFAULT_CONFIG
+            return FULL_CONFIG
         config = [config]
 
     config_dict: Dict[Union[ConfigString, Literal['all']], Optional[Iterable[str]]]
@@ -102,13 +103,13 @@ def parse_config(config: Config) -> ConfigDict:
             del config_dict[shortcut]
             if shortcut == 'basic':
                 for metric in BASIC_METRICS:
-                    result[metric] = DEFAULT_CONFIG[metric]
+                    result[metric] = FULL_CONFIG[metric]
             elif shortcut == 'all':
-                result.update(DEFAULT_CONFIG)
+                result.update(FULL_CONFIG)
 
     for key, value in config_dict.items():
         assert key not in ('basic', 'all')
-        result[key] = value or DEFAULT_CONFIG[key]
+        result[key] = value or FULL_CONFIG[key]
 
     return result
 
