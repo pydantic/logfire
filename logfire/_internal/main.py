@@ -74,7 +74,7 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
-    from .integrations.system_metrics import Config as SystemMetricsConfig
+    from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
 
     # This is the type of the exc_info/_exc_info parameter of the log methods.
@@ -1253,16 +1253,19 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_mysql(conn, **kwargs)
 
-    def instrument_system_metrics(self, config: SystemMetricsConfig = 'basic'):
+    def instrument_system_metrics(
+        self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'
+    ) -> None:
         """Instrument the system metrics.
 
         Args:
             config: The system metrics configuration.
+            base: The system metrics base.
         """
         from .integrations.system_metrics import instrument_system_metrics
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_system_metrics(self.config.get_meter_provider(), config)
+        return instrument_system_metrics(self, config, base)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.

@@ -305,8 +305,7 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
 def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
     exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
     [resource_metric] = exported_metrics['resource_metrics']
-    [scope_metric] = resource_metric['scope_metrics']
-    return scope_metric['metrics']
+    return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]
 
 
 def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
