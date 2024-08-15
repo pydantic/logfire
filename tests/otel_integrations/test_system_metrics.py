@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import pytest
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
 import logfire._internal.metrics
+from logfire._internal.integrations.system_metrics import get_base_config
 from tests.test_metrics import get_collected_metrics
 
 
@@ -60,3 +62,81 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
         ]
     )
     SystemMetricsInstrumentor().uninstrument()  # type: ignore
+
+
+def test_basic_base():
+    assert get_base_config('basic') == {
+        'system.cpu.simple_utilization': None,
+        'system.memory.utilization': ['available'],
+        'system.swap.utilization': ['used'],
+    }, 'Docs need to be updated if this test fails'
+
+
+def test_full_base():
+    assert get_base_config('full') == {
+        'system.cpu.simple_utilization': None,
+        'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
+        'system.cpu.utilization': [
+            'idle',
+            'user',
+            'system',
+            'irq',
+            'softirq',
+            'nice',
+            'iowait',
+            'steal',
+            'interrupt',
+            'dpc',
+        ],
+        'system.memory.usage': [
+            'available',
+            'used',
+            'free',
+            'active',
+            'inactive',
+            'buffers',
+            'cached',
+            'shared',
+            'wired',
+            'slab',
+            'total',
+        ],
+        'system.memory.utilization': [
+            'available',
+            'used',
+            'free',
+            'active',
+            'inactive',
+            'buffers',
+            'cached',
+            'shared',
+            'wired',
+            'slab',
+        ],
+        'system.swap.usage': ['used', 'free'],
+        'system.swap.utilization': ['used'],
+        'system.disk.io': ['read', 'write'],
+        'system.disk.operations': ['read', 'write'],
+        'system.disk.time': ['read', 'write'],
+        'system.network.dropped.packets': ['transmit', 'receive'],
+        'system.network.packets': ['transmit', 'receive'],
+        'system.network.errors': ['transmit', 'receive'],
+        'system.network.io': ['transmit', 'receive'],
+        'system.thread_count': None,
+        'process.runtime.memory': ['rss', 'vms'],
+        'process.runtime.cpu.time': ['user', 'system'],
+        'process.runtime.gc_count': None,
+        'process.runtime.thread_count': None,
+        'process.runtime.cpu.utilization': None,
+        'process.runtime.context_switches': ['involuntary', 'voluntary'],
+        'process.open_file_descriptor.count': None,
+    }, 'Docs need to be updated if this test fails'
+
+
+def test_empty_base():
+    assert get_base_config(None) == {}
+
+
+def test_invalid_base():
+    with pytest.raises(ValueError):
+        get_base_config('invalid')  # type: ignore
