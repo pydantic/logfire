@@ -16,7 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover
     )
 
 MetricName = Literal[
-    'logfire.system.cpu.simple_utilization':None,
+    'system.cpu.simple_utilization',
     'system.cpu.time',
     'system.cpu.utilization',
     'system.memory.usage',
@@ -62,7 +62,7 @@ MEMORY_FIELDS = 'available used free active inactive buffers cached shared wired
 
 FULL_CONFIG: ConfigDict = {
     **cast(ConfigDict, _DEFAULT_CONFIG),
-    'logfire.system.cpu.simple_utilization': None,
+    'system.cpu.simple_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
     'system.memory.usage': MEMORY_FIELDS + ['total'],

@@ -24,7 +24,7 @@ By default, `instrument_system_metrics` collects only the metrics it needs to di
 
 ```py
 logfire.instrument_system_metrics({
-    'logfire.system.cpu.simple_utilization': None,
+    'system.cpu.simple_utilization': None,
     'system.memory.utilization': ['available'],
     'system.swap.utilization': ['used'],
 })
@@ -34,7 +34,7 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
 
 ```py
 logfire.instrument_system_metrics({
-    'logfire.system.cpu.simple_utilization': None,
+    'system.cpu.simple_utilization': None,
     'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
     'system.cpu.utilization': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
     'system.memory.usage': ['available', 'used', 'free', 'active', 'inactive', 'buffers', 'cached', 'shared', 'wired', 'slab', 'total'],
