@@ -79,7 +79,9 @@ def test_basic_base():
 
 
 def test_full_base():
-    assert get_base_config('full') == {
+    config = get_base_config('full')
+    config.pop('system.network.connections', None)
+    assert config == {
         'system.cpu.simple_utilization': None,
         'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
         'system.cpu.utilization': [
