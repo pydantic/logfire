@@ -64,6 +64,12 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
     SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
+def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
+    logfire.instrument_system_metrics({'system.memory.utilization': ['available']}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.memory.utilization']
+    SystemMetricsInstrumentor().uninstrument()  # type: ignore
+
+
 def test_basic_base():
     assert get_base_config('basic') == {
         'system.cpu.simple_utilization': None,
