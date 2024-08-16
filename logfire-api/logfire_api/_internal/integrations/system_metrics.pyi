@@ -1,11 +1,11 @@
 from _typeshed import Incomplete
 from logfire import Logfire as Logfire
-from typing import Iterable
+from typing import Iterable, LiteralString
 
 MetricName: Incomplete
 Config = dict[MetricName, Iterable[str] | None]
-CPU_FIELDS: list[str]
-MEMORY_FIELDS: list[str]
+CPU_FIELDS: list[LiteralString]
+MEMORY_FIELDS: list[LiteralString]
 FULL_CONFIG: Config
 BASIC_CONFIG: Config
 Base: Incomplete
