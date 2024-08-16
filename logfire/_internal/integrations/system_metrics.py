@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import sys
 from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
 
@@ -94,18 +95,28 @@ def get_base_config(base: Base) -> Config:
         raise ValueError(f'Invalid base: {base}')
 
 
-def simple_cpu_utilization_callback(_options: CallbackOptions) -> Iterable[Observation]:
-    yield Observation(psutil.cpu_percent() / 100)
-
-
 def instrument_system_metrics(logfire_instance: Logfire, config: Config | None = None, base: Base = 'basic'):
     config = {**get_base_config(base), **(config or {})}
     SystemMetricsInstrumentor(config=config).instrument()  # type: ignore
 
     if 'system.cpu.simple_utilization' in config:
-        logfire_instance.metric_gauge_callback(
-            'system.cpu.simple_utilization',
-            [simple_cpu_utilization_callback],
-            description='System CPU utilization without attributes',
-            unit='1',
-        )
+        measure_simple_cpu_utilization(logfire_instance)
+
+
+def measure_simple_cpu_utilization(logfire_instance: Logfire):
+    process = psutil.Process()
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        percents: list[float] = [psutil.cpu_percent(), process.cpu_percent()]
+        with contextlib.suppress(Exception):
+            cpu_num: int = process.cpu_num()  # type: ignore
+            if cpu_num > 0:
+                percents.append(psutil.cpu_percent(percpu=True)[cpu_num])
+        yield Observation(max(percents) / 100)
+
+    logfire_instance.metric_gauge_callback(
+        'system.cpu.simple_utilization',
+        [callback],
+        description='System CPU utilization without attributes',
+        unit='1',
+    )
