@@ -1256,11 +1256,15 @@ class Logfire:
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'
     ) -> None:
-        """Instrument the system metrics.
+        """Collect system metrics.
+
+        See https://docs.pydantic.dev/logfire/integrations/system_metrics/ for more information.
 
         Args:
-            config: The system metrics configuration.
-            base: The system metrics base.
+            config: A dictionary where the keys are metric names
+                and the values are optional further configuration for that metric.
+            base: A string indicating the base config dictionary which `config` will be merged with,
+                or `None` for an empty base config.
         """
         from .integrations.system_metrics import instrument_system_metrics
 
