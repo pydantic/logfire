@@ -109,9 +109,9 @@ def measure_simple_cpu_utilization(logfire_instance: Logfire):
     def callback(_options: CallbackOptions) -> Iterable[Observation]:
         percents: list[float] = [psutil.cpu_percent(), process.cpu_percent()]
         with contextlib.suppress(Exception):
-            if not TYPE_CHECKING:
+            if not TYPE_CHECKING:  # pragma: no branch
                 cpu_num = process.cpu_num()
-                if cpu_num > 0:
+                if cpu_num > 0:  # pragma: no branch
                     percents.append(psutil.cpu_percent(percpu=True)[cpu_num])
         yield Observation(max(percents) / 100)
 
