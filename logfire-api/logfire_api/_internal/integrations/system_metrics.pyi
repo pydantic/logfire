@@ -1,15 +1,15 @@
 from _typeshed import Incomplete
-from opentelemetry.metrics import MeterProvider
-from typing import Any, Iterable
+from logfire import Logfire as Logfire
+from typing import Iterable
 
 MetricName: Incomplete
-ConfigString: Incomplete
-ConfigDict = dict[MetricName, Iterable[str] | None]
-Config: Incomplete
-CPU_FIELDS: Incomplete
-MEMORY_FIELDS: Incomplete
-DEFAULT_CONFIG: ConfigDict
-BASIC_METRICS: list[MetricName]
+Config = dict[MetricName, Iterable[str] | None]
+CPU_FIELDS: list[str]
+MEMORY_FIELDS: list[str]
+FULL_CONFIG: Config
+BASIC_CONFIG: Config
+Base: Incomplete
 
-def parse_config(config: Config) -> ConfigDict: ...
-def instrument_system_metrics(meter_provider: MeterProvider, config: Any = 'basic') -> None: ...
+def get_base_config(base: Base) -> Config: ...
+def instrument_system_metrics(logfire_instance: Logfire, config: Config | None = None, base: Base = 'basic'): ...
+def measure_simple_cpu_utilization(logfire_instance: Logfire): ...

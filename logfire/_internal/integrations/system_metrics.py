@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
-from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
+from typing import TYPE_CHECKING, Dict, Iterable, Literal, LiteralString, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
@@ -53,12 +53,12 @@ Config = Dict[MetricName, Optional[Iterable[str]]]
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times
-CPU_FIELDS = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
+CPU_FIELDS: list[LiteralString] = 'idle user system irq softirq nice iowait steal interrupt dpc'.split()
 
 # All the virtual_memory fields provided by psutil across all platforms,
 # except for 'percent' which can be calculated as `(total - available) / total * 100`.
 # Docs: https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory
-MEMORY_FIELDS = 'available used free active inactive buffers cached shared wired slab'.split()
+MEMORY_FIELDS: list[LiteralString] = 'available used free active inactive buffers cached shared wired slab'.split()
 
 FULL_CONFIG: Config = {
     **cast(Config, _DEFAULT_CONFIG),
