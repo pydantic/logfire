@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import sys
-from typing import TYPE_CHECKING, Dict, Iterable, Literal, LiteralString, Optional, cast
+from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
 if TYPE_CHECKING:
+    from typing_extensions import LiteralString
+
     from logfire import Logfire
 
 try:

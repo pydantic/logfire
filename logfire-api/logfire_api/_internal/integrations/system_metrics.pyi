@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from logfire import Logfire as Logfire
-from typing import Iterable, LiteralString
+from typing import Iterable
+from typing_extensions import LiteralString
 
 MetricName: Incomplete
 Config = dict[MetricName, Iterable[str] | None]
