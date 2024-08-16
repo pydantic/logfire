@@ -138,7 +138,7 @@ def test_full_base():
         'process.runtime.cpu.utilization': None,
         'process.runtime.context_switches': ['involuntary', 'voluntary'],
         'process.open_file_descriptor.count': None,
-    }, 'Docs need to be updated if this test fails'
+    }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
 def test_empty_base():
