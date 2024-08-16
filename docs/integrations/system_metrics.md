@@ -16,11 +16,11 @@ logfire.configure()
 logfire.instrument_system_metrics()
 ```
 
-Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics' from the dropdown.
+Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
 
 ## Configuration
 
-By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
+By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
 ```py
 logfire.instrument_system_metrics({
