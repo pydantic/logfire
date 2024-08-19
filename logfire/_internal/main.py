@@ -1258,7 +1258,7 @@ class Logfire:
     ) -> None:
         """Collect system metrics.
 
-        See https://docs.pydantic.dev/logfire/integrations/system_metrics/ for more information.
+        See [the guide](https://docs.pydantic.dev/logfire/integrations/system_metrics/) for more information.
 
         Args:
             config: A dictionary where the keys are metric names
