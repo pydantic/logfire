@@ -24,7 +24,34 @@ except ModuleNotFoundError as e:  # pragma: no cover
         "    pip install 'logfire[system-metrics]'"
     ) from e
 
-MetricName = Literal[
+# stubgen seems to need this redundant type declaration.
+MetricName: type[
+    Literal[
+        'system.cpu.simple_utilization',
+        'system.cpu.time',
+        'system.cpu.utilization',
+        'system.memory.usage',
+        'system.memory.utilization',
+        'system.swap.usage',
+        'system.swap.utilization',
+        'system.disk.io',
+        'system.disk.operations',
+        'system.disk.time',
+        'system.network.dropped.packets',
+        'system.network.packets',
+        'system.network.errors',
+        'system.network.io',
+        'system.network.connections',
+        'system.thread_count',
+        'process.runtime.memory',
+        'process.runtime.cpu.time',
+        'process.runtime.gc_count',
+        'process.runtime.thread_count',
+        'process.runtime.cpu.utilization',
+        'process.runtime.context_switches',
+        'process.open_file_descriptor.count',
+    ]
+] = Literal[  # type: ignore  # but pyright doesn't like it
     'system.cpu.simple_utilization',
     'system.cpu.time',
     'system.cpu.utilization',
