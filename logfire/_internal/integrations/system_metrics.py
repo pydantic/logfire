@@ -144,6 +144,11 @@ def measure_simple_cpu_utilization(logfire_instance: Logfire):
                 # `cpu_num` can be -1 on some platforms according to psutil.
                 if cpu_num >= 0:  # pragma: no branch
                     percents.append(psutil.cpu_percent(percpu=True)[cpu_num])
+
+        # Return the highest of the three values.
+        # This means interpreting the value is not straightforward,
+        # but any unusual activity will show a notable spike, regardless of the infra setup.
+        # psutil returns a value from 0-100, OTEL values here are generally 0-1, so we divide by 100.
         yield Observation(max(percents) / 100)
 
     logfire_instance.metric_gauge_callback(
