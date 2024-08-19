@@ -12,13 +12,16 @@ from tests.test_metrics import get_collected_metrics
 
 
 def get_collected_metric_names(metrics_reader: InMemoryMetricReader) -> list[str]:
-    return sorted(
-        {
-            metric['name']
-            for metric in get_collected_metrics(metrics_reader)
-            if metric['name'] != 'system.network.connections'
-        }
-    )
+    try:
+        return sorted(
+            {
+                metric['name']
+                for metric in get_collected_metrics(metrics_reader)
+                if metric['name'] != 'system.network.connections'
+            }
+        )
+    finally:
+        SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -30,7 +33,6 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
             'system.swap.utilization',
         ]
     )
-    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -61,13 +63,11 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.thread_count',
         ]
     )
-    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics({'system.memory.utilization': ['available']}, base=None)
     assert get_collected_metric_names(metrics_reader) == ['system.memory.utilization']
-    SystemMetricsInstrumentor().uninstrument()  # type: ignore
 
 
 def test_basic_base():
