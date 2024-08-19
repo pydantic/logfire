@@ -36,7 +36,7 @@ jobs:
       # see https://github.com/pydantic/logfire/pull/12
       - run: pip install uv
       - run: uv pip install --system -r requirements.lock -r requirements-dev.lock
-      - run: uv pip install --system -U mkdocs-material mkdocstrings-python
+      - run: uv pip install --system -U mkdocs-material mkdocstrings-python griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
