@@ -32,7 +32,17 @@ logfire.instrument_system_metrics({
 
 1. `None` simply means that there are no fields to configure for this metric.
 
-To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`. This is equivalent to:
+To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
+
+!!! warning
+    The amount of data collected by `base='full'` can be expensive, especially if you have many servers,
+    and this is easy to forget about. Be sure to monitor your usage and costs.
+
+    The most expensive metrics are `system.cpu.utilization/time` which collect data for each core and each mode,
+    and `system.disk.*` which collect data for each disk device. This can result in hundreds of data points per minute.
+    The exact number depends on your machine.
+
+`logfire.instrument_system_metrics(base='full')` is equivalent to:
 
 ```py
 logfire.instrument_system_metrics({
