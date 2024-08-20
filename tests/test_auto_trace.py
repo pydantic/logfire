@@ -171,14 +171,23 @@ def test_check_already_imported() -> None:
     # because we don't want anything to get auto-traced here.
     imported_modules = set(sys.modules.items())
 
+    meta_path = sys.meta_path.copy()
+
     with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests.*' matches modules to trace"):
         install_auto_tracing(['tests'])
+
+    with pytest.raises(ValueError):
+        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
+
+    # No tracing installed.
+    assert sys.meta_path == meta_path
 
     with pytest.warns(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests.*' matches modules to trace"):
         install_auto_tracing(['tests'], check_imported_modules='warn')
 
-    with pytest.raises(ValueError):
-        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
+    # The tracing was installed, undo it.
+    assert sys.meta_path[1:] == meta_path
+    sys.meta_path = meta_path
 
     assert set(sys.modules.items()) == imported_modules
 
