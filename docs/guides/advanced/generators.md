@@ -90,6 +90,8 @@ Traceback (most recent call last):
 ValueError: <Token var=<ContextVar name='current_context' default={} at 0x10afa3f60> at 0x10de034c0> was created in a different Context
 ```
 
+This is why generator functions are not traced by [`logfire.install_auto_tracing()`][logfire.Logfire.install_auto_tracing].
+
 ## What you can do
 
 ### Move the span outside the generator
