@@ -24,11 +24,13 @@ By default, `instrument_system_metrics` collects only the metrics it needs to di
 
 ```py
 logfire.instrument_system_metrics({
-    'system.cpu.simple_utilization': None,
+    'system.cpu.simple_utilization': None,  # (1)!
     'system.memory.utilization': ['available'],
     'system.swap.utilization': ['used'],
 })
 ```
+
+1. `None` simply means that there are no fields to configure for this metric.
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`. This is equivalent to:
 
