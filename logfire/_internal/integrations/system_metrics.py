@@ -137,7 +137,7 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
     if 'system.cpu.simple_utilization' in config:
         measure_simple_cpu_utilization(logfire_instance)
 
-    if 'process.runtime.cpu.utilization':
+    if 'process.runtime.cpu.utilization' in config:
         with suppress(Exception):
             # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/2797#issuecomment-2298749008
             # The first call to cpu_percent() returns 0 every time,
