@@ -40,11 +40,11 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
 
 !!! warning
     The amount of data collected by `base='full'` can be expensive, especially if you have many servers,
-    and this is easy to forget about. Be sure to monitor your usage and costs.
+    and this is easy to forget about. If you enable this, be sure to monitor your usage and costs.
 
     The most expensive metrics are `system.cpu.utilization/time` which collect data for each core and each mode,
-    and `system.disk.*` which collect data for each disk device. This can result in hundreds of data points per minute.
-    The exact number depends on your machine.
+    and `system.disk.*` which collect data for each disk device. The exact number depends on the machine hardware,
+    but this can result in hundreds of data points per minute from each instrumented host.
 
 `logfire.instrument_system_metrics(base='full')` is equivalent to:
 
@@ -77,7 +77,7 @@ logfire.instrument_system_metrics({
 
 Each key here is a metric name. The values have different meanings for different metrics. For example, for `system.cpu.utilization`, the value is a list of CPU modes. So there will be a separate row for each CPU core saying what percentage of time it spent idle, another row for the time spent waiting for IO, etc. There are no fields to configure for `system.thread_count`, so the value is `None`.
 
-The first dict argument is merged with the base. For example, if you want to collect disk read operations (but not writes) you can write:
+For convenient customizability, the first dict argument is merged with the base. For example, if you want to collect disk read operations (but not writes) you can write:
 
 - `logfire.instrument_system_metrics({'system.disk.operations': ['read']})` to collect that data in addition to the basic defaults.
 - `logfire.instrument_system_metrics({'system.disk.operations': ['read']}, base='full')` to collect detailed data about all metrics, excluding disk write operations.
