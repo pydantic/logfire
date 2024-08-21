@@ -24,13 +24,17 @@ By default, `instrument_system_metrics` collects only the metrics it needs to di
 
 ```py
 logfire.instrument_system_metrics({
-    'system.cpu.simple_utilization': None,  # (1)!
-    'system.memory.utilization': ['available'],
-    'system.swap.utilization': ['used'],
+    'process.runtime.cpu.utilization': None,  # (1)!
+    'system.cpu.simple_utilization': None,  # (2)!
+    'system.memory.utilization': ['available'],  # (3)!
+    'system.swap.utilization': ['used'],  # (4)!
 })
 ```
 
-1. `None` simply means that there are no fields to configure for this metric.
+1. `process.runtime.cpu.utilization` is a name recognized by the OpenTelemetry library. The actual name of the metric exported will be `process.runtime.cpython.cpu.utilization` or a similar name depending on the Python implementation used. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.Process().cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent), i.e. the percentage of CPU time used by this process, where 100 means using 100% of a single CPU core. The value can be greater than 100 if the process uses multiple cores.
+2. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.cpu_percent), i.e. the fraction of CPU time used by the whole system, where 1 means using 100% of all CPU cores.
+3. The value here is a list of 'modes' of memory. The full list can be seen in the [`psutil` documentation](https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory). `available` is "the memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory metrics that vary depending on the platform. It is supposed to be used to monitor actual memory usage in a cross platform fashion." The value of the metric is a number between 0 and 1, and subtracting the value from 1 gives the fraction of memory used.
+4. This is the fraction of available swap used. The value is a number between 0 and 1.
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
 
