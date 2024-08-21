@@ -53,12 +53,10 @@ from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
-from .collect_system_info import collect_package_info
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
-    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
     LevelName,
 )
 from .exporters.console import (
@@ -583,8 +581,10 @@ class LogfireConfig(_LogfireConfigData):
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
-                RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
                 ResourceAttributes.PROCESS_PID: os.getpid(),
+                # Having this giant blob of data associated with every span/metric causes various problems so it's
+                # disabled for now, but we may want to re-enable something like it in the future
+                # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
