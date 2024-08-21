@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import sys
 from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
 
@@ -108,6 +107,7 @@ if sys.platform == 'darwin':  # pragma: no cover
     FULL_CONFIG.pop('system.network.connections', None)
 
 BASIC_CONFIG: Config = {
+    'process.runtime.cpu.utilization': None,
     'system.cpu.simple_utilization': None,
     # The actually used memory ratio can be calculated as `1 - available`.
     'system.memory.utilization': ['available'],
@@ -137,53 +137,13 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
 
 
 def measure_simple_cpu_utilization(logfire_instance: Logfire):
-    # The values of `process.cpu_percent()` are relative to the last time it was called.
-    # In particular, the first call will always return 0.
-    # So we need to call it once before we start measuring the actual utilization,
-    # and we need to use the same process object for all calls.
-    # TODO a similar problem exists with `psutil.cpu_percent()`
-    #   and thus for the OTEL instrumentation as well, and there it's harder to fix because
-    #   the previous values are separated by thread.
-    #   See https://github.com/open-telemetry/opentelemetry-python-contrib/issues/2797
-    process = psutil.Process()
-    process.cpu_percent()
-
     def callback(_options: CallbackOptions) -> Iterable[Observation]:
-        percents: list[float] = [
-            # Average CPU usage across all cores.
-            # A high value is notable regardless of which core(s) this process is using.
-            psutil.cpu_percent(),
-            # CPU usage of this particular process.
-            # Can be greater than 100% if the process is using multiple cores.
-            # Will be less than 100% if multiple processes are using the same core,
-            # even if this process is using it at full capacity.
-            process.cpu_percent(),
-        ]
-        # CPU usage of the core this process is using, if available.
-        # This will be higher than `process.cpu_percent()` if multiple processes are using the same core.
-        # This requires `process.cpu_num()` which is only available on Linux,
-        # so we need to suppress the exception on other platforms.
-        with contextlib.suppress(Exception):
-            # Whether `Process.cpu_num` exists depends on the platform, and this affects pyright.
-            # So we can't use `# type: ignore` here, because on Linux it's not needed.
-            if not TYPE_CHECKING:  # pragma: no branch
-                cpu_num = process.cpu_num()
-                # `cpu_num` can be -1 on some platforms according to psutil.
-                if cpu_num >= 0:  # pragma: no branch
-                    percents.append(psutil.cpu_percent(percpu=True)[cpu_num])
-
-        # Return the highest of the three values.
-        # This means interpreting the value is not straightforward,
-        # but any unusual activity will show a notable spike, regardless of the infra setup.
         # psutil returns a value from 0-100, OTEL values here are generally 0-1, so we divide by 100.
-        yield Observation(max(percents) / 100)
+        yield Observation(psutil.cpu_percent() / 100)
 
     logfire_instance.metric_gauge_callback(
         'system.cpu.simple_utilization',
         [callback],
-        description='Maximum of: '
-        '(1) average CPU usage across all cores, '
-        '(2) CPU usage of this process, '
-        '(3) CPU usage of the core this process is using, if available.',
+        description='Average CPU usage across all cores, as a fraction between 0 and 1.',
         unit='1',
     )

@@ -28,6 +28,7 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     logfire.instrument_system_metrics()
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
+            'process.runtime.cpython.cpu.utilization',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
             'system.swap.utilization',
@@ -72,6 +73,7 @@ def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) 
 
 def test_basic_base():
     assert get_base_config('basic') == {
+        'process.runtime.cpu.utilization': None,
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
