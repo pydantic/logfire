@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import suppress
 from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
@@ -130,10 +131,18 @@ def get_base_config(base: Base) -> Config:
 
 def instrument_system_metrics(logfire_instance: Logfire, config: Config | None = None, base: Base = 'basic'):
     config = {**get_base_config(base), **(config or {})}
-    SystemMetricsInstrumentor(config=config).instrument()  # type: ignore
+    instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
+    instrumentor.instrument()  # type: ignore
 
     if 'system.cpu.simple_utilization' in config:
         measure_simple_cpu_utilization(logfire_instance)
+
+    if 'process.runtime.cpu.utilization':
+        with suppress(Exception):
+            # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/2797#issuecomment-2298749008
+            # The first call to cpu_percent() returns 0 every time,
+            # so do that first call here rather than in the metric exporter to get meaningful values.
+            instrumentor._proc.cpu_percent()  # type: ignore
 
 
 def measure_simple_cpu_utilization(logfire_instance: Logfire):
