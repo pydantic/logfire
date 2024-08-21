@@ -88,10 +88,10 @@ nav:
           - Alternative Backends: guides/advanced/alternative_backends.md
           - Sampling: guides/advanced/sampling.md
           - Scrubbing: guides/advanced/scrubbing.md
+          - Generators: guides/advanced/generators.md
           - Testing: guides/advanced/testing.md
           - Backfill: guides/advanced/backfill.md
           - Creating Write Tokens: guides/advanced/creating_write_tokens.md
-          - Direct Database Connections: guides/advanced/direct_database_connections.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
