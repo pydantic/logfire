@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import inspect
+import types
 import uuid
 from dataclasses import dataclass
 from functools import partial
@@ -94,6 +96,12 @@ class AutoTraceTransformer(BaseTransformer):
 
         return super().visit_FunctionDef(node)
 
+    def rewrite_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.AST:
+        if is_generator_function(node):
+            return node
+
+        return super().rewrite_function(node, qualname)
+
     def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
         # See the exec_source docstring
         index = len(self.context_factories)
@@ -158,3 +166,15 @@ def no_auto_trace(x: T) -> T:
     This decorator simply returns the argument unchanged, so there is zero runtime overhead.
     """
     return x  # pragma: no cover
+
+
+GENERATOR_CODE_FLAGS = inspect.CO_GENERATOR | inspect.CO_ASYNC_GENERATOR
+
+
+def is_generator_function(func_def: ast.FunctionDef | ast.AsyncFunctionDef):
+    module_node = ast.parse('')
+    module_node.body = [func_def]
+    code = compile(module_node, '<string>', 'exec')
+    return any(
+        isinstance(const, types.CodeType) and (const.co_flags & GENERATOR_CODE_FLAGS) for const in code.co_consts
+    )
