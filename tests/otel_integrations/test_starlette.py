@@ -33,7 +33,7 @@ def app():
 
     app = Starlette(routes=routes)
     try:
-        logfire.instrument_starlette(app, capture_headers=True)
+        logfire.instrument_starlette(app, capture_headers=True, record_send_receive=True)
         yield app
     finally:
         StarletteInstrumentor.uninstrument_app(app)
