@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from contextlib import suppress
+from platform import python_implementation
 from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
@@ -131,18 +131,17 @@ def get_base_config(base: Base) -> Config:
 
 def instrument_system_metrics(logfire_instance: Logfire, config: Config | None = None, base: Base = 'basic'):
     config = {**get_base_config(base), **(config or {})}
-    instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
-    instrumentor.instrument()  # type: ignore
 
     if 'system.cpu.simple_utilization' in config:
         measure_simple_cpu_utilization(logfire_instance)
 
     if 'process.runtime.cpu.utilization' in config:
-        with suppress(Exception):
-            # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/2797#issuecomment-2298749008
-            # The first call to cpu_percent() returns 0 every time,
-            # so do that first call here rather than in the metric exporter to get meaningful values.
-            instrumentor._proc.cpu_percent()  # type: ignore
+        # Override OTEL here, see comment in measure_process_runtime_cpu_utilization.<locals>.callback.
+        measure_process_runtime_cpu_utilization(logfire_instance)
+        del config['process.runtime.cpu.utilization']
+
+    instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
+    instrumentor.instrument()  # type: ignore
 
 
 def measure_simple_cpu_utilization(logfire_instance: Logfire):
@@ -154,5 +153,27 @@ def measure_simple_cpu_utilization(logfire_instance: Logfire):
         'system.cpu.simple_utilization',
         [callback],
         description='Average CPU usage across all cores, as a fraction between 0 and 1.',
+        unit='1',
+    )
+
+
+def measure_process_runtime_cpu_utilization(logfire_instance: Logfire):
+    process = psutil.Process()
+    # This first call always returns 0, do it here so that the first real measurement from an exporter
+    # will return a nonzero value.
+    process.cpu_percent()
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        # psutil returns a value from 0-100, OTEL values here are generally 0-1, so we divide by 100.
+        # OTEL got this wrong: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/2810
+        # A fix has been merged there, but we need to know in the dashboard how to interpret the values.
+        # So the dashboard will assume a 0-100 range if the scope is 'opentelemetry.instrumentation.system_metrics',
+        # and a 0-1 range otherwise. In particular the scope will be 'logfire' if it comes from here.
+        yield Observation(process.cpu_percent() / 100)
+
+    logfire_instance.metric_gauge_callback(
+        f'process.runtime.{python_implementation().lower()}.cpu.utilization',
+        [callback],
+        description='Runtime CPU utilization',
         unit='1',
     )
