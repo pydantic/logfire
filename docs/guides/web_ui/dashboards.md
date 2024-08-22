@@ -29,7 +29,8 @@ This dashboard shows essential system resource utilization metrics. It comes in 
 Both variants include the following metrics:
 
 * **Number of Processes:** Total number of running processes on the system.
-* **CPU Usage %:** Percentage of processing power utilized by the system.
+* **System CPU usage %:** Percentage of total available processing power utilized by the whole system, i.e. the average across all CPU cores.
+* **Process CPU usage %:** CPU used by a single process, where e.g. using 2 CPU cores to full capacity would result in a value of 200%.
 * **Memory Usage %:** Percentage of memory currently in use by the system.
 * **Swap Usage %:** Percentage of swap space currently in use by the system.
 
