@@ -1,6 +1,7 @@
 import ast
 from ..ast_utils import BaseTransformer as BaseTransformer, LogfireArgs as LogfireArgs
 from ..main import Logfire as Logfire
+from _typeshed import Incomplete
 from dataclasses import dataclass
 from typing import Any, Callable, ContextManager, TypeVar
 
@@ -31,6 +32,7 @@ class AutoTraceTransformer(BaseTransformer):
         """Return true if the node has a `@no_auto_trace` or `@logfire.no_auto_trace` decorator."""
     def visit_ClassDef(self, node: ast.ClassDef): ...
     def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef): ...
+    def rewrite_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.AST: ...
     def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call: ...
 T = TypeVar('T')
 
@@ -49,3 +51,7 @@ def no_auto_trace(x: T) -> T:
 
     This decorator simply returns the argument unchanged, so there is zero runtime overhead.
     """
+
+GENERATOR_CODE_FLAGS: Incomplete
+
+def is_generator_function(func_def: ast.FunctionDef | ast.AsyncFunctionDef): ...

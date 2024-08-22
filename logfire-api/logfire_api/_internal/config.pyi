@@ -13,6 +13,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendin
 from .exporters.tail_sampling import TailSamplingOptions as TailSamplingOptions, TailSamplingProcessor as TailSamplingProcessor
 from .exporters.test import TestExporter as TestExporter
 from .integrations.executors import instrument_executors as instrument_executors
+from .main import FastLogfireSpan as FastLogfireSpan, LogfireSpan as LogfireSpan
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubCallback as ScrubCallback, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
@@ -31,7 +32,9 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
 from typing_extensions import Self
+from weakref import WeakSet
 
+OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan]
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
@@ -80,7 +83,7 @@ def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = No
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://logfire-api.pydantic.dev.
-        collect_system_metrics: Legacy argument, use `logfire.instrument_system_metrics()` instead.
+        collect_system_metrics: Legacy argument, use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) instead.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
