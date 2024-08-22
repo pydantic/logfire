@@ -21,7 +21,13 @@ from ..constants import (
 )
 from ..db_statement_summary import message_from_db_statement
 from ..scrubbing import BaseScrubber
-from ..utils import ReadableSpanDict, is_instrumentation_suppressed, span_to_dict, truncate_string
+from ..utils import (
+    ReadableSpanDict,
+    is_asgi_send_receive_span_name,
+    is_instrumentation_suppressed,
+    span_to_dict,
+    truncate_string,
+)
 from .wrapper import WrapperSpanProcessor
 
 
@@ -143,7 +149,7 @@ def _is_asgi_send_receive_span(name: str, instrumentation_scope: Instrumentation
             'opentelemetry.instrumentation.starlette',
             'opentelemetry.instrumentation.fastapi',
         )
-    ) and (name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive')))
+    ) and is_asgi_send_receive_span_name(name)
 
 
 def _tweak_http_spans(span: ReadableSpanDict):
