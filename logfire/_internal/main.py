@@ -781,11 +781,13 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        This will trace all function calls in the modules specified by the modules argument.
+        This will trace all non-generator function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
 
         !!! note
             This function MUST be called before any of the modules to be traced are imported.
+
+            Generator functions will not be traced for reasons explained [here](https://docs.pydantic.dev/logfire/guides/advanced/generators/).
 
         This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
         may prevent it from working.
