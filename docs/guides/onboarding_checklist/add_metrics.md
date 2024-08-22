@@ -1,6 +1,16 @@
 **Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
-Let's see how to create, and use metrics in your application.
+Metrics are a great way to record numerical values where you want to see an aggregation of the data (e.g. over time),
+rather than the individual values.
+
+## System Metrics
+
+The easiest way to start using metrics is to enable system metrics.
+See the [System Metrics][system-metrics] documentation to learn more.
+
+## Manual Metrics
+
+Let's see how to create and use custom metrics in your application.
 
 ```py
 import logfire
@@ -12,11 +22,6 @@ messages_sent = logfire.metric_counter('messages_sent')
 def send_message():
     messages_sent.add(1)
 ```
-
-## Metric Types
-
-Metrics are a great way to record number values where you want to see an aggregation of the data (e.g. over time),
-rather than the individual values.
 
 ### Counter
 
@@ -249,18 +254,6 @@ logfire.metric_up_down_counter_callback(
 ```
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-callback-metric].
-
-## System Metrics
-
-By default, **Logfire** does not collect system metrics.
-
-To enable metrics, you need just need install the `logfire[system-metrics]` extra:
-
-{{ install_logfire(extras=['system-metrics']) }}
-
-**Logfire** will automatically collect system metrics if the `logfire[system-metrics]` extra is installed.
-
-To know more about which system metrics are collected, check the [System Metrics][system-metrics] documentation.
 
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram

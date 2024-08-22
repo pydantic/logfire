@@ -16,28 +16,6 @@ import logfire._internal.metrics
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 
 
-def test_system_metrics_collection() -> None:
-    metrics_reader = InMemoryMetricReader()
-    logfire.configure(
-        send_to_logfire=False,
-        additional_metric_readers=[metrics_reader],
-        # i.e. use the default value, in contrast to `False` which the automatic test fixture uses.
-        collect_system_metrics=None,
-    )
-    metrics_collected = {metric['name'] for metric in get_collected_metrics(metrics_reader)}
-
-    # collected metrics vary by platform, etc.
-    # assert that we at least collected _some_ of the metrics we expect
-    assert metrics_collected.issuperset(
-        {
-            'system.swap.usage',
-            'system.disk.operations',
-            'system.memory.usage',
-            'system.cpu.utilization',
-        }
-    ), metrics_collected
-
-
 def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
     counter = logfire.metric_counter('counter')
     counter.add(1)
@@ -327,8 +305,7 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
 def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
     exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
     [resource_metric] = exported_metrics['resource_metrics']
-    [scope_metric] = resource_metric['scope_metrics']
-    return scope_metric['metrics']
+    return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]
 
 
 def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
