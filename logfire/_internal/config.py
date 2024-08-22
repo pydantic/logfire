@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import atexit
 import dataclasses
 import functools
 import json
@@ -13,9 +14,10 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from threading import RLock, Thread
-from typing import Any, Callable, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, cast
 from urllib.parse import urljoin
 from uuid import uuid4
+from weakref import WeakSet
 
 import requests
 from opentelemetry import metrics, trace
@@ -80,6 +82,12 @@ from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, 
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
+
+if TYPE_CHECKING:
+    from .main import FastLogfireSpan, LogfireSpan
+
+# NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
+OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -766,6 +774,15 @@ class LogfireConfig(_LogfireConfigData):
                 self._has_set_providers = True
                 trace.set_tracer_provider(self._tracer_provider)
                 metrics.set_meter_provider(self._meter_provider)
+
+            @atexit.register
+            def _exit_open_spans():  # type: ignore[reportUnusedFunction]  # pragma: no cover
+                # Ensure that all open spans are closed when the program exits.
+                # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+                # Registering this callback here after the OTEL one means that this runs first.
+                # Otherwise OTEL would log an error "Already shutdown, dropping span."
+                for span in list(OPEN_SPANS):
+                    span.__exit__(None, None, None)
 
             self._initialized = True
 

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import atexit
 import inspect
 import sys
 import traceback
 import warnings
-from functools import cached_property, partial
+from functools import cached_property
 from time import time
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
 
@@ -21,7 +20,7 @@ from typing_extensions import LiteralString, ParamSpec
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
-from .config import GLOBAL_CONFIG, LogfireConfig
+from .config import GLOBAL_CONFIG, OPEN_SPANS, LogfireConfig
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -1577,20 +1576,20 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    __slots__ = ('_span', '_token', '_atexit')
+    # __weakref__ is needed for the OPEN_SPANS WeakSet.
+    __slots__ = ('_span', '_token', '__weakref__')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
-        self._atexit = partial(self.__exit__, None, None, None)
-        atexit.register(self._atexit)
+        OPEN_SPANS.add(self)
 
     def __enter__(self) -> FastLogfireSpan:
         return self
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        atexit.unregister(self._atexit)
+        OPEN_SPANS.remove(self)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
         self._span.end()
@@ -1615,7 +1614,6 @@ class LogfireSpan(ReadableSpan):
         self._token: None | object = None
         self._span: None | trace_api.Span = None
         self.end_on_exit = True
-        self._atexit: Callable[[], None] | None = None
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -1633,8 +1631,7 @@ class LogfireSpan(ReadableSpan):
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
-            self._atexit = partial(self.__exit__, None, None, None)
-            atexit.register(self._atexit)
+            OPEN_SPANS.add(self)
 
         return self
 
@@ -1643,8 +1640,7 @@ class LogfireSpan(ReadableSpan):
         if self._token is None:  # pragma: no cover
             return
 
-        if self._atexit:  # pragma: no branch
-            atexit.unregister(self._atexit)
+        OPEN_SPANS.remove(self)
 
         context_api.detach(self._token)
         self._token = None
@@ -1655,8 +1651,6 @@ class LogfireSpan(ReadableSpan):
         end_on_exit_ = self.end_on_exit
         if end_on_exit_:
             self.end()
-
-        self._token = None
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
