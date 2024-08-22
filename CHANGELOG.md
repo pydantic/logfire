@@ -1,5 +1,19 @@
 # Release Notes
 
+## [v0.51.0] (2024-08-22)
+
+### BREAKING CHANGES
+
+* **System metrics are no longer collected by default** when the correct dependency is installed. Use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) to enable system metrics collection. **If you are simply using the old 'Basic System Metrics' dashboard, then no further code changes are required, but that dashboard will no longer work properly and you should create a new dashboard from the template named 'Basic System Metrics (Logfire)'**. If you were using other collected metrics, see the documentation for how to collect those. By @alexmojaki in https://github.com/pydantic/logfire/pull/373
+* Stop collecting package versions by @alexmojaki in https://github.com/pydantic/logfire/pull/387
+* Don't auto-trace generators by @alexmojaki in https://github.com/pydantic/logfire/pull/386
+* Disable ASGI send/receive spans by default by @alexmojaki in https://github.com/pydantic/logfire/pull/371
+
+### Other fixes
+
+* Add py.typed file to logfire-api by @jackmpcollins in https://github.com/pydantic/logfire/pull/379
+* Check `LambdaRuntimeClient` before logging tracebacks in `_ensure_flush_after_aws_lambda` by @alexmojaki in https://github.com/pydantic/logfire/pull/388
+
 ## [v0.50.1] (2024-08-06)
 
 (Previously released as `v0.50.0`, then yanked due to https://github.com/pydantic/logfire/issues/367)
@@ -252,6 +266,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
 [v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
 [v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
 [v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
