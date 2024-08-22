@@ -1,6 +1,6 @@
 # Auto-tracing
 
-The [`logfire.install_auto_tracing`][logfire.Logfire.install_auto_tracing]
+The [`logfire.install_auto_tracing()`][logfire.Logfire.install_auto_tracing] method
 will trace all function calls in the specified modules.
 
 This works by changing how those modules are imported,
@@ -20,6 +20,9 @@ from app.main import main
 
 main()
 ```
+
+!!! note
+    Generator functions will not be traced for reasons explained [here](../advanced/generators.md).
 
 ## Filtering modules to trace
 

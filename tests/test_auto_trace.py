@@ -86,44 +86,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling tests.auto_trace_samples.foo.gen (pending)',
-                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 123,
-                    'code.function': 'gen',
-                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.span_type': 'pending_span',
-                    'logfire.tags': ('auto-trace',),
-                    'logfire.pending_parent_id': '0000000000000003',
-                },
-            },
-            {
-                'name': 'Calling tests.auto_trace_samples.foo.gen',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 123,
-                    'code.function': 'gen',
-                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.span_type': 'span',
-                    'logfire.tags': ('auto-trace',),
-                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
-                },
-            },
-            {
                 'name': 'Calling async_gen via @instrument',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 5000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
@@ -138,7 +105,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 7000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
@@ -152,7 +119,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 6000000000,
+                        'timestamp': 4000000000,
                         'attributes': {
                             'exception.type': 'IndexError',
                             'exception.message': 'list index out of range',
@@ -450,6 +417,26 @@ def test_no_auto_trace():
         get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '@other.no_auto_trace'))
         == all_calling_strings
     )
+
+
+# language=Python
+generators_sample = """
+def make_gen():
+    def gen():
+        async def foo():
+            async def bar():
+                pass
+            yield bar()
+        yield from foo()
+    return gen
+"""
+
+
+def test_generators():
+    assert get_calling_strings(generators_sample) == {
+        'Calling module.name.make_gen',
+        'Calling module.name.make_gen.<locals>.gen.<locals>.foo.<locals>.bar',
+    }
 
 
 def test_min_duration(exporter: TestExporter):
