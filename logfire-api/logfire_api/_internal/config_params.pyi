@@ -9,7 +9,6 @@ from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
-COLLECT_SYSTEM_METRICS_DEFAULT: bool
 T = TypeVar('T')
 slots_true: Incomplete
 PydanticPluginRecordValues: Incomplete
@@ -38,7 +37,6 @@ SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
 SHOW_SUMMARY: Incomplete
 CREDENTIALS_DIR: Incomplete
-COLLECT_SYSTEM_METRICS: Incomplete
 CONSOLE: Incomplete
 CONSOLE_COLORS: Incomplete
 CONSOLE_SPAN_STYLE: Incomplete

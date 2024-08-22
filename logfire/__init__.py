@@ -39,6 +39,7 @@ instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
+instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
@@ -115,6 +116,7 @@ __all__ = (
     'instrument_redis',
     'instrument_pymongo',
     'instrument_mysql',
+    'instrument_system_metrics',
     'AutoTraceModule',
     'with_tags',
     'with_settings',

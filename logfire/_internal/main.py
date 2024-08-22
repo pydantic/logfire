@@ -74,6 +74,7 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
+    from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
 
     # This is the type of the exc_info/_exc_info parameter of the log methods.
@@ -780,11 +781,13 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        This will trace all function calls in the modules specified by the modules argument.
+        This will trace all non-generator function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
 
         !!! note
             This function MUST be called before any of the modules to be traced are imported.
+
+            Generator functions will not be traced for reasons explained [here](https://docs.pydantic.dev/logfire/guides/advanced/generators/).
 
         This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
         may prevent it from working.
@@ -1273,6 +1276,24 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_mysql(conn, **kwargs)
+
+    def instrument_system_metrics(
+        self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'
+    ) -> None:
+        """Collect system metrics.
+
+        See [the guide](https://docs.pydantic.dev/logfire/integrations/system_metrics/) for more information.
+
+        Args:
+            config: A dictionary where the keys are metric names
+                and the values are optional further configuration for that metric.
+            base: A string indicating the base config dictionary which `config` will be merged with,
+                or `None` for an empty base config.
+        """
+        from .integrations.system_metrics import instrument_system_metrics
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_system_metrics(self, config, base)
 
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.
