@@ -86,44 +86,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling tests.auto_trace_samples.foo.gen (pending)',
-                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 123,
-                    'code.function': 'gen',
-                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.span_type': 'pending_span',
-                    'logfire.tags': ('auto-trace',),
-                    'logfire.pending_parent_id': '0000000000000003',
-                },
-            },
-            {
-                'name': 'Calling tests.auto_trace_samples.foo.gen',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'foo.py',
-                    'code.lineno': 123,
-                    'code.function': 'gen',
-                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.gen',
-                    'logfire.span_type': 'span',
-                    'logfire.tags': ('auto-trace',),
-                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.gen',
-                },
-            },
-            {
                 'name': 'Calling async_gen via @instrument',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 5000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
@@ -138,7 +105,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 7000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
@@ -152,7 +119,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 6000000000,
+                        'timestamp': 4000000000,
                         'attributes': {
                             'exception.type': 'IndexError',
                             'exception.message': 'list index out of range',
@@ -171,14 +138,23 @@ def test_check_already_imported() -> None:
     # because we don't want anything to get auto-traced here.
     imported_modules = set(sys.modules.items())
 
+    meta_path = sys.meta_path.copy()
+
     with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests.*' matches modules to trace"):
         install_auto_tracing(['tests'])
+
+    with pytest.raises(ValueError):
+        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
+
+    # No tracing installed.
+    assert sys.meta_path == meta_path
 
     with pytest.warns(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests.*' matches modules to trace"):
         install_auto_tracing(['tests'], check_imported_modules='warn')
 
-    with pytest.raises(ValueError):
-        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
+    # The tracing was installed, undo it.
+    assert sys.meta_path[1:] == meta_path
+    sys.meta_path = meta_path
 
     assert set(sys.modules.items()) == imported_modules
 
@@ -441,6 +417,26 @@ def test_no_auto_trace():
         get_calling_strings(no_auto_trace_sample.replace('@no_auto_trace', '@other.no_auto_trace'))
         == all_calling_strings
     )
+
+
+# language=Python
+generators_sample = """
+def make_gen():
+    def gen():
+        async def foo():
+            async def bar():
+                pass
+            yield bar()
+        yield from foo()
+    return gen
+"""
+
+
+def test_generators():
+    assert get_calling_strings(generators_sample) == {
+        'Calling module.name.make_gen',
+        'Calling module.name.make_gen.<locals>.gen.<locals>.foo.<locals>.bar',
+    }
 
 
 def test_min_duration(exporter: TestExporter):

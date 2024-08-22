@@ -8,12 +8,6 @@ from typing import Any, Generic, Sequence, TypeVar
 from weakref import WeakSet
 
 Gauge: Incomplete
-CPU_FIELDS: Incomplete
-MEMORY_FIELDS: Incomplete
-DEFAULT_CONFIG: Incomplete
-INSTRUMENTOR: Incomplete
-
-def configure_metrics(meter_provider: MeterProvider) -> None: ...
 
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):

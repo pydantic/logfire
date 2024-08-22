@@ -18,6 +18,7 @@ from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKw
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
+from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -367,7 +368,7 @@ class Logfire:
                 Otherwise, the first time(s) each function is called, it will be timed but not traced.
                 Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Args:
@@ -397,6 +398,10 @@ class Logfire:
                 will also instrument the app.
 
                 See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
+            record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
@@ -587,10 +592,15 @@ class Logfire:
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
         library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
         """
-    def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
+    def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Set `capture_headers` to `True` to capture all request and response headers.
+
+        Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+        These are disabled by default to reduce overhead and the number of spans created,
+        since many can be created for a single request, and they are not often useful.
+        If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
 
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
@@ -642,6 +652,17 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
 
+        """
+    def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
+        """Collect system metrics.
+
+        See [the guide](https://docs.pydantic.dev/logfire/integrations/system_metrics/) for more information.
+
+        Args:
+            config: A dictionary where the keys are metric names
+                and the values are optional further configuration for that metric.
+            base: A string indicating the base config dictionary which `config` will be merged with,
+                or `None` for an empty base config.
         """
     def metric_counter(self, name: str, *, unit: str = '', description: str = '') -> Counter:
         """Create a counter metric.

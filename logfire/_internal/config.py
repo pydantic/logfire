@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import warnings
+from contextlib import suppress
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -76,7 +77,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
-from .metrics import ProxyMeterProvider, configure_metrics
+from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
@@ -156,7 +157,7 @@ def configure(
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
     base_url: str | None = None,
-    collect_system_metrics: bool | None = None,
+    collect_system_metrics: None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: None = None,
@@ -198,8 +199,7 @@ def configure(
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://logfire-api.pydantic.dev.
-        collect_system_metrics: Whether to collect system metrics like CPU and memory usage. If `None` uses the `LOGFIRE_COLLECT_SYSTEM_METRICS` environment variable,
-            otherwise defaults to `True`.
+        collect_system_metrics: Legacy argument, use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) instead.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
@@ -234,6 +234,19 @@ def configure(
             'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
+
+    if collect_system_metrics is False:
+        raise ValueError(
+            'The `collect_system_metrics` argument has been removed. '
+            'System metrics are no longer collected by default.'
+        )
+
+    if collect_system_metrics is not None:
+        raise ValueError(
+            'The `collect_system_metrics` argument has been removed. '
+            'Use `logfire.instrument_system_metrics()` instead.'
+        )
+
     if scrubbing_callback or scrubbing_patterns:
         if scrubbing is not None:
             raise ValueError(
@@ -259,7 +272,6 @@ def configure(
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
-        collect_system_metrics=collect_system_metrics,
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
         additional_span_processors=additional_span_processors,
@@ -319,9 +331,6 @@ class _LogfireConfigData:
     data_dir: Path
     """The directory to store Logfire config in"""
 
-    collect_system_metrics: bool
-    """Whether to collect system metrics like CPU and memory usage"""
-
     id_generator: IdGenerator
     """The ID generator to use"""
 
@@ -365,7 +374,6 @@ class _LogfireConfigData:
         show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
-        collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
@@ -389,7 +397,6 @@ class _LogfireConfigData:
         self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
-        self.collect_system_metrics = param_manager.load_param('collect_system_metrics', collect_system_metrics)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
@@ -469,7 +476,6 @@ class LogfireConfig(_LogfireConfigData):
         show_summary: bool | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
-        collect_system_metrics: bool | None = None,
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
         additional_span_processors: Sequence[SpanProcessor] | None = None,
@@ -501,7 +507,6 @@ class LogfireConfig(_LogfireConfigData):
             show_summary=show_summary,
             config_dir=config_dir,
             data_dir=data_dir,
-            collect_system_metrics=collect_system_metrics,
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
             additional_span_processors=additional_span_processors,
@@ -537,7 +542,6 @@ class LogfireConfig(_LogfireConfigData):
         show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
-        collect_system_metrics: bool | None,
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
@@ -563,7 +567,6 @@ class LogfireConfig(_LogfireConfigData):
                 show_summary,
                 config_dir,
                 data_dir,
-                collect_system_metrics,
                 id_generator,
                 ns_timestamp_generator,
                 additional_span_processors,
@@ -759,8 +762,6 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 ],
             )
-            if self.collect_system_metrics:
-                configure_metrics(meter_provider)
 
             # we need to shut down any existing providers to avoid leaking resources (like threads)
             # but if this takes longer than 100ms you should call `logfire.shutdown` before reconfiguring
@@ -879,15 +880,26 @@ class LogfireConfig(_LogfireConfigData):
                 client = getattr(mod, 'LambdaRuntimeClient', None)
             except Exception:  # pragma: no cover
                 continue
-            if not client:  # pragma: no branch
+            if not client:
                 continue
             try:  # pragma: no cover
                 client.post_invocation_error = wrap_client_post_invocation_method(client.post_invocation_error)
                 client.post_invocation_result = wrap_client_post_invocation_method(client.post_invocation_result)
-            except Exception:  # pragma: no cover
+            except Exception as e:  # pragma: no cover
+                with suppress(Exception):
+                    # client is likely some random object from a dynamic module unrelated to AWS lambda.
+                    # If it doesn't look like the LambdaRuntimeClient class, ignore this error.
+                    # We don't check this beforehand so that if the lambda runtime library changes
+                    # LambdaRuntimeClient to some object other than a class,
+                    # or something else patches it with some kind of wrapper,
+                    # our patching still has some chance of working.
+                    # But we also don't want to log spurious noisy tracebacks.
+                    if not (isinstance(client, type) and client.__name__ == 'LambdaRuntimeClient'):
+                        continue
+
                 import traceback
 
-                traceback.print_exc()
+                traceback.print_exception(e)
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:

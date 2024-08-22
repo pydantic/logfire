@@ -124,7 +124,7 @@ def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
         sys.exit(1)
 
     logfire_url = cast(str, args.logfire_url)
-    logfire.configure(data_dir=data_dir, base_url=logfire_url, collect_system_metrics=False)
+    logfire.configure(data_dir=data_dir, base_url=logfire_url)
     config = logfire_config.GLOBAL_CONFIG
     config.initialize()
     token = config.token
