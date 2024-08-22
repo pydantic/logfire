@@ -8,6 +8,7 @@ import re
 import sys
 import time
 import warnings
+from contextlib import suppress
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -862,15 +863,26 @@ class LogfireConfig(_LogfireConfigData):
                 client = getattr(mod, 'LambdaRuntimeClient', None)
             except Exception:  # pragma: no cover
                 continue
-            if not client:  # pragma: no branch
+            if not client:
                 continue
             try:  # pragma: no cover
                 client.post_invocation_error = wrap_client_post_invocation_method(client.post_invocation_error)
                 client.post_invocation_result = wrap_client_post_invocation_method(client.post_invocation_result)
-            except Exception:  # pragma: no cover
+            except Exception as e:  # pragma: no cover
+                with suppress(Exception):
+                    # client is likely some random object from a dynamic module unrelated to AWS lambda.
+                    # If it doesn't look like the LambdaRuntimeClient class, ignore this error.
+                    # We don't check this beforehand so that if the lambda runtime library changes
+                    # LambdaRuntimeClient to some object other than a class,
+                    # or something else patches it with some kind of wrapper,
+                    # our patching still has some chance of working.
+                    # But we also don't want to log spurious noisy tracebacks.
+                    if not (isinstance(client, type) and client.__name__ == 'LambdaRuntimeClient'):
+                        continue
+
                 import traceback
 
-                traceback.print_exc()
+                traceback.print_exception(e)
 
 
 def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:

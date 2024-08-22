@@ -1452,6 +1452,18 @@ def get_metric_readers() -> Iterable[SpanProcessor]:
     return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
 
 
+def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
+    config_kwargs: dict[str, Any], capsys: pytest.CaptureFixture[str]
+):
+    from tests.import_used_for_tests.module_with_getattr import module_with_getattr_value
+
+    assert module_with_getattr_value == 'module_with_getattr_value'
+
+    logfire.configure(**config_kwargs)
+
+    assert capsys.readouterr().err == ''
+
+
 def test_collect_system_metrics_false():
     with inline_snapshot.extra.raises(
         snapshot(
