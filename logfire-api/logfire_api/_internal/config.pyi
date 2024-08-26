@@ -124,6 +124,7 @@ class _LogfireConfigData:
     token: str | None
     project_name: str | None
     service_name: str
+    service_version: str | None
     trace_sample_rate: float
     console: ConsoleOptions | Literal[False] | None
     show_summary: bool
