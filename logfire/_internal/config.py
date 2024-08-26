@@ -44,7 +44,7 @@ from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReade
 from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.semconv.resource import ResourceAttributes
@@ -162,7 +162,6 @@ def configure(
     ns_timestamp_generator: Callable[[], int] | None = None,
     processors: None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
-    default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
     metric_readers: None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
@@ -205,9 +204,6 @@ def configure(
             Python standard library.
         processors: Legacy argument, use `additional_span_processors` instead.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
-        default_span_processor: A function to create the default span processor. Defaults to `BatchSpanProcessor` from the OpenTelemetry SDK. You can configure the export delay for
-            [`BatchSpanProcessor`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor)
-            by setting the `OTEL_BSP_SCHEDULE_DELAY_MILLIS` environment variable.
         metric_readers: Legacy argument, use `additional_metric_readers` instead.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
@@ -275,7 +271,6 @@ def configure(
         id_generator=id_generator,
         ns_timestamp_generator=ns_timestamp_generator,
         additional_span_processors=additional_span_processors,
-        default_span_processor=default_span_processor,
         additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
         fast_shutdown=fast_shutdown,
@@ -343,9 +338,6 @@ class _LogfireConfigData:
     pydantic_plugin: PydanticPlugin
     """Options for the Pydantic plugin"""
 
-    default_span_processor: Callable[[SpanExporter], SpanProcessor]
-    """The span processor used for the logfire exporter and console exporter"""
-
     fast_shutdown: bool
     """Whether to shut down exporters and providers quickly, mostly used for tests"""
 
@@ -377,7 +369,6 @@ class _LogfireConfigData:
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
-        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
@@ -451,7 +442,6 @@ class _LogfireConfigData:
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.additional_span_processors = additional_span_processors
-        self.default_span_processor = default_span_processor or _get_default_span_processor
         self.additional_metric_readers = additional_metric_readers
         if self.service_version is None:
             try:
@@ -479,7 +469,6 @@ class LogfireConfig(_LogfireConfigData):
         id_generator: IdGenerator | None = None,
         ns_timestamp_generator: Callable[[], int] | None = None,
         additional_span_processors: Sequence[SpanProcessor] | None = None,
-        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None = None,
         additional_metric_readers: Sequence[MetricReader] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         fast_shutdown: bool = False,
@@ -510,7 +499,6 @@ class LogfireConfig(_LogfireConfigData):
             id_generator=id_generator,
             ns_timestamp_generator=ns_timestamp_generator,
             additional_span_processors=additional_span_processors,
-            default_span_processor=default_span_processor,
             additional_metric_readers=additional_metric_readers,
             pydantic_plugin=pydantic_plugin,
             fast_shutdown=fast_shutdown,
@@ -545,7 +533,6 @@ class LogfireConfig(_LogfireConfigData):
         id_generator: IdGenerator | None,
         ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
-        default_span_processor: Callable[[SpanExporter], SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         fast_shutdown: bool,
@@ -570,7 +557,6 @@ class LogfireConfig(_LogfireConfigData):
                 id_generator,
                 ns_timestamp_generator,
                 additional_span_processors,
-                default_span_processor,
                 additional_metric_readers,
                 pydantic_plugin,
                 fast_shutdown,
@@ -716,7 +702,8 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
                 )
                 span_exporter = RemovePendingSpansExporter(span_exporter)
-                add_span_processor(self.default_span_processor(span_exporter))
+                schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
+                add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
 
                 metric_readers += [
                     PeriodicExportingMetricReader(
@@ -900,11 +887,6 @@ class LogfireConfig(_LogfireConfigData):
                 import traceback
 
                 traceback.print_exception(e)
-
-
-def _get_default_span_processor(exporter: SpanExporter) -> SpanProcessor:
-    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
-    return BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay_millis)
 
 
 # The global config is the single global object in logfire

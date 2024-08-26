@@ -534,33 +534,37 @@ def test_configure_fallback_path(tmp_path: str) -> None:
             # This should cause FallbackSpanExporter to call its own fallback file exporter.
             return SpanExportResult.FAILURE
 
-    def default_span_processor(exporter: SpanExporter) -> SimpleSpanProcessor:
-        # It's OK if these exporter types change.
-        # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
-        assert isinstance(exporter, WrapperSpanExporter)
-        fallback_exporter = exporter.wrapped_exporter
-        assert isinstance(fallback_exporter, FallbackSpanExporter)
-        fallback_exporter.exporter = FailureExporter()
-
-        return SimpleSpanProcessor(exporter)
-
+    data_dir = Path(tmp_path) / 'logfire_data'
     with request_mocker:
-        data_dir = Path(tmp_path) / 'logfire_data'
         logfire.configure(
             send_to_logfire=True,
             data_dir=data_dir,
             token='abc1',
-            default_span_processor=default_span_processor,
             additional_metric_readers=[InMemoryMetricReader()],
+            console=False,
         )
         wait_for_check_token_thread()
+
+    send_to_logfire_processor, *_ = get_span_processors()
+    # It's OK if these processor/exporter types change.
+    # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
+    assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
+    batch_span_processor = send_to_logfire_processor.processor
+    assert isinstance(batch_span_processor, BatchSpanProcessor)
+    exporter = batch_span_processor.span_exporter
+    assert isinstance(exporter, WrapperSpanExporter)
+    fallback_exporter = exporter.wrapped_exporter
+    assert isinstance(fallback_exporter, FallbackSpanExporter)
+    fallback_exporter.exporter = FailureExporter()
+
+    with logfire.span('test'):
+        pass
 
     assert not data_dir.exists()
     path = data_dir / 'logfire_spans.bin'
 
     with pytest.warns(WritingFallbackWarning, match=f'Failed to export spans, writing to fallback file: {path}'):
-        with logfire.span('test'):
-            pass
+        logfire.force_flush()
 
     assert path.exists()
 
