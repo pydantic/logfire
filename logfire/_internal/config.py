@@ -319,6 +319,9 @@ class _LogfireConfigData:
     service_name: str
     """The name of this service"""
 
+    service_version: str | None
+    """The version of this service"""
+
     trace_sample_rate: float
     """The sampling ratio for spans"""
 
@@ -329,7 +332,7 @@ class _LogfireConfigData:
     """Whether to show the summary when starting a new project"""
 
     data_dir: Path
-    """The directory to store Logfire config in"""
+    """The directory to store Logfire data in"""
 
     id_generator: IdGenerator
     """The ID generator to use"""
