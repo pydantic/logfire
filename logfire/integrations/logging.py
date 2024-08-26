@@ -5,6 +5,8 @@ from __future__ import annotations
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import TYPE_CHECKING, Any, ClassVar, Mapping, cast
 
+import logfire
+
 from .._internal.constants import (
     ATTRIBUTES_LOGGING_ARGS_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -60,11 +62,9 @@ class LogfireLoggingHandler(LoggingHandler):
     ) -> None:
         super().__init__(level=level)
         self.fallback = fallback
-        if logfire_instance is None:
-            from logfire import DEFAULT_LOGFIRE_INSTANCE
-
-            logfire_instance = DEFAULT_LOGFIRE_INSTANCE
-        self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix=self.custom_scope_suffix)
+        self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
+            custom_scope_suffix=self.custom_scope_suffix
+        )
 
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.

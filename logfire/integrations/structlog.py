@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import logfire
+
 from .._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
@@ -28,11 +30,9 @@ class LogfireProcessor:
         logfire_instance: Logfire | None = None,
     ) -> None:
         self.console_log = console_log
-        if logfire_instance is None:
-            from logfire import DEFAULT_LOGFIRE_INSTANCE
-
-            logfire_instance = DEFAULT_LOGFIRE_INSTANCE
-        self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='structlog')
+        self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
+            custom_scope_suffix='structlog'
+        )
 
     def __call__(self, logger: WrappedLogger, name: str, event_dict: EventDict) -> EventDict:
         """A middleware to process structlog event, and send it to **Logfire**."""
