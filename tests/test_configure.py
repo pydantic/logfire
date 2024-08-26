@@ -7,6 +7,7 @@ import sys
 import threading
 from contextlib import ExitStack
 from pathlib import Path
+from time import sleep, time
 from typing import Any, Iterable, Sequence
 from unittest import mock
 from unittest.mock import call, patch
@@ -534,35 +535,98 @@ def test_configure_fallback_path(tmp_path: str) -> None:
             # This should cause FallbackSpanExporter to call its own fallback file exporter.
             return SpanExportResult.FAILURE
 
-    def default_span_processor(exporter: SpanExporter) -> SimpleSpanProcessor:
-        # It's OK if these exporter types change.
-        # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
-        assert isinstance(exporter, WrapperSpanExporter)
-        fallback_exporter = exporter.wrapped_exporter
-        assert isinstance(fallback_exporter, FallbackSpanExporter)
-        fallback_exporter.exporter = FailureExporter()
-
-        return SimpleSpanProcessor(exporter)
-
+    data_dir = Path(tmp_path) / 'logfire_data'
     with request_mocker:
-        data_dir = Path(tmp_path) / 'logfire_data'
         logfire.configure(
             send_to_logfire=True,
             data_dir=data_dir,
             token='abc1',
-            default_span_processor=default_span_processor,
-            additional_metric_readers=[InMemoryMetricReader()],
+            console=False,
         )
         wait_for_check_token_thread()
+
+    send_to_logfire_processor, *_ = get_span_processors()
+    # It's OK if these processor/exporter types change.
+    # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
+    assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
+    batch_span_processor = send_to_logfire_processor.processor
+    assert isinstance(batch_span_processor, BatchSpanProcessor)
+    exporter = batch_span_processor.span_exporter
+    assert isinstance(exporter, WrapperSpanExporter)
+    fallback_exporter = exporter.wrapped_exporter
+    assert isinstance(fallback_exporter, FallbackSpanExporter)
+    fallback_exporter.exporter = FailureExporter()
+
+    with logfire.span('test'):
+        pass
 
     assert not data_dir.exists()
     path = data_dir / 'logfire_spans.bin'
 
     with pytest.warns(WritingFallbackWarning, match=f'Failed to export spans, writing to fallback file: {path}'):
-        with logfire.span('test'):
-            pass
+        logfire.force_flush()
 
     assert path.exists()
+
+
+def test_configure_export_delay() -> None:
+    class TrackingExporter(SpanExporter):
+        def __init__(self) -> None:
+            self.last_export_timestamp: float | None = None
+            self.export_delays: list[float] = []
+
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            t = time()
+            if self.last_export_timestamp is not None:
+                self.export_delays.append(t - self.last_export_timestamp)
+            self.last_export_timestamp = t
+            return SpanExportResult.SUCCESS
+
+    def configure_tracking_exporter():
+        request_mocker = requests_mock.Mocker()
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        with request_mocker:
+            logfire.configure(
+                send_to_logfire=True,
+                token='abc1',
+                console=False,
+                fast_shutdown=True,
+            )
+            wait_for_check_token_thread()
+
+        send_to_logfire_processor, *_ = get_span_processors()
+        assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
+        batch_span_processor = send_to_logfire_processor.processor
+        assert isinstance(batch_span_processor, BatchSpanProcessor)
+
+        batch_span_processor.span_exporter = TrackingExporter()
+        return batch_span_processor.span_exporter
+
+    def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
+        for delay in exp.export_delays:
+            assert min_delay < delay < max_delay, f'delay was {delay}, which is not between {min_delay} and {max_delay}'
+
+    # test the default value
+    exporter = configure_tracking_exporter()
+    while not exporter.export_delays:
+        with logfire.span('test'):
+            pass
+        sleep(0.1)
+    check_delays(exporter, 0.4, 1.0)  # our default is 500ms
+
+    # test a very small value
+    with patch.dict(os.environ, {'OTEL_BSP_SCHEDULE_DELAY': '1'}):
+        exporter = configure_tracking_exporter()
+
+    while not exporter.export_delays:
+        with logfire.span('test'):
+            pass
+        sleep(0.03)
+    check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
 
 
 def test_configure_service_version(tmp_path: str) -> None:
