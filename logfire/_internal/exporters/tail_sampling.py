@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
+from typing import Literal
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -11,6 +12,7 @@ from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from logfire._internal.constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     LEVEL_NUMBERS,
+    NUMBER_TO_LEVEL,
     ONE_SECOND_IN_NANOSECONDS,
     LevelName,
 )
@@ -33,6 +35,27 @@ class TailSamplingOptions:
 
 
 @dataclass
+class SpanLevel:
+    number: int
+
+    @property
+    def name(self):
+        return NUMBER_TO_LEVEL[self.number]
+
+    def __lt__(self, other: LevelName):
+        return self.number < LEVEL_NUMBERS[other]
+
+    def __gt__(self, other: LevelName):
+        return self.number > LEVEL_NUMBERS[other]
+
+    def __ge__(self, other: LevelName):
+        return self.number >= LEVEL_NUMBERS[other]
+
+    def __le__(self, other: LevelName):
+        return self.number <= LEVEL_NUMBERS[other]
+
+
+@dataclass
 class TraceBuffer:
     """Arguments of `on_start` and `on_end` for spans in a single trace."""
 
@@ -44,15 +67,36 @@ class TraceBuffer:
         return self.started[0][0]
 
 
+@dataclass
+class SpanSamplingInfo:
+    span: ReadableSpan
+    context: context.Context | None
+    event: Literal['start', 'end']
+    buffer: TraceBuffer
+
+    @property
+    def level(self) -> SpanLevel:
+        attributes = self.span.attributes or {}
+        level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
+        if not isinstance(level, int):
+            level = LEVEL_NUMBERS['info']
+        return SpanLevel(level)
+
+    @property
+    def duration(self) -> float:
+        # span.end_time and span.start_time are in nanoseconds and can be None.
+        return (
+            (self.span.end_time or self.span.start_time or 0) - (self.buffer.first_span.start_time or float('inf'))
+        ) / ONE_SECOND_IN_NANOSECONDS
+
+
 class TailSamplingProcessor(WrapperSpanProcessor):
     """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
 
     def __init__(self, processor: SpanProcessor, options: TailSamplingOptions, random_rate: float) -> None:
         super().__init__(processor)
-        self.duration: float = (
-            float('inf') if options.duration is None else options.duration * ONE_SECOND_IN_NANOSECONDS
-        )
-        self.level: float | int = float('inf') if options.level is None else LEVEL_NUMBERS[options.level]
+        self.duration: float = float('inf') if options.duration is None else options.duration
+        self.level: LevelName | None = options.level
         self.random_rate = random_rate
 
         # A TraceBuffer is typically created for each new trace.
@@ -82,7 +126,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 if buffer is not None:
                     # This trace's spans haven't met the criteria yet, so add this span to the buffer.
                     buffer.started.append((span, parent_context))
-                    dropped = self.check_span(span, buffer)
+                    dropped = self.check_span(SpanSamplingInfo(span, parent_context, 'start', buffer))
                 # The opposite case is handled outside the lock since it may take some time.
 
         # This code may take longer since it calls the wrapped processor which might do anything.
@@ -105,7 +149,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 buffer = self.traces.get(trace_id)
                 if buffer is not None:
                     buffer.ended.append(span)
-                    dropped = self.check_span(span, buffer)
+                    dropped = self.check_span(SpanSamplingInfo(span, None, 'end', buffer))
                     if span.parent is None:
                         # This is the root span, so the trace is hopefully complete.
                         # Delete the buffer to save memory.
@@ -116,19 +160,15 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         elif dropped:
             self.push_buffer(buffer)
 
-    def check_span(self, span: ReadableSpan, buffer: TraceBuffer) -> bool:
+    def check_span(self, span_info: SpanSamplingInfo) -> bool:
         """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
         # span.end_time and span.start_time are in nanoseconds and can be None.
-        if (span.end_time or span.start_time or 0) - (buffer.first_span.start_time or float('inf')) > self.duration:
-            self.drop_buffer(buffer)
+        if span_info.duration > self.duration:
+            self.drop_buffer(span_info.buffer)
             return True
 
-        attributes = span.attributes or {}
-        level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if not isinstance(level, int):
-            level = LEVEL_NUMBERS['info']
-        if level >= self.level:
-            self.drop_buffer(buffer)
+        if self.level is not None and span_info.level >= self.level:
+            self.drop_buffer(span_info.buffer)
             return True
 
         return False

@@ -12,7 +12,7 @@ LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal']
 """Level names for records."""
 
-LEVEL_NUMBERS = {
+LEVEL_NUMBERS: dict[LevelName, int] = {
     'trace': 1,
     'debug': 5,
     'info': 9,
