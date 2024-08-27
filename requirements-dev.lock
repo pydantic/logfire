@@ -329,12 +329,12 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic==2.8.2
+pydantic @ git+https://github.com/pydantic/pydantic@ed8df669fd12e221649bcd75139665c9ee00bdc5
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.20.1
+pydantic-core==2.23.0
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
@@ -425,6 +425,7 @@ typing-extensions==4.12.2
 tzdata==2024.1
     # via celery
     # via pandas
+    # via pydantic
 urllib3==2.2.2
     # via docker
     # via requests
