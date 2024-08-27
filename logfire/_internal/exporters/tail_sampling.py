@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
-from typing import Literal
+from typing import Callable, Literal, Self
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 from logfire._internal.constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -66,6 +66,12 @@ class TraceBuffer:
     def first_span(self) -> Span:
         return self.started[0][0]
 
+    @cached_property
+    def trace_id(self) -> int:
+        span_context = self.first_span.context
+        assert span_context is not None
+        return span_context.trace_id
+
 
 @dataclass
 class SpanSamplingInfo:
@@ -90,14 +96,48 @@ class SpanSamplingInfo:
         ) / ONE_SECOND_IN_NANOSECONDS
 
 
+@dataclass
+class SamplingOptions:
+    head_sample_rate: float = 1.0
+    get_tail_sample_rate: Callable[[SpanSamplingInfo], float] | None = None
+
+    @classmethod
+    def error_or_duration(
+        cls,
+        level_threshold: LevelName | None = 'error',
+        duration_threshold: float | None = 5.0,
+        head_sample_rate: float = 1.0,
+        tail_sample_rate: float | None = None,
+        background_rate: float = 0.0,
+    ) -> Self:
+        if tail_sample_rate is None:
+            tail_sample_rate = head_sample_rate
+
+        if not (0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0):
+            raise ValueError('Invalid sampling rates')
+
+        def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
+            if duration_threshold is not None and span_info.duration > duration_threshold:
+                return tail_sample_rate
+
+            if level_threshold is not None and span_info.level >= level_threshold:
+                return tail_sample_rate
+
+            return background_rate
+
+        return cls(head_sample_rate=head_sample_rate, get_tail_sample_rate=get_tail_sample_rate)
+
+
+def check_trace_id_ratio(trace_id: int, rate: float) -> bool:
+    return (trace_id & TraceIdRatioBased.TRACE_ID_LIMIT) < TraceIdRatioBased.get_bound_for_rate(rate)
+
+
 class TailSamplingProcessor(WrapperSpanProcessor):
     """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
 
-    def __init__(self, processor: SpanProcessor, options: TailSamplingOptions, random_rate: float) -> None:
+    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[SpanSamplingInfo], float]) -> None:
         super().__init__(processor)
-        self.duration: float = float('inf') if options.duration is None else options.duration
-        self.level: LevelName | None = options.level
-        self.random_rate = random_rate
+        self.get_tail_sample_rate = get_tail_sample_rate
 
         # A TraceBuffer is typically created for each new trace.
         # If a span meets the sampling criteria, the buffer is dropped and all spans within are pushed
@@ -117,9 +157,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
             if span.context:  # pragma: no branch
                 trace_id = span.context.trace_id
                 # If span.parent is None, it's the root span of a trace.
-                # If random.random() <= self.random_rate, immediately include this trace,
-                # meaning no buffer for it.
-                if span.parent is None and random.random() > self.random_rate:
+                if span.parent is None:
                     self.traces[trace_id] = TraceBuffer([], [])
 
                 buffer = self.traces.get(trace_id)
@@ -162,21 +200,14 @@ class TailSamplingProcessor(WrapperSpanProcessor):
 
     def check_span(self, span_info: SpanSamplingInfo) -> bool:
         """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
-        # span.end_time and span.start_time are in nanoseconds and can be None.
-        if span_info.duration > self.duration:
+        sample_rate = self.get_tail_sample_rate(span_info)
+        if sampled := check_trace_id_ratio(span_info.buffer.trace_id, sample_rate):
             self.drop_buffer(span_info.buffer)
-            return True
 
-        if self.level is not None and span_info.level >= self.level:
-            self.drop_buffer(span_info.buffer)
-            return True
-
-        return False
+        return sampled
 
     def drop_buffer(self, buffer: TraceBuffer) -> None:
-        span_context = buffer.first_span.context
-        assert span_context is not None
-        del self.traces[span_context.trace_id]
+        del self.traces[buffer.trace_id]
 
     def push_buffer(self, buffer: TraceBuffer) -> None:
         for started in buffer.started:

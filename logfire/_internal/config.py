@@ -74,7 +74,7 @@ from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
-from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
+from .exporters.tail_sampling import SamplingOptions, TailSamplingOptions, TailSamplingProcessor
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
@@ -634,14 +634,16 @@ class LogfireConfig(_LogfireConfigData):
                 )
 
                 if self.tail_sampling:
-                    span_processor = TailSamplingProcessor(
-                        span_processor,
-                        self.tail_sampling,
+                    get_tail_sample_rate = SamplingOptions.error_or_duration(
+                        self.tail_sampling.level,
+                        self.tail_sampling.duration,
                         # If self.trace_sample_rate < 1 then that ratio of spans should be included randomly by this.
                         # In that case the tracer provider doesn't need to do any sampling, see above.
                         # Otherwise we're not using any random sampling, so 0% of spans should be included 'randomly'.
-                        self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
-                    )
+                        background_rate=self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
+                    ).get_tail_sample_rate
+                    assert get_tail_sample_rate is not None
+                    span_processor = TailSamplingProcessor(span_processor, get_tail_sample_rate)
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 if has_pending:
