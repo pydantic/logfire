@@ -11,7 +11,7 @@ from logfire.testing import SeededRandomIdGenerator, TestExporter
 def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Use the default TailSamplingOptions.level of 'notice'.
     # Set duration to None to not include spans with a long duration.
-    logfire.configure(**config_kwargs, tail_sampling=logfire.TailSamplingOptions(duration=None))
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(duration_threshold=None))
 
     with logfire.span('ignored span'):
         logfire.debug('ignored debug')
@@ -196,7 +196,9 @@ def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
 
 def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Set level to None to not include spans merely based on a high level.
-    logfire.configure(**config_kwargs, tail_sampling=logfire.TailSamplingOptions(level=None, duration=3))
+    logfire.configure(
+        **config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(level_threshold=None, duration_threshold=3)
+    )
 
     logfire.error('short1')
     with logfire.span('span'):
@@ -298,8 +300,7 @@ def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter
 
 def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
-        tail_sampling=logfire.TailSamplingOptions(),
-        trace_sample_rate=0.3,
+        sampling=logfire.SamplingOptions.error_or_duration(background_rate=0.3),
         id_generator=SeededRandomIdGenerator(seed=1),
     )
     logfire.configure(**config_kwargs)

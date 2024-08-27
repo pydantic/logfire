@@ -18,20 +18,19 @@ from logfire._internal.constants import (
 )
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
-
-@dataclass
-class TailSamplingOptions:
-    level: LevelName | None = 'notice'
-    """
-    Include all spans/logs with level greater than or equal to this level.
-    If None, spans are not included based on level.
-    """
-
-    duration: float | None = 1.0
-    """
-    Include all spans/logs with duration greater than this duration in seconds.
-    If None, spans are not included based on duration.
-    """
+# @dataclass
+# class TailSamplingOptions:
+#     level: LevelName | None = 'notice'
+#     """
+#     Include all spans/logs with level greater than or equal to this level.
+#     If None, spans are not included based on level.
+#     """
+#
+#     duration: float | None = 1.0
+#     """
+#     Include all spans/logs with duration greater than this duration in seconds.
+#     If None, spans are not included based on duration.
+#     """
 
 
 @dataclass
@@ -104,7 +103,7 @@ class SamplingOptions:
     @classmethod
     def error_or_duration(
         cls,
-        level_threshold: LevelName | None = 'error',
+        level_threshold: LevelName | None = 'notice',
         duration_threshold: float | None = 5.0,
         head_sample_rate: float = 1.0,
         tail_sample_rate: float | None = None,

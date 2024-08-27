@@ -851,7 +851,7 @@ def test_config_serializable():
         send_to_logfire=False,
         pydantic_plugin=logfire.PydanticPlugin(record='all'),
         console=logfire.ConsoleOptions(verbose=True),
-        tail_sampling=logfire.TailSamplingOptions(),
+        sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
     )
 
@@ -859,7 +859,7 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['pydantic_plugin', 'console', 'tail_sampling', 'scrubbing']
+            field.name in ['pydantic_plugin', 'console', 'sampling', 'scrubbing']
         )
 
     serialized = serialize_config()
@@ -876,7 +876,7 @@ def test_config_serializable():
 
     assert isinstance(GLOBAL_CONFIG.pydantic_plugin, logfire.PydanticPlugin)
     assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
-    assert isinstance(GLOBAL_CONFIG.tail_sampling, logfire.TailSamplingOptions)
+    assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
 
 
