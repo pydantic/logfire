@@ -5,10 +5,11 @@ from typing import Any
 from inline_snapshot import snapshot
 
 import logfire
+from logfire.sampling import SpanSamplingInfo
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 
 
-def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Use the default TailSamplingOptions.level of 'notice'.
     # Set duration to None to not include spans with a long duration.
     logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(duration_threshold=None))
@@ -194,7 +195,7 @@ def test_level_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     )
 
 
-def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Set level to None to not include spans merely based on a high level.
     logfire.configure(
         **config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(level_threshold=None, duration_threshold=3)
@@ -298,7 +299,7 @@ def test_duration_sampling(config_kwargs: dict[str, Any], exporter: TestExporter
     )
 
 
-def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
         sampling=logfire.SamplingOptions.error_or_duration(background_rate=0.3),
         id_generator=SeededRandomIdGenerator(seed=1),
@@ -314,3 +315,43 @@ def test_random_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     for _ in range(1000):
         logfire.info('info')
     assert len(exporter.exported_spans) == 100 + 321
+
+
+def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):
+    span_counts = {'start': 0, 'end': 0}
+
+    def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
+        span_counts[span_info.event] += 1
+        if span_info.duration >= 1:
+            return 0.5
+        if span_info.level > 'warn':
+            return 0.3
+        return 0.1
+
+    config_kwargs.update(
+        trace_sample_rate=0.7,  # TODO remove in favor of head_sample_rate
+        sampling=logfire.SamplingOptions(
+            head_sample_rate=0.7,
+            get_tail_sample_rate=get_tail_sample_rate,
+        ),
+        id_generator=SeededRandomIdGenerator(seed=3),
+    )
+
+    logfire.configure(**config_kwargs)
+
+    for _ in range(1000):
+        logfire.warn('warn')
+    assert span_counts == snapshot({'start': 720, 'end': 617})
+    assert len(exporter.exported_spans) == snapshot(103)
+    assert span_counts['end'] + len(exporter.exported_spans) == span_counts['start']
+
+    exporter.clear()
+    for _ in range(1000):
+        with logfire.span('span'):
+            pass
+    assert len(exporter.exported_spans_as_dict()) == snapshot(506)
+
+    exporter.clear()
+    for _ in range(1000):
+        logfire.error('error')
+    assert len(exporter.exported_spans) == snapshot(291)
