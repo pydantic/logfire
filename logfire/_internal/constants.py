@@ -24,9 +24,9 @@ LEVEL_NUMBERS: dict[LevelName, int] = {
     'fatal': 21,
 }
 
-NUMBER_TO_LEVEL = {v: k for k, v in LEVEL_NUMBERS.items()}
+NUMBER_TO_LEVEL: dict[int, LevelName] = {v: k for k, v in LEVEL_NUMBERS.items()}
 
-LOGGING_TO_OTEL_LEVEL_NUMBERS = {
+LOGGING_TO_OTEL_LEVEL_NUMBERS: dict[int, int] = {
     0: 9,  # logging.NOTSET: default to info
     1: 1,  # OTEL trace
     2: 1,

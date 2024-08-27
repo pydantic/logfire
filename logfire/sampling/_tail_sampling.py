@@ -38,7 +38,7 @@ class SpanLevel:
     number: int
 
     @property
-    def name(self):
+    def name(self) -> LevelName:
         return NUMBER_TO_LEVEL[self.number]
 
     def __lt__(self, other: LevelName):
