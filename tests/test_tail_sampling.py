@@ -310,7 +310,7 @@ def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
         logfire.error('error')
     assert len(exporter.exported_spans) == 100
 
-    # About 30% these spans (i.e. an extra ~300) should be included because of the trace_sample_rate.
+    # About 30% these spans (i.e. an extra ~300) should be included because of the background_rate.
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
@@ -329,7 +329,6 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
         return 0.1
 
     config_kwargs.update(
-        trace_sample_rate=0.7,  # TODO remove in favor of head_sample_rate
         sampling=logfire.SamplingOptions(
             head_sample_rate=0.7,
             get_tail_sample_rate=get_tail_sample_rate,

@@ -257,6 +257,18 @@ def configure(
         )
         scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)
 
+    if trace_sample_rate is not None:
+        if sampling:
+            if sampling.head_sample_rate != 1:
+                raise ValueError('Cannot specify both `trace_sample_rate` and `sampling.head_sample_rate`.')
+        else:
+            sampling = SamplingOptions()
+        sampling.head_sample_rate = trace_sample_rate
+        warnings.warn(
+            'The `trace_sample_rate` argument is deprecated. '
+            'Use `sampling=logfire.SamplingOptions(head_sample_rate=...)` instead.',
+        )
+
     GLOBAL_CONFIG.configure(
         base_url=base_url,
         send_to_logfire=send_to_logfire,
@@ -264,7 +276,6 @@ def configure(
         project_name=project_name,
         service_name=service_name,
         service_version=service_version,
-        trace_sample_rate=trace_sample_rate,
         console=console,
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
@@ -318,9 +329,6 @@ class _LogfireConfigData:
     service_version: str | None
     """The version of this service"""
 
-    trace_sample_rate: float
-    """The sampling ratio for spans"""
-
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
 
@@ -365,7 +373,6 @@ class _LogfireConfigData:
         project_name: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -389,7 +396,6 @@ class _LogfireConfigData:
         self.project_name = param_manager.load_param('project_name', project_name)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
-        self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
@@ -467,7 +473,6 @@ class LogfireConfig(_LogfireConfigData):
         project_name: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
-        trace_sample_rate: float | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         show_summary: bool | None = None,
         config_dir: Path | None = None,
@@ -497,7 +502,6 @@ class LogfireConfig(_LogfireConfigData):
             project_name=project_name,
             service_name=service_name,
             service_version=service_version,
-            trace_sample_rate=trace_sample_rate,
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
@@ -531,7 +535,6 @@ class LogfireConfig(_LogfireConfigData):
         project_name: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -555,7 +558,6 @@ class LogfireConfig(_LogfireConfigData):
                 project_name,
                 service_name,
                 service_version,
-                trace_sample_rate,
                 console,
                 show_summary,
                 config_dir,
@@ -609,9 +611,8 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
-            # Avoid using the usual sampler if we're using tail-based sampling.
-            # The TailSamplingProcessor will handle the random sampling part as well.
-            sampler = ParentBasedTraceIdRatio(self.trace_sample_rate) if self.trace_sample_rate < 1 else None
+            head_sample_rate = self.sampling.head_sample_rate
+            sampler = ParentBasedTraceIdRatio(head_sample_rate) if head_sample_rate < 1 else None
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
