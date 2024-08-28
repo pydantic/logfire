@@ -33,6 +33,15 @@ class SpanLevel:
         """The human-readable name of the level, or None if the number is invalid."""
         return NUMBER_TO_LEVEL.get(self.number)
 
+    def __eq__(self, other: object):
+        if isinstance(other, int):
+            return self.number == other
+        if isinstance(other, str):
+            return self.name == other
+        if isinstance(other, SpanLevel):
+            return self.number == other.number
+        return NotImplemented
+
     def __lt__(self, other: LevelName):
         return self.number < LEVEL_NUMBERS[other]
 

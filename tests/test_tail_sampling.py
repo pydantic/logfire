@@ -5,7 +5,8 @@ from typing import Any
 from inline_snapshot import snapshot
 
 import logfire
-from logfire.sampling import SpanSamplingInfo
+from logfire._internal.constants import LEVEL_NUMBERS
+from logfire.sampling import SpanLevel, SpanSamplingInfo
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 
 
@@ -354,3 +355,38 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
     for _ in range(1000):
         logfire.error('error')
     assert len(exporter.exported_spans) == snapshot(291)
+
+
+def test_span_levels():
+    warn = SpanLevel(LEVEL_NUMBERS['warn'])
+
+    assert 'warn' <= warn <= 'warn'
+    assert 'debug' <= warn <= 'error'
+    assert 'info' < warn < 'fatal'
+    assert not (warn < 'warn')
+    assert not (warn > 'warn')
+    assert not (warn > 'fatal')
+    assert not (warn >= 'fatal')
+    assert not (warn < 'debug')
+    assert not (warn <= 'debug')
+
+    assert warn == 'warn'
+    assert warn != 'error'
+    assert not (warn != 'warn')
+    assert not (warn == 'error')
+    assert warn == warn.number
+    assert warn != 123
+    assert warn == warn
+    assert not (warn != warn)
+    assert warn != SpanLevel(LEVEL_NUMBERS['error'])
+    assert not (warn == SpanLevel(LEVEL_NUMBERS['error']))
+    assert warn == SpanLevel(LEVEL_NUMBERS['warn'])
+    assert not (warn != SpanLevel(LEVEL_NUMBERS['warn']))
+
+    assert warn.number == LEVEL_NUMBERS['warn'] == 13
+    assert warn.name == 'warn'
+
+    assert warn != 'foo'
+    assert warn != [1, 2, 3]
+    assert not (warn == [1, 2, 3])
+    assert not ([1, 2, 3] == warn)
