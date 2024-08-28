@@ -19,9 +19,9 @@ deprecated==1.2.14
     # via opentelemetry-semantic-conventions
 executing==2.0.1
     # via logfire
-googleapis-common-protos==1.63.2
+googleapis-common-protos==1.65.0
     # via opentelemetry-exporter-otlp-proto-http
-idna==3.7
+idna==3.8
     # via requests
 importlib-metadata==8.0.0
     # via opentelemetry-api
@@ -56,9 +56,9 @@ pygments==2.18.0
     # via rich
 requests==2.32.3
     # via opentelemetry-exporter-otlp-proto-http
-rich==13.7.1
+rich==13.8.0
     # via logfire
-setuptools==72.1.0
+setuptools==74.0.0
     # via opentelemetry-instrumentation
 typing-extensions==4.12.2
     # via logfire
@@ -68,5 +68,5 @@ urllib3==2.2.2
 wrapt==1.16.0
     # via deprecated
     # via opentelemetry-instrumentation
-zipp==3.19.2
+zipp==3.20.1
     # via importlib-metadata
