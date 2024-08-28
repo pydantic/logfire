@@ -134,6 +134,7 @@ nav:
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
+      - Sampling: api/sampling.md
       - Propagate: api/propagate.md
       - Exceptions: api/exceptions.md
       - Integrations:

@@ -21,11 +21,17 @@ from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
 @dataclass
 class SpanLevel:
+    """A convenience class for comparing span levels."""
+
     number: int
+    """
+    The raw numeric value of the level. Higher values are more severe.
+    """
 
     @property
-    def name(self) -> LevelName:
-        return NUMBER_TO_LEVEL[self.number]
+    def name(self) -> LevelName | None:
+        """The human-readable name of the level, or None if the number is invalid."""
+        return NUMBER_TO_LEVEL.get(self.number)
 
     def __lt__(self, other: LevelName):
         return self.number < LEVEL_NUMBERS[other]
@@ -60,6 +66,8 @@ class TraceBuffer:
 
 @dataclass
 class SpanSamplingInfo:
+    """Argument passed to [`SamplingOptions`][logfire.sampling.SamplingOptions]`.get_tail_sample_rate`."""
+
     span: ReadableSpan
     context: context.Context | None
     event: Literal['start', 'end']
@@ -67,6 +75,7 @@ class SpanSamplingInfo:
 
     @property
     def level(self) -> SpanLevel:
+        """The log level of the span."""
         attributes = self.span.attributes or {}
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
         if not isinstance(level, int):
@@ -75,6 +84,7 @@ class SpanSamplingInfo:
 
     @property
     def duration(self) -> float:
+        """The time in seconds between the start of the trace and the start/end of this span."""
         # span.end_time and span.start_time are in nanoseconds and can be None.
         return (
             (self.span.end_time or self.span.start_time or 0) - (self.buffer.first_span.start_time or float('inf'))
@@ -83,6 +93,8 @@ class SpanSamplingInfo:
 
 @dataclass
 class SamplingOptions:
+    """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)]."""
+
     head_sample_rate: float = 1.0
     get_tail_sample_rate: Callable[[SpanSamplingInfo], float] | None = None
 

@@ -1,3 +1,5 @@
+"""Types for configuring sampling."""
+
 from ._tail_sampling import SamplingOptions, SpanLevel, SpanSamplingInfo
 
 __all__ = [
