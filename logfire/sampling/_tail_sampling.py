@@ -18,20 +18,6 @@ from logfire._internal.constants import (
 )
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
-# @dataclass
-# class TailSamplingOptions:
-#     level: LevelName | None = 'notice'
-#     """
-#     Include all spans/logs with level greater than or equal to this level.
-#     If None, spans are not included based on level.
-#     """
-#
-#     duration: float | None = 1.0
-#     """
-#     Include all spans/logs with duration greater than this duration in seconds.
-#     If None, spans are not included based on duration.
-#     """
-
 
 @dataclass
 class SpanLevel:
