@@ -48,7 +48,7 @@ def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]]
         else:
             span_func = logfire._fast_span  # type: ignore
         new_func.__globals__[logfire_name] = span_func
-        return new_func  # type: ignore
+        return new_func
 
     return decorator
 
