@@ -188,8 +188,7 @@ def configure(
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
-        trace_sample_rate: Sampling ratio for spans. Defaults to the `LOGFIRE_SAMPLING_RATIO` environment variable, or
-            the `OTEL_TRACES_SAMPLER_ARG` environment variable, or to `1.0`.
+        trace_sample_rate: Deprecated, use `sampling` instead.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
