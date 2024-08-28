@@ -92,7 +92,7 @@ dev-dependencies = [
     "pytest",
     "pytest-django",
     "pytest-pretty",
-    "pydantic",
+    "pydantic @ git+https://github.com/pydantic/pydantic",
     "requests",
     "sqlalchemy",
     "pandas",
