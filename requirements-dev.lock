@@ -121,7 +121,7 @@ idna==3.8
     # via httpx
     # via requests
     # via yarl
-importlib-metadata==8.0.0
+importlib-metadata==8.4.0
     # via opentelemetry-api
     # via opentelemetry-instrumentation-flask
 iniconfig==2.0.0
@@ -188,7 +188,7 @@ nodeenv==1.9.1
 numpy==2.1.0
     # via pandas
 openai==1.42.0
-opentelemetry-api==1.26.0
+opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
     # via opentelemetry-instrumentation-aiohttp-client
@@ -212,11 +212,11 @@ opentelemetry-api==1.26.0
     # via opentelemetry-instrumentation-wsgi
     # via opentelemetry-sdk
     # via opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.26.0
+opentelemetry-exporter-otlp-proto-common==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.26.0
+opentelemetry-exporter-otlp-proto-http==1.27.0
     # via logfire
-opentelemetry-instrumentation==0.47b0
+opentelemetry-instrumentation==0.48b0
     # via logfire
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
@@ -237,39 +237,39 @@ opentelemetry-instrumentation==0.47b0
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-system-metrics
     # via opentelemetry-instrumentation-wsgi
-opentelemetry-instrumentation-aiohttp-client==0.47b0
-opentelemetry-instrumentation-asgi==0.47b0
+opentelemetry-instrumentation-aiohttp-client==0.48b0
+opentelemetry-instrumentation-asgi==0.48b0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-starlette
-opentelemetry-instrumentation-asyncpg==0.47b0
-opentelemetry-instrumentation-celery==0.47b0
-opentelemetry-instrumentation-dbapi==0.47b0
+opentelemetry-instrumentation-asyncpg==0.48b0
+opentelemetry-instrumentation-celery==0.48b0
+opentelemetry-instrumentation-dbapi==0.48b0
     # via opentelemetry-instrumentation-mysql
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
-opentelemetry-instrumentation-django==0.47b0
-opentelemetry-instrumentation-fastapi==0.47b0
-opentelemetry-instrumentation-flask==0.47b0
-opentelemetry-instrumentation-httpx==0.47b0
-opentelemetry-instrumentation-mysql==0.47b0
-opentelemetry-instrumentation-psycopg==0.47b0
-opentelemetry-instrumentation-psycopg2==0.47b0
-opentelemetry-instrumentation-pymongo==0.47b0
-opentelemetry-instrumentation-redis==0.47b0
-opentelemetry-instrumentation-requests==0.47b0
-opentelemetry-instrumentation-sqlalchemy==0.47b0
-opentelemetry-instrumentation-starlette==0.47b0
-opentelemetry-instrumentation-system-metrics==0.47b0
-opentelemetry-instrumentation-wsgi==0.47b0
+opentelemetry-instrumentation-django==0.48b0
+opentelemetry-instrumentation-fastapi==0.48b0
+opentelemetry-instrumentation-flask==0.48b0
+opentelemetry-instrumentation-httpx==0.48b0
+opentelemetry-instrumentation-mysql==0.48b0
+opentelemetry-instrumentation-psycopg==0.48b0
+opentelemetry-instrumentation-psycopg2==0.48b0
+opentelemetry-instrumentation-pymongo==0.48b0
+opentelemetry-instrumentation-redis==0.48b0
+opentelemetry-instrumentation-requests==0.48b0
+opentelemetry-instrumentation-sqlalchemy==0.48b0
+opentelemetry-instrumentation-starlette==0.48b0
+opentelemetry-instrumentation-system-metrics==0.48b0
+opentelemetry-instrumentation-wsgi==0.48b0
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-flask
-opentelemetry-proto==1.26.0
+opentelemetry-proto==1.27.0
     # via opentelemetry-exporter-otlp-proto-common
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.26.0
+opentelemetry-sdk==1.27.0
     # via logfire
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.47b0
+opentelemetry-semantic-conventions==0.48b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
     # via opentelemetry-instrumentation-asyncpg
@@ -286,7 +286,7 @@ opentelemetry-semantic-conventions==0.47b0
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-wsgi
     # via opentelemetry-sdk
-opentelemetry-util-http==0.47b0
+opentelemetry-util-http==0.48b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
     # via opentelemetry-instrumentation-django
@@ -329,7 +329,7 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic @ git+https://github.com/pydantic/pydantic@9f03db8f7fe2448c1b9d573a2066a0754949786e
+pydantic @ git+https://github.com/pydantic/pydantic@27411c4d10e6132ce05160818d265ed22898b0fd
     # via anthropic
     # via fastapi
     # via openai
@@ -343,7 +343,7 @@ pymdown-extensions==10.9
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pyright==1.1.377
+pyright==1.1.378
 pytest==8.3.2
     # via pytest-django
     # via pytest-pretty

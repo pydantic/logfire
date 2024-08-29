@@ -23,30 +23,30 @@ googleapis-common-protos==1.65.0
     # via opentelemetry-exporter-otlp-proto-http
 idna==3.8
     # via requests
-importlib-metadata==8.0.0
+importlib-metadata==8.4.0
     # via opentelemetry-api
 markdown-it-py==3.0.0
     # via rich
 mdurl==0.1.2
     # via markdown-it-py
-opentelemetry-api==1.26.0
+opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
     # via opentelemetry-sdk
     # via opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.26.0
+opentelemetry-exporter-otlp-proto-common==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.26.0
+opentelemetry-exporter-otlp-proto-http==1.27.0
     # via logfire
-opentelemetry-instrumentation==0.47b0
+opentelemetry-instrumentation==0.48b0
     # via logfire
-opentelemetry-proto==1.26.0
+opentelemetry-proto==1.27.0
     # via opentelemetry-exporter-otlp-proto-common
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.26.0
+opentelemetry-sdk==1.27.0
     # via logfire
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.47b0
+opentelemetry-semantic-conventions==0.48b0
     # via opentelemetry-sdk
 protobuf==4.25.4
     # via googleapis-common-protos
