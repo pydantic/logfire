@@ -423,6 +423,9 @@ def test_trace_sample_rate(config_kwargs: dict[str, Any]):
 
 def test_both_trace_and_head_sample_rate():
     with inline_snapshot.extra.raises(
-        snapshot('ValueError: Cannot specify both `trace_sample_rate` and `sampling.head_sample_rate`.')
+        snapshot(
+            'ValueError: Cannot specify both `trace_sample_rate` and `sampling`. '
+            'Use `sampling.head_sample_rate` instead of `trace_sample_rate`.'
+        )
     ):
-        logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions(head_sample_rate=0.5))
+        logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())

@@ -258,8 +258,10 @@ def configure(
 
     if trace_sample_rate is not None:
         if sampling:
-            if sampling.head_sample_rate != 1:
-                raise ValueError('Cannot specify both `trace_sample_rate` and `sampling.head_sample_rate`.')
+            raise ValueError(
+                'Cannot specify both `trace_sample_rate` and `sampling`. '
+                'Use `sampling.head_sample_rate` instead of `trace_sample_rate`.'
+            )
         else:
             sampling = SamplingOptions()
         sampling.head_sample_rate = trace_sample_rate
