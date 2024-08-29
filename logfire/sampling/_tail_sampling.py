@@ -120,7 +120,9 @@ class SamplingOptions:
             tail_sample_rate = head_sample_rate
 
         if not (0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0):
-            raise ValueError('Invalid sampling rates')
+            raise ValueError(
+                'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0'
+            )
 
         def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
             if duration_threshold is not None and span_info.duration > duration_threshold:

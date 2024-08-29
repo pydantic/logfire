@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from inline_snapshot import snapshot
 
 import logfire
@@ -390,3 +391,14 @@ def test_span_levels():
     assert warn != [1, 2, 3]
     assert not (warn == [1, 2, 3])
     assert not ([1, 2, 3] == warn)
+
+
+def test_invalid_rates():
+    with pytest.raises(ValueError):
+        logfire.SamplingOptions.error_or_duration(background_rate=-1)
+    with pytest.raises(ValueError):
+        logfire.SamplingOptions.error_or_duration(background_rate=0.5, head_sample_rate=0.3)
+    with pytest.raises(ValueError):
+        logfire.SamplingOptions.error_or_duration(background_rate=0.5, tail_sample_rate=0.3)
+    with pytest.raises(ValueError):
+        logfire.SamplingOptions.error_or_duration(head_sample_rate=2)
