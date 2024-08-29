@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
-from typing import Callable, Literal, Self
+from typing import Callable, Literal
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+from typing_extensions import Self
 
 from logfire._internal.constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
