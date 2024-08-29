@@ -466,7 +466,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
-        trace_sample_rate = 0.123
+        trace_sample_rate = "0.123"
         """
     )
 
