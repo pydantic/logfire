@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.experimental.read_client import LogfireAsyncReadClient, LogfireSyncReadClient
+from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
@@ -19,7 +19,7 @@ def vcr_config():
 
 
 def test_read_sync():
-    with LogfireSyncReadClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
         SELECT kind, message, is_exception, tags
         FROM records
@@ -113,7 +113,7 @@ log,aha 0,false,"[""tag1"",""tag2""]"
 
 @pytest.mark.anyio
 async def test_read_async():
-    async with LogfireAsyncReadClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
         SELECT kind, message, is_exception, tags
         FROM records
@@ -206,7 +206,7 @@ log,aha 0,false,"[""tag1"",""tag2""]"
 
 
 def test_query_params_sync():
-    with LogfireSyncReadClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
         SELECT is_exception, count(*)
         FROM records
@@ -232,7 +232,7 @@ false,37
 
 @pytest.mark.anyio
 async def test_query_params_async():
-    async with LogfireAsyncReadClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
         SELECT is_exception, count(*)
         FROM records

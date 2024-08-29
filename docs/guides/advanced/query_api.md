@@ -6,12 +6,14 @@ The API is available at `https://logfire-api.pydantic.dev/v1/query` and requires
 Read tokens can be generated from the Logfire web interface and provide secure access to your data.
 
 The API can return data in various formats, including JSON, Apache Arrow, and CSV, to suit your needs.
-See [here](#additional-configuration) for more details.
+See [here](#additional-configuration) for more details about the available response formats.
 
 ## How to Create a Read Token
 
 If you've set up Logfire following the [first steps guide](../first_steps/index.md), you can generate read tokens from
-the Logfire web interface to start querying your data.
+the Logfire web interface, for use accessing the Logfire Query API.
+
+To create a read token:
 
 1. Open the **Logfire** web interface at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 2. Select your project from the **Projects** section on the left-hand side of the page.
@@ -32,73 +34,84 @@ These clients are currently experimental, meaning we might introduce breaking ch
 To use these clients, you can import them from the `experimental` namespace:
 
 ```python
-from logfire.experimental.read_client import LogfireAsyncReadClient, LogfireSyncReadClient
+from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
 !!! note "Additional required dependencies"
 
-    To use the read clients provided in `logfire.experimental.read_client`, you need to install `httpx`.
+    To use the query clients provided in `logfire.experimental.query_client`, you need to install `httpx`.
 
     If you want to retrieve Arrow-format responses, you will also need to install `pyarrow`.
 
-### Async Client Example
+### Client Usage Examples
 
-The `LogfireAsyncReadClient` allows for asynchronous interaction with the Logfire API. Here's an example of how to use it:
+The `AsyncLogfireQueryClient` allows for asynchronous interaction with the Logfire API.
+If blocking I/O is acceptable and you want to avoid the complexities of asynchronous programming,
+you can use the plain `LogfireQueryClient`.
 
-```python
-import asyncio
-import polars as pl
-from io import StringIO
-from logfire.experimental.read_client import LogfireAsyncReadClient
+Here's an example of how to use these clients:
 
-async def main():
-    query = """
-    SELECT start_timestamp
-    FROM records
-    LIMIT 1
-    """
+=== "Async"
 
-    async with LogfireAsyncReadClient(read_token='<your_read_token_here>') as client:
-        # Load data as JSON, in column-oriented format
-        json_cols = await client.query_json(sql=query)
-        print(json_cols)
+    ```python
+    from io import StringIO
 
-        # Load data as JSON, in row-oriented format
-        json_rows = await client.query_json_rows(sql=query)
-        print(json_rows)
-
-        # Retrieve data in arrow format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as JSON-serialized strings
-        df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query))
-        print(df_from_arrow)
-
-        # Retrieve data in CSV format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as JSON-serialized strings
-        df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query)))
-        print(df_from_csv)
+    import polars as pl
+    from logfire.experimental.query_client import AsyncLogfireQueryClient
 
 
-asyncio.run(main())
-```
+    async def main():
+        query = """
+          SELECT start_timestamp
+          FROM records
+          LIMIT 1
+          """
 
-### Sync Client Example
+        async with AsyncLogfireQueryClient(read_token='<your_read_token>') as client:
+            # Load data as JSON, in column-oriented format
+            json_cols = await client.query_json(sql=query)
+            print(json_cols)
 
-If you prefer a synchronous approach, use the `LogfireSyncReadClient`.
-This is ideal when blocking I/O is acceptable and you want to avoid the complexities of asynchronous programming:
+            # Load data as JSON, in row-oriented format
+            json_rows = await client.query_json_rows(sql=query)
+            print(json_rows)
 
-```python
-from logfire.experimental.read_client import LogfireSyncReadClient
-import polars as pl
-from io import StringIO
+            # Retrieve data in arrow format, and load into a polars DataFrame
+            # Note that JSON columns such as `attributes` will be returned as
+            # JSON-serialized strings
+            df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query))
+            print(df_from_arrow)
 
-def main():
-    query = """
-    SELECT start_timestamp
-    FROM records
-    LIMIT 1
-    """
+            # Retrieve data in CSV format, and load into a polars DataFrame
+            # Note that JSON columns such as `attributes` will be returned as
+            # JSON-serialized strings
+            df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query)))
+            print(df_from_csv)
 
-    with LogfireSyncReadClient(read_token='<your_read_token_here>') as client:
+
+    if __name__ == '__main__':
+        import asyncio
+
+        asyncio.run(main())
+    ```
+
+=== "Sync"
+
+    ```python
+    from io import StringIO
+
+    import polars as pl
+    from logfire.experimental.query_client import LogfireQueryClient
+
+
+    def main():
+      query = """
+        SELECT start_timestamp
+        FROM records
+        LIMIT 1
+        """
+
+      with LogfireQueryClient(read_token='<your_read_token>') as client:
         # Load data as JSON, in column-oriented format
         json_cols = client.query_json(sql=query)
         print(json_cols)
@@ -108,19 +121,21 @@ def main():
         print(json_rows)
 
         # Retrieve data in arrow format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as JSON-serialized strings
+        # Note that JSON columns such as `attributes` will be returned as
+        # JSON-serialized strings
         df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))  # type: ignore
         print(df_from_arrow)
 
         # Retrieve data in CSV format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as JSON-serialized strings
+        # Note that JSON columns such as `attributes` will be returned as
+        # JSON-serialized strings
         df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
         print(df_from_csv)
 
 
-if __name__ == '__main__':
-    main()
-```
+    if __name__ == '__main__':
+      main()
+    ```
 
 ## Making Direct HTTP Requests
 
@@ -201,7 +216,7 @@ All query parameters are optional and can be used in any combination to tailor t
 
 ### Important Notes
 
-- **Experimental Feature**: The read clients are under the `experimental` namespace, indicating that the API may change in future versions.
+- **Experimental Feature**: The query clients are under the `experimental` namespace, indicating that the API may change in future versions.
 - **Environment Configuration**: Remember to securely store your read token in environment variables or a secure vault for production use.
 
 With read tokens, you have the flexibility to integrate Logfire into your workflow, whether using Python scripts, data analysis tools, or other systems.

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, Self, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
 try:
     from httpx import AsyncClient, Client, Response, Timeout
     from httpx._client import BaseClient
 except ImportError as e:
-    raise ImportError('httpx is required to use the Logfire read clients') from e
+    raise ImportError('httpx is required to use the Logfire query clients') from e
 
 if TYPE_CHECKING:
     from pyarrow import Table  # type: ignore
@@ -56,9 +56,11 @@ class RowQueryResults(TypedDict):
 
 
 T = TypeVar('T', bound=BaseClient)
+S = TypeVar('S', bound='LogfireQueryClient')
+R = TypeVar('R', bound='AsyncLogfireQueryClient')
 
 
-class _LogfireBaseReadClient(Generic[T]):
+class _BaseLogfireQueryClient(Generic[T]):
     def __init__(self, base_url: str, read_token: str, timeout: Timeout, client: type[T], **client_kwargs: Any):
         self.base_url = base_url
         self.read_token = read_token
@@ -94,7 +96,7 @@ class _LogfireBaseReadClient(Generic[T]):
         assert response.status_code == 200, response.content
 
 
-class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
+class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     """A synchronous client for querying Logfire data."""
 
     def __init__(
@@ -106,7 +108,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
     ):
         super().__init__(base_url, read_token, timeout, Client, **client_kwargs)
 
-    def __enter__(self) -> Self:
+    def __enter__(self: S) -> S:
         self.client.__enter__()
         return self
 
@@ -218,7 +220,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         return response
 
 
-class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
+class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     """An asynchronous client for querying Logfire data."""
 
     def __init__(
@@ -230,7 +232,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
     ):
         super().__init__(base_url, read_token, timeout, AsyncClient, **async_client_kwargs)
 
-    async def __aenter__(self) -> Self:
+    async def __aenter__(self: R) -> R:
         await self.client.__aenter__()
         return self
 
