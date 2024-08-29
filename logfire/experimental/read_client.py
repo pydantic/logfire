@@ -150,7 +150,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         )
         return response.json()
 
-    def query_arrow(
+    def query_arrow(  # type: ignore
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -166,7 +166,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         try:
             import pyarrow
         except ImportError as e:
-            raise ImportError('pyarrow is required to use query_arrow') from e
+            raise ImportError('pyarrow is required to use the query_arrow method') from e
 
         response = self._query(
             accept='application/vnd.apache.arrow.stream',
@@ -175,9 +175,9 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:
-            arrow_table: Table = reader.read_all()
-        return arrow_table
+        with pyarrow.ipc.open_stream(response.content) as reader:  # type: ignore
+            arrow_table: Table = reader.read_all()  # type: ignore
+        return arrow_table  # type: ignore
 
     def query_csv(
         self,
@@ -274,7 +274,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         )
         return response.json()
 
-    async def query_arrow(
+    async def query_arrow(  # type: ignore
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -290,7 +290,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         try:
             import pyarrow
         except ImportError as e:
-            raise ImportError('pyarrow is required to use query_arrow') from e
+            raise ImportError('pyarrow is required to use the query_arrow method') from e
 
         response = await self._query(
             accept='application/vnd.apache.arrow.stream',
@@ -299,9 +299,9 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:
-            arrow_table: Table = reader.read_all()
-        return arrow_table
+        with pyarrow.ipc.open_stream(response.content) as reader:  # type: ignore
+            arrow_table: Table = reader.read_all()  # type: ignore
+        return arrow_table  # type: ignore
 
     async def query_csv(
         self,

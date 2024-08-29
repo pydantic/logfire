@@ -6,7 +6,6 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
-#   generate-hashes: false
 
 -e file:.
 aiohappyeyeballs==2.4.0
@@ -29,6 +28,8 @@ asgiref==3.8.1
     # via opentelemetry-instrumentation-asgi
 asttokens==2.4.1
     # via inline-snapshot
+async-timeout==4.0.3
+    # via asyncpg
 asyncpg==0.29.0
 attrs==24.2.0
     # via aiohttp
@@ -187,6 +188,7 @@ nodeenv==1.9.1
     # via pyright
 numpy==2.1.0
     # via pandas
+    # via pyarrow
 openai==1.42.0
 opentelemetry-api==1.26.0
     # via opentelemetry-exporter-otlp-proto-http
@@ -329,7 +331,8 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic @ git+https://github.com/pydantic/pydantic@9f03db8f7fe2448c1b9d573a2066a0754949786e
+pyarrow==17.0.0
+pydantic @ git+https://github.com/pydantic/pydantic@3809bd52ed961227a81ed68d8ca71d701298f641
     # via anthropic
     # via fastapi
     # via openai
