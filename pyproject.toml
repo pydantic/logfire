@@ -141,6 +141,7 @@ dev-dependencies = [
     "mysql-connector-python~=8.0",
     "griffe==0.48.0",
     "pyarrow>=17.0.0",
+    "pytest-recording>=0.13.2",
 ]
 
 [tool.rye.scripts]

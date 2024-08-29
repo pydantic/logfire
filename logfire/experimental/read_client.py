@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, Self, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, Self, TypedDict, TypeVar
 
-from annotated_types import Gt, Le
-from httpx import AsyncClient, Client, Response, Timeout
-from httpx._client import BaseClient
+try:
+    from httpx import AsyncClient, Client, Response, Timeout
+    from httpx._client import BaseClient
+except ImportError as e:
+    raise ImportError('httpx is required to use the Logfire read clients') from e
 
 if TYPE_CHECKING:
     from pyarrow import Table  # type: ignore
@@ -70,12 +72,14 @@ class _LogfireBaseReadClient(Generic[T]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
         row_oriented: bool = False,
-    ) -> dict[str, Any]:
-        params = {'sql': sql, 'limit': limit}
+    ) -> dict[str, str]:
+        params: dict[str, str] = {'sql': sql}
+        if limit is not None:
+            params['limit'] = str(limit)
         if row_oriented:
-            params['json_rows'] = True
+            params['json_rows'] = 'true'
         if min_timestamp:
             params['min_timestamp'] = min_timestamp.isoformat()
         if max_timestamp:
@@ -119,7 +123,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
         response = self._query(
@@ -137,7 +141,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> RowQueryResults:
         """Query Logfire data and return the results as a row-oriented dictionary."""
         response = self._query(
@@ -155,7 +159,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> Table:
         """Query Logfire data and return the results as a pyarrow Table.
 
@@ -184,7 +188,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> str:
         """Query Logfire data and return the results as a CSV-format string.
 
@@ -205,7 +209,7 @@ class LogfireSyncReadClient(_LogfireBaseReadClient[Client]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
         row_oriented: bool = False,
     ) -> Response:
         params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, row_oriented)
@@ -243,7 +247,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
         response = await self._query(
@@ -261,7 +265,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> RowQueryResults:
         """Query Logfire data and return the results as a row-oriented dictionary."""
         response = await self._query(
@@ -279,7 +283,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> Table:
         """Query Logfire data and return the results as a pyarrow Table.
 
@@ -308,7 +312,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
     ) -> str:
         """Query Logfire data and return the results as a CSV-format string.
 
@@ -329,7 +333,7 @@ class LogfireAsyncReadClient(_LogfireBaseReadClient[AsyncClient]):
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
-        limit: Annotated[int, Le(10000), Gt(0)] = 500,
+        limit: int | None = None,
         row_oriented: bool = False,
     ) -> Response:
         params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, row_oriented)

@@ -332,7 +332,7 @@ psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
-pydantic @ git+https://github.com/pydantic/pydantic@3809bd52ed961227a81ed68d8ca71d701298f641
+pydantic @ git+https://github.com/pydantic/pydantic@e13b15edbe6cf90c603fbda1246b9156764c810f
     # via anthropic
     # via fastapi
     # via openai
@@ -350,8 +350,10 @@ pyright==1.1.378
 pytest==8.3.2
     # via pytest-django
     # via pytest-pretty
+    # via pytest-recording
 pytest-django==4.8.0
 pytest-pretty==1.2.0
+pytest-recording==0.13.2
 python-dateutil==2.9.0.post0
     # via celery
     # via ghp-import
@@ -365,6 +367,7 @@ pyyaml==6.0.2
     # via pre-commit
     # via pymdown-extensions
     # via pyyaml-env-tag
+    # via vcrpy
 pyyaml-env-tag==0.1
     # via mkdocs
 redis==5.0.8
@@ -381,7 +384,7 @@ rich==13.8.0
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
-ruff==0.6.2
+ruff==0.6.3
 setuptools==74.0.0
     # via opentelemetry-instrumentation
 six==1.16.0
@@ -432,6 +435,8 @@ urllib3==2.2.2
     # via docker
     # via requests
     # via testcontainers
+vcrpy==6.0.1
+    # via pytest-recording
 vine==5.1.0
     # via amqp
     # via celery
@@ -452,7 +457,9 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-redis
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
+    # via vcrpy
 yarl==1.9.4
     # via aiohttp
+    # via vcrpy
 zipp==3.20.1
     # via importlib-metadata

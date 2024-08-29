@@ -1,15 +1,17 @@
-In addition to [write tokens](./creating_write_tokens.md), Logfire also supports **read tokens**.
-A read token allows you to query data from your Logfire project using our API.
+Logfire provides a web API for programmatically running arbitrary SQL queries against the data in your Logfire projects.
+This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to leverage
+your data in a variety of ways.
 
-## What are Read Tokens?
+The API is available at `https://logfire-api.pydantic.dev/v1/query` and requires a **read token** for authentication.
+Read tokens can be generated from the Logfire web interface and provide secure access to your data.
 
-Read tokens provide secure, programmatic access to the data in your Logfire project. They can be used to run arbitrary
-SQL queries against your data, offering flexibility and power for data analysis and integration with other tools.
+The API can return data in various formats, including JSON, Apache Arrow, and CSV, to suit your needs.
+See [here](#additional-configuration) for more details.
+
+## How to Create a Read Token
 
 If you've set up Logfire following the [first steps guide](../first_steps/index.md), you can generate read tokens from
 the Logfire web interface to start querying your data.
-
-## How to Create a Read Token
 
 1. Open the **Logfire** web interface at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 2. Select your project from the **Projects** section on the left-hand side of the page.
@@ -22,13 +24,22 @@ After creating the read token, you'll see a dialog with the token value.
 
 ## Using the Read Clients
 
-Logfire provides both synchronous and asynchronous clients to interact with the API.
+While you can [make direct HTTP requests](#making-direct-http-requests) to Logfire's querying API,
+we provide Python clients to simplify the process of interacting with the API from Python.
+
+Logfire provides both synchronous and asynchronous clients.
 These clients are currently experimental, meaning we might introduce breaking changes in the future.
 To use these clients, you can import them from the `experimental` namespace:
 
 ```python
 from logfire.experimental.read_client import LogfireAsyncReadClient, LogfireSyncReadClient
 ```
+
+!!! note "Additional required dependencies"
+
+    To use the read clients provided in `logfire.experimental.read_client`, you need to install `httpx`.
+
+    If you want to retrieve Arrow-format responses, you will also need to install `pyarrow`.
 
 ### Async Client Example
 
@@ -125,7 +136,7 @@ client library, such as `requests` in Python. Below are the general steps and an
 
 3. **Define the SQL Query**: Write the SQL query you want to execute.
 
-4. **Send the Request**: Use an HTTP POST request to the `/v1/query` endpoint with the SQL query in the request body.
+4. **Send the Request**: Use an HTTP GET request to the `/v1/query` endpoint with the SQL query as a query parameter.
 
 **Note:** You can provide additional query parameters to control the behavior of your requests.
 You can also use the `Accept` header to specify the desired format for the response data (JSON, Arrow, or CSV).
@@ -152,13 +163,13 @@ FROM records
 LIMIT 1
 """
 
-# Prepare the payload for the POST request
-payload = {
+# Prepare the query parameters for the GET request
+params = {
     'sql': query
 }
 
-# Send the POST request to the Logfire API
-response = requests.post(f'{base_url}/v1/query', json=payload, headers=headers)
+# Send the GET request to the Logfire API
+response = requests.get(f'{base_url}/v1/query', params=params, headers=headers)
 
 # Check the response status
 if response.status_code == 200:
@@ -183,7 +194,7 @@ The Logfire API supports various query parameters and response formats to give y
 - **Query Parameters**:
   - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
   - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
-  - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, the default limit is 500. The maximum allowed value is 10,000.
+  - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 500**. The maximum allowed value is 10,000.
   - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
 
 All query parameters are optional and can be used in any combination to tailor the API response to your needs.
