@@ -447,7 +447,9 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             sampling = SamplingOptions(**sampling)  # type: ignore
         elif sampling is None:
-            sampling = SamplingOptions()
+            sampling = SamplingOptions(
+                head_sample_rate=param_manager.load_param('trace_sample_rate'),
+            )
         self.sampling = sampling
 
         self.fast_shutdown = fast_shutdown

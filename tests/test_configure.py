@@ -466,6 +466,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
+        trace_sample_rate = 0.123
         """
     )
 
@@ -484,6 +485,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.pydantic_plugin.record == 'metrics'
     assert GLOBAL_CONFIG.pydantic_plugin.include == {'test1', 'test2'}
     assert GLOBAL_CONFIG.pydantic_plugin.exclude == {'test3', 'test4'}
+    assert GLOBAL_CONFIG.sampling.head_sample_rate == 0.123
 
 
 def test_logfire_invalid_config_dir(tmp_path: Path):
