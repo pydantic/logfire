@@ -23,7 +23,7 @@ from opentelemetry.util.types import Attributes
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
-    from opentelemetry.metrics import _Gauge  # type: ignore
+    from opentelemetry.metrics import _Gauge
 
     Gauge = _Gauge
 except ImportError:  # pragma: no cover
