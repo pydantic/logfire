@@ -8,7 +8,7 @@ fix bugs, analyze user behavior, and make data-driven decisions.
 !!! note
 
     If you aren't familiar with traces and spans, you might want to review
-    [this section of the First Steps guide](../first_steps/index.md#opentelemetry-concepts).
+    [this section of the First Steps guide](../first_steps/index.md#tracing-with-spans).
 
 #### Logfire Onboarding Checklist
 

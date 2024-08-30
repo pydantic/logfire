@@ -6,7 +6,6 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
-#   generate-hashes: false
 
 -e file:.
 aiohappyeyeballs==2.4.0
@@ -29,6 +28,8 @@ asgiref==3.8.1
     # via opentelemetry-instrumentation-asgi
 asttokens==2.4.1
     # via inline-snapshot
+async-timeout==4.0.3
+    # via asyncpg
 asyncpg==0.29.0
 attrs==24.2.0
     # via aiohttp
@@ -41,7 +42,7 @@ black==24.8.0
 blinker==1.8.2
     # via flask
 celery==5.4.0
-certifi==2024.7.4
+certifi==2024.8.30
     # via httpcore
     # via httpx
     # via requests
@@ -159,7 +160,7 @@ mdurl==0.1.2
 mergedeep==1.3.4
     # via mkdocs
     # via mkdocs-get-deps
-mkdocs==1.6.0
+mkdocs==1.6.1
     # via mkdocs-autorefs
     # via mkdocs-material
     # via mkdocstrings
@@ -187,7 +188,8 @@ nodeenv==1.9.1
     # via pyright
 numpy==2.1.0
     # via pandas
-openai==1.42.0
+    # via pyarrow
+openai==1.43.0
 opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
@@ -329,12 +331,13 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic @ git+https://github.com/pydantic/pydantic@27411c4d10e6132ce05160818d265ed22898b0fd
+pyarrow==17.0.0
+pydantic @ git+https://github.com/pydantic/pydantic@111eb01ea3808e5283f8951265c35f47855f0faa
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.23.0
+pydantic-core==2.23.1
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
@@ -347,8 +350,10 @@ pyright==1.1.378
 pytest==8.3.2
     # via pytest-django
     # via pytest-pretty
+    # via pytest-recording
 pytest-django==4.8.0
 pytest-pretty==1.2.0
+pytest-recording==0.13.2
 python-dateutil==2.9.0.post0
     # via celery
     # via ghp-import
@@ -362,6 +367,7 @@ pyyaml==6.0.2
     # via pre-commit
     # via pymdown-extensions
     # via pyyaml-env-tag
+    # via vcrpy
 pyyaml-env-tag==0.1
     # via mkdocs
 redis==5.0.8
@@ -378,7 +384,7 @@ rich==13.8.0
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
-ruff==0.6.2
+ruff==0.6.3
 setuptools==74.0.0
     # via opentelemetry-instrumentation
 six==1.16.0
@@ -429,6 +435,8 @@ urllib3==2.2.2
     # via docker
     # via requests
     # via testcontainers
+vcrpy==6.0.1
+    # via pytest-recording
 vine==5.1.0
     # via amqp
     # via celery
@@ -449,7 +457,9 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-redis
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
+    # via vcrpy
 yarl==1.9.4
     # via aiohttp
+    # via vcrpy
 zipp==3.20.1
     # via importlib-metadata
