@@ -112,3 +112,8 @@ def default_credentials(tmp_path: Path) -> Path:
         """
     )
     return auth_file
+
+
+@pytest.fixture(scope='module')
+def vcr_config():
+    return {'filter_headers': ['authorization']}

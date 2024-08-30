@@ -10,12 +10,7 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 pytestmark = [pytest.mark.vcr()]
 CLIENT_BASE_URL = 'http://localhost:8000/'
-CLIENT_READ_TOKEN = 'pCXnvyNFSYhHVNT52S38f7R05KLtblGwJP78pNFZCVS7'
-
-
-@pytest.fixture(scope='module')
-def vcr_config():
-    return {'filter_headers': ['authorization']}
+CLIENT_READ_TOKEN = '6qdcmMdvHhyqy6sjhmSW08q1J5VCMRfLl23yNbdz3YGn'
 
 
 def test_read_sync():
