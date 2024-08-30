@@ -60,6 +60,9 @@ from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
+    RESOURCE_ATTRIBUTES_CODE_GIT_REF,
+    RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
+    RESOURCE_ATTRIBUTES_REPO_URL,
     LevelName,
 )
 from .exporters.console import (
@@ -144,6 +147,28 @@ class PydanticPlugin:
     """Exclude specific modules from instrumentation."""
 
 
+@dataclass
+class CodeSource:
+    """Settings for the source code of the project."""
+
+    repository: str
+    """The repository URL for the code e.g. https://github.com/pydantic/logfire"""
+
+    git_ref: str
+    """The git reference for the code i.e. branch name, commit hash or tag."""
+
+    root_path: str | None = None
+    """The root path for the source code in the repository.
+
+    Example:
+        If the `code.filename` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
+        for the source code will be `src/path/to/project/src/logfire/main.py`.
+    """
+
+    provider: Literal['github'] = 'github'
+    """The provider for the repository. This is used to build the URL for the source code."""
+
+
 def configure(
     *,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
@@ -171,6 +196,7 @@ def configure(
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     tail_sampling: TailSamplingOptions | None = None,
+    code_source: CodeSource | None = None,
 ) -> None:
     """Configure the logfire SDK.
 
@@ -218,6 +244,7 @@ def configure(
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
         tail_sampling: Tail sampling options. Not ready for general use.
+        code_source: Settings for the source code of the project. Defaults to `None`.
     """
     if processors is not None:  # pragma: no cover
         raise ValueError(
@@ -277,6 +304,7 @@ def configure(
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         tail_sampling=tail_sampling,
+        code_source=code_source,
     )
 
 
@@ -353,6 +381,9 @@ class _LogfireConfigData:
     tail_sampling: TailSamplingOptions | None
     """Tail sampling options"""
 
+    code_source: CodeSource | None
+    """Settings for the source code of the project"""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -378,6 +409,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         tail_sampling: TailSamplingOptions | None,
+        code_source: CodeSource | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -440,6 +472,11 @@ class _LogfireConfigData:
             tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
         self.tail_sampling = tail_sampling
 
+        if isinstance(code_source, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            code_source = CodeSource(**code_source)  # type: ignore
+        self.code_source = code_source
+
         self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
@@ -478,6 +515,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         tail_sampling: TailSamplingOptions | None = None,
+        code_source: CodeSource | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -508,6 +546,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             tail_sampling=tail_sampling,
+            code_source=code_source,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -542,6 +581,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         tail_sampling: TailSamplingOptions | None,
+        code_source: CodeSource | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -566,6 +606,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 tail_sampling,
+                code_source,
             )
             self.initialize()
 
@@ -586,6 +627,17 @@ class LogfireConfig(_LogfireConfigData):
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
+            if self.code_source:
+                if self.code_source.provider != 'github':
+                    raise LogfireConfigError('Only GitHub repositories are supported for code')
+                otel_resource_attributes.update(
+                    {
+                        RESOURCE_ATTRIBUTES_CODE_GIT_REF: self.code_source.git_ref,
+                        RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
+                        RESOURCE_ATTRIBUTES_REPO_URL: self.code_source.repository,
+                    }
+                )
+
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)

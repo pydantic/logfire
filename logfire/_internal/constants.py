@@ -145,6 +145,15 @@ LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
+RESOURCE_ATTRIBUTES_CODE_GIT_REF = 'logfire.code.git_ref'
+"""The git ref of the current repository."""
+
+RESOURCE_ATTRIBUTES_CODE_ROOT_PATH = 'logfire.code.root_path'
+"""The root path of the current repository."""
+
+RESOURCE_ATTRIBUTES_REPO_URL = 'logfire.code.repo_url'
+"""The URL of the current repository."""
+
 OTLP_MAX_INT_SIZE = 2**63 - 1
 """OTLP only supports signed 64-bit integers, larger integers get sent as strings."""
 
