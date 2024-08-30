@@ -1,5 +1,5 @@
 validator
-Pydantic
+[Pp]ydantic
 validators
 namespace
 Hyperlint
@@ -12,4 +12,4 @@ SDKs
 SDK
 [Aa]sync
 [Ss]ync
-Logfire
+[Ll]ogfire
