@@ -42,7 +42,7 @@ black==24.8.0
 blinker==1.8.2
     # via flask
 celery==5.4.0
-certifi==2024.7.4
+certifi==2024.8.30
     # via httpcore
     # via httpx
     # via requests
@@ -160,7 +160,7 @@ mdurl==0.1.2
 mergedeep==1.3.4
     # via mkdocs
     # via mkdocs-get-deps
-mkdocs==1.6.0
+mkdocs==1.6.1
     # via mkdocs-autorefs
     # via mkdocs-material
     # via mkdocstrings
@@ -189,7 +189,7 @@ nodeenv==1.9.1
 numpy==2.1.0
     # via pandas
     # via pyarrow
-openai==1.42.0
+openai==1.43.0
 opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
@@ -332,12 +332,12 @@ psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
-pydantic @ git+https://github.com/pydantic/pydantic@e13b15edbe6cf90c603fbda1246b9156764c810f
+pydantic @ git+https://github.com/pydantic/pydantic@111eb01ea3808e5283f8951265c35f47855f0faa
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.23.0
+pydantic-core==2.23.1
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material

@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime, timezone
 
 import pytest
@@ -11,14 +10,7 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 CLIENT_BASE_URL = 'http://localhost:8000/'
 CLIENT_READ_TOKEN = '6qdcmMdvHhyqy6sjhmSW08q1J5VCMRfLl23yNbdz3YGn'
-pytestmark = [
-    pytest.mark.vcr(),
-    pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason='vcr is not compatible with latest urllib3 on python<3.10, '
-        'see https://github.com/kevin1024/vcrpy/issues/688',
-    ),
-]
+pytestmark = [pytest.mark.vcr()]
 
 
 def test_read_sync():
