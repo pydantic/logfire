@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 try:
     from httpx import AsyncClient, Client, Response, Timeout
     from httpx._client import BaseClient
-except ImportError as e:
+except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
 
 if TYPE_CHECKING:
@@ -89,9 +89,9 @@ class _BaseLogfireQueryClient(Generic[T]):
         return params
 
     def handle_response_errors(self, response: Response) -> None:
-        if response.status_code == 400:
+        if response.status_code == 400:  # pragma: no cover
             raise QueryExecutionError(response.json())
-        if response.status_code == 422:
+        if response.status_code == 422:  # pragma: no cover
             raise QueryRequestError(response.json())
         assert response.status_code == 200, response.content
 
@@ -171,7 +171,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         """
         try:
             import pyarrow
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
         response = self._query(
@@ -295,7 +295,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         """
         try:
             import pyarrow
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
         response = await self._query(
