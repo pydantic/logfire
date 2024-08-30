@@ -8,11 +8,11 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
-pytestmark = [pytest.mark.vcr()]
 CLIENT_BASE_URL = 'http://localhost:8000/'
 CLIENT_READ_TOKEN = '6qdcmMdvHhyqy6sjhmSW08q1J5VCMRfLl23yNbdz3YGn'
 
 
+@pytest.mark.vcr()
 def test_read_sync():
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
@@ -106,6 +106,7 @@ log,aha 0,false,"[""tag1"",""tag2""]"
         )
 
 
+@pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_read_async():
     async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
@@ -200,6 +201,7 @@ log,aha 0,false,"[""tag1"",""tag2""]"
         )
 
 
+@pytest.mark.vcr()
 def test_query_params_sync():
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
@@ -225,6 +227,7 @@ false,37
 """)
 
 
+@pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_query_params_async():
     async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
