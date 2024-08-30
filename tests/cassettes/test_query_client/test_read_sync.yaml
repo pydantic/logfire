@@ -26,11 +26,11 @@ interactions:
       content-type:
       - application/json
       date:
-      - Thu, 29 Aug 2024 18:21:53 GMT
+      - Fri, 30 Aug 2024 13:12:36 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-6b66957f398c83ddc1b75b6de72788d8-b0d674d55bd8a0ff-01
+      - 00-9b0e4c5ca466d4aa95fbcc4e17dbeb71-65bf0067dfafeace-01
       x-api-version:
       - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
       x-logfire-project:
@@ -66,11 +66,11 @@ interactions:
       content-type:
       - application/json
       date:
-      - Thu, 29 Aug 2024 18:21:53 GMT
+      - Fri, 30 Aug 2024 13:12:36 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-44a4cdb09caa07dbe1bef3faae6d8fcb-2f5ea20e4180d151-01
+      - 00-bbb95fc077b961bdd050c2cf279f926f-9f0a127f153f17d8-01
       x-api-version:
       - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
       x-logfire-project:
@@ -96,7 +96,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAEG80GYC/y2LQQqAMAzA7ntF6bkH9TsypGqdw7nKOsHnK+othGSLeaZdzDgIRRvkmuSoUTNV
+        H4sIAETF0WYC/y2LQQqAMAzA7ntF6bkH9TsypGqdw7nKOsHnK+othGSLeaZdzDgIRRvkmuSoUTNV
         DuaSBuJRzwpVoXA0Ac4gpWihhZMJ9f6LVobmV9gjPneLSC90iB7dDVkJgRRqAAAA
     headers:
       access-control-expose-headers:
@@ -108,11 +108,11 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Thu, 29 Aug 2024 18:21:53 GMT
+      - Fri, 30 Aug 2024 13:12:36 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-118f7942685e044a065433a3f0699f95-535abc65ae8e0cbc-01
+      - 00-f9d47f43674e25b1b83800efd9dead04-215253a09167cb31-01
       transfer-encoding:
       - chunked
       vary:
@@ -142,7 +142,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAEK80GYC/8VVvU7DMBC+tKYEFEGHlEaoQwYeoDAxMPRBkJAhVomgDUqC1IGhD8LAwEMw5hF4
+        H4sIAETF0WYC/8VVvU7DMBC+tKYEFEGHlEaoQwYeoDAxMPRBkJAhVomgDUqC1IGhD8LAwEMw5hF4
         AN4lnJ1zSEz5a6rg6Hxn333nL3dOm+d5vrAA+iDHLjgoO8Bwpj2LgY0PAKO5kDeUJ5RzWj9gHg+1
         o/JYg1M5o0iMi75HFPfD7xYaYIz7Eh+mYgaUK+XTRNqvdUxPYwLcl3aYXIjFlbhLw2gOiq+Lsgf7
         Kout+K868xnx26hnIkn4VGCcp+Ikrk+4M8mtCHf7ZNuqKkUdilw9tBnOun7Sy8oa3YTzAH4YSCV/
@@ -158,11 +158,11 @@ interactions:
       content-type:
       - application/vnd.apache.arrow.stream
       date:
-      - Thu, 29 Aug 2024 18:21:54 GMT
+      - Fri, 30 Aug 2024 13:12:36 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-c6120f88de3f34d26ec8a47f7dba0960-af2deea9bb3eb654-01
+      - 00-eecb36dec8c562b93184f8afcc63f6a5-87feb75ba795d91e-01
       transfer-encoding:
       - chunked
       vary:
