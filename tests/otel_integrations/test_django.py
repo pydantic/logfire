@@ -64,6 +64,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                                 'net.host.port': 80,
                                 'http.flavor': '1.1',
                                 'http.status_code': 200,
+                                'http.target': 'django_test_app/<int:item_id>/',
                             },
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),

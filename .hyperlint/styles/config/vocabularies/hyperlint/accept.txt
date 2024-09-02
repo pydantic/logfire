@@ -1,0 +1,15 @@
+validator
+[Pp]ydantic
+validators
+namespace
+Hyperlint
+preprocess
+tokenization
+tokenizer
+API
+APIs
+SDKs
+SDK
+[Aa]sync
+[Ss]ync
+[Ll]ogfire

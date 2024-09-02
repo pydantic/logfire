@@ -1,0 +1,177 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20
+  response:
+    body:
+      string: '{"columns":[{"name":"kind","datatype":"String","bit_settings":"","values":["log","log"]},{"name":"message","datatype":"String","bit_settings":"","values":["about
+        to raise an error","aha 0"]},{"name":"is_exception","datatype":"Boolean","bit_settings":"","values":[false,false]},{"name":"tags","datatype":{"List":"String"},"bit_settings":"","values":[{"name":"","datatype":"String","bit_settings":"","values":[]},{"name":"","datatype":"String","bit_settings":"","values":["tag1","tag2"]}]}]}'
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-length:
+      - '489'
+      content-type:
+      - application/json
+      date:
+      - Fri, 30 Aug 2024 16:08:33 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-111f83c2f365c871897bb1384294057b-46f4c321c092c0f0-01
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20&json_rows=true
+  response:
+    body:
+      string: '{"columns":[{"name":"kind","datatype":"String","bit_settings":""},{"name":"message","datatype":"String","bit_settings":""},{"name":"is_exception","datatype":"Boolean","bit_settings":""},{"name":"tags","datatype":{"List":"String"},"bit_settings":""}],"rows":[{"kind":"log","message":"about
+        to raise an error","is_exception":false,"tags":[]},{"kind":"log","message":"aha
+        0","is_exception":false,"tags":["tag1","tag2"]}]}'
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-length:
+      - '418'
+      content-type:
+      - application/json
+      date:
+      - Fri, 30 Aug 2024 16:08:33 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-01774ae97cf3730cbb5eeec847b6866f-f2162caac72e9305-01
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - text/csv
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/y2LQQqAMAzA7ntF6bkH9TsypGqdw7nKOsHnK+othGSLeaZdzDgIRRvkmuSoUTNV
+        DuaSBuJRzwpVoXA0Ac4gpWihhZMJ9f6LVobmV9gjPneLSC90iB7dDVkJgRRqAAAA
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      content-encoding:
+      - gzip
+      content-type:
+      - text/csv; charset=utf-8
+      date:
+      - Fri, 30 Aug 2024 16:08:33 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-a32ae9361f54d7b36e49d11ec53224f7-d12b8d090b639e15-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/vnd.apache.arrow.stream
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/8VVvU7DMBC+tKYEFEGHlEaoQwYeoDAxMPRBkJAhVomgDUqC1IGhD8LAwEMw5hF4
+        AN4lnJ1zSEz5a6rg6Hxn333nL3dOm+d5vrAA+iDHLjgoO8Bwpj2LgY0PAKO5kDeUJ5RzWj9gHg+1
+        o/JYg1M5o0iMi75HFPfD7xYaYIz7Eh+mYgaUK+XTRNqvdUxPYwLcl3aYXIjFlbhLw2gOiq+Lsgf7
+        Kout+K868xnx26hnIkn4VGCcp+Ikrk+4M8mtCHf7ZNuqKkUdilw9tBnOun7Sy8oa3YTzAH4YSCV/
+        IbyDPA5goE6Q+UcoWTW4w2ocdM9cjLapZ0fEzSKIVbH16FZs7ZuQ1u+xXBG7kj9sZnTXxN1G00bn
+        5pX778AhdmBY1t//TKzLjHoHVO8OBWxV7LJtDdfON/1iRr+0X98bzwCONN6qxy+NdWasNSmdb9Ix
+        8IY/o7Xd0v1Zu/8byjOEen1/O/hldJ/6aeTHPEyEz+e+iOMo5tfcH7fJ/7/r99Xdb+t8/R3Zf8Th
+        f9UxykmT3x+p3wHsMJvMiAcAAA==
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-encoding:
+      - gzip
+      content-type:
+      - application/vnd.apache.arrow.stream
+      date:
+      - Fri, 30 Aug 2024 16:08:33 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-85fd4620af9948cc03a0689541041639-c2135003cf616261-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+version: 1

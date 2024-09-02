@@ -92,7 +92,7 @@ dev-dependencies = [
     "pytest",
     "pytest-django",
     "pytest-pretty",
-    "pydantic",
+    "pydantic @ git+https://github.com/pydantic/pydantic",
     "requests",
     "sqlalchemy",
     "pandas",
@@ -140,6 +140,8 @@ dev-dependencies = [
     "testcontainers",
     "mysql-connector-python~=8.0",
     "griffe==0.48.0",
+    "pyarrow>=17.0.0",
+    "pytest-recording>=0.13.2",
 ]
 
 [tool.rye.scripts]

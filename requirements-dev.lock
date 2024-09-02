@@ -6,19 +6,18 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
-#   generate-hashes: false
 
 -e file:.
-aiohappyeyeballs==2.3.5
+aiohappyeyeballs==2.4.0
     # via aiohttp
-aiohttp==3.10.1
+aiohttp==3.10.5
 aiosignal==1.3.1
     # via aiohttp
 amqp==5.2.0
     # via kombu
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.32.0
+anthropic==0.34.1
 anyio==4.3.0
     # via anthropic
     # via httpx
@@ -29,10 +28,12 @@ asgiref==3.8.1
     # via opentelemetry-instrumentation-asgi
 asttokens==2.4.1
     # via inline-snapshot
+async-timeout==4.0.3
+    # via asyncpg
 asyncpg==0.29.0
 attrs==24.2.0
     # via aiohttp
-babel==2.15.0
+babel==2.16.0
     # via mkdocs-material
 billiard==4.2.0
     # via celery
@@ -41,7 +42,7 @@ black==24.8.0
 blinker==1.8.2
     # via flask
 celery==5.4.0
-certifi==2024.7.4
+certifi==2024.8.30
     # via httpcore
     # via httpx
     # via requests
@@ -74,7 +75,7 @@ deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-semantic-conventions
-dirty-equals==0.7.1.post0
+dirty-equals==0.8.0
 distlib==0.3.8
     # via virtualenv
 distro==1.9.0
@@ -89,7 +90,7 @@ eval-type-backport==0.2.0
 executing==2.0.1
     # via inline-snapshot
     # via logfire
-fastapi==0.112.0
+fastapi==0.112.2
 filelock==3.15.4
     # via huggingface-hub
     # via virtualenv
@@ -101,7 +102,7 @@ fsspec==2024.6.1
     # via huggingface-hub
 ghp-import==2.1.0
     # via mkdocs
-googleapis-common-protos==1.63.2
+googleapis-common-protos==1.65.0
     # via opentelemetry-exporter-otlp-proto-http
 griffe==0.48.0
     # via mkdocstrings-python
@@ -109,19 +110,19 @@ h11==0.14.0
     # via httpcore
 httpcore==1.0.5
     # via httpx
-httpx==0.27.0
+httpx==0.27.2
     # via anthropic
     # via openai
-huggingface-hub==0.24.5
+huggingface-hub==0.24.6
     # via tokenizers
 identify==2.6.0
     # via pre-commit
-idna==3.7
+idna==3.8
     # via anyio
     # via httpx
     # via requests
     # via yarl
-importlib-metadata==8.0.0
+importlib-metadata==8.4.0
     # via opentelemetry-api
     # via opentelemetry-instrumentation-flask
 iniconfig==2.0.0
@@ -140,7 +141,7 @@ jiter==0.5.0
 kombu==5.4.0
     # via celery
 loguru==0.7.2
-markdown==3.6
+markdown==3.7
     # via mkdocs
     # via mkdocs-autorefs
     # via mkdocs-material
@@ -159,16 +160,16 @@ mdurl==0.1.2
 mergedeep==1.3.4
     # via mkdocs
     # via mkdocs-get-deps
-mkdocs==1.6.0
+mkdocs==1.6.1
     # via mkdocs-autorefs
     # via mkdocs-material
     # via mkdocstrings
-mkdocs-autorefs==1.0.1
+mkdocs-autorefs==1.1.0
     # via mkdocstrings
 mkdocs-get-deps==0.2.0
     # via mkdocs
 mkdocs-glightbox==0.4.0
-mkdocs-material==9.5.31
+mkdocs-material==9.5.33
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocstrings==0.25.2
@@ -177,7 +178,7 @@ mkdocstrings-python==1.10.7
 multidict==6.0.5
     # via aiohttp
     # via yarl
-mypy==1.11.1
+mypy==1.11.2
 mypy-extensions==1.0.0
     # via black
     # via mypy
@@ -185,10 +186,11 @@ mysql-connector-python==8.4.0
 nodeenv==1.9.1
     # via pre-commit
     # via pyright
-numpy==2.0.1
+numpy==2.1.0
     # via pandas
-openai==1.40.1
-opentelemetry-api==1.26.0
+    # via pyarrow
+openai==1.43.0
+opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
     # via opentelemetry-instrumentation-aiohttp-client
@@ -212,11 +214,11 @@ opentelemetry-api==1.26.0
     # via opentelemetry-instrumentation-wsgi
     # via opentelemetry-sdk
     # via opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.26.0
+opentelemetry-exporter-otlp-proto-common==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.26.0
+opentelemetry-exporter-otlp-proto-http==1.27.0
     # via logfire
-opentelemetry-instrumentation==0.47b0
+opentelemetry-instrumentation==0.48b0
     # via logfire
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
@@ -237,39 +239,39 @@ opentelemetry-instrumentation==0.47b0
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-system-metrics
     # via opentelemetry-instrumentation-wsgi
-opentelemetry-instrumentation-aiohttp-client==0.47b0
-opentelemetry-instrumentation-asgi==0.47b0
+opentelemetry-instrumentation-aiohttp-client==0.48b0
+opentelemetry-instrumentation-asgi==0.48b0
     # via opentelemetry-instrumentation-fastapi
     # via opentelemetry-instrumentation-starlette
-opentelemetry-instrumentation-asyncpg==0.47b0
-opentelemetry-instrumentation-celery==0.47b0
-opentelemetry-instrumentation-dbapi==0.47b0
+opentelemetry-instrumentation-asyncpg==0.48b0
+opentelemetry-instrumentation-celery==0.48b0
+opentelemetry-instrumentation-dbapi==0.48b0
     # via opentelemetry-instrumentation-mysql
     # via opentelemetry-instrumentation-psycopg
     # via opentelemetry-instrumentation-psycopg2
-opentelemetry-instrumentation-django==0.47b0
-opentelemetry-instrumentation-fastapi==0.47b0
-opentelemetry-instrumentation-flask==0.47b0
-opentelemetry-instrumentation-httpx==0.47b0
-opentelemetry-instrumentation-mysql==0.47b0
-opentelemetry-instrumentation-psycopg==0.47b0
-opentelemetry-instrumentation-psycopg2==0.47b0
-opentelemetry-instrumentation-pymongo==0.47b0
-opentelemetry-instrumentation-redis==0.47b0
-opentelemetry-instrumentation-requests==0.47b0
-opentelemetry-instrumentation-sqlalchemy==0.47b0
-opentelemetry-instrumentation-starlette==0.47b0
-opentelemetry-instrumentation-system-metrics==0.47b0
-opentelemetry-instrumentation-wsgi==0.47b0
+opentelemetry-instrumentation-django==0.48b0
+opentelemetry-instrumentation-fastapi==0.48b0
+opentelemetry-instrumentation-flask==0.48b0
+opentelemetry-instrumentation-httpx==0.48b0
+opentelemetry-instrumentation-mysql==0.48b0
+opentelemetry-instrumentation-psycopg==0.48b0
+opentelemetry-instrumentation-psycopg2==0.48b0
+opentelemetry-instrumentation-pymongo==0.48b0
+opentelemetry-instrumentation-redis==0.48b0
+opentelemetry-instrumentation-requests==0.48b0
+opentelemetry-instrumentation-sqlalchemy==0.48b0
+opentelemetry-instrumentation-starlette==0.48b0
+opentelemetry-instrumentation-system-metrics==0.48b0
+opentelemetry-instrumentation-wsgi==0.48b0
     # via opentelemetry-instrumentation-django
     # via opentelemetry-instrumentation-flask
-opentelemetry-proto==1.26.0
+opentelemetry-proto==1.27.0
     # via opentelemetry-exporter-otlp-proto-common
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.26.0
+opentelemetry-sdk==1.27.0
     # via logfire
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.47b0
+opentelemetry-semantic-conventions==0.48b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
     # via opentelemetry-instrumentation-asyncpg
@@ -286,7 +288,7 @@ opentelemetry-semantic-conventions==0.47b0
     # via opentelemetry-instrumentation-starlette
     # via opentelemetry-instrumentation-wsgi
     # via opentelemetry-sdk
-opentelemetry-util-http==0.47b0
+opentelemetry-util-http==0.48b0
     # via opentelemetry-instrumentation-aiohttp-client
     # via opentelemetry-instrumentation-asgi
     # via opentelemetry-instrumentation-django
@@ -303,7 +305,7 @@ packaging==24.1
     # via opentelemetry-instrumentation-flask
     # via opentelemetry-instrumentation-sqlalchemy
     # via pytest
-paginate==0.5.6
+paginate==0.5.7
     # via mkdocs-material
 pandas==2.2.2
 pathspec==0.12.1
@@ -329,12 +331,13 @@ psycopg==3.2.1
 psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
-pydantic==2.8.2
+pyarrow==17.0.0
+pydantic @ git+https://github.com/pydantic/pydantic@111eb01ea3808e5283f8951265c35f47855f0faa
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.20.1
+pydantic-core==2.23.1
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
@@ -343,18 +346,19 @@ pymdown-extensions==10.9
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pyright==1.1.375
+pyright==1.1.378
 pytest==8.3.2
     # via pytest-django
     # via pytest-pretty
+    # via pytest-recording
 pytest-django==4.8.0
 pytest-pretty==1.2.0
+pytest-recording==0.13.2
 python-dateutil==2.9.0.post0
     # via celery
     # via ghp-import
     # via pandas
 pytz==2024.1
-    # via dirty-equals
     # via pandas
 pyyaml==6.0.2
     # via huggingface-hub
@@ -363,6 +367,7 @@ pyyaml==6.0.2
     # via pre-commit
     # via pymdown-extensions
     # via pyyaml-env-tag
+    # via vcrpy
 pyyaml-env-tag==0.1
     # via mkdocs
 redis==5.0.8
@@ -375,12 +380,12 @@ requests==2.32.3
     # via opentelemetry-exporter-otlp-proto-http
     # via requests-mock
 requests-mock==1.12.1
-rich==13.7.1
+rich==13.8.0
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
-ruff==0.5.6
-setuptools==72.1.0
+ruff==0.6.3
+setuptools==74.0.0
     # via opentelemetry-instrumentation
 six==1.16.0
     # via asttokens
@@ -395,11 +400,11 @@ sqlalchemy==2.0.32
 sqlmodel==0.0.21
 sqlparse==0.5.1
     # via django
-starlette==0.37.2
+starlette==0.38.2
     # via fastapi
 structlog==24.4.0
-testcontainers==4.7.2
-tokenizers==0.19.1
+testcontainers==4.8.0
+tokenizers==0.20.0
     # via anthropic
 toml==0.10.2
     # via inline-snapshot
@@ -425,21 +430,24 @@ typing-extensions==4.12.2
 tzdata==2024.1
     # via celery
     # via pandas
+    # via pydantic
 urllib3==2.2.2
     # via docker
     # via requests
     # via testcontainers
+vcrpy==6.0.1
+    # via pytest-recording
 vine==5.1.0
     # via amqp
     # via celery
     # via kombu
 virtualenv==20.26.3
     # via pre-commit
-watchdog==4.0.1
+watchdog==5.0.0
     # via mkdocs
 wcwidth==0.2.13
     # via prompt-toolkit
-werkzeug==3.0.3
+werkzeug==3.0.4
     # via flask
 wrapt==1.16.0
     # via deprecated
@@ -449,7 +457,9 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-redis
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
+    # via vcrpy
 yarl==1.9.4
     # via aiohttp
-zipp==3.19.2
+    # via vcrpy
+zipp==3.20.1
     # via importlib-metadata
