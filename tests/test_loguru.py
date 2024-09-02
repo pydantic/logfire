@@ -113,3 +113,6 @@ def test_loguru(exporter: TestExporter) -> None:
             },
         ]
     )
+
+    for span in exporter.exported_spans:
+        assert span.instrumentation_scope.name == 'logfire.loguru'  # type: ignore

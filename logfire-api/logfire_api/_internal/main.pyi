@@ -240,7 +240,7 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
         """
-    def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None, custom_scope_suffix: str | None = None) -> None:
+    def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None) -> None:
         """Log a message.
 
         ```py
@@ -261,12 +261,6 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
             console_log: Whether to log to the console, defaults to `True`.
-            custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
-
-                It should only be used when instrumenting another library with Logfire, such as structlog or loguru.
-
-                See the `instrumenting_module_name` parameter on
-                [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.

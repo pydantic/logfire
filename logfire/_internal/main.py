@@ -553,7 +553,6 @@ class Logfire:
         tags: Sequence[str] | None = None,
         exc_info: ExcInfo = False,
         console_log: bool | None = None,
-        custom_scope_suffix: str | None = None,
     ) -> None:
         """Log a message.
 
@@ -575,12 +574,6 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
             console_log: Whether to log to the console, defaults to `True`.
-            custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
-
-                It should only be used when instrumenting another library with Logfire, such as structlog or loguru.
-
-                See the `instrumenting_module_name` parameter on
-                [TracerProvider.get_tracer][opentelemetry.sdk.trace.TracerProvider.get_tracer] for more info.
         """
         with handle_internal_errors():
             stack_info = get_user_stack_info()
@@ -640,12 +633,7 @@ class Logfire:
                 otlp_attributes[DISABLE_CONSOLE_KEY] = True
             start_time = self._config.ns_timestamp_generator()
 
-            if custom_scope_suffix:
-                tracer = self._get_tracer(is_span_tracer=False, otel_scope=f'logfire.{custom_scope_suffix}')
-            else:
-                tracer = self._logs_tracer
-
-            span = tracer.start_span(
+            span = self._logs_tracer.start_span(
                 msg_template,
                 attributes=otlp_attributes,
                 start_time=start_time,
