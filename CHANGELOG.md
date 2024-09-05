@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v0.52.0] (2024-09-05)
+
+* Handle FastAPI update with SolvedDependencies by @alexmojaki in https://github.com/pydantic/logfire/pull/415
+* Add experimental client for the Logfire Query API by @dmontagu in https://github.com/pydantic/logfire/pull/405
+* Remove `default_span_processor` parameter from `configure` by @alexmojaki in https://github.com/pydantic/logfire/pull/400
+* Remove `custom_scope_suffix` parameter of `Logfire.log` by @alexmojaki in https://github.com/pydantic/logfire/pull/399
+* Add missing `service_version` field to `_LogfireConfigData` so that it gets copied into subprocesses by @alexmojaki in https://github.com/pydantic/logfire/pull/401
+
 ## [v0.51.0] (2024-08-22)
 
 ### BREAKING CHANGES
@@ -266,6 +274,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
 [v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
 [v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
 [v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
