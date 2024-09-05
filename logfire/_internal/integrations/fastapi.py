@@ -184,7 +184,7 @@ class FastAPIInstrumentation:
             solved_values: dict[str, Any]
             solved_errors: list[Any]
 
-            if isinstance(result, tuple):
+            if isinstance(result, tuple):  # pragma: no cover
                 solved_values = result[0]  # type: ignore
                 solved_errors = result[1]  # type: ignore
 
