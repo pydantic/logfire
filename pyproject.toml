@@ -142,6 +142,7 @@ dev-dependencies = [
     "griffe==0.48.0",
     "pyarrow>=17.0.0",
     "pytest-recording>=0.13.2",
+    "uvicorn>=0.30.6",
 ]
 
 [tool.rye.scripts]
