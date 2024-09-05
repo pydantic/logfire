@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 from contextlib import contextmanager
 from functools import lru_cache
@@ -115,7 +116,7 @@ def patch_fastapi():
     """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
     registry: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
 
-    async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any):
+    async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
         if instrumentation := registry.get(request.app):
             return await instrumentation.solve_dependencies(request, original)
@@ -166,9 +167,7 @@ class FastAPIInstrumentation:
         else:
             self.excluded_urls_list = parse_excluded_urls(excluded_urls)  # pragma: no cover
 
-    async def solve_dependencies(
-        self, request: Request | WebSocket, original: Awaitable[tuple[dict[str, Any], list[Any], Any, Any, Any]]
-    ):
+    async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         try:
             url = cast(str, get_host_port_url_tuple(request.scope)[2])
             excluded = self.excluded_urls_list.url_disabled(url)
@@ -180,7 +179,23 @@ class FastAPIInstrumentation:
             return await original  # pragma: no cover
 
         with self.logfire_instance.span('FastAPI arguments') as span:
-            result = await original
+            result: Any = await original
+
+            solved_values: dict[str, Any]
+            solved_errors: list[Any]
+
+            if isinstance(result, tuple):
+                solved_values = result[0]  # type: ignore
+                solved_errors = result[1]  # type: ignore
+
+                def solved_with_new_values(new_values: dict[str, Any]) -> Any:
+                    return new_values, *result[1:]
+            else:
+                solved_values = result.values
+                solved_errors = result.errors
+
+                def solved_with_new_values(new_values: dict[str, Any]) -> Any:
+                    return dataclasses.replace(result, values=new_values)
 
             try:
                 attributes: dict[str, Any] | None = {
@@ -189,17 +204,17 @@ class FastAPIInstrumentation:
                     # Making a deep copy could be very expensive and maybe even impossible.
                     'values': {
                         k: v
-                        for k, v in result[0].items()
+                        for k, v in solved_values.items()  # type: ignore
                         if not isinstance(v, (Request, WebSocket, BackgroundTasks, SecurityScopes, Response))
                     },
-                    'errors': result[1].copy(),
+                    'errors': solved_errors.copy(),  # type: ignore
                 }
 
                 # Set the current app on `values` so that `patched_run_endpoint_function` can check it.
                 if isinstance(request, Request):  # pragma: no branch
-                    instrumented_values = _InstrumentedValues(result[0])
+                    instrumented_values = _InstrumentedValues(solved_values)
                     instrumented_values.request = request
-                    result = (instrumented_values, *result[1:])
+                    result: Any = solved_with_new_values(instrumented_values)
 
                 attributes = self.request_attributes_mapper(request, attributes)
                 if not attributes:
@@ -208,7 +223,7 @@ class FastAPIInstrumentation:
                     # We can't drop the span since it's already been created,
                     # but we can set the level to debug so that it's hidden by default.
                     span.set_level('debug')
-                    return result
+                    return result  # type: ignore
 
                 # request_attributes_mapper may have removed the errors, so we need .get() here.
                 if attributes.get('errors'):
@@ -235,7 +250,7 @@ class FastAPIInstrumentation:
             except Exception as e:  # pragma: no cover
                 span.record_exception(e)
 
-        return result
+        return result  # type: ignore
 
     async def run_endpoint_function(
         self,
