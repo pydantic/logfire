@@ -6,6 +6,7 @@
 #   features: []
 #   all-features: false
 #   with-sources: false
+#   generate-hashes: false
 
 -e file:.
 aiohappyeyeballs==2.4.0
@@ -17,7 +18,7 @@ amqp==5.2.0
     # via kombu
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.34.1
+anthropic==0.34.2
 anyio==4.3.0
     # via anthropic
     # via httpx
@@ -28,8 +29,6 @@ asgiref==3.8.1
     # via opentelemetry-instrumentation-asgi
 asttokens==2.4.1
     # via inline-snapshot
-async-timeout==4.0.3
-    # via asyncpg
 asyncpg==0.29.0
 attrs==24.2.0
     # via aiohttp
@@ -60,6 +59,7 @@ click==8.1.7
     # via inline-snapshot
     # via mkdocs
     # via mkdocstrings
+    # via uvicorn
 click-didyoumean==0.3.1
     # via celery
 click-plugins==1.1.1
@@ -81,16 +81,16 @@ distlib==0.3.8
 distro==1.9.0
     # via anthropic
     # via openai
-django==5.1
+django==5.1.1
 dnspython==2.6.1
     # via pymongo
 docker==7.1.0
     # via testcontainers
 eval-type-backport==0.2.0
-executing==2.0.1
+executing==2.1.0
     # via inline-snapshot
     # via logfire
-fastapi==0.112.2
+fastapi==0.112.3
 filelock==3.15.4
     # via huggingface-hub
     # via virtualenv
@@ -98,7 +98,7 @@ flask==3.0.3
 frozenlist==1.4.1
     # via aiohttp
     # via aiosignal
-fsspec==2024.6.1
+fsspec==2024.9.0
     # via huggingface-hub
 ghp-import==2.1.0
     # via mkdocs
@@ -108,6 +108,7 @@ griffe==0.48.0
     # via mkdocstrings-python
 h11==0.14.0
     # via httpcore
+    # via uvicorn
 httpcore==1.0.5
     # via httpx
 httpx==0.27.2
@@ -164,15 +165,15 @@ mkdocs==1.6.1
     # via mkdocs-autorefs
     # via mkdocs-material
     # via mkdocstrings
-mkdocs-autorefs==1.1.0
+mkdocs-autorefs==1.2.0
     # via mkdocstrings
 mkdocs-get-deps==0.2.0
     # via mkdocs
 mkdocs-glightbox==0.4.0
-mkdocs-material==9.5.33
+mkdocs-material==9.5.34
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
-mkdocstrings==0.25.2
+mkdocstrings==0.26.0
     # via mkdocstrings-python
 mkdocstrings-python==1.10.7
 multidict==6.0.5
@@ -186,7 +187,7 @@ mysql-connector-python==8.4.0
 nodeenv==1.9.1
     # via pre-commit
     # via pyright
-numpy==2.1.0
+numpy==2.1.1
     # via pandas
     # via pyarrow
 openai==1.43.0
@@ -332,7 +333,7 @@ psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
-pydantic @ git+https://github.com/pydantic/pydantic@111eb01ea3808e5283f8951265c35f47855f0faa
+pydantic @ git+https://github.com/pydantic/pydantic@447879b44ab8a9871193d6aef1b0846288929495
     # via anthropic
     # via fastapi
     # via openai
@@ -346,12 +347,12 @@ pymdown-extensions==10.9
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pyright==1.1.378
+pyright==1.1.379
 pytest==8.3.2
     # via pytest-django
     # via pytest-pretty
     # via pytest-recording
-pytest-django==4.8.0
+pytest-django==4.9.0
 pytest-pretty==1.2.0
 pytest-recording==0.13.2
 python-dateutil==2.9.0.post0
@@ -385,7 +386,7 @@ rich==13.8.0
     # via logfire
     # via pytest-pretty
 ruff==0.6.3
-setuptools==74.0.0
+setuptools==74.1.2
     # via opentelemetry-instrumentation
 six==1.16.0
     # via asttokens
@@ -395,15 +396,15 @@ sniffio==1.3.1
     # via anyio
     # via httpx
     # via openai
-sqlalchemy==2.0.32
+sqlalchemy==2.0.34
     # via sqlmodel
-sqlmodel==0.0.21
+sqlmodel==0.0.22
 sqlparse==0.5.1
     # via django
-starlette==0.38.2
+starlette==0.38.4
     # via fastapi
 structlog==24.4.0
-testcontainers==4.8.0
+testcontainers==4.8.1
 tokenizers==0.20.0
     # via anthropic
 toml==0.10.2
@@ -435,6 +436,7 @@ urllib3==2.2.2
     # via docker
     # via requests
     # via testcontainers
+uvicorn==0.30.6
 vcrpy==6.0.1
     # via pytest-recording
 vine==5.1.0
@@ -443,7 +445,7 @@ vine==5.1.0
     # via kombu
 virtualenv==20.26.3
     # via pre-commit
-watchdog==5.0.0
+watchdog==5.0.2
     # via mkdocs
 wcwidth==0.2.13
     # via prompt-toolkit
@@ -458,7 +460,7 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
     # via vcrpy
-yarl==1.9.4
+yarl==1.9.11
     # via aiohttp
     # via vcrpy
 zipp==3.20.1
