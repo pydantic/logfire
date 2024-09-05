@@ -80,7 +80,7 @@ logfire.configure()  # (1)!
 
 logfire.info('Hello, {name}!', name='world')  # (2)!
 
-with logfire.span('Asking the user their {question}', question='birthday'):  # (3)!
+with logfire.span('Asking the user for their {question}', question='birthday'):  # (3)!
     user_input = input('When were you born [YYYY-mm-dd]? ')
     dob = date.fromisoformat(user_input)  # (4)!
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)  # (5)!
