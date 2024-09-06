@@ -337,7 +337,7 @@ class TestSampler(Sampler):
             sampler = ALWAYS_ON
         return sampler.should_sample(parent_context, trace_id, name, *args, **kwargs)
 
-    def get_description(self) -> str:
+    def get_description(self) -> str:  # pragma: no cover
         return 'MySampler'
 
 
