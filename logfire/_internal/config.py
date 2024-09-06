@@ -260,14 +260,14 @@ def configure(
         if sampling:
             raise ValueError(
                 'Cannot specify both `trace_sample_rate` and `sampling`. '
-                'Use `sampling.head_sample_rate` instead of `trace_sample_rate`.'
+                'Use `sampling.head` instead of `trace_sample_rate`.'
             )
         else:
             sampling = SamplingOptions()
         sampling.head = trace_sample_rate
         warnings.warn(
             'The `trace_sample_rate` argument is deprecated. '
-            'Use `sampling=logfire.SamplingOptions(head_sample_rate=...)` instead.',
+            'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
         )
 
     GLOBAL_CONFIG.configure(
@@ -614,8 +614,8 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
-            head_sample_rate = self.sampling.head
-            sampler = ParentBasedTraceIdRatio(head_sample_rate) if head_sample_rate < 1 else None
+            head = self.sampling.head
+            sampler = ParentBasedTraceIdRatio(head) if head < 1 else None
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,

@@ -76,7 +76,7 @@ class TraceBuffer:
 
 @dataclass
 class SpanSamplingInfo:
-    """Argument passed to [`SamplingOptions`][logfire.sampling.SamplingOptions]`.get_tail_sample_rate`."""
+    """Argument passed to [`SamplingOptions`][logfire.sampling.SamplingOptions]`.tail`."""
 
     span: ReadableSpan
     context: context.Context | None
@@ -113,16 +113,16 @@ class SamplingOptions:
         cls,
         level_threshold: LevelName | None = 'notice',
         duration_threshold: float | None = 5.0,
-        head_sample_rate: float = 1.0,
+        head: float = 1.0,
         tail_sample_rate: float | None = None,
         background_rate: float = 0.0,
     ) -> Self:
         if tail_sample_rate is None:
-            tail_sample_rate = head_sample_rate
+            tail_sample_rate = head
 
-        if not (0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0):
+        if not (0.0 <= background_rate <= tail_sample_rate <= head <= 1.0):
             raise ValueError(
-                'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0'
+                'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
             )
 
         def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
@@ -134,7 +134,7 @@ class SamplingOptions:
 
             return background_rate
 
-        return cls(head=head_sample_rate, tail=get_tail_sample_rate)
+        return cls(head=head, tail=get_tail_sample_rate)
 
 
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool:
