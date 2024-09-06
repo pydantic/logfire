@@ -264,10 +264,10 @@ def configure(
             )
         else:
             sampling = SamplingOptions(head=trace_sample_rate)
-        warnings.warn(
-            'The `trace_sample_rate` argument is deprecated. '
-            'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
-        )
+            warnings.warn(
+                'The `trace_sample_rate` argument is deprecated. '
+                'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
+            )
 
     GLOBAL_CONFIG.configure(
         base_url=base_url,
