@@ -7,7 +7,7 @@ from typing import Callable, Literal
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+from opentelemetry.sdk.trace.sampling import Sampler, TraceIdRatioBased
 from typing_extensions import Self
 
 from logfire._internal.constants import (
@@ -105,7 +105,7 @@ class SpanSamplingInfo:
 class SamplingOptions:
     """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)]."""
 
-    head: float = 1.0
+    head: float | Sampler = 1.0
     tail: Callable[[SpanSamplingInfo], float] | None = None
 
     @classmethod
@@ -113,14 +113,15 @@ class SamplingOptions:
         cls,
         level_threshold: LevelName | None = 'notice',
         duration_threshold: float | None = 5.0,
-        head: float = 1.0,
+        head: float | Sampler = 1.0,
         tail_sample_rate: float | None = None,
         background_rate: float = 0.0,
     ) -> Self:
+        head_sample_rate = head if isinstance(head, (float, int)) else 1.0
         if tail_sample_rate is None:
-            tail_sample_rate = head
+            tail_sample_rate = head_sample_rate
 
-        if not (0.0 <= background_rate <= tail_sample_rate <= head <= 1.0):
+        if not (0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0):
             raise ValueError(
                 'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
             )

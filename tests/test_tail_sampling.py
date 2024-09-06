@@ -5,6 +5,8 @@ from typing import Any
 import inline_snapshot.extra
 import pytest
 from inline_snapshot import snapshot
+from opentelemetry.context import Context
+from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
 
 import logfire
 from logfire._internal.constants import LEVEL_NUMBERS
@@ -318,6 +320,67 @@ def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     for _ in range(1000):
         logfire.info('info')
     assert len(exporter.exported_spans) == 100 + 321
+
+
+class TestSampler(Sampler):
+    def should_sample(
+        self,
+        parent_context: Context | None,
+        trace_id: int,
+        name: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> SamplingResult:
+        if name == 'exclude':
+            sampler = ALWAYS_OFF
+        else:
+            sampler = ALWAYS_ON
+        return sampler.should_sample(parent_context, trace_id, name, *args, **kwargs)
+
+    def get_description(self) -> str:
+        return 'MySampler'
+
+
+def test_raw_head_sampler_without_tail_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=TestSampler()),
+    )
+
+    # These spans should all be excluded by the head sampler
+    for _ in range(100):
+        logfire.error('exclude')
+    assert len(exporter.exported_spans) == 0
+
+    for _ in range(100):
+        logfire.error('error')
+    assert len(exporter.exported_spans) == 100
+
+
+def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs.update(
+        sampling=logfire.SamplingOptions.error_or_duration(head=TestSampler(), background_rate=0.3),
+        id_generator=SeededRandomIdGenerator(seed=1),
+    )
+    logfire.configure(**config_kwargs)
+
+    # These spans should all be excluded by the head sampler,
+    # so it doesn't matter that they have a high level.
+    for _ in range(100):
+        logfire.error('exclude')
+    assert len(exporter.exported_spans) == 0
+
+    # These spans should all be included because the level is above the default,
+    # and the head sampler doesn't exclude them.
+    for _ in range(100):
+        logfire.error('error')
+    assert len(exporter.exported_spans) == 100
+
+    # About 30% these spans (i.e. an extra ~300) should be included because of the background_rate.
+    # None of them meet the tail sampling criteria.
+    for _ in range(1000):
+        logfire.info('info')
+    assert len(exporter.exported_spans) == 100 + 315
 
 
 def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):

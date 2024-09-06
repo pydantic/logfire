@@ -46,7 +46,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
+from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -615,7 +615,12 @@ class LogfireConfig(_LogfireConfigData):
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
             head = self.sampling.head
-            sampler = ParentBasedTraceIdRatio(head) if head < 1 else None
+            sampler: Sampler | None = None
+            if isinstance(head, (int, float)):
+                if head < 1:
+                    sampler = ParentBasedTraceIdRatio(head)
+            else:
+                sampler = head
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
