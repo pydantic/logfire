@@ -324,6 +324,9 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
         ]
     )
 
+    for span in exporter.exported_spans:
+        assert span.instrumentation_scope.name == 'logfire.stdlib.logging'  # type: ignore
+
 
 def test_logging_non_string(exporter: TestExporter, logger: Logger):
     logger.error(123)

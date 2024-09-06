@@ -1,3 +1,4 @@
+from .. import Logfire as Logfire
 from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY as ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, LOGGING_TO_OTEL_LEVEL_NUMBERS as LOGGING_TO_OTEL_LEVEL_NUMBERS
 from .._internal.utils import is_instrumentation_suppressed as is_instrumentation_suppressed
 from _typeshed import Incomplete
@@ -10,7 +11,8 @@ class LogfireLoggingHandler(LoggingHandler):
     """A logging handler that sends logs to **Logfire**."""
     custom_scope_suffix: ClassVar[str]
     fallback: Incomplete
-    def __init__(self, level: int | str = ..., fallback: LoggingHandler = ...) -> None: ...
+    logfire_instance: Incomplete
+    def __init__(self, level: int | str = ..., fallback: LoggingHandler = ..., logfire_instance: Logfire | None = None) -> None: ...
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.
 

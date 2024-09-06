@@ -14,6 +14,8 @@ from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 if TYPE_CHECKING:
     from structlog.types import EventDict, WrappedLogger
 
+    from .. import Logfire
+
 RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
 """Attributes to strip from the event before sending to Logfire."""
 
@@ -21,8 +23,16 @@ RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
 class LogfireProcessor:
     """Logfire processor for structlog."""
 
-    def __init__(self, *, console_log: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        console_log: bool = False,
+        logfire_instance: Logfire | None = None,
+    ) -> None:
         self.console_log = console_log
+        self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
+            custom_scope_suffix='structlog'
+        )
 
     def __call__(self, logger: WrappedLogger, name: str, event_dict: EventDict) -> EventDict:
         """A middleware to process structlog event, and send it to **Logfire**."""
@@ -30,11 +40,10 @@ class LogfireProcessor:
         level = event_dict.get('level', 'info').lower()
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         attributes[ATTRIBUTES_MESSAGE_KEY] = message = event_dict.get('event') or 'structlog event'
-        logfire.log(
+        self.logfire_instance.log(
             level=level,  # type: ignore
             msg_template=message,
             attributes=attributes,
             console_log=self.console_log,
-            custom_scope_suffix='structlog',
         )
         return event_dict

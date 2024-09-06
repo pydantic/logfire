@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
-from typing import Any, ClassVar, Mapping, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Mapping, cast
 
 import logfire
 
@@ -45,15 +45,26 @@ RESERVED_ATTRS: frozenset[str] = frozenset(
     ]
 )
 
+if TYPE_CHECKING:
+    from .. import Logfire
+
 
 class LogfireLoggingHandler(LoggingHandler):
     """A logging handler that sends logs to **Logfire**."""
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
 
-    def __init__(self, level: int | str = NOTSET, fallback: LoggingHandler = StreamHandler()) -> None:
+    def __init__(
+        self,
+        level: int | str = NOTSET,
+        fallback: LoggingHandler = StreamHandler(),
+        logfire_instance: Logfire | None = None,
+    ) -> None:
         super().__init__(level=level)
         self.fallback = fallback
+        self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
+            custom_scope_suffix=self.custom_scope_suffix
+        )
 
     def emit(self, record: LogRecord) -> None:
         """Send the log to Logfire.
@@ -67,11 +78,10 @@ class LogfireLoggingHandler(LoggingHandler):
 
         attributes = self.fill_attributes(record)
 
-        logfire.log(
+        self.logfire_instance.log(
             msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
             level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
             attributes=attributes,
-            custom_scope_suffix=self.custom_scope_suffix,
             exc_info=record.exc_info,
         )
 

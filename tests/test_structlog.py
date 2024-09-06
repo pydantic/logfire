@@ -71,3 +71,6 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
             },
         ]
     )
+
+    for span in exporter.exported_spans:
+        assert span.instrumentation_scope.name == 'logfire.structlog'  # type: ignore

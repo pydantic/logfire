@@ -1,0 +1,183 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - text/csv
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucqKSpN1THkAgAPkIWfJgAA
+        AA==
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      content-encoding:
+      - gzip
+      content-type:
+      - text/csv; charset=utf-8
+      date:
+      - Fri, 30 Aug 2024 16:08:33 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-2a27c780dccdf9cc4ba19a4c570a4749-d467e08ff341a4d4-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - text/csv
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&min_timestamp=2030-01-01T00%3A00%3A00%2B00%3A00
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      content-encoding:
+      - gzip
+      content-type:
+      - text/csv; charset=utf-8
+      date:
+      - Fri, 30 Aug 2024 16:08:34 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-c192219a87ea208c88e25bdd7d495d07-ea35167c0637309f-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - text/csv
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&max_timestamp=2020-01-01T00%3A00%3A00%2B00%3A00
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      content-encoding:
+      - gzip
+      content-type:
+      - text/csv; charset=utf-8
+      date:
+      - Fri, 30 Aug 2024 16:08:34 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-bb49963ce29cb55d4207f8ee8813c2b6-3026334f415e266b-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - text/csv
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&limit=1
+  response:
+    body:
+      string: !!binary |
+        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucCANUZtHYfAAAA
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      content-encoding:
+      - gzip
+      content-type:
+      - text/csv; charset=utf-8
+      date:
+      - Fri, 30 Aug 2024 16:08:34 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-3ba834af7af03f6cbf82744a266bbde7-3104fd2517724cc1-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
+      x-logfire-project:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+version: 1

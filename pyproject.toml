@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "0.51.0"
+version = "0.52.0"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -140,6 +140,9 @@ dev-dependencies = [
     "testcontainers",
     "mysql-connector-python~=8.0",
     "griffe==0.48.0",
+    "pyarrow>=17.0.0",
+    "pytest-recording>=0.13.2",
+    "uvicorn>=0.30.6",
 ]
 
 [tool.rye.scripts]
