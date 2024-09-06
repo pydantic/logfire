@@ -629,7 +629,7 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
 
 def test_pydantic_plugin_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs.update(
-        sampling=logfire.SamplingOptions(head_sample_rate=0.1),
+        sampling=logfire.SamplingOptions(head=0.1),
         id_generator=SeededRandomIdGenerator(),
     )
     logfire.configure(**config_kwargs)

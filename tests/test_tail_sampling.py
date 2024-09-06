@@ -333,8 +333,8 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
 
     config_kwargs.update(
         sampling=logfire.SamplingOptions(
-            head_sample_rate=0.7,
-            get_tail_sample_rate=get_tail_sample_rate,
+            head=0.7,
+            tail=get_tail_sample_rate,
         ),
         id_generator=SeededRandomIdGenerator(seed=3),
     )
@@ -413,7 +413,7 @@ def test_invalid_rates():
 def test_trace_sample_rate(config_kwargs: dict[str, Any]):
     with pytest.warns(UserWarning) as warnings:
         logfire.configure(trace_sample_rate=0.123, **config_kwargs)
-    assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.sampling.head_sample_rate == 0.123
+    assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.sampling.head == 0.123
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot(
         'The `trace_sample_rate` argument is deprecated. '

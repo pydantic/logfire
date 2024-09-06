@@ -105,8 +105,8 @@ class SpanSamplingInfo:
 class SamplingOptions:
     """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)]."""
 
-    head_sample_rate: float = 1.0
-    get_tail_sample_rate: Callable[[SpanSamplingInfo], float] | None = None
+    head: float = 1.0
+    tail: Callable[[SpanSamplingInfo], float] | None = None
 
     @classmethod
     def error_or_duration(
@@ -134,7 +134,7 @@ class SamplingOptions:
 
             return background_rate
 
-        return cls(head_sample_rate=head_sample_rate, get_tail_sample_rate=get_tail_sample_rate)
+        return cls(head=head_sample_rate, tail=get_tail_sample_rate)
 
 
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool:

@@ -58,7 +58,7 @@ def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
 
 def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs.update(
-        sampling=logfire.SamplingOptions(head_sample_rate=0.3),
+        sampling=logfire.SamplingOptions(head=0.3),
         id_generator=SeededRandomIdGenerator(),
     )
     logfire.configure(**config_kwargs)

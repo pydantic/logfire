@@ -264,7 +264,7 @@ def configure(
             )
         else:
             sampling = SamplingOptions()
-        sampling.head_sample_rate = trace_sample_rate
+        sampling.head = trace_sample_rate
         warnings.warn(
             'The `trace_sample_rate` argument is deprecated. '
             'Use `sampling=logfire.SamplingOptions(head_sample_rate=...)` instead.',
@@ -448,7 +448,7 @@ class _LogfireConfigData:
             sampling = SamplingOptions(**sampling)  # type: ignore
         elif sampling is None:
             sampling = SamplingOptions(
-                head_sample_rate=param_manager.load_param('trace_sample_rate'),
+                head=param_manager.load_param('trace_sample_rate'),
             )
         self.sampling = sampling
 
@@ -614,7 +614,7 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
-            head_sample_rate = self.sampling.head_sample_rate
+            head_sample_rate = self.sampling.head
             sampler = ParentBasedTraceIdRatio(head_sample_rate) if head_sample_rate < 1 else None
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
@@ -636,8 +636,8 @@ class LogfireConfig(_LogfireConfigData):
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
 
-                if self.sampling.get_tail_sample_rate:
-                    span_processor = TailSamplingProcessor(span_processor, self.sampling.get_tail_sample_rate)
+                if self.sampling.tail:
+                    span_processor = TailSamplingProcessor(span_processor, self.sampling.tail)
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 if has_pending:
