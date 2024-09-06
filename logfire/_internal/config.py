@@ -263,8 +263,7 @@ def configure(
                 'Use `sampling.head` instead of `trace_sample_rate`.'
             )
         else:
-            sampling = SamplingOptions()
-        sampling.head = trace_sample_rate
+            sampling = SamplingOptions(head=trace_sample_rate)
         warnings.warn(
             'The `trace_sample_rate` argument is deprecated. '
             'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
