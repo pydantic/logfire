@@ -87,12 +87,25 @@ class TraceBuffer:
 
 
 @dataclass
-class SpanSamplingInfo:
-    """Argument passed to [`SamplingOptions`][logfire.sampling.SamplingOptions]`.tail`."""
+class TailSamplingSpanInfo:
+    """Argument passed to [`SamplingOptions.tail`][logfire.sampling.SamplingOptions.tail]."""
 
     span: ReadableSpan
+    """
+    Raw span object being started or ended.
+    """
+
     context: context.Context | None
+    """
+    Second argument of [`SpanProcessor.on_start`][opentelemetry.sdk.trace.SpanProcessor.on_start] or `None` for `SpanProcessor.on_end`.
+    """
+
     event: Literal['start', 'end']
+    """
+    `'start'` if the span is being started, `'end'` if it's being ended.
+    """
+
+    # Intentionally undocumented for now.
     buffer: TraceBuffer
 
     @property
@@ -118,17 +131,50 @@ class SamplingOptions:
     """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)]."""
 
     head: float | Sampler = 1.0
-    tail: Callable[[SpanSamplingInfo], float] | None = None
+    """
+    Head sampling options.
+
+    If it's a float, it should be a number between 0.0 and 1.0.
+    This is the probability that an entire trace will randomly included.
+
+    Alternatively you can pass a custom
+    [OpenTelemetry `Sampler`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.sampling.html).
+    """
+
+    tail: Callable[[TailSamplingSpanInfo], float] | None = None
+    """
+    An optional tail sampling callback which will be called for every span.
+
+    It should return a number between 0.0 and 1.0, the probability that the entire trace will be included.
+    Use [`SamplingOptions.level_or_duration`][logfire.sampling.SamplingOptions.level_or_duration]
+    for a common use case.
+
+    Every span in a trace will be stored in memory until either the trace is included by tail sampling
+    or it's completed and discarded, so large traces may consume a lot of memory.
+    """
 
     @classmethod
-    def error_or_duration(
+    def level_or_duration(
         cls,
+        *,
+        head: float | Sampler = 1.0,
         level_threshold: LevelName | None = 'notice',
         duration_threshold: float | None = 5.0,
-        head: float | Sampler = 1.0,
         tail_sample_rate: float | None = None,
         background_rate: float = 0.0,
     ) -> Self:
+        """Returns a `SamplingOptions` instance that tail samples traces based on their log level and duration.
+
+        If a trace has at least one span has a log level greater than or equal to `level_threshold`,
+        or if the duration of the whole trace is greater than `duration_threshold` seconds,
+        then the probability of including the trace is `tail_sample_rate`.
+        Otherwise, the probability is `background_rate`.
+
+        The `head` parameter is the same as in the `SamplingOptions` constructor.
+
+        `tail_sample_rate` defaults to `head` if not provided and if `head` is a number,
+        otherwise it defaults to `1.0`.
+        """
         head_sample_rate = head if isinstance(head, (float, int)) else 1.0
         if tail_sample_rate is None:
             tail_sample_rate = head_sample_rate
@@ -138,7 +184,7 @@ class SamplingOptions:
                 'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
             )
 
-        def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
+        def get_tail_sample_rate(span_info: TailSamplingSpanInfo) -> float:
             if duration_threshold is not None and span_info.duration > duration_threshold:
                 return tail_sample_rate
 
@@ -151,13 +197,14 @@ class SamplingOptions:
 
 
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool:
+    # Based on TraceIdRatioBased.should_sample.
     return (trace_id & TraceIdRatioBased.TRACE_ID_LIMIT) < TraceIdRatioBased.get_bound_for_rate(rate)
 
 
 class TailSamplingProcessor(WrapperSpanProcessor):
     """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
 
-    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[SpanSamplingInfo], float]) -> None:
+    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float]) -> None:
         super().__init__(processor)
         self.get_tail_sample_rate = get_tail_sample_rate
 
@@ -186,7 +233,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 if buffer is not None:
                     # This trace's spans haven't met the criteria yet, so add this span to the buffer.
                     buffer.started.append((span, parent_context))
-                    dropped = self.check_span(SpanSamplingInfo(span, parent_context, 'start', buffer))
+                    dropped = self.check_span(TailSamplingSpanInfo(span, parent_context, 'start', buffer))
                 # The opposite case is handled outside the lock since it may take some time.
 
         # This code may take longer since it calls the wrapped processor which might do anything.
@@ -209,7 +256,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 buffer = self.traces.get(trace_id)
                 if buffer is not None:
                     buffer.ended.append(span)
-                    dropped = self.check_span(SpanSamplingInfo(span, None, 'end', buffer))
+                    dropped = self.check_span(TailSamplingSpanInfo(span, None, 'end', buffer))
                     if span.parent is None:
                         # This is the root span, so the trace is hopefully complete.
                         # Delete the buffer to save memory.
@@ -220,7 +267,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         elif dropped:
             self.push_buffer(buffer)
 
-    def check_span(self, span_info: SpanSamplingInfo) -> bool:
+    def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
         """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
         sample_rate = self.get_tail_sample_rate(span_info)
         if sampled := check_trace_id_ratio(span_info.buffer.trace_id, sample_rate):

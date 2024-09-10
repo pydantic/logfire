@@ -10,14 +10,14 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, Sam
 
 import logfire
 from logfire._internal.constants import LEVEL_NUMBERS
-from logfire.sampling import SpanLevel, SpanSamplingInfo
+from logfire.sampling import SpanLevel, TailSamplingSpanInfo
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 
 
 def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Use the default TailSamplingOptions.level of 'notice'.
     # Set duration to None to not include spans with a long duration.
-    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(duration_threshold=None))
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions.level_or_duration(duration_threshold=None))
 
     with logfire.span('ignored span'):
         logfire.debug('ignored debug')
@@ -203,7 +203,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
 def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
     # Set level to None to not include spans merely based on a high level.
     logfire.configure(
-        **config_kwargs, sampling=logfire.SamplingOptions.error_or_duration(level_threshold=None, duration_threshold=3)
+        **config_kwargs, sampling=logfire.SamplingOptions.level_or_duration(level_threshold=None, duration_threshold=3)
     )
 
     logfire.error('short1')
@@ -306,7 +306,7 @@ def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporte
 
 def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
-        sampling=logfire.SamplingOptions.error_or_duration(background_rate=0.3),
+        sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3),
         id_generator=SeededRandomIdGenerator(seed=1),
     )
     logfire.configure(**config_kwargs)
@@ -359,7 +359,7 @@ def test_raw_head_sampler_without_tail_sampling(config_kwargs: dict[str, Any], e
 
 def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
-        sampling=logfire.SamplingOptions.error_or_duration(head=TestSampler(), background_rate=0.3),
+        sampling=logfire.SamplingOptions.level_or_duration(head=TestSampler(), background_rate=0.3),
         id_generator=SeededRandomIdGenerator(seed=1),
     )
     logfire.configure(**config_kwargs)
@@ -386,7 +386,7 @@ def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], expo
 def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):
     span_counts = {'start': 0, 'end': 0}
 
-    def get_tail_sample_rate(span_info: SpanSamplingInfo) -> float:
+    def get_tail_sample_rate(span_info: TailSamplingSpanInfo) -> float:
         span_counts[span_info.event] += 1
         if span_info.duration >= 1:
             return 0.5
@@ -465,13 +465,13 @@ def test_invalid_rates():
             'ValueError: Invalid sampling rates, ' 'must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
         )
     ):
-        logfire.SamplingOptions.error_or_duration(background_rate=-1)
+        logfire.SamplingOptions.level_or_duration(background_rate=-1)
     with pytest.raises(ValueError):
-        logfire.SamplingOptions.error_or_duration(background_rate=0.5, head=0.3)
+        logfire.SamplingOptions.level_or_duration(background_rate=0.5, head=0.3)
     with pytest.raises(ValueError):
-        logfire.SamplingOptions.error_or_duration(background_rate=0.5, tail_sample_rate=0.3)
+        logfire.SamplingOptions.level_or_duration(background_rate=0.5, tail_sample_rate=0.3)
     with pytest.raises(ValueError):
-        logfire.SamplingOptions.error_or_duration(head=2)
+        logfire.SamplingOptions.level_or_duration(head=2)
 
 
 def test_trace_sample_rate(config_kwargs: dict[str, Any]):
