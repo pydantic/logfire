@@ -169,25 +169,7 @@ class ChunksFormatter(Formatter):
         # We have an f-string AST node.
         # Now prepare the namespaces that we will use to evaluate the components.
         global_vars = frame.f_globals
-        local_vars = {**frame.f_locals}
-        # Add any values in kwargs (i.e. attributes) to `local_vars` so that they take precedence.
-        # Warn the user if there's a conflict.
-        for kwarg_name, kwarg_value in kwargs.items():
-            # Check the same namespaces that Python uses, in the same order.
-            for namespace in (local_vars, global_vars, frame.f_builtins):
-                if kwarg_name in namespace:
-                    # No need to warn if they just passed the same value as an attribute, e.g. `foo=foo`.
-                    if namespace[kwarg_name] is not kwarg_value:
-                        warnings.warn(
-                            f'The attribute {kwarg_name!r} has the same name as a variable with a different value. '
-                            f'Using the attribute.',
-                            stacklevel=get_stacklevel(frame),
-                        )
-                    # No need to check the other namespaces either way,
-                    # since the earlier namespaces take precedence even in normal variable lookups.
-                    break
-            # Set the attribute value regardless of whether it's also an existing variable.
-            local_vars[kwarg_name] = kwarg_value
+        local_vars = {**frame.f_locals, **kwargs}
 
         # Now for the actual formatting!
         result: list[LiteralChunk | ArgChunk] = []
