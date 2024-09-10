@@ -5,13 +5,18 @@ from logfire._internal.constants import ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUT
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
-from typing import Callable, Literal, Self
+from opentelemetry.sdk.trace.sampling import Sampler
+from typing import Callable, Literal
+from typing_extensions import Self
 
 @dataclass
 class SpanLevel:
+    """A convenience class for comparing span levels."""
     number: int
     @property
-    def name(self): ...
+    def name(self) -> LevelName | None:
+        """The human-readable name of the level, or None if the number is invalid."""
+    def __eq__(self, other: object): ...
     def __lt__(self, other: LevelName): ...
     def __gt__(self, other: LevelName): ...
     def __ge__(self, other: LevelName): ...
@@ -29,21 +34,25 @@ class TraceBuffer:
 
 @dataclass
 class SpanSamplingInfo:
+    """Argument passed to [`SamplingOptions`][logfire.sampling.SamplingOptions]`.tail`."""
     span: ReadableSpan
     context: context.Context | None
     event: Literal['start', 'end']
     buffer: TraceBuffer
     @property
-    def level(self) -> SpanLevel: ...
+    def level(self) -> SpanLevel:
+        """The log level of the span."""
     @property
-    def duration(self) -> float: ...
+    def duration(self) -> float:
+        """The time in seconds between the start of the trace and the start/end of this span."""
 
 @dataclass
 class SamplingOptions:
-    head_sample_rate: float = ...
-    get_tail_sample_rate: Callable[[SpanSamplingInfo], float] | None = ...
+    """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)]."""
+    head: float | Sampler = ...
+    tail: Callable[[SpanSamplingInfo], float] | None = ...
     @classmethod
-    def error_or_duration(cls, level_threshold: LevelName | None = 'notice', duration_threshold: float | None = 5.0, head_sample_rate: float = 1.0, tail_sample_rate: float | None = None, background_rate: float = 0.0) -> Self: ...
+    def error_or_duration(cls, level_threshold: LevelName | None = 'notice', duration_threshold: float | None = 5.0, head: float | Sampler = 1.0, tail_sample_rate: float | None = None, background_rate: float = 0.0) -> Self: ...
 
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool: ...
 
