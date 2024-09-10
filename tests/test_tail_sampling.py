@@ -456,6 +456,8 @@ def test_span_levels():
     assert not (warn == [1, 2, 3])
     assert not ([1, 2, 3] == warn)
 
+    assert {warn, SpanLevel(LEVEL_NUMBERS['warn'])} == {warn}
+
 
 def test_invalid_rates():
     with inline_snapshot.extra.raises(
