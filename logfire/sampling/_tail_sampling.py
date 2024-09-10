@@ -22,7 +22,13 @@ from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
 @dataclass
 class SpanLevel:
-    """A convenience class for comparing span levels."""
+    """A convenience class for comparing span/log levels.
+
+    Can be compared to log level names (strings) such as 'info' or 'error' using
+    `<`, `>`, `<=`, or `>=`, so e.g. `level >= 'error'` is valid.
+
+    Will raise an exception if compared to a non-string or an invalid level name.
+    """
 
     number: int
     """
@@ -31,7 +37,7 @@ class SpanLevel:
 
     @property
     def name(self) -> LevelName | None:
-        """The human-readable name of the level, or None if the number is invalid."""
+        """The human-readable name of the level, or `None` if the number is invalid."""
         return NUMBER_TO_LEVEL.get(self.number)
 
     def __eq__(self, other: object):
@@ -42,6 +48,9 @@ class SpanLevel:
         if isinstance(other, SpanLevel):
             return self.number == other.number
         return NotImplemented
+
+    def __hash__(self):
+        return hash(self.number)
 
     def __lt__(self, other: LevelName):
         return self.number < LEVEL_NUMBERS[other]
@@ -58,7 +67,10 @@ class SpanLevel:
 
 @dataclass
 class TraceBuffer:
-    """Arguments of `on_start` and `on_end` for spans in a single trace."""
+    """Arguments of `SpanProcessor.on_start` and `SpanProcessor.on_end` for spans in a single trace.
+
+    These are stored until either the trace is included by tail sampling or it's completed and discarded.
+    """
 
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
