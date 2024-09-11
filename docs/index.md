@@ -225,9 +225,13 @@ and it'll end up as structured data in our platform ready to be queried.
 For example, using data from the `User` model above, we could list users from the USA:
 
 ```sql
-SELECT attributes->'result'->>'name' as name, age(attributes->'result'->>'dob') as age
+SELECT
+    records.service_name,
+    records.span_name,
+    records.attributes->>'dob' as dob
 FROM records
-WHERE attributes->'result'->>'country_code' = 'USA'
+WHERE records.attributes->>'dob' = '1990-01-01'
+LIMIT 10
 ```
 
 ![Logfire explore query screenshot](images/index/logfire-screenshot-explore-query.png)
