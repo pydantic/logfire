@@ -165,7 +165,7 @@ class SamplingOptions:
     ) -> Self:
         """Returns a `SamplingOptions` instance that tail samples traces based on their log level and duration.
 
-        If a trace has at least one span has a log level greater than or equal to `level_threshold`,
+        If a trace has at least one span/log that has a log level greater than or equal to `level_threshold`,
         or if the duration of the whole trace is greater than `duration_threshold` seconds,
         then the probability of including the trace is `tail_sample_rate`.
         Otherwise, the probability is `background_rate`.
