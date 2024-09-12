@@ -187,6 +187,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.json() == {'param': 'param_val'}
 
+    assert exporter.exported_spans[1].instrumentation_scope.name == 'logfire.fastapi'  # type: ignore
+
     span_dicts = exporter.exported_spans_as_dict(_include_pending_spans=True)
 
     # Highlights of the below mega-assert:
