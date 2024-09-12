@@ -7,6 +7,7 @@ from typing import Any, Callable, ContextManager
 import pytest
 from inline_snapshot import snapshot
 
+import logfire
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
 from logfire._internal.auto_trace import (
     AutoTraceModuleAlreadyImportedException,
@@ -21,7 +22,7 @@ from logfire.testing import TestExporter
 def test_auto_trace_sample(exporter: TestExporter) -> None:
     meta_path = sys.meta_path.copy()
 
-    install_auto_tracing('tests.auto_trace_samples')
+    logfire.with_tags('testing', 'auto-tracing').install_auto_tracing('tests.auto_trace_samples')
     # Check that having multiple LogfireFinders doesn't break things
     install_auto_tracing('tests.blablabla')
 
@@ -65,6 +66,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'code.function': 'bar',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
@@ -112,6 +114,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'code.function': 'bar',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.level_num': 17,
