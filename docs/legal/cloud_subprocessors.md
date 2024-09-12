@@ -1,6 +1,6 @@
 # Logfire Subprocessors
 
-**Last update: 2024-02-19**
+**Last update: 2024-09-12**
 
 Pydantic Services Inc. (**"PSI"**) uses certain Subprocessors to assist in providing the Logfire Service.
 Subprocessors are _PSI_'s authorized vendors and third-party service providers that Process Customer Personal Data.
@@ -19,4 +19,5 @@ Service:
 | Amazon Web Services                | Cloud Hosted Infrastructure and Data Hosting         | United States      |
 | Google LLC                         | Email Hosting, document storage & Video Conferencing | United States      |
 | Slack Technologies, LLC            | Instant messaging and document transfer              | United States      |
-| Functional Software, Inc. (Sentry) | Error capturing & reporting                          | United States      |
+| Buttondown, LLC                    | Email broadcasting platform                          | United States      |
+| Stripe, Inc.                       | Payment processing platform                          | United States      |
