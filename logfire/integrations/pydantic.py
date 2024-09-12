@@ -26,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic_core import CoreConfig, CoreSchema
 
 
-METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
+METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # type: ignore
 validation_counter = METER.create_counter('pydantic.validations')
 
 
