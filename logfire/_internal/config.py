@@ -217,7 +217,7 @@ def configure(
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
-        sampling: Sampling options. TODO document this.
+        sampling: Sampling options. See the [sampling guide](https://docs.pydantic.dev/logfire/guides/advanced/sampling/).
     """
     if processors is not None:  # pragma: no cover
         raise ValueError(
