@@ -1,3 +1,3 @@
-from ._tail_sampling import SamplingOptions as SamplingOptions, SpanLevel as SpanLevel, SpanSamplingInfo as SpanSamplingInfo
+from ._tail_sampling import SamplingOptions as SamplingOptions, SpanLevel as SpanLevel, TailSamplingSpanInfo as TailSamplingSpanInfo
 
-__all__ = ['SamplingOptions', 'SpanLevel', 'SpanSamplingInfo']
+__all__ = ['SamplingOptions', 'SpanLevel', 'TailSamplingSpanInfo']
