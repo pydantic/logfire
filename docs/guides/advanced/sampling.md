@@ -92,8 +92,6 @@ This way you won't lose information about warnings/errors or long-running operat
 
 ## Combining head and tail sampling
 
-WIP TODO TODO TODO
-
 You can combine head and tail sampling. For example:
 
 ```python
@@ -102,25 +100,20 @@ import logfire
 logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(head=0.1))
 ```
 
-This will randomly sample 10% of traces, and then for the remaining traces, include them if they have a log level greater than `info` or a duration greater than 5 seconds. The difference between this and `tail_sample_rate=0.1` is that fewer spans are produced in the first place, reducing overhead and improving performance.
+This will only keep 10% of traces, even if they have a high log level or duration. Traces that don't meet the tail sampling criteria will be discarded every time.
 
-### Adding randomness
+## Keeping a fraction of all traces
 
-By default, `level_or_duration` will include all traces meeting the criteria and none of the traces that don't. You can configure this with the following arguments:
-
-- `background_rate` is the fraction of traces to include even if they don't meet the criteria. By default it's 0.
-- `tail_sample_rate` is the fraction of traces to include if they do meet the criteria. By default it's 1.
-
-For example, this script:
+To keep some traces even if they don't meet the tail sampling criteria, you can use the `background_rate` argument. For example, this script:
 
 ```python
 import logfire
 
-logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(tail_sample_rate=0.6, background_rate=0.3))
+logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3))
 
 for x in range(10):
     logfire.info(f'info {x}')
-for x in range(10):
+for x in range(5):
     logfire.error(f'error {x}')
 ```
 
@@ -130,24 +123,20 @@ will output something like:
 12:24:40.293 info 2
 12:24:40.293 info 3
 12:24:40.293 info 7
+12:24:40.294 error 0
 12:24:40.294 error 1
 12:24:40.294 error 2
-12:24:40.294 error 4
-12:24:40.294 error 6
-12:24:40.295 error 7
-12:24:40.295 error 8
-12:24:40.295 error 9
+12:24:40.294 error 3
+12:24:40.295 error 4
 ```
 
-i.e. about 30% of the info logs and 60% of the error logs are kept.
+i.e. about 30% of the info logs and 100% of the error logs are kept.
 
-Both rates must be between 0 and 1, and `background_rate` must be less than `tail_sample_rate`.
+(Technical note: the trace ID is compared against the head and background rates to determine inclusion, so the probabilities don't depend on the number of spans in the trace, and the rates give the probabilities directly without needing any further calculations. For example, with a head sample rate of `0.6` and a background rate of `0.3`, the chance of a non-notable trace being included is `0.3`, not `0.6 * 0.3`.)
 
-(Technical note: the trace ID is compared against each rate to determine inclusion, so the probabilities don't depend on the number of spans in the trace, and the rates give the probabilities directly without needing any further calculations.)
+## Caveats of tail sampling
 
-### Caveats of tail sampling
-
-#### Memory usage
+### Memory usage
 
 For tail sampling to work, all the spans in a trace must be kept in memory until either the trace is included by sampling or the trace is completed and discarded. In the above example, the spans named `included span` don't have a high enough level to be included, so they are kept in memory until the error logs cause the entire trace to be included. This means that traces with a large number of spans can consume a lot of memory, whereas without tail sampling the spans would be regularly exported and freed from memory without waiting for the rest of the trace.
 
@@ -185,7 +174,7 @@ However, memory usage can still be a problem in any of the following cases:
 - Spans are produced extremely rapidly
 - Spans contain large attributes
 
-#### Distributed tracing
+### Distributed tracing
 
 Logfire's tail sampling is implemented in the SDK and only works for traces within one process. If you need tail sampling with distributed tracing, consider deploying the [Tail Sampling Processor in the OpenTelemetry Collector](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md).
 
