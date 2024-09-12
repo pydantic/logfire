@@ -49,7 +49,7 @@ theme:
     - navigation.top # alternatively, we could do navigation.tabs.sticky
     - toc.follow
   logo: "logo-white.svg"
-  favicon: "favicon.png"
+  favicon: "favicon.svg"
 
 # https://www.mkdocs.org/user-guide/configuration/#validation
 validation:
