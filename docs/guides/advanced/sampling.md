@@ -227,3 +227,39 @@ This will output something like:
 ```
 
 Note that the sampler explicitly excluded only the span named `exclude me`. The reason that the `excluded child` log is not included is that `MySampler` was wrapped in a `ParentBased` sampler, which excludes spans whose parents are excluded. If you remove that and simply pass `head=MySampler()`, the `excluded child` log will be included, resulting in an incomplete trace.
+
+You can also pass a `Sampler` to the `head` argument of `SamplingOptions.level_or_duration` to combine tail sampling with custom head sampling.
+
+## Custom tail sampling
+
+If you want tail sampling with more control than `level_or_duration`, you can pass a function to `tail`:
+
+```python
+import logfire
+
+
+def get_tail_sample_rate(span_info):
+    if span_info.duration >= 1:
+        # Keep 50% of traces with duration >= 1 second
+        return 0.5
+
+    if span_info.level > 'warn':  # span_info.level is a special object that can be compared to log level names
+        # Keep 30% of traces with a warning or error and with duration < 1 second
+        return 0.3
+
+    # Keep 10% of other traces
+    return 0.1
+
+
+logfire.configure(
+    sampling=logfire.SamplingOptions(
+        # Discard 50% of traces at the beginning to reduce the overhead of generating spans.
+        # This is optional, but improves performance, and we know that `get_tail_sample_rate`
+        # will always return at most 0.5 so the other 50% of traces will be discarded anyway.
+        # The probabilities are not independent - this will not discard traces that would
+        # otherwise have been kept by tail sampling.
+        head=0.5,
+        tail=get_tail_sample_rate,
+    ),
+)
+```
