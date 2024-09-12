@@ -50,6 +50,8 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
 
+    assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
+
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
