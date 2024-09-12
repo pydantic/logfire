@@ -93,7 +93,7 @@ PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE
 PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
-"""Default sampling ratio for traces. Can be overridden by the `logfire.sample_rate` attribute of a span."""
+"""Head sampling rate for traces."""
 INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
