@@ -461,15 +461,11 @@ def test_span_levels():
 
 def test_invalid_rates():
     with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: Invalid sampling rates, ' 'must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
-        )
+        snapshot('ValueError: Invalid sampling rates, ' 'must be 0.0 <= background_rate <= head <= 1.0')
     ):
         logfire.SamplingOptions.level_or_duration(background_rate=-1)
     with pytest.raises(ValueError):
         logfire.SamplingOptions.level_or_duration(background_rate=0.5, head=0.3)
-    with pytest.raises(ValueError):
-        logfire.SamplingOptions.level_or_duration(background_rate=0.5, tail_sample_rate=0.3)
     with pytest.raises(ValueError):
         logfire.SamplingOptions.level_or_duration(head=2)
 

@@ -160,36 +160,28 @@ class SamplingOptions:
         head: float | Sampler = 1.0,
         level_threshold: LevelName | None = 'notice',
         duration_threshold: float | None = 5.0,
-        tail_sample_rate: float | None = None,
         background_rate: float = 0.0,
     ) -> Self:
         """Returns a `SamplingOptions` instance that tail samples traces based on their log level and duration.
 
         If a trace has at least one span/log that has a log level greater than or equal to `level_threshold`,
         or if the duration of the whole trace is greater than `duration_threshold` seconds,
-        then the probability of including the trace is `tail_sample_rate`.
+        then the whole trace will be included.
         Otherwise, the probability is `background_rate`.
 
         The `head` parameter is the same as in the `SamplingOptions` constructor.
-
-        `tail_sample_rate` defaults to `head` if not provided and if `head` is a number,
-        otherwise it defaults to `1.0`.
         """
         head_sample_rate = head if isinstance(head, (float, int)) else 1.0
-        if tail_sample_rate is None:
-            tail_sample_rate = head_sample_rate
 
-        if not (0.0 <= background_rate <= tail_sample_rate <= head_sample_rate <= 1.0):
-            raise ValueError(
-                'Invalid sampling rates, must be 0.0 <= background_rate <= tail_sample_rate <= head <= 1.0'
-            )
+        if not (0.0 <= background_rate <= head_sample_rate <= 1.0):
+            raise ValueError('Invalid sampling rates, must be 0.0 <= background_rate <= head <= 1.0')
 
         def get_tail_sample_rate(span_info: TailSamplingSpanInfo) -> float:
             if duration_threshold is not None and span_info.duration > duration_threshold:
-                return tail_sample_rate
+                return 1.0
 
             if level_threshold is not None and span_info.level >= level_threshold:
-                return tail_sample_rate
+                return 1.0
 
             return background_rate
 
