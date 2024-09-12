@@ -88,7 +88,7 @@ class TraceBuffer:
 
 @dataclass
 class TailSamplingSpanInfo:
-    """Argument passed to [`SamplingOptions.tail`][logfire.sampling.SamplingOptions.tail]."""
+    """Argument passed to the [`SamplingOptions.tail`][logfire.sampling.SamplingOptions.tail] callback."""
 
     span: ReadableSpan
     """

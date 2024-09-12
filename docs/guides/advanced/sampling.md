@@ -3,7 +3,9 @@
 Sampling is the practice of discarding some traces or spans in order to reduce the amount of data that needs to be
 stored and analyzed. Sampling is a trade-off between cost and completeness of data.
 
-_Head sampling_ means the decision to sample is made at the beginning of a trace. This is simpler and more common. _Tail
+_Head sampling_ means the decision to sample is made at the beginning of a trace. This is simpler and more common.
+
+_Tail
 sampling_ means the decision to sample is delayed, possibly until the end of a trace. This means there is more
 information available to make the decision, but this adds complexity.
 
@@ -82,13 +84,14 @@ This outputs something like:
 ```
 
 [`logfire.SamplingOptions.level_or_duration()`][logfire.sampling.SamplingOptions.level_or_duration] creates an instance
-of [`logfire.sampling.SamplingOptions`][logfire.sampling.SamplingOptions] with simple tail sampling. With no arguments,
+of [`logfire.SamplingOptions`][logfire.sampling.SamplingOptions] with simple tail sampling. With no arguments,
 it means that a trace will be included if and only if it has at least one span/log that:
 
 1. has a log level greater than `info` (the default of any span), or
 2. has a duration greater than 5 seconds.
 
-This way you won't lose information about warnings/errors or long-running operations. You can customize what to keep with the `level_threshold` and `duration_threshold` arguments.
+This way you won't lose information about warnings/errors or long-running operations. You can customize what to keep
+with the `level_threshold` and `duration_threshold` arguments.
 
 ## Combining head and tail sampling
 
@@ -100,11 +103,13 @@ import logfire
 logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(head=0.1))
 ```
 
-This will only keep 10% of traces, even if they have a high log level or duration. Traces that don't meet the tail sampling criteria will be discarded every time.
+This will only keep 10% of traces, even if they have a high log level or duration. Traces that don't meet the tail
+sampling criteria will be discarded every time.
 
 ## Keeping a fraction of all traces
 
-To keep some traces even if they don't meet the tail sampling criteria, you can use the `background_rate` argument. For example, this script:
+To keep some traces even if they don't meet the tail sampling criteria, you can use the `background_rate` argument. For
+example, this script:
 
 ```python
 import logfire
@@ -132,15 +137,25 @@ will output something like:
 
 i.e. about 30% of the info logs and 100% of the error logs are kept.
 
-(Technical note: the trace ID is compared against the head and background rates to determine inclusion, so the probabilities don't depend on the number of spans in the trace, and the rates give the probabilities directly without needing any further calculations. For example, with a head sample rate of `0.6` and a background rate of `0.3`, the chance of a non-notable trace being included is `0.3`, not `0.6 * 0.3`.)
+(Technical note: the trace ID is compared against the head and background rates to determine inclusion, so the
+probabilities don't depend on the number of spans in the trace, and the rates give the probabilities directly without
+needing any further calculations. For example, with a head sample rate of `0.6` and a background rate of `0.3`, the
+chance of a non-notable trace being included is `0.3`, not `0.6 * 0.3`.)
 
 ## Caveats of tail sampling
 
 ### Memory usage
 
-For tail sampling to work, all the spans in a trace must be kept in memory until either the trace is included by sampling or the trace is completed and discarded. In the above example, the spans named `included span` don't have a high enough level to be included, so they are kept in memory until the error logs cause the entire trace to be included. This means that traces with a large number of spans can consume a lot of memory, whereas without tail sampling the spans would be regularly exported and freed from memory without waiting for the rest of the trace.
+For tail sampling to work, all the spans in a trace must be kept in memory until either the trace is included by
+sampling or the trace is completed and discarded. In the above example, the spans named `included span` don't have a
+high enough level to be included, so they are kept in memory until the error logs cause the entire trace to be included.
+This means that traces with a large number of spans can consume a lot of memory, whereas without tail sampling the spans
+would be regularly exported and freed from memory without waiting for the rest of the trace.
 
-In practice this is usually OK, because such large traces will usually exceed the duration threshold, at which point the trace will be included and the spans will be exported and freed. This works because the duration is measured as the time between the start of the trace and the start/end of the most recent span, so the tail sampler can know that a span will exceed the duration threshold even before it's complete. For example, running this script:
+In practice this is usually OK, because such large traces will usually exceed the duration threshold, at which point the
+trace will be included and the spans will be exported and freed. This works because the duration is measured as the time
+between the start of the trace and the start/end of the most recent span, so the tail sampler can know that a span will
+exceed the duration threshold even before it's complete. For example, running this script:
 
 ```python
 import time
@@ -166,7 +181,8 @@ will do nothing for the first 5 seconds, before suddenly logging all this at onc
 12:29:48.082   info 5
 ```
 
-followed by additional logs once per second. This is despite the fact that at this stage the outer span hasn't completed yet and the inner logs each have 0 duration.
+followed by additional logs once per second. This is despite the fact that at this stage the outer span hasn't completed
+yet and the inner logs each have 0 duration.
 
 However, memory usage can still be a problem in any of the following cases:
 
@@ -176,31 +192,55 @@ However, memory usage can still be a problem in any of the following cases:
 
 ### Distributed tracing
 
-Logfire's tail sampling is implemented in the SDK and only works for traces within one process. If you need tail sampling with distributed tracing, consider deploying the [Tail Sampling Processor in the OpenTelemetry Collector](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md).
+Logfire's tail sampling is implemented in the SDK and only works for traces within one process. If you need tail
+sampling with distributed tracing, consider deploying
+the [Tail Sampling Processor in the OpenTelemetry Collector](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md).
 
-If a trace was started on another process and its context was propagated to the process using the Logfire SDK tail sampling, the whole trace will be included.
+If a trace was started on another process and its context was propagated to the process using the Logfire SDK tail
+sampling, the whole trace will be included.
 
-If you start a trace with the Logfire SDK with tail sampling, and then propagate the context to another process, the spans generated by the SDK may be discarded, while the spans generated by the other process may be included, leading to an incomplete trace.
+If you start a trace with the Logfire SDK with tail sampling, and then propagate the context to another process, the
+spans generated by the SDK may be discarded, while the spans generated by the other process may be included, leading to
+an incomplete trace.
 
 ## Custom head sampling
 
-If you need more control than random sampling, you can pass an [OpenTelemetry `Sampler`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.sampling.html). For example:
+If you need more control than random sampling, you can pass an [OpenTelemetry
+`Sampler`](https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.sampling.html). For example:
 
 ```python
-from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased, Sampler, SamplingResult
+from opentelemetry.sdk.trace.sampling import (
+    ALWAYS_OFF,
+    ALWAYS_ON,
+    ParentBased,
+    Sampler,
+)
 
 import logfire
 
 
 class MySampler(Sampler):
-    def should_sample(self, parent_context, trace_id, name, *args, **kwargs) -> SamplingResult:
+    def should_sample(
+            self,
+            parent_context,
+            trace_id,
+            name,
+            *args,
+            **kwargs,
+    ):
         if name == 'exclude me':
             sampler = ALWAYS_OFF
         else:
             sampler = ALWAYS_ON
-        return sampler.should_sample(parent_context, trace_id, name, *args, **kwargs)
+        return sampler.should_sample(
+            parent_context,
+            trace_id,
+            name,
+            *args,
+            **kwargs,
+        )
 
-    def get_description(self) -> str:
+    def get_description(self):
         return 'MySampler'
 
 
@@ -226,13 +266,20 @@ This will output something like:
 10:37:30.898   kept child
 ```
 
-Note that the sampler explicitly excluded only the span named `exclude me`. The reason that the `excluded child` log is not included is that `MySampler` was wrapped in a `ParentBased` sampler, which excludes spans whose parents are excluded. If you remove that and simply pass `head=MySampler()`, the `excluded child` log will be included, resulting in an incomplete trace.
+Note that the sampler explicitly excluded only the span named `exclude me`. The reason that the `excluded child` log is
+not included is that `MySampler` was wrapped in a `ParentBased` sampler, which excludes spans whose parents are
+excluded. If you remove that and simply pass `head=MySampler()`, the `excluded child` log will be included, resulting in
+an incomplete trace.
 
-You can also pass a `Sampler` to the `head` argument of `SamplingOptions.level_or_duration` to combine tail sampling with custom head sampling.
+You can also pass a `Sampler` to the `head` argument of `SamplingOptions.level_or_duration` to combine tail sampling
+with custom head sampling.
 
 ## Custom tail sampling
 
-If you want tail sampling with more control than `level_or_duration`, you can pass a function to `tail`:
+If you want tail sampling with more control than `level_or_duration`, you can pass a function to [
+`tail`][logfire.sampling.SamplingOptions.tail] which will accept an instance of [
+`TailSamplingSpanInfo`][logfire.sampling.TailSamplingSpanInfo] and return a float between 0 and 1 representing the
+probability that the trace should be included. For example:
 
 ```python
 import logfire
@@ -240,26 +287,27 @@ import logfire
 
 def get_tail_sample_rate(span_info):
     if span_info.duration >= 1:
-        # Keep 50% of traces with duration >= 1 second
-        return 0.5
+        return 0.5  # (1)!
 
-    if span_info.level > 'warn':  # span_info.level is a special object that can be compared to log level names
-        # Keep 30% of traces with a warning or error and with duration < 1 second
-        return 0.3
+    if span_info.level > 'warn':  # (2)!
+        return 0.3  # (3)!
 
-    # Keep 10% of other traces
-    return 0.1
+    return 0.1  # (4)!
 
 
 logfire.configure(
     sampling=logfire.SamplingOptions(
-        # Discard 50% of traces at the beginning to reduce the overhead of generating spans.
-        # This is optional, but improves performance, and we know that `get_tail_sample_rate`
-        # will always return at most 0.5 so the other 50% of traces will be discarded anyway.
-        # The probabilities are not independent - this will not discard traces that would
-        # otherwise have been kept by tail sampling.
-        head=0.5,
+        head=0.5,  # (5)!
         tail=get_tail_sample_rate,
     ),
 )
 ```
+
+1. Keep 50% of traces with duration >= 1 second
+2. `span_info.level` is a [special object][logfire.sampling.SpanLevel] that can be compared to log level names
+3. Keep 30% of traces with a warning or error and with duration < 1 second
+4. Keep 10% of other traces
+5. Discard 50% of traces at the beginning to reduce the overhead of generating spans. This is optional, but improves
+   performance, and we know that `get_tail_sample_rate` will always return at most 0.5 so the other 50% of traces will
+   be discarded anyway. The probabilities are not independent - this will not discard traces that would otherwise have
+   been kept by tail sampling.
