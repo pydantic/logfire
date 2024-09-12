@@ -90,6 +90,20 @@ it means that a trace will be included if and only if it has at least one span/l
 
 This way you won't lose information about warnings/errors or long-running operations. You can customize what to keep with the `level_threshold` and `duration_threshold` arguments.
 
+## Combining head and tail sampling
+
+WIP TODO TODO TODO
+
+You can combine head and tail sampling. For example:
+
+```python
+import logfire
+
+logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(head=0.1))
+```
+
+This will randomly sample 10% of traces, and then for the remaining traces, include them if they have a log level greater than `info` or a duration greater than 5 seconds. The difference between this and `tail_sample_rate=0.1` is that fewer spans are produced in the first place, reducing overhead and improving performance.
+
 ### Adding randomness
 
 By default, `level_or_duration` will include all traces meeting the criteria and none of the traces that don't. You can configure this with the following arguments:
