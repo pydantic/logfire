@@ -27,6 +27,8 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
     # Check that the patching is no longer in effect
     assert Handle._run.__qualname__ == 'Handle._run'
 
+    assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.asyncio'  # type: ignore
+
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
         [
             {
