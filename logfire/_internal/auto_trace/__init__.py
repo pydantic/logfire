@@ -56,6 +56,7 @@ def install_auto_tracing(
                     )
 
     min_duration = int(min_duration * ONE_SECOND_IN_NANOSECONDS)
+    logfire = logfire.with_settings(custom_scope_suffix='auto_tracing')
     finder = LogfireFinder(logfire, modules, min_duration)
     sys.meta_path.insert(0, finder)
 

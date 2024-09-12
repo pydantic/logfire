@@ -53,7 +53,7 @@ def rewrite_ast(
     min_duration: int,
 ) -> ast.AST:
     tree = ast.parse(source)
-    logfire_args = LogfireArgs(logfire_instance._tags + ('auto-trace',), logfire_instance._sample_rate)  # type: ignore
+    logfire_args = LogfireArgs(logfire_instance._tags, logfire_instance._sample_rate)  # type: ignore
     transformer = AutoTraceTransformer(
         logfire_args, logfire_name, filename, module_name, logfire_instance, context_factories, min_duration
     )

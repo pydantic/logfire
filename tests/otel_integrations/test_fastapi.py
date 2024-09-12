@@ -187,6 +187,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.json() == {'param': 'param_val'}
 
+    assert exporter.exported_spans[1].instrumentation_scope.name == 'logfire.fastapi'  # type: ignore
+
     span_dicts = exporter.exported_spans_as_dict(_include_pending_spans=True)
 
     # Highlights of the below mega-assert:
@@ -242,7 +244,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg': 'FastAPI arguments',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -255,7 +256,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                 },
             },
@@ -274,7 +274,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'pending_span',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                     'logfire.level_num': 5,
                     'logfire.pending_parent_id': '0000000000000001',
@@ -295,7 +294,6 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'span',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                     'logfire.level_num': 5,
                 },
@@ -461,7 +459,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg': 'FastAPI arguments',
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000003',
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -472,7 +469,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('fastapi',),
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
                     'logfire.level_num': 5,
@@ -494,7 +490,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET / (homepage)',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.pending_parent_id': '0000000000000003',
                 },
@@ -530,7 +525,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'span',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.level_num': 5,
                 },
@@ -684,7 +678,6 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                             },
                         }
                     ),
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -791,7 +784,6 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                             },
                         }
                     ),
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -809,7 +801,6 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /other (other_route)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -918,7 +909,6 @@ def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestEx
                             },
                         }
                     ),
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -936,7 +926,6 @@ def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestEx
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /other (other_route)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -1045,7 +1034,6 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
                             },
                         }
                     ),
-                    'logfire.tags': ('fastapi',),
                 },
             },
             {
@@ -1063,7 +1051,6 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /other (other_route)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -1149,7 +1136,6 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'attributes': {
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'logfire.level_num': 5,
                 },
@@ -1169,7 +1155,6 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /exception (exception)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                 },
@@ -1251,7 +1236,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'attributes': {
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'logfire.level_num': 5,
                 },
@@ -1271,7 +1255,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /validation_error (validation_error)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                 },
@@ -1390,7 +1373,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'fastapi.route.name': 'secret',
                     'logfire.null_args': ('fastapi.route.operation_id',),
                     'logfire.json_schema': '{"type":"object","properties":{"values":{"type":"object"},"errors":{"type":"array"},"custom_attr":{},"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['attributes', 'values', 'path_param'], 'matched_substring': 'auth'},
@@ -1415,7 +1397,6 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'GET /secret/{path_param} (get_secret)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -1541,7 +1522,6 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                 'attributes': {
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'values': '{}',
                     'errors': '[]',
@@ -1583,7 +1563,6 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'POST /echo_body (echo_body)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
@@ -1686,7 +1665,6 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'attributes': {
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
-                    'logfire.tags': ('fastapi',),
                     'logfire.span_type': 'span',
                     'values': '{}',
                     'errors': '[]',
@@ -1741,7 +1719,6 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.msg': 'POST /echo_body (echo_body)',
                     'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
-                    'logfire.tags': ('fastapi',),
                     'logfire.level_num': 5,
                     'logfire.span_type': 'span',
                 },
