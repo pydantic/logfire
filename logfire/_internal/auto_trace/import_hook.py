@@ -6,7 +6,7 @@ from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable, Iterator, Sequence
+from typing import TYPE_CHECKING, Callable, Iterator, Sequence, cast
 
 from .rewrite_ast import exec_source
 from .types import AutoTraceModule
@@ -41,7 +41,7 @@ class LogfireFinder(MetaPathFinder):
                 continue
 
             try:
-                source: str = get_source(fullname)
+                source = cast(str, get_source(fullname))
             except Exception:  # pragma: no cover
                 continue
 

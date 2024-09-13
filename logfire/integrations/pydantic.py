@@ -453,7 +453,7 @@ def _build_wrapper(func: Callable[P, R], event_handlers: list[Any]) -> Callable[
             func = old_wrapped
         elif callable(handler):  # no event handler methods found
             # Use the new API, especially _ValidateWrapper.__call__
-            func = handler(func)
+            func = handler(func)  # type: ignore
 
     return func
 
