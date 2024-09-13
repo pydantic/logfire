@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, Unpack, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 from weakref import WeakSet
@@ -78,7 +78,7 @@ from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
-from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
@@ -144,7 +144,11 @@ class PydanticPlugin:
     """Exclude specific modules from instrumentation."""
 
 
-def configure(
+class DeprecatedKwargs(TypedDict):
+    pass
+
+
+def configure(  # noqa: D417
     *,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | None = None,
@@ -157,20 +161,16 @@ def configure(
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
     base_url: str | None = None,
-    collect_system_metrics: None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
-    processors: None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
-    metric_readers: None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     fast_shutdown: bool = False,
-    scrubbing_patterns: Sequence[str] | None = None,
-    scrubbing_callback: ScrubCallback | None = None,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     tail_sampling: TailSamplingOptions | None = None,
+    **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> None:
     """Configure the logfire SDK.
 
@@ -198,39 +198,37 @@ def configure(
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://logfire-api.pydantic.dev.
-        collect_system_metrics: Legacy argument, use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) instead.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
-        processors: Legacy argument, use `additional_span_processors` instead.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
-        metric_readers: Legacy argument, use `additional_metric_readers` instead.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
-        scrubbing_patterns: Deprecated, use `scrubbing=logfire.ScrubbingOptions(extra_patterns=[...])` instead.
-        scrubbing_callback: Deprecated, use `scrubbing=logfire.ScrubbingOptions(callback=...)` instead.
         inspect_arguments: Whether to enable
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
         tail_sampling: Tail sampling options. Not ready for general use.
     """
+    processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
         raise ValueError(
             'The `processors` argument has been replaced by `additional_span_processors`. '
             'Set `send_to_logfire=False` to disable the default processor.'
         )
 
+    metric_readers = deprecated_kwargs.pop('metric_readers', None)  # type: ignore
     if metric_readers is not None:  # pragma: no cover
         raise ValueError(
             'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
 
+    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)  # type: ignore
     if collect_system_metrics is False:
         raise ValueError(
             'The `collect_system_metrics` argument has been removed. '
@@ -243,6 +241,8 @@ def configure(
             'Use `logfire.instrument_system_metrics()` instead.'
         )
 
+    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)  # type: ignore
+    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)  # type: ignore
     if scrubbing_callback or scrubbing_patterns:
         if scrubbing is not None:
             raise ValueError(
@@ -254,7 +254,10 @@ def configure(
             'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
             DeprecationWarning,
         )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)
+        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
+
+    if deprecated_kwargs:
+        raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
     GLOBAL_CONFIG.configure(
         base_url=base_url,
