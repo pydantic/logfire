@@ -127,6 +127,11 @@ def install_logfire(markdown: str, page: Page) -> str:
     ```bash
     poetry add {package}
     ```
+
+=== "uv"
+    ```bash
+    uv add {package}
+    ```
 """
         if not extras:
             instructions += """
