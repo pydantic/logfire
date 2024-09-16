@@ -73,6 +73,14 @@ async def echo_body(request: Request):
     return await request.body()
 
 
+async def websocket_endpoint(websocket: WebSocket, name: str):
+    logfire.info('websocket_endpoint: {name}', name=name)
+    await websocket.accept()
+    assert (await websocket.receive_text()) == 'ping'
+    await websocket.send_text('pong')
+    await websocket.close()
+
+
 @pytest.fixture()
 def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
@@ -90,6 +98,7 @@ def app():
     app.get('/validation_error')(validation_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
+    app.websocket('/ws/{name}')(websocket_endpoint)
     first_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     second_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     return app
@@ -1812,6 +1821,147 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/echo_body',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+        ]
+    )
+
+
+def test_websocket(client: TestClient, exporter: TestExporter) -> None:
+    with client.websocket_connect('/ws/foo') as websocket:
+        websocket.send_text('ping')
+        data = websocket.receive_text()
+        assert data == 'pong'
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'websocket_endpoint: {name}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'websocket_endpoint: {name}',
+                    'logfire.msg': 'websocket_endpoint: foo',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'websocket_endpoint',
+                    'code.lineno': 123,
+                    'name': 'foo',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name} websocket receive connect',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/{name} websocket receive connect',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'websocket.connect',
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name} websocket send accept',
+                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/{name} websocket send accept',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'websocket.accept',
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name} websocket receive',
+                'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/{name} websocket receive',
+                    'logfire.level_num': 5,
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'asgi.event.type': 'websocket.receive',
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name} websocket send',
+                'context': {'trace_id': 1, 'span_id': 12, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 11000000000,
+                'end_time': 12000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/{name} websocket send',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'websocket.send',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name} websocket send close',
+                'context': {'trace_id': 1, 'span_id': 14, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 13000000000,
+                'end_time': 14000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/{name} websocket send close',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'websocket.close',
+                },
+            },
+            {
+                'name': 'HTTP /ws/{name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 15000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'HTTP /ws/foo',
+                    'http.scheme': 'ws',
+                    'url.scheme': 'ws',
+                    'http.host': 'testserver',
+                    'client.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.target': '/ws/foo',
+                    'url.path': '/ws/foo',
+                    'http.url': 'ws://testserver/ws/foo',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/ws/{name}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
