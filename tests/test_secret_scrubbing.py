@@ -331,7 +331,7 @@ def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
     with pytest.warns(
         DeprecationWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'
     ):
-        logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)
+        logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)  # type: ignore
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     assert config.scrubbing
@@ -344,7 +344,7 @@ def test_scrubbing_deprecated_args_combined_with_new_options():
         ValueError,
         match='Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time.',
     ):
-        logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())
+        logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())  # type: ignore
 
 
 @pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')

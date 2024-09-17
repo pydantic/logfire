@@ -472,7 +472,7 @@ def test_invalid_rates():
 
 def test_trace_sample_rate(config_kwargs: dict[str, Any]):
     with pytest.warns(UserWarning) as warnings:
-        logfire.configure(trace_sample_rate=0.123, **config_kwargs)
+        logfire.configure(trace_sample_rate=0.123, **config_kwargs)  # type: ignore
     assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.sampling.head == 0.123
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot(
@@ -487,4 +487,4 @@ def test_both_trace_and_head():
             'Use `sampling.head` instead of `trace_sample_rate`.'
         )
     ):
-        logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())
+        logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())  # type: ignore

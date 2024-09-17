@@ -112,6 +112,7 @@ nav:
           - MySQL: integrations/mysql.md
           - Redis: integrations/redis.md
           - Celery: integrations/celery.md
+          - Stripe: integrations/stripe.md
           - System Metrics: integrations/system_metrics.md
       - Custom:
           - Pydantic: integrations/pydantic.md
