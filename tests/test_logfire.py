@@ -1253,10 +1253,10 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
     )
 
 
-def check_project_name(expected_project_name: str) -> None:
+def check_service_name(expected_service_name: str) -> None:
     from logfire._internal.config import GLOBAL_CONFIG
 
-    assert GLOBAL_CONFIG.project_name == expected_project_name
+    assert GLOBAL_CONFIG.service_name == expected_service_name
 
 
 @pytest.mark.parametrize(
@@ -1273,12 +1273,12 @@ def test_config_preserved_across_thread_or_process(
     configure(
         send_to_logfire=False,
         console=False,
-        project_name='foobar!',
+        service_name='foobar!',
         additional_metric_readers=[InMemoryMetricReader()],
     )
 
     with executor_factory() as executor:
-        executor.submit(check_project_name, 'foobar!')
+        executor.submit(check_service_name, 'foobar!')
         executor.shutdown(wait=True)
 
 

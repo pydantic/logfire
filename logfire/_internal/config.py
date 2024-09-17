@@ -152,7 +152,6 @@ def configure(  # noqa: D417
     *,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | None = None,
-    project_name: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
     trace_sample_rate: float | None = None,
@@ -179,11 +178,6 @@ def configure(  # noqa: D417
             variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
             a token is present.
         token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
-        project_name: Name to request when creating a new project. Defaults to the `LOGFIRE_PROJECT_NAME` environment
-            variable, or the current directory name.
-            Project name accepts a string value containing alphanumeric characters and
-            hyphens (-). The hyphen character must not be located at the beginning or end of the string and should
-            appear in between alphanumeric characters.
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
@@ -256,6 +250,13 @@ def configure(  # noqa: D417
         )
         scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
 
+    project_name = deprecated_kwargs.pop('project_name', None)  # type: ignore
+    if project_name is not None:
+        warnings.warn(
+            'The `project_name` argument is deprecated and not needed.',
+            DeprecationWarning,
+        )
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
@@ -263,7 +264,6 @@ def configure(  # noqa: D417
         base_url=base_url,
         send_to_logfire=send_to_logfire,
         token=token,
-        project_name=project_name,
         service_name=service_name,
         service_version=service_version,
         trace_sample_rate=trace_sample_rate,
@@ -310,9 +310,6 @@ class _LogfireConfigData:
 
     token: str | None
     """The Logfire API token to use"""
-
-    project_name: str | None
-    """The Logfire project name to use"""
 
     service_name: str
     """The name of this service"""
@@ -364,7 +361,6 @@ class _LogfireConfigData:
         base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
-        project_name: str | None,
         service_name: str | None,
         service_version: str | None,
         trace_sample_rate: float | None,
@@ -388,7 +384,6 @@ class _LogfireConfigData:
         self.base_url = param_manager.load_param('base_url', base_url)
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
-        self.project_name = param_manager.load_param('project_name', project_name)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
@@ -464,7 +459,6 @@ class LogfireConfig(_LogfireConfigData):
         base_url: str | None = None,
         send_to_logfire: bool | None = None,
         token: str | None = None,
-        project_name: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
         trace_sample_rate: float | None = None,
@@ -494,7 +488,6 @@ class LogfireConfig(_LogfireConfigData):
             base_url=base_url,
             send_to_logfire=send_to_logfire,
             token=token,
-            project_name=project_name,
             service_name=service_name,
             service_version=service_version,
             trace_sample_rate=trace_sample_rate,
@@ -528,7 +521,6 @@ class LogfireConfig(_LogfireConfigData):
         base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
-        project_name: str | None,
         service_name: str | None,
         service_version: str | None,
         trace_sample_rate: float | None,
@@ -552,7 +544,6 @@ class LogfireConfig(_LogfireConfigData):
                 base_url,
                 send_to_logfire,
                 token,
-                project_name,
                 service_name,
                 service_version,
                 trace_sample_rate,
@@ -680,7 +671,6 @@ class LogfireConfig(_LogfireConfigData):
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.base_url,
-                            project_name=self.project_name,
                             session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
@@ -1160,7 +1150,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
-        force_project_name_prompt: bool = False,
     ) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
@@ -1173,8 +1162,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
             project_name: The default name of the project.
-            force_project_name_prompt: Whether to force a prompt for the project name.
-            service_name: Name of the service.
 
         Returns:
             The created project informations.
@@ -1219,11 +1206,10 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
                     if not confirm:
                         sys.exit(1)
 
-        project_name_default: str | None = project_name or default_project_name()
+        project_name_default: str | None = default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
-            if force_project_name_prompt or not project_name:
-                project_name = Prompt.ask(project_name_prompt, default=project_name_default)
+            project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
@@ -1267,15 +1253,12 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
         cls,
         *,
         logfire_api_url: str,
-        project_name: str | None,
         session: requests.Session,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
             logfire_api_url: The Logfire API base URL.
-            project_name: Name for the project.
-            user_token: The user's token to use to create the new project.
             session: HTTP client session used to communicate with the Logfire API.
 
         Returns:
@@ -1303,8 +1286,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             credentials = cls.create_new_project(
                 session=session,
                 logfire_api_url=logfire_api_url,
-                project_name=project_name,
-                force_project_name_prompt=True,
             )
 
         try:
