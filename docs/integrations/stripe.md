@@ -106,3 +106,6 @@ with logfire.span('list customers'):
 ```
 
 You can change the `level=INFO` to `level=DEBUG` to see even more details, like the response body.
+
+[Stripe]: https://stripe.com
+[Configure an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
