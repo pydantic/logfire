@@ -196,6 +196,9 @@ def _tweak_http_spans(span: ReadableSpanDict):
         except Exception:  # pragma: no cover
             pass
 
+    if not method and name in ('HTTP', f'HTTP {target}', f'HTTP {route}'):
+        method = 'HTTP'
+
     # Build up a list of possible span names and messages in order from worst to best
     names: list[str] = []
     messages: list[str] = []
