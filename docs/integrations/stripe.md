@@ -31,11 +31,10 @@ You read more about this on the [Configuring an HTTP Client] section on the stri
 
 As mentioned, by default, `stripe` uses the `requests` package for making HTTP requests.
 
-In this case, you'll need to call [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests].
+In this case, you'll need to call [`logfire.instrument_requests()`][requests-section].
 
 ```py
 import os
-from logging import basicConfig
 
 import logfire
 from stripe import StripeClient
@@ -45,8 +44,7 @@ logfire.instrument_requests()
 
 client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
 
-with logfire.span('list customers'):
-    client.customers.list()
+client.customers.list()
 ```
 
 !!! note
@@ -57,12 +55,11 @@ with logfire.span('list customers'):
 
 As mentioned, by default, `stripe` uses the `httpx` package for making asynchronous HTTP requests.
 
-In this case, you'll need to call [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx].
+In this case, you'll need to call [`logfire.instrument_httpx()`][httpx-section].
 
 ```py
 import asyncio
 import os
-from logging import basicConfig
 
 import logfire
 from stripe import StripeClient
@@ -86,7 +83,7 @@ if __name__ == '__main__':
 
 ## Add logging instrumentation
 
-Stripe also has a logger (`logger = getLogger('stripe')`) that you can instrument with **Logfire**.
+Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrument with **Logfire**][logging-section].
 
 ```py hl_lines="8"
 import os
@@ -100,12 +97,13 @@ basicConfig(handlers=[logfire.LogfireLoggingHandler()], level='INFO')
 
 client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
 
-
-with logfire.span('list customers'):
-    client.customers.list()
+client.customers.list()
 ```
 
 You can change the `level=INFO` to `level=DEBUG` to see even more details, like the response body.
 
 [Stripe]: https://stripe.com
 [Configure an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
+[logging-section]: logging.md
+[requests-section]: requests.md
+[httpx-section]: httpx.md
