@@ -53,7 +53,7 @@ JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
 @dataclass
 class ScrubMatch:
-    """An object passed to the [`scrubbing_callback`][logfire.configure(scrubbing_callback)] function."""
+    """An object passed to a [`ScrubbingOptions.callback`][logfire.ScrubbingOptions.callback] function."""
 
     path: JsonPath
     """The path to the value in the span being considered for redaction, e.g. `('attributes', 'password')`."""
@@ -68,7 +68,6 @@ class ScrubMatch:
     """
 
 
-# See scrubbing_callback in logfire.configure for more info on this type.
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
@@ -152,7 +151,7 @@ class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
-        # See scrubbing_patterns and scrubbing_callback in logfire.configure for more info on these parameters.
+        # See ScrubbingOptions for more info on these parameters.
         patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
