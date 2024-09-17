@@ -145,6 +145,7 @@ class PydanticPlugin:
 
 
 class DeprecatedKwargs(TypedDict):
+    # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
 
 
