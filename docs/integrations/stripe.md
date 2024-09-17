@@ -103,7 +103,7 @@ client.customers.list()
 You can change the `level=INFO` to `level=DEBUG` to see even more details, like the response body.
 
 [Stripe]: https://stripe.com
-[Configure an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
+[Configuring an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
 [logging-section]: logging.md
 [requests-section]: requests.md
 [httpx-section]: httpx.md
