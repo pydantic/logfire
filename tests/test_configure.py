@@ -595,7 +595,6 @@ def test_configure_export_delay() -> None:
                 send_to_logfire=True,
                 token='abc1',
                 console=False,
-                fast_shutdown=True,
             )
             wait_for_check_token_thread()
 

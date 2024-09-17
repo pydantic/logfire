@@ -166,7 +166,6 @@ def configure(  # noqa: D417
     additional_span_processors: Sequence[SpanProcessor] | None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
-    fast_shutdown: bool = False,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
@@ -199,7 +198,6 @@ def configure(  # noqa: D417
             which exports metrics to Logfire's API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
-        fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
@@ -288,7 +286,6 @@ def configure(  # noqa: D417
         additional_span_processors=additional_span_processors,
         additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
-        fast_shutdown=fast_shutdown,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
@@ -350,9 +347,6 @@ class _LogfireConfigData:
     pydantic_plugin: PydanticPlugin
     """Options for the Pydantic plugin"""
 
-    fast_shutdown: bool
-    """Whether to shut down exporters and providers quickly, mostly used for tests"""
-
     scrubbing: ScrubbingOptions | Literal[False]
     """Options for redacting sensitive data, or False to disable."""
 
@@ -381,7 +375,6 @@ class _LogfireConfigData:
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
-        fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
@@ -449,8 +442,6 @@ class _LogfireConfigData:
             )
         self.sampling = sampling
 
-        self.fast_shutdown = fast_shutdown
-
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
         self.additional_span_processors = additional_span_processors
@@ -481,7 +472,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None = None,
         additional_metric_readers: Sequence[MetricReader] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
-        fast_shutdown: bool = False,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
@@ -509,7 +499,6 @@ class LogfireConfig(_LogfireConfigData):
             additional_span_processors=additional_span_processors,
             additional_metric_readers=additional_metric_readers,
             pydantic_plugin=pydantic_plugin,
-            fast_shutdown=fast_shutdown,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
@@ -541,7 +530,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
-        fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
@@ -563,7 +551,6 @@ class LogfireConfig(_LogfireConfigData):
                 additional_span_processors,
                 additional_metric_readers,
                 pydantic_plugin,
-                fast_shutdown,
                 scrubbing,
                 inspect_arguments,
                 sampling,
