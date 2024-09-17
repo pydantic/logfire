@@ -3,9 +3,9 @@ from opentelemetry.util import types as otel_types
 
 LOGFIRE_ATTRIBUTES_NAMESPACE: str
 LevelName: Incomplete
-LEVEL_NUMBERS: Incomplete
-NUMBER_TO_LEVEL: Incomplete
-LOGGING_TO_OTEL_LEVEL_NUMBERS: Incomplete
+LEVEL_NUMBERS: dict[LevelName, int]
+NUMBER_TO_LEVEL: dict[int, LevelName]
+LOGGING_TO_OTEL_LEVEL_NUMBERS: dict[int, int]
 ATTRIBUTES_LOG_LEVEL_NAME_KEY: Incomplete
 ATTRIBUTES_LOG_LEVEL_NUM_KEY: Incomplete
 

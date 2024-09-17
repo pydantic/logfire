@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from logfire.sampling import SamplingOptions
+
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
-from ._internal.exporters.tail_sampling import TailSamplingOptions
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.utils import suppress_instrumentation
@@ -131,5 +132,5 @@ __all__ = (
     'suppress_instrumentation',
     'StructlogProcessor',
     'LogfireLoggingHandler',
-    'TailSamplingOptions',
+    'SamplingOptions',
 )

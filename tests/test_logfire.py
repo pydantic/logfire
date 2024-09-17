@@ -30,6 +30,7 @@ from logfire._internal.constants import (
     ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
+    LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
@@ -476,7 +477,7 @@ def test_span_end_on_exit_false(exporter: TestExporter) -> None:
 
 
 @pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'trace'))
-def test_log(exporter: TestExporter, level: str):
+def test_log(exporter: TestExporter, level: LevelName):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
     s = exporter.exported_spans[0]

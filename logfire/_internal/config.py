@@ -46,13 +46,15 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
+from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
 from logfire.exceptions import LogfireConfigError
+from logfire.sampling import SamplingOptions
+from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
@@ -74,7 +76,6 @@ from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
-from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
@@ -155,7 +156,6 @@ def configure(  # noqa: D417
     token: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
-    trace_sample_rate: float | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: bool | None = None,
     config_dir: Path | str | None = None,
@@ -169,7 +169,7 @@ def configure(  # noqa: D417
     fast_shutdown: bool = False,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
-    tail_sampling: TailSamplingOptions | None = None,
+    sampling: SamplingOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> None:
     """Configure the logfire SDK.
@@ -182,8 +182,6 @@ def configure(  # noqa: D417
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
-        trace_sample_rate: Sampling ratio for spans. Defaults to the `LOGFIRE_SAMPLING_RATIO` environment variable, or
-            the `OTEL_TRACES_SAMPLER_ARG` environment variable, or to `1.0`.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
@@ -207,7 +205,7 @@ def configure(  # noqa: D417
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
-        tail_sampling: Tail sampling options. Not ready for general use.
+        sampling: Sampling options. See the [sampling guide](https://docs.pydantic.dev/logfire/guides/advanced/sampling/).
     """
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
@@ -258,6 +256,20 @@ def configure(  # noqa: D417
             DeprecationWarning,
         )
 
+    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore
+    if trace_sample_rate is not None:
+        if sampling:
+            raise ValueError(
+                'Cannot specify both `trace_sample_rate` and `sampling`. '
+                'Use `sampling.head` instead of `trace_sample_rate`.'
+            )
+        else:
+            sampling = SamplingOptions(head=trace_sample_rate)
+            warnings.warn(
+                'The `trace_sample_rate` argument is deprecated. '
+                'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
+            )
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
@@ -267,7 +279,6 @@ def configure(  # noqa: D417
         token=token,
         service_name=service_name,
         service_version=service_version,
-        trace_sample_rate=trace_sample_rate,
         console=console,
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
@@ -280,7 +291,7 @@ def configure(  # noqa: D417
         fast_shutdown=fast_shutdown,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
-        tail_sampling=tail_sampling,
+        sampling=sampling,
     )
 
 
@@ -318,9 +329,6 @@ class _LogfireConfigData:
     service_version: str | None
     """The version of this service"""
 
-    trace_sample_rate: float
-    """The sampling ratio for spans"""
-
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
 
@@ -351,8 +359,8 @@ class _LogfireConfigData:
     inspect_arguments: bool
     """Whether to enable f-string magic"""
 
-    tail_sampling: TailSamplingOptions | None
-    """Tail sampling options"""
+    sampling: SamplingOptions
+    """Sampling options"""
 
     def _load_configuration(
         self,
@@ -364,7 +372,6 @@ class _LogfireConfigData:
         token: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -377,7 +384,7 @@ class _LogfireConfigData:
         fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
-        tail_sampling: TailSamplingOptions | None,
+        sampling: SamplingOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -387,7 +394,6 @@ class _LogfireConfigData:
         self.token = param_manager.load_param('token', token)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
-        self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
@@ -434,10 +440,14 @@ class _LogfireConfigData:
             if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
 
-        if isinstance(tail_sampling, dict):
+        if isinstance(sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
-        self.tail_sampling = tail_sampling
+            sampling = SamplingOptions(**sampling)  # type: ignore
+        elif sampling is None:
+            sampling = SamplingOptions(
+                head=param_manager.load_param('trace_sample_rate'),
+            )
+        self.sampling = sampling
 
         self.fast_shutdown = fast_shutdown
 
@@ -462,7 +472,6 @@ class LogfireConfig(_LogfireConfigData):
         token: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
-        trace_sample_rate: float | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         show_summary: bool | None = None,
         config_dir: Path | None = None,
@@ -475,7 +484,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool = False,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
-        tail_sampling: TailSamplingOptions | None = None,
+        sampling: SamplingOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -491,7 +500,6 @@ class LogfireConfig(_LogfireConfigData):
             token=token,
             service_name=service_name,
             service_version=service_version,
-            trace_sample_rate=trace_sample_rate,
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
@@ -504,7 +512,7 @@ class LogfireConfig(_LogfireConfigData):
             fast_shutdown=fast_shutdown,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
-            tail_sampling=tail_sampling,
+            sampling=sampling,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -524,7 +532,6 @@ class LogfireConfig(_LogfireConfigData):
         token: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -537,7 +544,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
-        tail_sampling: TailSamplingOptions | None,
+        sampling: SamplingOptions | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -547,7 +554,6 @@ class LogfireConfig(_LogfireConfigData):
                 token,
                 service_name,
                 service_version,
-                trace_sample_rate,
                 console,
                 show_summary,
                 config_dir,
@@ -560,7 +566,7 @@ class LogfireConfig(_LogfireConfigData):
                 fast_shutdown,
                 scrubbing,
                 inspect_arguments,
-                tail_sampling,
+                sampling,
             )
             self.initialize()
 
@@ -601,13 +607,13 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
-            # Avoid using the usual sampler if we're using tail-based sampling.
-            # The TailSamplingProcessor will handle the random sampling part as well.
-            sampler = (
-                ParentBasedTraceIdRatio(self.trace_sample_rate)
-                if self.trace_sample_rate < 1 and self.tail_sampling is None
-                else None
-            )
+            head = self.sampling.head
+            sampler: Sampler | None = None
+            if isinstance(head, (int, float)):
+                if head < 1:
+                    sampler = ParentBasedTraceIdRatio(head)
+            else:
+                sampler = head
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
@@ -628,15 +634,8 @@ class LogfireConfig(_LogfireConfigData):
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
 
-                if self.tail_sampling:
-                    span_processor = TailSamplingProcessor(
-                        span_processor,
-                        self.tail_sampling,
-                        # If self.trace_sample_rate < 1 then that ratio of spans should be included randomly by this.
-                        # In that case the tracer provider doesn't need to do any sampling, see above.
-                        # Otherwise we're not using any random sampling, so 0% of spans should be included 'randomly'.
-                        self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
-                    )
+                if self.sampling.tail:
+                    span_processor = TailSamplingProcessor(span_processor, self.sampling.tail)
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 if has_pending:

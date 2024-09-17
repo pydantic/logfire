@@ -466,6 +466,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
+        trace_sample_rate = "0.123"
         """
     )
 
@@ -483,6 +484,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.pydantic_plugin.record == 'metrics'
     assert GLOBAL_CONFIG.pydantic_plugin.include == {'test1', 'test2'}
     assert GLOBAL_CONFIG.pydantic_plugin.exclude == {'test3', 'test4'}
+    assert GLOBAL_CONFIG.sampling.head == 0.123
 
 
 def test_logfire_invalid_config_dir(tmp_path: Path):
@@ -850,7 +852,7 @@ def test_config_serializable():
         send_to_logfire=False,
         pydantic_plugin=logfire.PydanticPlugin(record='all'),
         console=logfire.ConsoleOptions(verbose=True),
-        tail_sampling=logfire.TailSamplingOptions(),
+        sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
     )
 
@@ -858,7 +860,7 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['pydantic_plugin', 'console', 'tail_sampling', 'scrubbing']
+            field.name in ['pydantic_plugin', 'console', 'sampling', 'scrubbing']
         )
 
     serialized = serialize_config()
@@ -875,7 +877,7 @@ def test_config_serializable():
 
     assert isinstance(GLOBAL_CONFIG.pydantic_plugin, logfire.PydanticPlugin)
     assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
-    assert isinstance(GLOBAL_CONFIG.tail_sampling, logfire.TailSamplingOptions)
+    assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
 
 
