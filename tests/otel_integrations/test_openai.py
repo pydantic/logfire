@@ -286,7 +286,12 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                 'function_call': None,
                                 'tool_calls': None,
                             },
-                            'usage': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                            'usage': {
+                                'completion_tokens': 1,
+                                'prompt_tokens': 2,
+                                'total_tokens': 3,
+                                'completion_tokens_details': None,
+                            },
                         }
                     ),
                     'logfire.json_schema': IsJson(
@@ -363,7 +368,12 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                 'function_call': None,
                                 'tool_calls': None,
                             },
-                            'usage': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                            'usage': {
+                                'completion_tokens': 1,
+                                'prompt_tokens': 2,
+                                'total_tokens': 3,
+                                'completion_tokens_details': None,
+                            },
                         }
                     ),
                     'logfire.json_schema': IsJson(

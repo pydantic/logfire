@@ -26,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic_core import CoreConfig, CoreSchema
 
 
-METER = GLOBAL_CONFIG._meter_provider.get_meter('pydantic-plugin-meter')  # type: ignore
+METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # type: ignore
 validation_counter = METER.create_counter('pydantic.validations')
 
 
@@ -453,7 +453,7 @@ def _build_wrapper(func: Callable[P, R], event_handlers: list[Any]) -> Callable[
             func = old_wrapped
         elif callable(handler):  # no event handler methods found
             # Use the new API, especially _ValidateWrapper.__call__
-            func = handler(func)
+            func = handler(func)  # type: ignore
 
     return func
 

@@ -26,7 +26,7 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager
     Inspired by https://gitlab.com/quantlane/libs/aiodebug.
     """
     original_run = asyncio.events.Handle._run
-    logfire = logfire.with_tags('slow-async')
+    logfire = logfire.with_settings(custom_scope_suffix='asyncio')
     timer = logfire.config.ns_timestamp_generator
     slow_duration *= ONE_SECOND_IN_NANOSECONDS
 

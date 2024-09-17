@@ -7,6 +7,7 @@ from typing import Any, Callable, ContextManager
 import pytest
 from inline_snapshot import snapshot
 
+import logfire
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
 from logfire._internal.auto_trace import (
     AutoTraceModuleAlreadyImportedException,
@@ -21,7 +22,7 @@ from logfire.testing import TestExporter
 def test_auto_trace_sample(exporter: TestExporter) -> None:
     meta_path = sys.meta_path.copy()
 
-    install_auto_tracing('tests.auto_trace_samples')
+    logfire.with_tags('testing', 'auto-tracing').install_auto_tracing('tests.auto_trace_samples')
     # Check that having multiple LogfireFinders doesn't break things
     install_auto_tracing('tests.blablabla')
 
@@ -50,6 +51,8 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
 
+    assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
+
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
@@ -63,9 +66,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'code.function': 'bar',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.span_type': 'pending_span',
-                    'logfire.tags': ('auto-trace',),
                     'logfire.pending_parent_id': '0000000000000000',
                 },
             },
@@ -111,8 +114,8 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'code.function': 'bar',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.bar',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'span',
-                    'logfire.tags': ('auto-trace',),
                     'logfire.msg': 'Calling tests.auto_trace_samples.foo.bar',
                     'logfire.level_num': 17,
                 },
@@ -256,7 +259,6 @@ class Class3:
                     'code.lineno': 8,
                     'code.function': 'func.<locals>.Class.method',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method',
-                    'logfire.tags': ('auto-trace',),
                 },
             ),
             (
@@ -266,7 +268,6 @@ class Class3:
                     'code.lineno': 16,
                     'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
-                    'logfire.tags': ('auto-trace',),
                 },
             ),
             (
@@ -276,7 +277,6 @@ class Class3:
                     'code.lineno': 12,
                     'code.function': 'func.<locals>.Class.method2',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2',
-                    'logfire.tags': ('auto-trace',),
                 },
             ),
             (
@@ -286,7 +286,6 @@ class Class3:
                     'code.lineno': 2,
                     'code.function': 'func',
                     'logfire.msg_template': 'Calling module.name.func',
-                    'logfire.tags': ('auto-trace',),
                 },
             ),
             (
@@ -296,7 +295,6 @@ class Class3:
                     'code.lineno': 26,
                     'code.function': 'Class3.method4',
                     'logfire.msg_template': 'Calling module.name.Class3.method4',
-                    'logfire.tags': ('auto-trace',),
                 },
             ),
         ]
@@ -468,7 +466,6 @@ def test_min_duration(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'func2',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func2',
-                    'logfire.tags': ('auto-trace',),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Calling tests.auto_trace_samples.simple_nesting.func2',
                 },
@@ -484,7 +481,6 @@ def test_min_duration(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'func1',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.simple_nesting.func1',
-                    'logfire.tags': ('auto-trace',),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Calling tests.auto_trace_samples.simple_nesting.func1',
                 },

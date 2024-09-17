@@ -28,7 +28,7 @@ async def websocket_endpoint(websocket: WebSocket):
 def app():
     routes = [
         Route('/secret/{path_param}', secret),
-        WebSocketRoute('/ws', websocket_endpoint),
+        WebSocketRoute('/ws/{name}', websocket_endpoint),
     ]
 
     app = Starlette(routes=routes)
@@ -47,7 +47,7 @@ def client(app: Starlette) -> TestClient:
 
 
 def test_websocket(client: TestClient, exporter: TestExporter) -> None:
-    with client.websocket_connect('/ws') as websocket:
+    with client.websocket_connect('/ws/foo') as websocket:
         websocket.send_text('ping')
         data = websocket.receive_text()
         assert data == 'pong'
@@ -55,40 +55,40 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': '/ws websocket receive connect',
+                'name': '/ws/{name} websocket receive connect',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws websocket receive connect',
+                    'logfire.msg': '/ws/{name} websocket receive connect',
                     'asgi.event.type': 'websocket.connect',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': '/ws websocket send accept',
+                'name': '/ws/{name} websocket send accept',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws websocket send accept',
+                    'logfire.msg': '/ws/{name} websocket send accept',
                     'asgi.event.type': 'websocket.accept',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': '/ws websocket receive',
+                'name': '/ws/{name} websocket receive',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 6000000000,
                 'end_time': 7000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws websocket receive',
+                    'logfire.msg': '/ws/{name} websocket receive',
                     'http.status_code': 200,
                     'asgi.event.type': 'websocket.receive',
                     'http.response.status_code': 200,
@@ -96,14 +96,14 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '/ws websocket send',
+                'name': '/ws/{name} websocket send',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 8000000000,
                 'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws websocket send',
+                    'logfire.msg': '/ws/{name} websocket send',
                     'http.status_code': 200,
                     'asgi.event.type': 'websocket.send',
                     'logfire.level_num': 5,
@@ -111,35 +111,35 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '/ws websocket send close',
+                'name': '/ws/{name} websocket send close',
                 'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 10000000000,
                 'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws websocket send close',
+                    'logfire.msg': '/ws/{name} websocket send close',
                     'asgi.event.type': 'websocket.close',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': '/ws',
+                'name': '/ws/{name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': '/ws',
+                    'logfire.msg': '/ws/foo',
                     'http.scheme': 'ws',
                     'url.scheme': 'ws',
                     'http.host': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
-                    'http.target': '/ws',
-                    'url.path': '/ws',
-                    'http.url': 'ws://testserver/ws',
+                    'http.target': '/ws/foo',
+                    'url.path': '/ws/foo',
+                    'http.url': 'ws://testserver/ws/foo',
                     'http.server_name': 'testserver',
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
@@ -147,7 +147,7 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'client.address': 'testserver',
                     'net.peer.port': 50000,
                     'client.port': 50000,
-                    'http.route': '/ws',
+                    'http.route': '/ws/{name}',
                     'http.request.header.host': ('testserver',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept_encoding': ('gzip, deflate',),
