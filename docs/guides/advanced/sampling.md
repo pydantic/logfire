@@ -5,8 +5,7 @@ stored and analyzed. Sampling is a trade-off between cost and completeness of da
 
 _Head sampling_ means the decision to sample is made at the beginning of a trace. This is simpler and more common.
 
-_Tail
-sampling_ means the decision to sample is delayed, possibly until the end of a trace. This means there is more
+_Tail sampling_ means the decision to sample is delayed, possibly until the end of a trace. This means there is more
 information available to make the decision, but this adds complexity.
 
 Sampling usually happens at the trace level, meaning entire traces are kept or discarded. This way the remaining traces
