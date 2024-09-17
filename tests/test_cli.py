@@ -688,7 +688,7 @@ def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credential
                 '  * may contain single hyphens\n'
                 '  * may not start or end with a hyphen\n\n'
                 'Enter the project name you want to use:',
-                default='invalid name',
+                default='testprojectsnewinvalidproj0',
             ),
         ]
         console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]

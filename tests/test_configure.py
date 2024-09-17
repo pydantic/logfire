@@ -476,7 +476,6 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
 
     assert GLOBAL_CONFIG.base_url == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
-    assert GLOBAL_CONFIG.project_name == 'test'
     assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
@@ -1546,3 +1545,15 @@ def test_collect_system_metrics_true():
         )
     ):
         logfire.configure(collect_system_metrics=True)  # type: ignore
+
+
+def test_unknown_kwargs():
+    with inline_snapshot.extra.raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
+        logfire.configure(foo=1, bar=2)  # type: ignore
+
+
+def test_project_name_deprecated():
+    with inline_snapshot.extra.raises(
+        snapshot('DeprecationWarning: The `project_name` argument is deprecated and not needed.')
+    ):
+        logfire.configure(project_name='foo')  # type: ignore
