@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v0.53.0] (2024-09-17)
+
+* Tail sampling by @alexmojaki in https://github.com/pydantic/logfire/pull/407
+* Use OTEL scopes better, especially instead of tags by @alexmojaki in https://github.com/pydantic/logfire/pull/420
+* Deprecate `project_name` in `logfire.configure()`, remove old kwargs from signature  by @alexmojaki in https://github.com/pydantic/logfire/pull/428
+* Fix websocket span messages by @alexmojaki in https://github.com/pydantic/logfire/pull/426
+* Remove warning about attribute/variable name conflicts in f-string magic by @alexmojaki in https://github.com/pydantic/logfire/pull/418
+
 ## [v0.52.0] (2024-09-05)
 
 * Handle FastAPI update with SolvedDependencies by @alexmojaki in https://github.com/pydantic/logfire/pull/415
@@ -274,6 +282,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
 [v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
 [v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
 [v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
