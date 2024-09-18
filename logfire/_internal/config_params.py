@@ -63,8 +63,6 @@ SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME],
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
 """Version number of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
-SHOW_SUMMARY = ConfigParam(env_vars=['LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=bool)
-"""Whether to show the summary when a new project is created."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
@@ -84,6 +82,8 @@ CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_c
 """Whether to log in verbose mode in the console."""
 CONSOLE_MIN_LOG_LEVEL = ConfigParam(env_vars=['LOGFIRE_CONSOLE_MIN_LOG_LEVEL'], allow_file_config=True, default='info', tp=LevelName)
 """Minimum log level to show in the console."""
+CONSOLE_SHOW_PROJECT_LINK = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SHOW_PROJECT_LINK', 'LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=bool)
+"""Whether to enable/disable the console exporter."""
 PYDANTIC_PLUGIN_RECORD = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_RECORD'], allow_file_config=True, default='off', tp=PydanticPluginRecordValues)
 """Whether instrument Pydantic validation.."""
 PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
@@ -105,7 +105,6 @@ CONFIG_PARAMS = {
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'trace_sample_rate': TRACE_SAMPLE_RATE,
-    'show_summary': SHOW_SUMMARY,
     'data_dir': CREDENTIALS_DIR,
     'console': CONSOLE,
     'console_colors': CONSOLE_COLORS,
@@ -113,6 +112,7 @@ CONFIG_PARAMS = {
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
     'console_verbose': CONSOLE_VERBOSE,
     'console_min_log_level': CONSOLE_MIN_LOG_LEVEL,
+    'console_show_project_link': CONSOLE_SHOW_PROJECT_LINK,
     'pydantic_plugin_record': PYDANTIC_PLUGIN_RECORD,
     'pydantic_plugin_include': PYDANTIC_PLUGIN_INCLUDE,
     'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
