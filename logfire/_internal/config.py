@@ -455,7 +455,7 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
         elif advanced is None:
-            advanced = AdvancedOptions()
+            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
