@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 from weakref import WeakSet
@@ -46,13 +46,15 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
-from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
+from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
-from typing_extensions import Self
+from typing_extensions import Self, Unpack
 
 from logfire.exceptions import LogfireConfigError
+from logfire.sampling import SamplingOptions
+from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
@@ -74,11 +76,10 @@ from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
-from .exporters.tail_sampling import TailSamplingOptions, TailSamplingProcessor
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
-from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions, ScrubCallback
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
 from .utils import UnexpectedResponse, ensure_data_dir_exists, get_version, read_toml_file, suppress_instrumentation
@@ -144,33 +145,32 @@ class PydanticPlugin:
     """Exclude specific modules from instrumentation."""
 
 
-def configure(
+class DeprecatedKwargs(TypedDict):
+    # Empty so that passing any additional kwargs makes static type checkers complain.
+    pass
+
+
+def configure(  # noqa: D417
     *,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | None = None,
-    project_name: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
-    trace_sample_rate: float | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     show_summary: bool | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
     base_url: str | None = None,
-    collect_system_metrics: None = None,
     id_generator: IdGenerator | None = None,
     ns_timestamp_generator: Callable[[], int] | None = None,
-    processors: None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
-    metric_readers: None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     fast_shutdown: bool = False,
-    scrubbing_patterns: Sequence[str] | None = None,
-    scrubbing_callback: ScrubCallback | None = None,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
-    tail_sampling: TailSamplingOptions | None = None,
+    sampling: SamplingOptions | None = None,
+    **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> None:
     """Configure the logfire SDK.
 
@@ -179,16 +179,9 @@ def configure(
             variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
             a token is present.
         token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
-        project_name: Name to request when creating a new project. Defaults to the `LOGFIRE_PROJECT_NAME` environment
-            variable, or the current directory name.
-            Project name accepts a string value containing alphanumeric characters and
-            hyphens (-). The hyphen character must not be located at the beginning or end of the string and should
-            appear in between alphanumeric characters.
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
-        trace_sample_rate: Sampling ratio for spans. Defaults to the `LOGFIRE_SAMPLING_RATIO` environment variable, or
-            the `OTEL_TRACES_SAMPLER_ARG` environment variable, or to `1.0`.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
@@ -198,39 +191,37 @@ def configure(
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://logfire-api.pydantic.dev.
-        collect_system_metrics: Legacy argument, use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) instead.
         id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
         ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
             Python standard library.
-        processors: Legacy argument, use `additional_span_processors` instead.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
-        metric_readers: Legacy argument, use `additional_metric_readers` instead.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
-        scrubbing_patterns: Deprecated, use `scrubbing=logfire.ScrubbingOptions(extra_patterns=[...])` instead.
-        scrubbing_callback: Deprecated, use `scrubbing=logfire.ScrubbingOptions(callback=...)` instead.
         inspect_arguments: Whether to enable
             [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
-        tail_sampling: Tail sampling options. Not ready for general use.
+        sampling: Sampling options. See the [sampling guide](https://docs.pydantic.dev/logfire/guides/advanced/sampling/).
     """
+    processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
         raise ValueError(
             'The `processors` argument has been replaced by `additional_span_processors`. '
             'Set `send_to_logfire=False` to disable the default processor.'
         )
 
+    metric_readers = deprecated_kwargs.pop('metric_readers', None)  # type: ignore
     if metric_readers is not None:  # pragma: no cover
         raise ValueError(
             'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
 
+    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)  # type: ignore
     if collect_system_metrics is False:
         raise ValueError(
             'The `collect_system_metrics` argument has been removed. '
@@ -243,6 +234,8 @@ def configure(
             'Use `logfire.instrument_system_metrics()` instead.'
         )
 
+    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)  # type: ignore
+    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)  # type: ignore
     if scrubbing_callback or scrubbing_patterns:
         if scrubbing is not None:
             raise ValueError(
@@ -254,16 +247,38 @@ def configure(
             'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
             DeprecationWarning,
         )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)
+        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
+
+    project_name = deprecated_kwargs.pop('project_name', None)  # type: ignore
+    if project_name is not None:
+        warnings.warn(
+            'The `project_name` argument is deprecated and not needed.',
+            DeprecationWarning,
+        )
+
+    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore
+    if trace_sample_rate is not None:
+        if sampling:
+            raise ValueError(
+                'Cannot specify both `trace_sample_rate` and `sampling`. '
+                'Use `sampling.head` instead of `trace_sample_rate`.'
+            )
+        else:
+            sampling = SamplingOptions(head=trace_sample_rate)
+            warnings.warn(
+                'The `trace_sample_rate` argument is deprecated. '
+                'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
+            )
+
+    if deprecated_kwargs:
+        raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
     GLOBAL_CONFIG.configure(
         base_url=base_url,
         send_to_logfire=send_to_logfire,
         token=token,
-        project_name=project_name,
         service_name=service_name,
         service_version=service_version,
-        trace_sample_rate=trace_sample_rate,
         console=console,
         show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
@@ -276,7 +291,7 @@ def configure(
         fast_shutdown=fast_shutdown,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
-        tail_sampling=tail_sampling,
+        sampling=sampling,
     )
 
 
@@ -308,17 +323,11 @@ class _LogfireConfigData:
     token: str | None
     """The Logfire API token to use"""
 
-    project_name: str | None
-    """The Logfire project name to use"""
-
     service_name: str
     """The name of this service"""
 
     service_version: str | None
     """The version of this service"""
-
-    trace_sample_rate: float
-    """The sampling ratio for spans"""
 
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
@@ -350,8 +359,8 @@ class _LogfireConfigData:
     inspect_arguments: bool
     """Whether to enable f-string magic"""
 
-    tail_sampling: TailSamplingOptions | None
-    """Tail sampling options"""
+    sampling: SamplingOptions
+    """Sampling options"""
 
     def _load_configuration(
         self,
@@ -361,10 +370,8 @@ class _LogfireConfigData:
         base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
-        project_name: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -377,7 +384,7 @@ class _LogfireConfigData:
         fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
-        tail_sampling: TailSamplingOptions | None,
+        sampling: SamplingOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
@@ -385,10 +392,8 @@ class _LogfireConfigData:
         self.base_url = param_manager.load_param('base_url', base_url)
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
-        self.project_name = param_manager.load_param('project_name', project_name)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
-        self.trace_sample_rate = param_manager.load_param('trace_sample_rate', trace_sample_rate)
         self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
@@ -435,10 +440,14 @@ class _LogfireConfigData:
             if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
 
-        if isinstance(tail_sampling, dict):
+        if isinstance(sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            tail_sampling = TailSamplingOptions(**tail_sampling)  # type: ignore
-        self.tail_sampling = tail_sampling
+            sampling = SamplingOptions(**sampling)  # type: ignore
+        elif sampling is None:
+            sampling = SamplingOptions(
+                head=param_manager.load_param('trace_sample_rate'),
+            )
+        self.sampling = sampling
 
         self.fast_shutdown = fast_shutdown
 
@@ -461,10 +470,8 @@ class LogfireConfig(_LogfireConfigData):
         base_url: str | None = None,
         send_to_logfire: bool | None = None,
         token: str | None = None,
-        project_name: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
-        trace_sample_rate: float | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         show_summary: bool | None = None,
         config_dir: Path | None = None,
@@ -477,7 +484,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool = False,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
-        tail_sampling: TailSamplingOptions | None = None,
+        sampling: SamplingOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -491,10 +498,8 @@ class LogfireConfig(_LogfireConfigData):
             base_url=base_url,
             send_to_logfire=send_to_logfire,
             token=token,
-            project_name=project_name,
             service_name=service_name,
             service_version=service_version,
-            trace_sample_rate=trace_sample_rate,
             console=console,
             show_summary=show_summary,
             config_dir=config_dir,
@@ -507,7 +512,7 @@ class LogfireConfig(_LogfireConfigData):
             fast_shutdown=fast_shutdown,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
-            tail_sampling=tail_sampling,
+            sampling=sampling,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -525,10 +530,8 @@ class LogfireConfig(_LogfireConfigData):
         base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
-        project_name: str | None,
         service_name: str | None,
         service_version: str | None,
-        trace_sample_rate: float | None,
         console: ConsoleOptions | Literal[False] | None,
         show_summary: bool | None,
         config_dir: Path | None,
@@ -541,7 +544,7 @@ class LogfireConfig(_LogfireConfigData):
         fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
-        tail_sampling: TailSamplingOptions | None,
+        sampling: SamplingOptions | None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -549,10 +552,8 @@ class LogfireConfig(_LogfireConfigData):
                 base_url,
                 send_to_logfire,
                 token,
-                project_name,
                 service_name,
                 service_version,
-                trace_sample_rate,
                 console,
                 show_summary,
                 config_dir,
@@ -565,7 +566,7 @@ class LogfireConfig(_LogfireConfigData):
                 fast_shutdown,
                 scrubbing,
                 inspect_arguments,
-                tail_sampling,
+                sampling,
             )
             self.initialize()
 
@@ -606,13 +607,13 @@ class LogfireConfig(_LogfireConfigData):
             # Both recommend generating a UUID.
             resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
 
-            # Avoid using the usual sampler if we're using tail-based sampling.
-            # The TailSamplingProcessor will handle the random sampling part as well.
-            sampler = (
-                ParentBasedTraceIdRatio(self.trace_sample_rate)
-                if self.trace_sample_rate < 1 and self.tail_sampling is None
-                else None
-            )
+            head = self.sampling.head
+            sampler: Sampler | None = None
+            if isinstance(head, (int, float)):
+                if head < 1:
+                    sampler = ParentBasedTraceIdRatio(head)
+            else:
+                sampler = head
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
@@ -633,15 +634,8 @@ class LogfireConfig(_LogfireConfigData):
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
 
-                if self.tail_sampling:
-                    span_processor = TailSamplingProcessor(
-                        span_processor,
-                        self.tail_sampling,
-                        # If self.trace_sample_rate < 1 then that ratio of spans should be included randomly by this.
-                        # In that case the tracer provider doesn't need to do any sampling, see above.
-                        # Otherwise we're not using any random sampling, so 0% of spans should be included 'randomly'.
-                        self.trace_sample_rate if self.trace_sample_rate < 1 else 0,
-                    )
+                if self.sampling.tail:
+                    span_processor = TailSamplingProcessor(span_processor, self.sampling.tail)
                 span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
                 tracer_provider.add_span_processor(span_processor)
                 if has_pending:
@@ -677,7 +671,6 @@ class LogfireConfig(_LogfireConfigData):
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.base_url,
-                            project_name=self.project_name,
                             session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
@@ -1157,7 +1150,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
-        force_project_name_prompt: bool = False,
     ) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
@@ -1170,8 +1162,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
             project_name: The default name of the project.
-            force_project_name_prompt: Whether to force a prompt for the project name.
-            service_name: Name of the service.
 
         Returns:
             The created project informations.
@@ -1216,11 +1206,10 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
                     if not confirm:
                         sys.exit(1)
 
-        project_name_default: str | None = project_name or default_project_name()
+        project_name_default: str | None = default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
-            if force_project_name_prompt or not project_name:
-                project_name = Prompt.ask(project_name_prompt, default=project_name_default)
+            project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
@@ -1264,15 +1253,12 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
         cls,
         *,
         logfire_api_url: str,
-        project_name: str | None,
         session: requests.Session,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
             logfire_api_url: The Logfire API base URL.
-            project_name: Name for the project.
-            user_token: The user's token to use to create the new project.
             session: HTTP client session used to communicate with the Logfire API.
 
         Returns:
@@ -1300,8 +1286,6 @@ To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advan
             credentials = cls.create_new_project(
                 session=session,
                 logfire_api_url=logfire_api_url,
-                project_name=project_name,
-                force_project_name_prompt=True,
             )
 
         try:

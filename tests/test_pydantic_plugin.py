@@ -627,14 +627,12 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
     )
 
 
-def test_pydantic_plugin_sample_rate_config(exporter: TestExporter) -> None:
-    logfire.configure(
-        send_to_logfire=False,
-        trace_sample_rate=0.1,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+def test_pydantic_plugin_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs.update(
+        sampling=logfire.SamplingOptions(head=0.1),
         id_generator=SeededRandomIdGenerator(),
-        additional_metric_readers=[InMemoryMetricReader()],
     )
+    logfire.configure(**config_kwargs)
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all'}}):
         x: int

@@ -56,25 +56,21 @@ def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
         logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(sample_rate)
 
 
-def test_sample_rate_config() -> None:
-    exporter = TestExporter()
-
-    logfire.configure(
-        send_to_logfire=False,
-        trace_sample_rate=0.05,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs.update(
+        sampling=logfire.SamplingOptions(head=0.3),
         id_generator=SeededRandomIdGenerator(),
-        additional_metric_readers=[InMemoryMetricReader()],
     )
+    logfire.configure(**config_kwargs)
 
-    for _ in range(100):
+    for _ in range(1000):
         with logfire.span('outer'):
             with logfire.span('inner'):
                 pass
 
-    # 100 iterations of 2 spans -> 200 spans
-    # 5% sampling -> 10 spans (approximately)
-    assert len(exporter.exported_spans_as_dict()) == 6
+    # 1000 iterations of 2 spans -> 2000 spans
+    # 30% sampling -> 600 spans (approximately)
+    assert len(exporter.exported_spans_as_dict()) == 634
 
 
 @pytest.mark.skipif(
@@ -85,7 +81,6 @@ def test_sample_rate_runtime() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        trace_sample_rate=1,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         id_generator=SeededRandomIdGenerator(),
         additional_metric_readers=[InMemoryMetricReader()],
@@ -109,7 +104,6 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
@@ -138,7 +132,6 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
@@ -173,7 +166,6 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        trace_sample_rate=1,
         id_generator=SeededRandomIdGenerator(),
         ns_timestamp_generator=TimeGenerator(),
         additional_span_processors=[SimpleSpanProcessor(exporter)],

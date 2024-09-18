@@ -158,7 +158,7 @@ class FastAPIInstrumentation:
         ],
         excluded_urls: str | None,
     ):
-        self.logfire_instance = logfire_instance.with_tags('fastapi')
+        self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
         self.request_attributes_mapper = request_attributes_mapper
 
         # These lines, as well as the `excluded_urls_list.url_disabled` call below, are copied from OTEL.

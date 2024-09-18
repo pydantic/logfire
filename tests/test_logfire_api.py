@@ -156,9 +156,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.StructlogProcessor()
     logfire__all__.remove('StructlogProcessor')
 
-    assert hasattr(logfire_api, 'TailSamplingOptions')
-    logfire_api.TailSamplingOptions()
-    logfire__all__.remove('TailSamplingOptions')
+    assert hasattr(logfire_api, 'SamplingOptions')
+    logfire_api.SamplingOptions()
+    logfire__all__.remove('SamplingOptions')
 
     assert hasattr(logfire_api, 'ScrubbingOptions')
     logfire_api.ScrubbingOptions()

@@ -173,7 +173,7 @@ except ImportError:
         class ConsoleOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
-        class TailSamplingOptions:
+        class SamplingOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
         class ScrubbingOptions:

@@ -59,8 +59,6 @@ SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_c
 """Whether to send spans to Logfire."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
-PROJECT_NAME = ConfigParam(env_vars=['LOGFIRE_PROJECT_NAME'], allow_file_config=True)
-"""Name of the project. Project name accepts a string value containing alphanumeric characters and hyphens (-). The hyphen character must not be located at the beginning or end of the string and should appear in between alphanumeric characters."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
@@ -93,7 +91,7 @@ PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE
 PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
-"""Default sampling ratio for traces. Can be overridden by the `logfire.sample_rate` attribute of a span."""
+"""Head sampling rate for traces."""
 INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
@@ -104,7 +102,6 @@ CONFIG_PARAMS = {
     'base_url': BASE_URL,
     'send_to_logfire': SEND_TO_LOGFIRE,
     'token': TOKEN,
-    'project_name': PROJECT_NAME,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'trace_sample_rate': TRACE_SAMPLE_RATE,
