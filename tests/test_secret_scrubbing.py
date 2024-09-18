@@ -8,12 +8,11 @@ import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.scrubbing import NoopScrubber
-from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+from logfire.testing import TestExporter
 
 
 def test_scrub_attribute(exporter: TestExporter):
@@ -213,7 +212,7 @@ def test_scrub_events(exporter: TestExporter):
     )
 
 
-def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator):
+def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path[-1] == 'my_password':
             return str(match)
@@ -226,11 +225,7 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
             extra_patterns=['my_pattern'],
             callback=callback,
         ),
-        send_to_logfire=False,
-        console=False,
-        id_generator=id_generator,
-        ns_timestamp_generator=time_generator,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        **config_kwargs,
     )
 
     # Note the values (or lack thereof) of each of these attributes in the exported span.
@@ -268,17 +263,9 @@ def test_scrubbing_config(exporter: TestExporter, id_generator: IncrementalIdGen
     )
 
 
-def test_dont_scrub_resource(
-    exporter: TestExporter, id_generator: IncrementalIdGenerator, time_generator: TimeGenerator
-):
+def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
     os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
-    logfire.configure(
-        send_to_logfire=False,
-        console=False,
-        id_generator=id_generator,
-        ns_timestamp_generator=time_generator,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
-    )
+    logfire.configure(**config_kwargs)
     logfire.info('hi')
     assert dict(exporter.exported_spans[0].resource.attributes) == IsPartialDict(
         {

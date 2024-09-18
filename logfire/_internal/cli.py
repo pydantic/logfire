@@ -124,7 +124,7 @@ def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
         sys.exit(1)
 
     logfire_url = cast(str, args.logfire_url)
-    logfire.configure(data_dir=data_dir, base_url=logfire_url)
+    logfire.configure(data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=logfire_url))
     config = logfire_config.GLOBAL_CONFIG
     config.initialize()
     token = config.token
@@ -143,7 +143,7 @@ def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
                     yield data
                     progress.update(task, completed=f.tell())
 
-            url = urljoin(config.base_url, '/v1/backfill/traces')
+            url = urljoin(config.advanced.base_url, '/v1/backfill/traces')
             response = requests.post(
                 url, data=reader(), headers={'Authorization': token, 'User-Agent': f'logfire/{VERSION}'}
             )

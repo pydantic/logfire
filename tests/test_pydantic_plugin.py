@@ -630,7 +630,7 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
 def test_pydantic_plugin_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs.update(
         sampling=logfire.SamplingOptions(head=0.1),
-        id_generator=SeededRandomIdGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
     )
     logfire.configure(**config_kwargs)
 
@@ -649,7 +649,9 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
     logfire.configure(
         send_to_logfire=False,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        id_generator=SeededRandomIdGenerator(),
+        advanced=logfire.AdvancedOptions(
+            id_generator=SeededRandomIdGenerator(),
+        ),
         additional_metric_readers=[InMemoryMetricReader()],
     )
 
@@ -680,7 +682,9 @@ def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExpo
     logfire.configure(
         send_to_logfire=False,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        id_generator=SeededRandomIdGenerator(),
+        advanced=logfire.AdvancedOptions(
+            id_generator=SeededRandomIdGenerator(),
+        ),
         additional_metric_readers=[InMemoryMetricReader()],
     )
 

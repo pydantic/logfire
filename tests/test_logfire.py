@@ -7,7 +7,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
-from typing import Callable
+from typing import Any, Callable
 
 import pytest
 from dirty_equals import IsJson, IsStr
@@ -36,7 +36,7 @@ from logfire._internal.formatter import FormattingFailedWarning, InspectArgument
 from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
-from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+from logfire.testing import TestExporter
 
 
 @pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
@@ -890,17 +890,10 @@ def test_int_span_id_encoding():
     AnyValue(string_value=str(2**128))
 
 
-def test_logfire_with_its_own_config(exporter: TestExporter) -> None:
+def test_logfire_with_its_own_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     exporter1 = TestExporter()
-    config = LogfireConfig(
-        send_to_logfire=False,
-        console=False,
-        ns_timestamp_generator=TimeGenerator(),
-        id_generator=IncrementalIdGenerator(),
-        additional_span_processors=[
-            SimpleSpanProcessor(exporter1),
-        ],
-    )
+    config_kwargs.update(additional_span_processors=[SimpleSpanProcessor(exporter1)])
+    config = LogfireConfig(**config_kwargs)
 
     logfire = Logfire(config=config)
     logfire1 = logfire.with_tags('tag1', 'tag2')

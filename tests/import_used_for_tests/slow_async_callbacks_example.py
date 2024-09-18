@@ -30,4 +30,4 @@ async def foo():
 
 def mock_block():
     # Simulate time advancing in a synchronous function.
-    logfire.DEFAULT_LOGFIRE_INSTANCE.config.ns_timestamp_generator()
+    logfire.DEFAULT_LOGFIRE_INSTANCE.config.advanced.ns_timestamp_generator()

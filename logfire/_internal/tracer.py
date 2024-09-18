@@ -171,7 +171,7 @@ class _ProxyTracer(Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
     ) -> Span:
-        start_time = start_time or self.provider.config.ns_timestamp_generator()
+        start_time = start_time or self.provider.config.advanced.ns_timestamp_generator()
 
         # Make a copy of the attributes since this method can be called by arbitrary external code,
         # e.g. third party instrumentation.
@@ -196,7 +196,7 @@ class _ProxyTracer(Tracer):
             )
         return _MaybeDeterministicTimestampSpan(
             span,
-            ns_timestamp_generator=self.provider.config.ns_timestamp_generator,
+            ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
         )
 
     # This means that `with start_as_current_span(...):`

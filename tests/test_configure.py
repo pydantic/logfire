@@ -51,24 +51,11 @@ from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire.exceptions import LogfireConfigError
-from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+from logfire.testing import TestExporter
 
 
-def test_propagate_config_to_tags() -> None:
-    time_generator = TimeGenerator()
-    exporter = TestExporter()
-
+def test_propagate_config_to_tags(exporter: TestExporter) -> None:
     tags1 = logfire.with_tags('tag1', 'tag2')
-
-    configure(
-        send_to_logfire=False,
-        console=False,
-        ns_timestamp_generator=time_generator,
-        id_generator=IncrementalIdGenerator(),
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
-        additional_metric_readers=[InMemoryMetricReader()],
-    )
-
     tags2 = logfire.with_tags('tag3', 'tag4')
 
     for lf in (logfire, tags1, tags2):
@@ -457,7 +444,6 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     (tmp_path / 'pyproject.toml').write_text(
         f"""
         [tool.logfire]
-        base_url = "https://api.logfire.io"
         send_to_logfire = false
         project_name = "test"
         console_colors = "never"
@@ -470,12 +456,8 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         """
     )
 
-    configure(
-        config_dir=tmp_path,
-        additional_metric_readers=[InMemoryMetricReader()],
-    )
+    configure(config_dir=tmp_path)
 
-    assert GLOBAL_CONFIG.base_url == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
     assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
@@ -641,18 +623,11 @@ def test_configure_service_version(tmp_path: str) -> None:
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
     with request_mocker:
-        configure(
-            token='abc2',
-            service_version='1.2.3',
-            additional_metric_readers=[InMemoryMetricReader()],
-        )
+        configure(token='abc2', service_version='1.2.3')
 
         assert GLOBAL_CONFIG.service_version == '1.2.3'
 
-        configure(
-            token='abc3',
-            additional_metric_readers=[InMemoryMetricReader()],
-        )
+        configure(token='abc3')
 
         assert GLOBAL_CONFIG.service_version == git_sha
 
@@ -660,10 +635,7 @@ def test_configure_service_version(tmp_path: str) -> None:
 
         try:
             os.chdir(tmp_path)
-            configure(
-                token='abc4',
-                additional_metric_readers=[InMemoryMetricReader()],
-            )
+            configure(token='abc4')
             assert GLOBAL_CONFIG.service_version is None
         finally:
             os.chdir(dir)
@@ -671,20 +643,9 @@ def test_configure_service_version(tmp_path: str) -> None:
         wait_for_check_token_thread()
 
 
-def test_otel_service_name_env_var() -> None:
-    time_generator = TimeGenerator()
-    exporter = TestExporter()
-
+def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     with patch.dict(os.environ, {'OTEL_SERVICE_NAME': 'potato'}):
-        configure(
-            service_version='1.2.3',
-            send_to_logfire=False,
-            console=False,
-            ns_timestamp_generator=time_generator,
-            id_generator=IncrementalIdGenerator(),
-            additional_span_processors=[SimpleSpanProcessor(exporter)],
-            additional_metric_readers=[InMemoryMetricReader()],
-        )
+        configure(service_version='1.2.3', **config_kwargs)
 
     logfire.info('test1')
 
@@ -721,22 +682,12 @@ def test_otel_service_name_env_var() -> None:
     )
 
 
-def test_otel_otel_resource_attributes_env_var() -> None:
-    time_generator = TimeGenerator()
-    exporter = TestExporter()
-
+def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     with patch.dict(
         os.environ,
         {'OTEL_RESOURCE_ATTRIBUTES': 'service.name=banana,service.version=1.2.3,service.instance.id=instance_id'},
     ):
-        configure(
-            send_to_logfire=False,
-            console=False,
-            ns_timestamp_generator=time_generator,
-            id_generator=IncrementalIdGenerator(),
-            additional_span_processors=[SimpleSpanProcessor(exporter)],
-            additional_metric_readers=[InMemoryMetricReader()],
-        )
+        configure(**config_kwargs)
 
     logfire.info('test1')
 
@@ -773,22 +724,14 @@ def test_otel_otel_resource_attributes_env_var() -> None:
     )
 
 
-def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name_env_var() -> None:
-    time_generator = TimeGenerator()
-    exporter = TestExporter()
-
+def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name_env_var(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
     with patch.dict(
         os.environ,
         dict(OTEL_SERVICE_NAME='potato', OTEL_RESOURCE_ATTRIBUTES='service.name=banana,service.version=1.2.3'),
     ):
-        configure(
-            send_to_logfire=False,
-            console=False,
-            ns_timestamp_generator=time_generator,
-            id_generator=IncrementalIdGenerator(),
-            additional_span_processors=[SimpleSpanProcessor(exporter)],
-            additional_metric_readers=[InMemoryMetricReader()],
-        )
+        configure(**config_kwargs)
 
     logfire.info('test1')
 
@@ -859,7 +802,7 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['pydantic_plugin', 'console', 'sampling', 'scrubbing']
+            field.name in ['pydantic_plugin', 'console', 'sampling', 'scrubbing', 'advanced']
         )
 
     serialized = serialize_config()
@@ -869,8 +812,9 @@ def test_config_serializable():
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
-        # These values get deepcopied by dataclasses.asdict, so we can't compare them directly
-        return {k: v for k, v in s.items() if k not in ['id_generator']}
+        # This gets deepcopied by dataclasses.asdict, so we can't compare them directly
+        del s['advanced']['id_generator']
+        return s
 
     assert normalize(serialized) == normalize(serialized2)
 
@@ -878,6 +822,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
     assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
+    assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
 
 
 def test_config_serializable_console_false():
@@ -1348,7 +1293,7 @@ def test_initialize_credentials_from_token_unreachable():
         UserWarning,
         match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/info': No scheme supplied.",
     ):
-        LogfireConfig(base_url='')._initialize_credentials_from_token('some-token')  # type: ignore
+        LogfireConfig(advanced=logfire.AdvancedOptions(base_url=''))._initialize_credentials_from_token('some-token')  # type: ignore
 
 
 def test_initialize_credentials_from_token_invalid_token():
