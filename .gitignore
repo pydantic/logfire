@@ -9,6 +9,3 @@ __pycache__
 
 # stubgen
 out
-
-# intellij
-.idea
