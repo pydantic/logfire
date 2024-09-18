@@ -269,7 +269,7 @@ def configure(  # noqa: D417
             )
 
     show_summary = deprecated_kwargs.pop('show_summary', None)  # type: ignore
-    if show_summary is not None:
+    if show_summary is not None:  # pragma: no cover
         warnings.warn(
             'The `show_summary` argument is deprecated. '
             'Use `console=False` or `console=logfire.ConsoleOptions(show_project_link=False)` instead.',
