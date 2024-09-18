@@ -29,7 +29,6 @@ class _DefaultCallback:
     """
     callback: Callable[[], Any]
 
-BASE_URL: Incomplete
 SEND_TO_LOGFIRE: Incomplete
 TOKEN: Incomplete
 SERVICE_NAME: Incomplete
@@ -48,6 +47,7 @@ PYDANTIC_PLUGIN_EXCLUDE: Incomplete
 TRACE_SAMPLE_RATE: Incomplete
 INSPECT_ARGUMENTS: Incomplete
 IGNORE_NO_CONFIG: Incomplete
+BASE_URL: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass

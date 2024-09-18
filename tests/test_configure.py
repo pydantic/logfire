@@ -444,6 +444,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     (tmp_path / 'pyproject.toml').write_text(
         f"""
         [tool.logfire]
+        base_url = "https://api.logfire.io"
         send_to_logfire = false
         project_name = "test"
         console_colors = "never"
@@ -458,6 +459,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
 
     configure(config_dir=tmp_path)
 
+    assert GLOBAL_CONFIG.advanced.base_url == 'https://api.logfire.io'
     assert GLOBAL_CONFIG.send_to_logfire is False
     assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
