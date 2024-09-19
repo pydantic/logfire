@@ -453,7 +453,7 @@ def warn_formatting(msg: str):
         f'    Ensure you are either:\n'
         '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
         '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
-        '    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
+        '    See https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.\n'
         f'    The problem was: {msg}',
         category=FormattingFailedWarning,
     )
