@@ -22,7 +22,6 @@ from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_m
 
 tracer = trace.get_tracer('test')
 
-
 NANOSECONDS_PER_SECOND = int(1e9)
 
 
@@ -749,7 +748,9 @@ def test_exception(exporter: TestExporter) -> None:
             '             │ ZeroDivisionError: division by zero',
             '             │ Traceback (most recent call last):',
             IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-            *issue_lines,
+        ]
+        + issue_lines
+        + [
             '             │ ZeroDivisionError: division by zero',
             '',
         ]
@@ -781,7 +782,7 @@ def test_exception(exporter: TestExporter) -> None:
         '\x1b[0m\x1b[91;49m/\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[37;49m0\x1b[0m\x1b[97;49m  \x1b[0m\x1b[37;49m# type: '
         'ignore\x1b[0m',
-        *issue_lines,
+    ] + issue_lines + [
         '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[92;49mZeroDivisionError\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[97;49mdivision\x1b[0m\x1b[97;49m '
