@@ -202,10 +202,10 @@ def configure(  # noqa: D417
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#f-strings).
+            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
-        sampling: Sampling options. See the [sampling guide](https://docs.pydantic.dev/logfire/guides/advanced/sampling/).
+        sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
     """
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
@@ -984,7 +984,7 @@ class LogfireCredentials:
             """You are not authenticated. Please run `logfire auth` to authenticate.
 
 If you are running in production, you can set the `LOGFIRE_TOKEN` environment variable.
-To create a write token, refer to https://docs.pydantic.dev/logfire/guides/advanced/creating_write_tokens/
+To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advanced/creating_write_tokens/
 """
         )
 
