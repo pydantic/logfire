@@ -735,26 +735,33 @@ def test_exception(exporter: TestExporter) -> None:
         ]
     )
 
-    issue_lines = (
-        ['             │     1 / 0  # type: ignore', '             │     ~~^~~']
-        if sys.version_info >= (3, 11)
-        else ['             │     1 / 0  # type: ignore']
-    )
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
-    assert out.getvalue().splitlines() == snapshot(
-        [
-            '00:00:01.000 error!!! test',
-            '             │ ZeroDivisionError: division by zero',
-            '             │ Traceback (most recent call last):',
-            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-        ]
-        + issue_lines
-        + [
-            '             │ ZeroDivisionError: division by zero',
-            '',
-        ]
-    )
+    if sys.version_info >= (3, 11):
+        assert out.getvalue().splitlines() == snapshot(
+            [
+                '00:00:01.000 error!!! test',
+                '             │ ZeroDivisionError: division by zero',
+                '             │ Traceback (most recent call last):',
+                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+                '             │     1 / 0  # type: ignore',
+                '             │     ~~^~~',
+                '             │ ZeroDivisionError: division by zero',
+                '',
+            ]
+        )
+    else:
+        assert out.getvalue().splitlines() == snapshot(
+            [
+                '00:00:01.000 error!!! test',
+                '             │ ZeroDivisionError: division by zero',
+                '             │ Traceback (most recent call last):',
+                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+                '             │     1 / 0  # type: ignore',
+                '             │ ZeroDivisionError: division by zero',
+                '',
+            ]
+        )
 
     issue_lines = (
         [
@@ -782,7 +789,7 @@ def test_exception(exporter: TestExporter) -> None:
         '\x1b[0m\x1b[91;49m/\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[37;49m0\x1b[0m\x1b[97;49m  \x1b[0m\x1b[37;49m# type: '
         'ignore\x1b[0m',
-    ] + issue_lines + [
+        *issue_lines,
         '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[92;49mZeroDivisionError\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[97;49mdivision\x1b[0m\x1b[97;49m '
