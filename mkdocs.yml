@@ -112,6 +112,7 @@ nav:
           - MySQL: integrations/mysql.md
           - Redis: integrations/redis.md
           - Celery: integrations/celery.md
+          - Stripe: integrations/stripe.md
           - System Metrics: integrations/system_metrics.md
       - Custom:
           - Pydantic: integrations/pydantic.md
@@ -135,6 +136,7 @@ nav:
   - SDK API:
       - Logfire: api/logfire.md
       - Testing: api/testing.md
+      - Sampling: api/sampling.md
       - Propagate: api/propagate.md
       - Exceptions: api/exceptions.md
       - Integrations:

@@ -32,7 +32,6 @@ class _DefaultCallback:
 BASE_URL: Incomplete
 SEND_TO_LOGFIRE: Incomplete
 TOKEN: Incomplete
-PROJECT_NAME: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
 SHOW_SUMMARY: Incomplete

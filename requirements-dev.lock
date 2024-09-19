@@ -90,8 +90,8 @@ eval-type-backport==0.2.0
 executing==2.1.0
     # via inline-snapshot
     # via logfire
-fastapi==0.112.3
-filelock==3.15.4
+fastapi==0.114.1
+filelock==3.16.0
     # via huggingface-hub
     # via virtualenv
 flask==3.0.3
@@ -114,7 +114,7 @@ httpcore==1.0.5
 httpx==0.27.2
     # via anthropic
     # via openai
-huggingface-hub==0.24.6
+huggingface-hub==0.24.7
     # via tokenizers
 identify==2.6.0
     # via pre-commit
@@ -128,7 +128,7 @@ importlib-metadata==8.4.0
     # via opentelemetry-instrumentation-flask
 iniconfig==2.0.0
     # via pytest
-inline-snapshot==0.12.1
+inline-snapshot==0.13.0
 itsdangerous==2.2.0
     # via flask
 jinja2==3.1.4
@@ -139,7 +139,7 @@ jinja2==3.1.4
 jiter==0.5.0
     # via anthropic
     # via openai
-kombu==5.4.0
+kombu==5.4.1
     # via celery
 loguru==0.7.2
 markdown==3.7
@@ -173,10 +173,10 @@ mkdocs-glightbox==0.4.0
 mkdocs-material==9.5.34
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
-mkdocstrings==0.26.0
+mkdocstrings==0.26.1
     # via mkdocstrings-python
 mkdocstrings-python==1.10.7
-multidict==6.0.5
+multidict==6.1.0
     # via aiohttp
     # via yarl
 mypy==1.11.2
@@ -190,7 +190,7 @@ nodeenv==1.9.1
 numpy==2.1.1
     # via pandas
     # via pyarrow
-openai==1.43.0
+openai==1.45.0
 opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
@@ -312,7 +312,7 @@ pandas==2.2.2
 pathspec==0.12.1
     # via black
     # via mkdocs
-platformdirs==4.2.2
+platformdirs==4.3.2
     # via black
     # via mkdocs-get-deps
     # via mkdocstrings
@@ -333,12 +333,12 @@ psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
-pydantic @ git+https://github.com/pydantic/pydantic@447879b44ab8a9871193d6aef1b0846288929495
+pydantic @ git+https://github.com/pydantic/pydantic@a6dc87285f93f90c2d5c298ee7c52f5d7e878194
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.23.1
+pydantic-core==2.23.3
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
@@ -347,8 +347,8 @@ pymdown-extensions==10.9
     # via mkdocs-material
     # via mkdocstrings
 pymongo==4.8.0
-pyright==1.1.379
-pytest==8.3.2
+pyright==1.1.380
+pytest==8.3.3
     # via pytest-django
     # via pytest-pretty
     # via pytest-recording
@@ -359,7 +359,7 @@ python-dateutil==2.9.0.post0
     # via celery
     # via ghp-import
     # via pandas
-pytz==2024.1
+pytz==2024.2
     # via pandas
 pyyaml==6.0.2
     # via huggingface-hub
@@ -372,7 +372,7 @@ pyyaml==6.0.2
 pyyaml-env-tag==0.1
     # via mkdocs
 redis==5.0.8
-regex==2024.7.24
+regex==2024.9.11
     # via mkdocs-material
 requests==2.32.3
     # via docker
@@ -381,11 +381,11 @@ requests==2.32.3
     # via opentelemetry-exporter-otlp-proto-http
     # via requests-mock
 requests-mock==1.12.1
-rich==13.8.0
+rich==13.8.1
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
-ruff==0.6.3
+ruff==0.6.4
 setuptools==74.1.2
     # via opentelemetry-instrumentation
 six==1.16.0
@@ -401,7 +401,7 @@ sqlalchemy==2.0.34
 sqlmodel==0.0.22
 sqlparse==0.5.1
     # via django
-starlette==0.38.4
+starlette==0.38.5
     # via fastapi
 structlog==24.4.0
 testcontainers==4.8.1
@@ -431,8 +431,7 @@ typing-extensions==4.12.2
 tzdata==2024.1
     # via celery
     # via pandas
-    # via pydantic
-urllib3==2.2.2
+urllib3==2.2.3
     # via docker
     # via requests
     # via testcontainers
@@ -443,7 +442,7 @@ vine==5.1.0
     # via amqp
     # via celery
     # via kombu
-virtualenv==20.26.3
+virtualenv==20.26.4
     # via pre-commit
 watchdog==5.0.2
     # via mkdocs
@@ -460,7 +459,7 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
     # via vcrpy
-yarl==1.9.11
+yarl==1.11.1
     # via aiohttp
     # via vcrpy
 zipp==3.20.1

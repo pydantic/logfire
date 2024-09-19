@@ -14,7 +14,7 @@ JsonPath: typing_extensions.TypeAlias
 
 @dataclass
 class ScrubMatch:
-    """An object passed to the [`scrubbing_callback`][logfire.configure(scrubbing_callback)] function."""
+    """An object passed to a [`ScrubbingOptions.callback`][logfire.ScrubbingOptions.callback] function."""
     path: JsonPath
     value: Any
     pattern_match: re.Match[str]
