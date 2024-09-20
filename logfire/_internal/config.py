@@ -124,6 +124,9 @@ class ConsoleOptions:
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
 
+    show_project_link: bool = True
+    """Whether to print the URL of the Logfire project after initialization."""
+
 
 @dataclass
 class PydanticPlugin:
@@ -157,7 +160,6 @@ def configure(  # noqa: D417
     service_name: str | None = None,
     service_version: str | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
-    show_summary: bool | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
     base_url: str | None = None,
@@ -166,7 +168,6 @@ def configure(  # noqa: D417
     additional_span_processors: Sequence[SpanProcessor] | None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
-    fast_shutdown: bool = False,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
@@ -185,8 +186,6 @@ def configure(  # noqa: D417
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
-        show_summary: When to print a summary of the Logfire setup including a link to the dashboard. If `None` uses the `LOGFIRE_SHOW_SUMMARY` environment variable, otherwise
-            defaults to `True`.
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
@@ -199,7 +198,6 @@ def configure(  # noqa: D417
             which exports metrics to Logfire's API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
-        fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#f-strings).
@@ -270,6 +268,14 @@ def configure(  # noqa: D417
                 'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
             )
 
+    show_summary = deprecated_kwargs.pop('show_summary', None)  # type: ignore
+    if show_summary is not None:  # pragma: no cover
+        warnings.warn(
+            'The `show_summary` argument is deprecated. '
+            'Use `console=False` or `console=logfire.ConsoleOptions(show_project_link=False)` instead.',
+            DeprecationWarning,
+        )
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
@@ -280,7 +286,6 @@ def configure(  # noqa: D417
         service_name=service_name,
         service_version=service_version,
         console=console,
-        show_summary=show_summary,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
         id_generator=id_generator,
@@ -288,7 +293,6 @@ def configure(  # noqa: D417
         additional_span_processors=additional_span_processors,
         additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
-        fast_shutdown=fast_shutdown,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
@@ -332,9 +336,6 @@ class _LogfireConfigData:
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output"""
 
-    show_summary: bool
-    """Whether to show the summary when starting a new project"""
-
     data_dir: Path
     """The directory to store Logfire data in"""
 
@@ -349,9 +350,6 @@ class _LogfireConfigData:
 
     pydantic_plugin: PydanticPlugin
     """Options for the Pydantic plugin"""
-
-    fast_shutdown: bool
-    """Whether to shut down exporters and providers quickly, mostly used for tests"""
 
     scrubbing: ScrubbingOptions | Literal[False]
     """Options for redacting sensitive data, or False to disable."""
@@ -373,7 +371,6 @@ class _LogfireConfigData:
         service_name: str | None,
         service_version: str | None,
         console: ConsoleOptions | Literal[False] | None,
-        show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
         id_generator: IdGenerator | None,
@@ -381,7 +378,6 @@ class _LogfireConfigData:
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
-        fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
@@ -394,7 +390,6 @@ class _LogfireConfigData:
         self.token = param_manager.load_param('token', token)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
-        self.show_summary = param_manager.load_param('show_summary', show_summary)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
@@ -428,6 +423,7 @@ class _LogfireConfigData:
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
                 verbose=param_manager.load_param('console_verbose'),
                 min_log_level=param_manager.load_param('console_min_log_level'),
+                show_project_link=param_manager.load_param('console_show_project_link'),
             )
 
         if isinstance(pydantic_plugin, dict):
@@ -448,8 +444,6 @@ class _LogfireConfigData:
                 head=param_manager.load_param('trace_sample_rate'),
             )
         self.sampling = sampling
-
-        self.fast_shutdown = fast_shutdown
 
         self.id_generator = id_generator or RandomIdGenerator()
         self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
@@ -473,7 +467,6 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None = None,
         service_version: str | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
-        show_summary: bool | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
         id_generator: IdGenerator | None = None,
@@ -481,7 +474,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None = None,
         additional_metric_readers: Sequence[MetricReader] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
-        fast_shutdown: bool = False,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
@@ -501,7 +493,6 @@ class LogfireConfig(_LogfireConfigData):
             service_name=service_name,
             service_version=service_version,
             console=console,
-            show_summary=show_summary,
             config_dir=config_dir,
             data_dir=data_dir,
             id_generator=id_generator,
@@ -509,7 +500,6 @@ class LogfireConfig(_LogfireConfigData):
             additional_span_processors=additional_span_processors,
             additional_metric_readers=additional_metric_readers,
             pydantic_plugin=pydantic_plugin,
-            fast_shutdown=fast_shutdown,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
@@ -533,7 +523,6 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None,
         service_version: str | None,
         console: ConsoleOptions | Literal[False] | None,
-        show_summary: bool | None,
         config_dir: Path | None,
         data_dir: Path | None,
         id_generator: IdGenerator | None,
@@ -541,7 +530,6 @@ class LogfireConfig(_LogfireConfigData):
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
-        fast_shutdown: bool,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
@@ -555,7 +543,6 @@ class LogfireConfig(_LogfireConfigData):
                 service_name,
                 service_version,
                 console,
-                show_summary,
                 config_dir,
                 data_dir,
                 id_generator,
@@ -563,7 +550,6 @@ class LogfireConfig(_LogfireConfigData):
                 additional_span_processors,
                 additional_metric_readers,
                 pydantic_plugin,
-                fast_shutdown,
                 scrubbing,
                 inspect_arguments,
                 sampling,
@@ -667,6 +653,8 @@ class LogfireConfig(_LogfireConfigData):
             metric_readers = list(self.additional_metric_readers or [])
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
+                show_project_link = self.console and self.console.show_project_link
+
                 if self.token is None:
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
@@ -676,14 +664,14 @@ class LogfireConfig(_LogfireConfigData):
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
                     self.base_url = self.base_url or credentials.logfire_api_url
-                    if self.show_summary:  # pragma: no branch
+                    if show_project_link:  # pragma: no branch
                         credentials.print_token_summary()
                 else:
 
                     def check_token():
                         assert self.token is not None
                         creds = self._initialize_credentials_from_token(self.token)
-                        if self.show_summary and creds is not None:  # pragma: no branch
+                        if show_project_link and creds is not None:  # pragma: no branch
                             creds.print_token_summary()
 
                     thread = Thread(target=check_token, name='check_logfire_token')
