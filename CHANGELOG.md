@@ -20,7 +20,7 @@
 
 ### BREAKING CHANGES
 
-* **System metrics are no longer collected by default** when the correct dependency is installed. Use [`logfire.instrument_system_metrics()`](https://docs.pydantic.dev/logfire/integrations/system_metrics/) to enable system metrics collection. **If you are simply using the old 'Basic System Metrics' dashboard, then no further code changes are required, but that dashboard will no longer work properly and you should create a new dashboard from the template named 'Basic System Metrics (Logfire)'**. If you were using other collected metrics, see the documentation for how to collect those. By @alexmojaki in https://github.com/pydantic/logfire/pull/373
+* **System metrics are no longer collected by default** when the correct dependency is installed. Use [`logfire.instrument_system_metrics()`](https://logfire.pydantic.dev/docs/integrations/system_metrics/) to enable system metrics collection. **If you are simply using the old 'Basic System Metrics' dashboard, then no further code changes are required, but that dashboard will no longer work properly and you should create a new dashboard from the template named 'Basic System Metrics (Logfire)'**. If you were using other collected metrics, see the documentation for how to collect those. By @alexmojaki in https://github.com/pydantic/logfire/pull/373
 * Stop collecting package versions by @alexmojaki in https://github.com/pydantic/logfire/pull/387
 * Don't auto-trace generators by @alexmojaki in https://github.com/pydantic/logfire/pull/386
 * Disable ASGI send/receive spans by default by @alexmojaki in https://github.com/pydantic/logfire/pull/371
@@ -34,7 +34,7 @@
 
 (Previously released as `v0.50.0`, then yanked due to https://github.com/pydantic/logfire/issues/367)
 
-* **BREAKING CHANGES:** Separate sending to Logfire from using standard OTEL environment variables by @alexmojaki in https://github.com/pydantic/logfire/pull/351. See https://docs.pydantic.dev/logfire/guides/advanced/alternative_backends/ for details. Highlights:
+* **BREAKING CHANGES:** Separate sending to Logfire from using standard OTEL environment variables by @alexmojaki in https://github.com/pydantic/logfire/pull/351. See https://logfire.pydantic.dev/docs/guides/advanced/alternative_backends/ for details. Highlights:
   * `OTEL_EXPORTER_OTLP_ENDPOINT` is no longer just an alternative to `LOGFIRE_BASE_URL`. Setting `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, and/or `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` will set up appropriate exporters *in addition* to sending to Logfire, which must be turned off separately if desired. These are basic exporters relying on OTEL defaults. In particular they don't use our custom retrying logic.
   * `LOGFIRE_BASE_URL` / `logfire.configure(base_url=...)` is now only intended for actual alternative Logfire backends, which are currently only available to Logfire developers, and unlike `OTEL_EXPORTER_OTLP_ENDPOINT` requires authenticating with Logfire.
   * Pending spans are only sent to logfire-specific exporters.

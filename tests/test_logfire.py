@@ -51,7 +51,7 @@ def test_log_methods_without_kwargs(method: str):
     Ensure you are either:
       (1) passing an f-string directly, with inspect_arguments enabled and working, or
       (2) passing a literal `str.format`-style template, not a preformatted string.
-    See https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.
+    See https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#messages-and-span-names.
     The problem was: The field {foo} is not defined.\
 """)
 
