@@ -225,17 +225,17 @@ and it'll end up as structured data in our platform ready to be queried.
 For example, using data from the `User` model above, we could list users from the USA:
 
 ```sql
-SELECT attributes->'result'->>'name' as name, age(attributes->'result'->>'dob') as age
+SELECT attributes->'result'->>'name' as name, extract(year from (attributes->'result'->>'dob')::date) as "birth year"
 FROM records
-WHERE attributes->'result'->>'country_code' = 'USA'
+WHERE attributes->'result'->>'country_code' = 'USA';
 ```
 
 ![Logfire explore query screenshot](images/index/logfire-screenshot-explore-query.png)
 
 You can also filter to show only traces related to users in the USA in the live view with
 
-```SQL
-attributes->'result'->>'country_code' = 'USA'
+```sql
+attributes->'result'->>'name' = 'Ben'
 ```
 
 ![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
