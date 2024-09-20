@@ -22,7 +22,6 @@ from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_m
 
 tracer = trace.get_tracer('test')
 
-
 NANOSECONDS_PER_SECOND = int(1e9)
 
 
@@ -736,24 +735,33 @@ def test_exception(exporter: TestExporter) -> None:
         ]
     )
 
-    issue_lines = (
-        ['             │     1 / 0  # type: ignore', '             │     ~~^~~']
-        if sys.version_info >= (3, 11)
-        else ['             │     1 / 0  # type: ignore']
-    )
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
-    assert out.getvalue().splitlines() == snapshot(
-        [
-            '00:00:01.000 error!!! test',
-            '             │ ZeroDivisionError: division by zero',
-            '             │ Traceback (most recent call last):',
-            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-            *issue_lines,
-            '             │ ZeroDivisionError: division by zero',
-            '',
-        ]
-    )
+    if sys.version_info >= (3, 11):
+        assert out.getvalue().splitlines() == snapshot(
+            [
+                '00:00:01.000 error!!! test',
+                '             │ ZeroDivisionError: division by zero',
+                '             │ Traceback (most recent call last):',
+                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+                '             │     1 / 0  # type: ignore',
+                '             │     ~~^~~',
+                '             │ ZeroDivisionError: division by zero',
+                '',
+            ]
+        )
+    else:
+        assert out.getvalue().splitlines() == snapshot(
+            [
+                '00:00:01.000 error!!! test',
+                '             │ ZeroDivisionError: division by zero',
+                '             │ Traceback (most recent call last):',
+                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+                '             │     1 / 0  # type: ignore',
+                '             │ ZeroDivisionError: division by zero',
+                '',
+            ]
+        )
 
     issue_lines = (
         [

@@ -595,7 +595,6 @@ def test_configure_export_delay() -> None:
                 send_to_logfire=True,
                 token='abc1',
                 console=False,
-                fast_shutdown=True,
             )
             wait_for_check_token_thread()
 
@@ -1294,7 +1293,7 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
                 'https://logfire-api.pydantic.dev/v1/info',
                 json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
             )
-            configure(send_to_logfire='if-token-present', console=False)
+            configure(send_to_logfire='if-token-present')
             wait_for_check_token_thread()
             assert len(request_mocker.request_history) == 1
             assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
