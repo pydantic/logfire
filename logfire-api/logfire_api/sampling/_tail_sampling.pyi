@@ -60,7 +60,7 @@ class TailSamplingSpanInfo:
 class SamplingOptions:
     """Options for [`logfire.configure(sampling=...)`][logfire.configure(sampling)].
 
-    See the [sampling guide](https://docs.pydantic.dev/logfire/guides/advanced/sampling/).
+    See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
     """
     head: float | Sampler = ...
     tail: Callable[[TailSamplingSpanInfo], float] | None = ...

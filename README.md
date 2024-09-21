@@ -17,7 +17,7 @@ What sets Logfire apart:
 - **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 - **Pydantic Integration:** Understand the data flowing through your Pydantic models and get built-in analytics on validations.
 
-See the [documentation](https://docs.pydantic.dev/logfire/) for more information.
+See the [documentation](https://logfire.pydantic.dev/docs/) for more information.
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
@@ -25,21 +25,21 @@ This repo contains the Python SDK for `logfire` and documentation; the server ap
 
 ## Using Logfire
 
-This is a very brief overview of how to use Logfire, the [documentation](https://docs.pydantic.dev/logfire/) has much more detail.
+This is a very brief overview of how to use Logfire, the [documentation](https://logfire.pydantic.dev/docs/) has much more detail.
 
 ### Install
 
 ```bash
 pip install logfire
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#install)
+[_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#install)
 
 ## Authenticate
 
 ```bash
 logfire auth
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/guides/first_steps/#authentication)
+[_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#authentication)
 
 ### Manual tracing
 
@@ -56,11 +56,11 @@ with logfire.span('Asking the user their {question}', question='age'):
     dob = date.fromisoformat(user_input)
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/guides/onboarding_checklist/add_manual_tracing/)
+[_(learn more)_](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/)
 
 ### Integration
 
-Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://docs.pydantic.dev/logfire/integrations/), here's an example of integrating with FastAPI:
+Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://logfire.pydantic.dev/docs/integrations/), here's an example of integrating with FastAPI:
 
 ```py
 import logfire
@@ -82,11 +82,11 @@ async def add_user(user: User):
     # we would store the user here
     return {'message': f'{user.name} added'}
 ```
-[_(learn more)_](https://docs.pydantic.dev/logfire/integrations/fastapi/)
+[_(learn more)_](https://logfire.pydantic.dev/docs/integrations/fastapi/)
 
 Logfire gives you a view into how your code is running like this:
 
-![Logfire screenshot](https://docs.pydantic.dev/logfire/images/index/logfire-screenshot-fastapi-200.png)
+![Logfire screenshot](https://logfire.pydantic.dev/docs/images/index/logfire-screenshot-fastapi-200.png)
 
 ## Contributing
 

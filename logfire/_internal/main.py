@@ -774,7 +774,7 @@ class Logfire:
         !!! note
             This function MUST be called before any of the modules to be traced are imported.
 
-            Generator functions will not be traced for reasons explained [here](https://docs.pydantic.dev/logfire/guides/advanced/generators/).
+            Generator functions will not be traced for reasons explained [here](https://logfire.pydantic.dev/docs/guides/advanced/generators/).
 
         This works by inserting a new meta path finder into `sys.meta_path`, so inserting another finder before it
         may prevent it from working.
@@ -1269,7 +1269,7 @@ class Logfire:
     ) -> None:
         """Collect system metrics.
 
-        See [the guide](https://docs.pydantic.dev/logfire/integrations/system_metrics/) for more information.
+        See [the guide](https://logfire.pydantic.dev/docs/integrations/system_metrics/) for more information.
 
         Args:
             config: A dictionary where the keys are metric names
