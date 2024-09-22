@@ -5,15 +5,34 @@ hide:
 
 # Get Started
 
-Install Logfire, authenticate your local environment, and use traces and spans to instrument your code for observability.
+<!-- - [ ] Create an account
+- [ ] Set up your first project
+- [ ] Install Logfire SDK
+- [ ] Authenticate your local environment
+- [ ] Instrument your code
 
-## Installation {#install}
+=== "Development"
+    Dev tab
+=== "Production"
+    Production tab -->
+
+## Logfire platform
+1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
+2. Follow the prompts to create your account
+3. From your Organisation, click `New project` and create your first project
+
+
+!!! note
+    The first time you use **Logfire** in a new environment, you'll need to set up a project. A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
+
+
+## Install SDK {#install}
 
 To install the latest version of **Logfire**, run:
 
 {{ install_logfire() }}
 
-## Authentication
+## Authenticate
 
 Authenticate your local environment with **Logfire** by running:
 
@@ -21,13 +40,10 @@ Authenticate your local environment with **Logfire** by running:
 logfire auth
 ```
 
-This opens a browser window to sign up or log in at [logfire.pydantic.dev](https://logfire.pydantic.dev).
-Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+!!! note
+    Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
 
 ## Basic Usage
-
-The first time you use **Logfire** in a new environment, you'll need to set up a project.
-A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 To use **Logfire**, it's simple as:
 
@@ -46,33 +62,7 @@ logfire.info('Hello, {name}!', name='world')  # (2)!
     Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
     `error`, and `fatal`.
 
-If you don't have existing credentials for a project, you'll be prompted to select one of your projects, or create a new one:
 
-![Terminal with prompt to create a project](images/guide//terminal-create-project.png)
-
-If you don't have any projects yet, write `"n"` and `"Enter"` to create a new project.
-
-You'll then be asked to select your organization, and to provide a name for your new project:
-
-![Terminal with prompt to create a project](images/guide/terminal-create-project-full.png)
-
-You have created a new project in **Logfire**! :partying_face:
-
-After this one-time setup, **Logfire** will use the newly created project credentials for subsequent Python runs from the
-same directory.
-
-??? success "You can also create a project via Web UI..."
-    To create a new project within the UI, you can follow these steps:
-
-    1. Go to the [Logfire Web UI](https://logfire.pydantic.dev).
-
-    ![Logfire Web UI](images/guide/browser-create-project.png)
-
-    2. Click on the `New Project` button, fill the form that appears, and click `Create Project`.
-
-    ![New Project button](images/guide/browser-create-project-button.png)
-
-    Done! You have created a new project in **Logfire**! :sunglasses:
 
 ??? success "You can also create a project via CLI..."
     Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
@@ -131,13 +121,6 @@ reliability of your applications.
 
 **Pydantic Logfire** should be dead simple to start using, simply run:
 
-```bash
-pip install logfire # (1)!
-logfire auth # (2)!
-```
-
-1. The **Pydantic Logfire** SDK can be installed from PyPI or Conda, [Learn more](guides/first_steps/index.md#install).
-2. The SDK comes with a CLI for authentication and more, [Learn more](reference/cli.md).
 
 Then in your code:
 
