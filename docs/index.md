@@ -10,40 +10,58 @@ hide:
 - [ ] Install Logfire SDK
 - [ ] Authenticate your local environment
 - [ ] Instrument your code
-
-=== "Development"
-    Dev tab
-=== "Production"
-    Production tab -->
+ -->
 
 ## Logfire platform
 1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
 2. Follow the prompts to create your account
 3. From your Organisation, click `New project` and create your first project
 
+![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-first-project.png)
 
-!!! note
+!!! info
     The first time you use **Logfire** in a new environment, you'll need to set up a project. A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
+??? tip "You can also create a project via CLI..."
+    Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
 
 ## Install SDK {#install}
 
-To install the latest version of **Logfire**, run:
+To install the latest version of the **Logfire** SDK, run:
 
 {{ install_logfire() }}
 
-## Authenticate
+## Development / Production
+=== "Development"
+    !!! tip "Development setup"
+        During development, we recommend using the CLI to configure Logfire. You can also use a write token.
 
-Authenticate your local environment with **Logfire** by running:
+    ## Authenticate
 
-```bash
-logfire auth
-```
+    Authenticate your local environment with **Logfire** by running:
 
-!!! note
-    Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+    ```bash
+    logfire auth
+    ```
 
-## Basic Usage
+    !!! info
+        Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+
+    ## Configure your project
+
+    Point to the project you created by running:
+
+    ```bash
+    logfire projects use first-project
+    ```
+
+=== "Production"
+    Production tab
+
+
+
+
+<!-- ## Basic Usage
 
 To use **Logfire**, it's simple as:
 
@@ -64,8 +82,6 @@ logfire.info('Hello, {name}!', name='world')  # (2)!
 
 
 
-??? success "You can also create a project via CLI..."
-    Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
 
 Once you've created a project, you should see:
 
@@ -148,4 +164,4 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 !!! note
     If you have an existing app to instrument, you'll get the most value out of [configuring OTel integrations](#otel), before you start adding `logfire.*` calls to your code.
 
----
+--- -->
