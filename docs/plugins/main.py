@@ -99,6 +99,7 @@ def install_logfire(markdown: str, page: Page) -> str:
     if not (
         page.file.src_uri.startswith('integrations/')
         or page.file.src_uri.endswith('first_steps/index.md')
+        or page.file.src_uri == 'index.md'
         or page.file.src_uri.endswith('onboarding_checklist/add_metrics.md')
     ):
         return markdown
@@ -111,21 +112,12 @@ def install_logfire(markdown: str, page: Page) -> str:
         # Split them and strip quotes for each one separately.
         extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
         package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
-        extras_arg = ' '.join(f'-E {extra}' for extra in extras)
+        # Hiding unused arg because the linter is yelling at me
+        #  extras_arg = ' '.join(f'-E {extra}' for extra in extras)
         instructions = f"""
-=== "PIP"
+=== "pip"
     ```bash
     pip install {package}
-    ```
-
-=== "Rye"
-    ```bash
-    rye add logfire {extras_arg}
-    ```
-
-=== "Poetry"
-    ```bash
-    poetry add {package}
     ```
 
 === "uv"
@@ -135,7 +127,18 @@ def install_logfire(markdown: str, page: Page) -> str:
 """
         if not extras:
             instructions += """
-=== "Conda"
+
+=== "rye"
+    ```bash
+    rye add logfire {extras_arg}
+    ```
+
+=== "poetry"
+    ```bash
+    poetry add {package}
+    ```
+
+=== "conda"
     ```bash
     conda install -c conda-forge logfire
     ```
