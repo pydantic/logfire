@@ -1,8 +1,4 @@
-Here are some tutorials to help you get started using Logfire:
-
-## **First Steps**
-In [this guide](first_steps/index.md), we walk you through installation and authentication in your local environment, sending a log message
-to Logfire, and viewing it in the Logfire Web UI.
+Here are some guides to help you get started using Logfire:
 
 ## **Onboarding Checklist 📋**
 In [this guide](onboarding_checklist/index.md), we provide a checklist with step-by-step instructions to take an existing application and thoroughly

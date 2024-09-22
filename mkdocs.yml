@@ -65,34 +65,40 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Intro:
-      - index.md
-  - Guides:
-      - Guides: guides/index.md
-      - First Steps:
-          - First Steps: guides/first_steps/index.md
-      - Onboarding Checklist:
-          - Onboarding Checklist: guides/onboarding_checklist/index.md
-          - Integrate Logfire: guides/onboarding_checklist/integrate.md
-          - Add Logfire Manual Tracing: guides/onboarding_checklist/add_manual_tracing.md
-          - Add Logfire Auto-Tracing: guides/onboarding_checklist/add_auto_tracing.md
-          - Add Logfire Metrics: guides/onboarding_checklist/add_metrics.md
-      - Web UI:
-          - Intro to the Web UI: guides/web_ui/index.md
-          - Live View: guides/web_ui/live.md
-          - Dashboards: guides/web_ui/dashboards.md
-          - Alerts: guides/web_ui/alerts.md
-          - SQL Explorer: guides/web_ui/explore.md
-      - Advanced User Guide:
-          - Advanced User Guide: guides/advanced/index.md
-          - Alternative Backends: guides/advanced/alternative_backends.md
-          - Sampling: guides/advanced/sampling.md
-          - Scrubbing: guides/advanced/scrubbing.md
-          - Generators: guides/advanced/generators.md
-          - Testing: guides/advanced/testing.md
-          - Backfill: guides/advanced/backfill.md
-          - Creating Write Tokens: guides/advanced/creating_write_tokens.md
-          - Query API: guides/advanced/query_api.md
+  - Why Logfire?:
+      - Introducing Logfire: why-logfire/intro.md
+      - Simplicity and Power: why-logfire/simplicity.md
+      - Python-centric Insights: why-logfire/python-centric.md
+      - Pydantic Integration: why-logfire/pydantic.md
+      - OpenTelemetry: why-logfire/opentelemetry.md
+      - Structured Data and SQL: why-logfire/sql.md
+
+  - Get Started:
+      - Welcome: index.md
+      - Guides:
+          - Guides: guides/index.md
+          - Onboarding Checklist:
+              - Onboarding Checklist: guides/onboarding_checklist/index.md
+              - Integrate Logfire: guides/onboarding_checklist/integrate.md
+              - Add Logfire Manual Tracing: guides/onboarding_checklist/add_manual_tracing.md
+              - Add Logfire Auto-Tracing: guides/onboarding_checklist/add_auto_tracing.md
+              - Add Logfire Metrics: guides/onboarding_checklist/add_metrics.md
+          - Web UI:
+              - Intro to the Web UI: guides/web_ui/index.md
+              - Live View: guides/web_ui/live.md
+              - Dashboards: guides/web_ui/dashboards.md
+              - Alerts: guides/web_ui/alerts.md
+              - SQL Explorer: guides/web_ui/explore.md
+          - Advanced User Guide:
+              - Advanced User Guide: guides/advanced/index.md
+              - Alternative Backends: guides/advanced/alternative_backends.md
+              - Sampling: guides/advanced/sampling.md
+              - Scrubbing: guides/advanced/scrubbing.md
+              - Generators: guides/advanced/generators.md
+              - Testing: guides/advanced/testing.md
+              - Backfill: guides/advanced/backfill.md
+              - Creating Write Tokens: guides/advanced/creating_write_tokens.md
+              - Query API: guides/advanced/query_api.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
@@ -164,8 +170,12 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - pymdownx.details
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.mark
   - pymdownx.superfences
   - pymdownx.snippets
+  - pymdownx.tilde
   - pymdownx.highlight:
       pygments_lang_class: true
   - pymdownx.extra:
