@@ -12,7 +12,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it. Time-to-first-log should be less than 5 minutes.
 
-    [:octicons-arrow-right-24: Read more](../simplicity)
+    [:octicons-arrow-right-24: Read more](simplicity)
 
 -   :snake:{ .lg .middle } __Python-centric Insights__
 
@@ -20,7 +20,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code &amp; database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
 
-    [:octicons-arrow-right-24: Read more](../python-centric)
+    [:octicons-arrow-right-24: Read more](python-centric)
 
 -   :simple-pydantic:{ .lg .middle } __Pydantic Integration__
 
@@ -30,7 +30,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
-    [:octicons-arrow-right-24: Read more](../pydantic)
+    [:octicons-arrow-right-24: Read more](pydantic)
 
 -   :telescope:{ .lg .middle } __OpenTelemetry__
 
@@ -38,7 +38,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 
-    [:octicons-arrow-right-24: Read more](../opentelemetry)
+    [:octicons-arrow-right-24: Read more](opentelemetry)
 
 -   :abacus:{ .lg .middle } __Structured Data and SQL__
 
@@ -46,7 +46,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 
-    [:octicons-arrow-right-24: Read more](../sql)
+    [:octicons-arrow-right-24: Read more](sql)
 
 
 </div>
