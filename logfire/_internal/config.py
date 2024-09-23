@@ -285,12 +285,17 @@ def configure(  # noqa: D417
             DeprecationWarning,
         )
 
-    base_url = deprecated_kwargs.pop('base_url', None)  # type: ignore
-    id_generator = deprecated_kwargs.pop('id_generator', None)  # type: ignore
-    ns_timestamp_generator = deprecated_kwargs.pop('ns_timestamp_generator', None)  # type: ignore
-    if base_url or id_generator or ns_timestamp_generator:  # pragma: no cover
-        raise ValueError(
-            '`base_url`, `id_generator`, and `ns_timestamp_generator` should be set using the `advanced` argument.'
+    for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
+        value: Any = deprecated_kwargs.pop(key, None)  # type: ignore
+        if value is None:
+            continue
+        if advanced is not None:
+            raise ValueError(f'Cannot specify `{key}` and `advanced`. Use only `advanced`.')
+        # (this means that specifying two deprecated advanced kwargs at the same time will raise an error)
+        advanced = AdvancedOptions(**{key: value})
+        warnings.warn(
+            f'The `{key}` argument is deprecated. Use `advanced=logfire.AdvancedOptions({key}=...)` instead.',
+            stacklevel=2,
         )
 
     if deprecated_kwargs:

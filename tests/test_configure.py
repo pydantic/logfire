@@ -1505,3 +1505,20 @@ def test_project_name_deprecated():
         snapshot('DeprecationWarning: The `project_name` argument is deprecated and not needed.')
     ):
         logfire.configure(project_name='foo')  # type: ignore
+
+
+def test_base_url_deprecated():
+    with pytest.warns(UserWarning) as warnings:
+        logfire.configure(base_url='foo')  # type: ignore
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `base_url` argument is deprecated. Use `advanced=logfire.AdvancedOptions(base_url=...)` instead.'
+    )
+    assert GLOBAL_CONFIG.advanced.base_url == 'foo'
+
+
+def test_combine_deprecated_and_new_advanced():
+    with inline_snapshot.extra.raises(
+        snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
+    ):
+        logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
