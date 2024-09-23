@@ -56,6 +56,9 @@ To install the latest version of the **Logfire** SDK, run:
     ```
 
 === "Production"
+    !!! tip "Production setup"
+        In production, we recommend you provide your write token to the Logfire SDK via environment variables.
+
     Production tab
 
 
