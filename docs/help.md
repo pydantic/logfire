@@ -16,9 +16,9 @@ The [Pydantic Logfire Slack][slack] is a great place to ask questions, and get h
 
 The [Logfire GitHub Issues][github-issues] are a great place to ask questions, and give us feedback.
 
-## :material-help: Usage Documentation
+## :material-help: Documentation
 
-The [usage documentation](guides/first_steps/index.md) is the most complete guide on how to get started with **Pydantic Logfire**.
+The [usage documentation](index.md) is the most complete guide on how to get started with **Pydantic Logfire**.
 
 ## :material-api: SDK API Documentation
 

@@ -63,41 +63,6 @@ To install the latest version of the **Logfire** SDK, run:
 
 
 
-
-<!-- ## Basic Usage
-
-To use **Logfire**, it's simple as:
-
-```py
-import logfire
-
-logfire.configure()  # (1)!
-logfire.info('Hello, {name}!', name='world')  # (2)!
-```
-
-1. The `configure()` should be called once before logging to initialize **Logfire**.
-2. This will log `Hello world!` with `info` level.
-
-!!! note
-
-    Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
-    `error`, and `fatal`.
-
-
-
-
-Once you've created a project, you should see:
-
-```bash
-Logfire project URL: https://logfire.pydantic.dev/dmontagu/my-project
-19:52:12.323 Hello, world!
-```
-
-**Logfire** will always start by displaying the URL of your project, and (with default configuration) will also provide a
-basic display in the terminal of the logs you are sending to Logfire.
-
-![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
-
 ## Tracing with Spans
 
 Spans let you add context to your logs and measure code execution time. Multiple spans combine to form a trace,
@@ -134,6 +99,43 @@ and get a high-level view of request flows in your system — all invaluable for
 reliability of your applications.
 
 [conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html
+
+
+<!-- ## Basic Usage
+
+To use **Logfire**, it's simple as:
+
+```py
+import logfire
+
+logfire.configure()  # (1)!
+logfire.info('Hello, {name}!', name='world')  # (2)!
+```
+
+1. The `configure()` should be called once before logging to initialize **Logfire**.
+2. This will log `Hello world!` with `info` level.
+
+!!! note
+
+    Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
+    `error`, and `fatal`.
+
+
+
+
+Once you've created a project, you should see:
+
+```bash
+Logfire project URL: https://logfire.pydantic.dev/dmontagu/my-project
+19:52:12.323 Hello, world!
+```
+
+**Logfire** will always start by displaying the URL of your project, and (with default configuration) will also provide a
+basic display in the terminal of the logs you are sending to Logfire.
+
+![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
+
+
 
 
 -----
