@@ -74,7 +74,8 @@ nav:
       - Structured Data and SQL: why-logfire/sql.md
 
   - Get Started:
-      - Welcome: index.md
+      - Get Started: index.md
+      - First trace: get-started/traces.md
       - Guides:
           - Guides: guides/index.md
           - Onboarding Checklist:

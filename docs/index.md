@@ -5,17 +5,17 @@ hide:
 
 # Get Started
 
-<!-- - [ ] Create an account
-- [ ] Set up your first project
-- [ ] Install Logfire SDK
-- [ ] Authenticate your local environment
-- [ ] Instrument your code
- -->
+Follow the steps below to
 
-## Logfire platform
+1. [Set up Logfire](#logfire)
+2. [Install the SDK](#sdk)
+3. [Instrument your project](#instrument)
+
+
+## Set up Logfire {#logfire}
 1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
 2. Follow the prompts to create your account
-3. From your Organisation, click `New project` and create your first project
+3. From your Organisation, click **New project** to create your first project
 
 ![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-first-project.png)
 
@@ -25,103 +25,98 @@ hide:
 ??? tip "You can also create a project via CLI..."
     Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
 
-## Install SDK {#install}
+## Install the SDK {#sdk}
 
-To install the latest version of the **Logfire** SDK, run:
+1. Install the latest version of the **Logfire** SDK:
 
 {{ install_logfire() }}
 
-## Development / Production
-=== "Development"
+2. Once installed, try it out!
+
+```bash
+logfire -h
+```
+
+3. Next, authenticate your local environment:
+
+```bash
+logfire auth
+```
+
+!!! info
+    Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+
+## Instrument your project {#instrument}
+=== ":material-cog-outline: Development"
     !!! tip "Development setup"
         During development, we recommend using the CLI to configure Logfire. You can also use a write token.
 
-    ## Authenticate
-
-    Authenticate your local environment with **Logfire** by running:
+    1. Set project
 
     ```bash
-    logfire auth
+    logfire projects use <first-project>
     ```
+
+    2. Write your first logs
+
+    ```py
+    import logfire
+
+    logfire.configure()  # (1)!
+    logfire.info('Hello, {name}!', name='world')  # (2)!
+    ```
+
+    1. The `configure()` method should be called once before logging to initialize **Logfire**.
+    2. This will log `Hello world!` with `info` level.
 
     !!! info
-        Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+        Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
+        `error`, and `fatal`.
 
-    ## Configure your project
 
-    Point to the project you created by running:
+    3. See your logs in the **Live** view
 
-    ```bash
-    logfire projects use first-project
-    ```
+    ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
-=== "Production"
+
+=== ":material-cloud-outline: Production"
     !!! tip "Production setup"
         In production, we recommend you provide your write token to the Logfire SDK via environment variables.
 
-    Production tab
+    1. Generate a new write token
+
+        - Go to Project :material-chevron-right: Settings :material-chevron-right: Write Tokens
+        - Follow the prompts to create a new token
 
 
+    2. Configure your **Logfire** environment
 
-## Tracing with Spans
+    ```bash
+    LOGFIRE_TOKEN=<your-write-token>
+    ```
 
-Spans let you add context to your logs and measure code execution time. Multiple spans combine to form a trace,
-providing a complete picture of an operation's journey through your system.
+    3. Write your first logs
 
-```py
-from pathlib import Path
-import logfire
+    ```py
+    import logfire
 
-cwd = Path.cwd()
-total_size = 0
+    logfire.configure()  # (1)!
+    logfire.info('Hello, {name}!', name='world')  # (2)!
+    ```
 
-logfire.configure()
+    1. The `configure()` method should be called once before logging to initialize **Logfire**.
+    2. This will log `Hello world!` with `info` level.
 
-with logfire.span('counting size of {cwd=}', cwd=cwd):
-    for path in cwd.iterdir():
-        if path.is_file():
-            with logfire.span('reading {file}', file=path):
-                total_size += len(path.read_bytes())
+    !!! info
+        Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
+        `error`, and `fatal`.
 
-    logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
-```
+    4. See your logs in the **Live** view
 
-In this example:
-
-1. The outer span measures the time to count the total size of files in the current directory (`cwd`).
-2. Inner spans measure the time to read each individual file.
-3. Finally, the total size is logged.
-
-![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-load-files.png)
-
-By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
-and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
-reliability of your applications.
-
-[conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html
+    ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
 
 <!-- ## Basic Usage
-
-To use **Logfire**, it's simple as:
-
-```py
-import logfire
-
-logfire.configure()  # (1)!
-logfire.info('Hello, {name}!', name='world')  # (2)!
-```
-
-1. The `configure()` should be called once before logging to initialize **Logfire**.
-2. This will log `Hello world!` with `info` level.
-
-!!! note
-
-    Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
-    `error`, and `fatal`.
-
-
-
 
 Once you've created a project, you should see:
 
