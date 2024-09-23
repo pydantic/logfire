@@ -46,6 +46,6 @@ User(name='Charlie', country_code='GBR', dob='1990-03-03')
 1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs][logfire.PydanticPlugin].
 2. Since we've enabled the Pydantic Plugin, all Pydantic validations will be recorded in Logfire.
 
-Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
+Learn more about the [Pydantic Plugin here](../integrations/pydantic.md).
 
 ![Logfire pydantic plugin screenshot](../images/index/logfire-screenshot-pydantic-plugin.png)
