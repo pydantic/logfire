@@ -75,7 +75,7 @@ nav:
 
   - Get Started:
       - Get Started: index.md
-      - First trace: get-started/traces.md
+      - Tracing with Spans: get-started/traces.md
       - Guides:
           - Guides: guides/index.md
           - Onboarding Checklist:
