@@ -3,6 +3,8 @@ A **span** is the building block of a trace. You might also think of spans as lo
 Spans let you add context to your logs and measure code execution time. Multiple spans combine to form a trace,
 providing a complete picture of an operation's journey through your system.
 
+## Example #1
+
 ```py
 from pathlib import Path
 import logfire
@@ -29,7 +31,9 @@ In this example:
 
 ![Counting size of loaded files screenshot](../images/logfire-screenshot-first-steps-load-files.png)
 
-Another example
+---
+
+## Example #2
 
 ```py
 logfire.configure()
@@ -44,6 +48,9 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 2. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
 3. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
 
+![Logfire hello world screenshot](../images/index/logfire-screenshot-hello-world-age.png)
+
+---
 
 By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
