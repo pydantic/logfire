@@ -58,6 +58,9 @@ logfire auth
     logfire projects use <first-project>
     ```
 
+    !!! info
+        Run this command from the root directory of your app, e.g. `~/projects/first-project`
+
     2. Write your first logs
 
     ```py
