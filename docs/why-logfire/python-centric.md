@@ -12,6 +12,6 @@ In this example you can see the FastAPI arguments formatted as a Python object.
 
 ## Profiling Python code
 
-![Logfire Autotracing screenshot](../images/logfire-screenshot-autotracing.png)
+![Logfire Auto-tracing screenshot](../images/logfire-screenshot-autotracing.png)
 
 In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](../guides/onboarding_checklist/add_auto_tracing.md).
