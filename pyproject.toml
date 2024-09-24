@@ -143,6 +143,7 @@ dev-dependencies = [
     "pyarrow>=17.0.0",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
+    "mkdocs-redirects>=1.2.1",
 ]
 
 [tool.rye.scripts]
