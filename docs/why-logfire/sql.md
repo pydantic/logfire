@@ -18,7 +18,7 @@ Using vanilla PostgreSQL as the querying language throughout the platform ensure
 
 Another big advantage of using the most widely used SQL databases is that generative AI tools like ChatGPT are excellent at writing SQL for you.
 
-Just include your Python objects in **Logfire** calls (lists, dict, dataclasses, Pydantic models, dataframes, and more),
+Just include your Python objects in **Logfire** calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more),
 and it'll end up as structured data in our platform ready to be queried.
 
 For example, using data from a `User` model, we could list users from the USA:

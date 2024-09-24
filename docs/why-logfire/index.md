@@ -44,7 +44,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     ---
 
-    Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, dataframes, and more), and it'll end up as structured data in our platform ready to be queried.
+    Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more), and it'll end up as structured data in our platform ready to be queried.
 
     [:octicons-arrow-right-24: Read more](sql.md)
 
