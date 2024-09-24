@@ -9,10 +9,10 @@ providing a complete picture of an operation's journey through your system.
 from pathlib import Path
 import logfire
 
+logfire.configure()
+
 cwd = Path.cwd()
 total_size = 0
-
-logfire.configure()
 
 with logfire.span('counting size of {cwd=}', cwd=cwd):
     for path in cwd.iterdir():
