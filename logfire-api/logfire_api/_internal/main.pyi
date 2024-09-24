@@ -652,7 +652,7 @@ class Logfire:
     def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
         """Collect system metrics.
 
-        See [the guide](https://logfire.pydantic.dev/docs/integrations/system_metrics/) for more information.
+        See [the guide](https://logfire.pydantic.dev/docs/integrations/system-metrics/) for more information.
 
         Args:
             config: A dictionary where the keys are metric names

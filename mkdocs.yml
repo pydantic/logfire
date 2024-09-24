@@ -79,26 +79,26 @@ nav:
       - Guides:
           - Guides: guides/index.md
           - Onboarding Checklist:
-              - Onboarding Checklist: guides/onboarding_checklist/index.md
-              - Integrate Logfire: guides/onboarding_checklist/integrate.md
-              - Add Logfire Manual Tracing: guides/onboarding_checklist/add_manual_tracing.md
-              - Add Logfire Auto-Tracing: guides/onboarding_checklist/add_auto_tracing.md
-              - Add Logfire Metrics: guides/onboarding_checklist/add_metrics.md
+              - Onboarding Checklist: guides/onboarding-checklist/index.md
+              - Integrate Logfire: guides/onboarding-checklist/integrate.md
+              - Add Logfire Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
+              - Add Logfire Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
+              - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
           - Web UI:
-              - Intro to the Web UI: guides/web_ui/index.md
-              - Live View: guides/web_ui/live.md
-              - Dashboards: guides/web_ui/dashboards.md
-              - Alerts: guides/web_ui/alerts.md
-              - SQL Explorer: guides/web_ui/explore.md
+              - Intro to the Web UI: guides/web-ui/index.md
+              - Live View: guides/web-ui/live.md
+              - Dashboards: guides/web-ui/dashboards.md
+              - Alerts: guides/web-ui/alerts.md
+              - SQL Explorer: guides/web-ui/explore.md
           - Advanced User Guide:
               - Advanced User Guide: guides/advanced/index.md
-              - Alternative Backends: guides/advanced/alternative_backends.md
+              - Alternative Backends: guides/advanced/alternative-backends.md
               - Sampling: guides/advanced/sampling.md
               - Scrubbing: guides/advanced/scrubbing.md
               - Generators: guides/advanced/generators.md
               - Testing: guides/advanced/testing.md
               - Backfill: guides/advanced/backfill.md
-              - Creating Write Tokens: guides/advanced/creating_write_tokens.md
+              - Creating Write Tokens: guides/advanced/creating-write-tokens.md
               - Query API: guides/advanced/query_api.md
   - Integrations:
       - Integrations: integrations/index.md
@@ -120,7 +120,7 @@ nav:
           - Redis: integrations/redis.md
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
-          - System Metrics: integrations/system_metrics.md
+          - System Metrics: integrations/system-metrics.md
       - Custom:
           - Pydantic: integrations/pydantic.md
           - OpenAI: integrations/openai.md
@@ -130,15 +130,15 @@ nav:
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
       - Third Party:
-          - Third Party: integrations/third_party/index.md
-          - Mirascope: integrations/third_party/mirascope.md
-          - LiteLLM: integrations/third_party/litellm.md
+          - Third Party: integrations/third-party/index.md
+          - Mirascope: integrations/third-party/mirascope.md
+          - LiteLLM: integrations/third-party/litellm.md
       - Use Cases:
-          - Web Frameworks: integrations/use_cases/web_frameworks.md
+          - Web Frameworks: integrations/use-cases/web-frameworks.md
   - Reference:
       - Reference: reference/index.md
       - Configuration: reference/configuration.md
-      - Organization Structure: reference/organization_structure.md
+      - Organization Structure: reference/organization-structure.md
       - SDK CLI: reference/cli.md
   - SDK API:
       - Logfire: api/logfire.md
@@ -153,10 +153,10 @@ nav:
   - Help: help.md
   - Roadmap: roadmap.md
   - Legal:
-      - Terms of Service: legal/terms_of_service.md
+      - Terms of Service: legal/terms-of-service.md
       - Privacy Policy: legal/privacy.md
-      - Data Processing Addendum: legal/data_processing_addendum.md
-      - Cloud Subprocessors: legal/cloud_subprocessors.md
+      - Data Processing Addendum: legal/data-processing-addendum.md
+      - Cloud Subprocessors: legal/cloud-subprocessors.md
   - Release Notes: release-notes.md
 
 markdown_extensions:
@@ -224,7 +224,29 @@ plugins:
             - url: https://rich.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
-        'legal/service_level_agreement.md': 'legal/terms_of_service.md'
+        'legal/service_level_agreement.md': 'legal/terms-of-service.md'
         'guides/first_steps/index.md' : 'index.md'
+        'guides/onboarding_checklist/index.md' : 'guides/onboarding-checklist/index.md'
+        'guides/onboarding_checklist/integrate.md' : 'guides/onboarding-checklist/integrate.md'
+        'guides/onboarding_checklist/add_manual_tracing.md' : 'guides/onboarding-checklist/add-manual-tracing.md'
+        'guides/onboarding_checklist/add_auto_tracing.md' : 'guides/onboarding-checklist/add-auto-tracing.md'
+        'guides/web_ui/index.md' : 'guides/web-ui/index.md'
+        'guides/web_ui/live.md' : 'guides/web-ui/live.md'
+        'guides/web_ui/dashboards.md' : 'guides/web-ui/dashboards.md'
+        'guides/web_ui/alerts.md' : 'guides/web-ui/alerts.md'
+        'guides/web_ui/explore.md' : 'guides/web-ui/explore.md'
+        'guides/advanced/alternative_backends.md' : 'guides/advanced/alternative-backends.md'
+        'guides/advanced/creating_write_tokens.md' : 'guides/advanced/creating-write-tokens.md'
+        'integrations/system_metrics.md' : 'integrations/system-metrics.md'
+        'integrations/third_party/index.md' : 'integrations/third-party/index.md'
+        'integrations/third_party/mirascope.md' : 'integrations/third-party/mirascope.md'
+        'integrations/third_party/litellm.md' : 'integrations/third-party/litellm.md'
+        'integrations/use_cases/web_frameworks.md' : 'integrations/use-cases/web-frameworks.md'
+        'reference/organization_structure.md' : 'reference/organization-structure.md'
+        'legal/terms_of_service.md' : 'legal/terms-of-service.md'
+        'legal/data_processing_addendum.md' : 'legal/data-processing-addendum.md'
+        'legal/cloud_subprocessors.md' : 'legal/cloud-subprocessors.md'
+        'release_notes.md' : 'release-notes.md'
+
 hooks:
   - docs/plugins/main.py

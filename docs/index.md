@@ -129,10 +129,10 @@ logfire auth
 Ready to keep going?
 
 - Read about [Tracing with Spans](get-started/traces.md)
-- Complete the [Onboarding Checklist](guides/onboarding_checklist/index.md)
+- Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
 
 More topics to explore
 
 - Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
-- As well as spans, you can [use Logfire to record metrics](guides/onboarding_checklist/add_metrics.md)
+- As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
 - Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}

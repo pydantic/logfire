@@ -36,7 +36,7 @@ def check_documented_system_metrics(markdown: str, page: Page) -> str:
 
     This function checks that all the metrics in `DEFAULT_CONFIG` are documented.
     """
-    if page.file.src_uri != 'guides/onboarding_checklist/06_add_metrics.md':
+    if page.file.src_uri != 'guides/onboarding-checklist/06_add-metrics.md':
         return markdown
 
     metrics_documented: set[str] = set()
@@ -99,7 +99,7 @@ def install_logfire(markdown: str, page: Page) -> str:
     if not (
         page.file.src_uri.startswith('integrations/')
         or page.file.src_uri == 'index.md'
-        or page.file.src_uri.endswith('onboarding_checklist/add_metrics.md')
+        or page.file.src_uri.endswith('onboarding-checklist/add-metrics.md')
     ):
         return markdown
 
@@ -148,7 +148,7 @@ def install_logfire(markdown: str, page: Page) -> str:
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
     uri = page.file.src_uri
-    if uri == 'integrations/third_party/index.md' or not uri.startswith('integrations/third_party/'):
+    if uri == 'integrations/third-party/index.md' or not uri.startswith('integrations/third-party/'):
         return markdown
 
     note = """

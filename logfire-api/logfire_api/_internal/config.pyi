@@ -89,7 +89,7 @@ def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = No
         fast_shutdown: Whether to shut down exporters and providers quickly, mostly used for tests. Defaults to `False`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#f-strings).
+            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
