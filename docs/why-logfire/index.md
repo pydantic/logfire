@@ -40,14 +40,21 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     [:octicons-arrow-right-24: Read more](opentelemetry.md)
 
--   :abacus:{ .lg .middle } __Structured Data and SQL__
+-   :simple-instructure:{ .lg .middle } __Structured Data__
+
+    ---
+
+    Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, dataframes, and more), and it'll end up as structured data in our platform ready to be queried.
+
+    [:octicons-arrow-right-24: Read more](sql.md)
+
+-   :abacus:{ .lg .middle } __SQL__
 
     ---
 
     Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 
     [:octicons-arrow-right-24: Read more](sql.md)
-
 
 </div>
 
