@@ -7,6 +7,7 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
+#   universal: false
 
 -e file:.
 aiohappyeyeballs==2.4.0
@@ -164,6 +165,7 @@ mergedeep==1.3.4
 mkdocs==1.6.1
     # via mkdocs-autorefs
     # via mkdocs-material
+    # via mkdocs-redirects
     # via mkdocstrings
 mkdocs-autorefs==1.2.0
     # via mkdocstrings
@@ -173,6 +175,7 @@ mkdocs-glightbox==0.4.0
 mkdocs-material==9.5.34
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
+mkdocs-redirects==1.2.1
 mkdocstrings==0.26.1
     # via mkdocstrings-python
 mkdocstrings-python==1.10.7
@@ -333,12 +336,12 @@ psycopg-binary==3.2.1
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
-pydantic @ git+https://github.com/pydantic/pydantic@a6dc87285f93f90c2d5c298ee7c52f5d7e878194
+pydantic @ git+https://github.com/pydantic/pydantic@43ed0d3f5ae2a79f217b7311588a704984e175aa
     # via anthropic
     # via fastapi
     # via openai
     # via sqlmodel
-pydantic-core==2.23.3
+pydantic-core==2.24.0
     # via pydantic
 pygments==2.18.0
     # via mkdocs-material
