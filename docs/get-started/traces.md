@@ -17,7 +17,7 @@ total_size = 0
 with logfire.span('counting size of {cwd=}', cwd=cwd):
     for path in cwd.iterdir():
         if path.is_file():
-            with logfire.span('reading {file}', file=path):
+            with logfire.span('reading {path}', path=path.relative_to(cwd)):
                 total_size += len(path.read_bytes())
 
     logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
