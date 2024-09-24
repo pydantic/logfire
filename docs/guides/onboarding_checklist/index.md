@@ -7,8 +7,8 @@ fix bugs, analyze user behavior, and make data-driven decisions.
 
 !!! note
 
-    If you aren't familiar with traces and spans, you might want to review
-    [this section of the Getting Started guide](../../get-started/traces.md).
+    If you aren't familiar with traces and spans, start with the
+    [Tracing with Spans](../../get-started/traces.md) page.
 
 #### Logfire Onboarding Checklist
 
