@@ -108,7 +108,15 @@ All rates and fees are stated without value added tax (VAT) or any other applica
 
 ## 8. Warranties {#section-8}
 
-You warrant and represent to PSI that: (1) you will not access the Services under false identity or pretext and will not use it to falsify your or any other person's identity (however, this will not prevent you from using an adopted name or nickname provided the name is used lawfully and in good faith); (2) you will use the Services lawfully, in compliance with these Terms of Service and in good faith; (3) all information you submit using the Services is true, accurate, and not misleading, to the best of your knowledge; (4) you have sufficient rights to grant PSI the license described in [section 5](#section-5), above; (5) PSI's processing of Client Data will not violate any law applicable to you or PSI, including laws relating to the privacy or security of personal information; (6) PSI's processing of Client Data will not infringe the rights (including the intellectual property rights) of any third parties; and (7) no Client Data will contain "protected health information" subject to the Health Insurance Portability and Accountability Act of 1996, as amended ("**HIPAA**").
+You warrant and represent to PSI that:
+
+1. you will not access the Services under false identity or pretext and will not use it to falsify your or any other person's identity (however, this will not prevent you from using an adopted name or nickname provided the name is used lawfully and in good faith);
+2. you will use the Services lawfully, in compliance with these Terms of Service and in good faith;
+3. all information you submit using the Services is true, accurate, and not misleading, to the best of your knowledge;
+4. you have sufficient rights to grant PSI the license described in [section 5](#section-5), above;
+5. PSI's processing of Client Data will not violate any law applicable to you or PSI, including laws relating to the privacy or security of personal information;
+6. PSI's processing of Client Data will not infringe the rights (including the intellectual property rights) of any third parties; and
+7. no Client Data will contain "protected health information" subject to the Health Insurance Portability and Accountability Act of 1996, as amended ("**HIPAA**").
 
 We warrant and represent that we will use commercially reasonable measures to ensure the Services are consistently available and operating. However, PSI makes no representation or warranty regarding the availability of the Services and no failure of the Services to be available for your use will be considered a breach of these Terms of Service. You understand that if you are dissatisfied with the availability of the Services, your sole remedy is to terminate the Services as set forth in [section 11](#section-11).
 
@@ -118,7 +126,15 @@ You agree that your use of the Services shall be at your sole risk. The Services
 
 ### Your Indemnity Obligations
 
-You agree to indemnify, defend, and hold harmless the PSI Parties from and against any claim, loss, obligation, demand, damage, cost, liability, expense, and attorney's fees arising from any claim against the PSI Parties (including, but not limited to, claims or damages for personal injury, wrongful death, property damage, and injury to you or to third parties, consequential, compensatory, or punitive damages), demand, or proceedings brought or threatened against the PSI Parties in connection with (a) your use of, access to, or misuse of the Services; (b) your breach of any of these Terms of Service; (c) your violation of any applicable laws, rules, or regulations in connection with your use of the Services; (d) your violation of any third party right, including without limitation any copyright, property, or privacy right; or (e) activity that occurs under your account as a result of your failure to maintain the confidentiality of your account credentials; provided that you will have no such obligation to the extent such losses are caused by PSI's reckless or willful misconduct or, in the case of a claim under (c), to the extent caused by the Services.
+You agree to indemnify, defend, and hold harmless the PSI Parties from and against any claim, loss, obligation, demand, damage, cost, liability, expense, and attorney's fees arising from any claim against the PSI Parties (including, but not limited to, claims or damages for personal injury, wrongful death, property damage, and injury to you or to third parties, consequential, compensatory, or punitive damages), demand, or proceedings brought or threatened against the PSI Parties in connection with:
+
+1. your use of, access to, or misuse of the Services;
+2. your breach of any of these Terms of Service;
+3. your violation of any applicable laws, rules, or regulations in connection with your use of the Services;
+4. your violation of any third party right, including without limitation any copyright, property, or privacy right; or
+5. activity that occurs under your account as a result of your failure to maintain the confidentiality of your account credentials;
+
+Provided that you will have no such obligation to the extent such losses are caused by PSI's reckless or willful misconduct or, in the case of a claim under (3.), to the extent caused by the Services.
 
 ### PSI's Indemnity Obligations
 
@@ -130,7 +146,15 @@ Each party will provide the other with prompt notice of any claim covered under 
 
 ## 10. Limitations on Liability {#section-10}
 
-In no event shall the PSI Parties be liable to you or any third party for any indirect, incidental, special, punitive, or consequential damages whatsoever, even if the PSI Parties have been advised of the possibility of such damages in advance. To the fullest extent permitted by law, the PSI Parties will have no liability whatsoever for any damage, liability, or loss that you may incur, or for any other undesirable consequences, resulting from: (a) any suspension, unavailability, or disruption of the Services, (b) any errors, mistakes, or inaccuracies in data or other content in the Services, (c) personal injury or property damage, of any nature whatsoever, resulting from your access to and use of the Services, (d) unauthorized access to or use of PSI's servers or information systems, including any information stored therein, (e) interruption or cessation of transmission to or from the Services; (f) bugs, viruses, trojan horses, or the like, which may be introduced to or through the Services by any third party; and (g) failures, disruptions, errors, or delays arising from the interaction between the Services and third-party software, systems and services used by you.
+In no event shall the PSI Parties be liable to you or any third party for any indirect, incidental, special, punitive, or consequential damages whatsoever, even if the PSI Parties have been advised of the possibility of such damages in advance. To the fullest extent permitted by law, the PSI Parties will have no liability whatsoever for any damage, liability, or loss that you may incur, or for any other undesirable consequences, resulting from:
+
+1. any suspension, unavailability, or disruption of the Services,
+2. any errors, mistakes, or inaccuracies in data or other content in the Services,
+3. personal injury or property damage, of any nature whatsoever, resulting from your access to and use of the Services,
+4. unauthorized access to or use of PSI's servers or information systems, including any information stored therein,
+5. interruption or cessation of transmission to or from the Services;
+6. bugs, viruses, trojan horses, or the like, which may be introduced to or through the Services by any third party; and
+7. failures, disruptions, errors, or delays arising from the interaction between the Services and third-party software, systems and services used by you.
 
 The PSI Parties will have no liability whatsoever for any damage, liability, or loss that you or any other person may incur, or for any other undesirable consequences, resulting from your breach of your warranties or other obligations under these Terms of Service including, without limitation, the obligation to keep your account details secure or from the sharing of such information with any other person.
 
