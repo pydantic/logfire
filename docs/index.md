@@ -20,7 +20,7 @@ This page is a quick walk-through for setting up a Python app:
 
 ![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-first-project.png)
 
-!!! info
+!!! info ""
     The first time you use **Logfire** in a new environment, you'll need to set up a project. A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "You can also create a project via CLI..."
@@ -44,7 +44,7 @@ logfire -h
 logfire auth
 ```
 
-!!! info
+!!! info ""
     Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
 
 ## Instrument your project {#instrument}
@@ -58,7 +58,7 @@ logfire auth
     logfire projects use <first-project>
     ```
 
-    !!! info
+    !!! info ""
         Run this command from the root directory of your app, e.g. `~/projects/first-project`
 
     2. Write your first logs
@@ -73,7 +73,7 @@ logfire auth
     1. The `configure()` method should be called once before logging to initialize **Logfire**.
     2. This will log `Hello world!` with `info` level.
 
-    !!! info
+    !!! info ""
         Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
         `error`, and `fatal`.
 
@@ -99,7 +99,7 @@ logfire auth
     LOGFIRE_TOKEN=<your-write-token>
     ```
 
-    !!! info
+    !!! info ""
         Running this command stores a Write Token used by the SDK to send data to a file in the current directory, at `.logfire/logfire_credentials.json`
 
     3. Write your first logs
@@ -114,7 +114,7 @@ logfire auth
     1. The `configure()` method should be called once before logging to initialize **Logfire**.
     2. This will log `Hello world!` with `info` level.
 
-    !!! info
+    !!! info ""
         Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
         `error`, and `fatal`.
 
