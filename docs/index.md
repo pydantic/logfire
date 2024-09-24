@@ -54,7 +54,7 @@ logfire auth
 
     1. Set your project
 
-    ```bash title="in thet terminal:"
+    ```bash title="in the terminal:"
     logfire projects use <first-project>
     ```
 
