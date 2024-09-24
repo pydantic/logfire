@@ -28,7 +28,7 @@ This page is a quick walk-through for setting up a Python app:
 
 ## Install the SDK {#sdk}
 
-1. Install the latest version of the **Logfire** SDK:
+1. In the terminal, install the **Logfire** SDK (Software Developer Kit):
 
 {{ install_logfire() }}
 
@@ -52,18 +52,18 @@ logfire auth
     !!! tip "Development setup"
         During development, we recommend using the CLI to configure Logfire. You can also use a write token.
 
-    1. Set project
+    1. Set your project
 
-    ```bash
+    ```bash title="in thet terminal:"
     logfire projects use <first-project>
     ```
 
     !!! info ""
         Run this command from the root directory of your app, e.g. `~/projects/first-project`
 
-    2. Write your first logs
+    2. Write some basic logs in your Python app
 
-    ```py
+    ```py title="hello-world.py"
     import logfire
 
     logfire.configure()  # (1)!
@@ -87,7 +87,7 @@ logfire auth
     !!! tip "Production setup"
         In production, we recommend you provide your write token to the Logfire SDK via environment variables.
 
-    1. Generate a new write token
+    1. Generate a new write token in the **Logfire** platform
 
         - Go to Project :material-chevron-right: Settings :material-chevron-right: Write Tokens
         - Follow the prompts to create a new token
@@ -95,16 +95,16 @@ logfire auth
 
     2. Configure your **Logfire** environment
 
-    ```bash
+    ```bash title="in the terminal:"
     LOGFIRE_TOKEN=<your-write-token>
     ```
 
     !!! info ""
         Running this command stores a Write Token used by the SDK to send data to a file in the current directory, at `.logfire/logfire_credentials.json`
 
-    3. Write your first logs
+    3. Write some basic logs in your Python app
 
-    ```py
+    ```py title="hello-world.py"
     import logfire
 
     logfire.configure()  # (1)!
@@ -130,3 +130,9 @@ Ready to keep going?
 
 - Read about [Tracing with Spans](get-started/traces.md)
 - Complete the [Onboarding Checklist](guides/onboarding_checklist/index.md)
+
+More topics to explore
+
+- Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
+- As well as spans, you can [use Logfire to record metrics](guides/onboarding_checklist/add_metrics.md)
+- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}
