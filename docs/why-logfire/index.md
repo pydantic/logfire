@@ -59,7 +59,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 </div>
 
 
-## Find the needle in a _stacktrace_
+## Find the needle in a _stack trace_
 
 We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having data; it's about having the *right* data, presented in ways that make sense for Python applications.
 
