@@ -5,7 +5,8 @@ Pydantic Logfire automatically instruments your code for minimal manual effort, 
 
 ## Rich display of Python objects
 
-<!-- TODO: screengrab -->
+![Logfire FastAPI screenshot](../images/logfire-screenshot-fastapi-arguments.png)
+
 
 ## Event-loop telemetry
 
