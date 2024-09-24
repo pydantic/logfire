@@ -99,7 +99,7 @@ nav:
               - Testing: guides/advanced/testing.md
               - Backfill: guides/advanced/backfill.md
               - Creating Write Tokens: guides/advanced/creating-write-tokens.md
-              - Query API: guides/advanced/query_api.md
+              - Query API: guides/advanced/query-api.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
