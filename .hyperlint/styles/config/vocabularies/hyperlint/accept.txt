@@ -13,3 +13,9 @@ SDK
 [Aa]sync
 [Ss]ync
 [Ll]ogfire
+Superset
+Grafana
+SQLAlchemy
+Conda
+uvicorn
+OTel
