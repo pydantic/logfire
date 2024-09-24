@@ -99,6 +99,9 @@ logfire auth
     LOGFIRE_TOKEN=<your-write-token>
     ```
 
+    !!! info
+        Running this command stores a Write Token used by the SDK to send data to a file in the current directory, at `.logfire/logfire_credentials.json`
+
     3. Write your first logs
 
     ```py
