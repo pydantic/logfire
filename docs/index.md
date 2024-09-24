@@ -1,8 +1,3 @@
-<!-- ---
-hide:
-- navigation
---- -->
-
 # Get Started
 
 Follow the steps below to
