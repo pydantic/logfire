@@ -1,6 +1,6 @@
 # Structured Data and SQL :abacus: {#sql}
 
-Query your data with pure, canonical Postgres SQL — all the control and (for many) nothing new to learn. We even provide direct access to the underlying Postgres database, which means that you can query Logfire using any Postgres-compatible tools you like.
+Query your data with pure, canonical PostgreSQL — all the control and (for many) nothing new to learn. We even provide direct access to the underlying Postgres database, which means that you can query Logfire using any Postgres-compatible tools you like.
 
 This includes BI tools and dashboard-building platforms like
 
