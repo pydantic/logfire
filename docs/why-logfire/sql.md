@@ -40,6 +40,6 @@ attributes->'result'->>'name' = 'Ben'
 ![Logfire search query screenshot](../images/index/logfire-screenshot-search-query.png)
 
 
-means you can use familiar tools like Pandas, SQLAlchemy, or `psql`
+Structured Data and Direct SQL Access means you can use familiar tools like Pandas, SQLAlchemy, or `psql`
 for querying, can integrate seamlessly with BI tools, and can even leverage AI for SQL generation, ensuring your Python
 objects and structured data are query-ready.
