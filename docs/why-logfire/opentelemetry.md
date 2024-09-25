@@ -48,6 +48,8 @@ This will give you information on the HTTP request and details of results from s
 
 ![Logfire FastAPI 200 response screenshot](../images/index/logfire-screenshot-fastapi-200.png)
 
-And details of failed input validations:
+And, importantly, details of failed input validations:
 
 ![Logfire FastAPI 422 response screenshot](../images/index/logfire-screenshot-fastapi-422.png)
+
+In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used out-of-the-box in FastAPI.
