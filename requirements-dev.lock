@@ -7,12 +7,11 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
-#   universal: false
 
 -e file:.
 aiohappyeyeballs==2.4.0
     # via aiohttp
-aiohttp==3.10.5
+aiohttp==3.10.6
 aiosignal==1.3.1
     # via aiohttp
 amqp==5.2.0
@@ -35,7 +34,7 @@ attrs==24.2.0
     # via aiohttp
 babel==2.16.0
     # via mkdocs-material
-billiard==4.2.0
+billiard==4.2.1
     # via celery
 black==24.8.0
     # via inline-snapshot
@@ -91,8 +90,8 @@ eval-type-backport==0.2.0
 executing==2.1.0
     # via inline-snapshot
     # via logfire
-fastapi==0.114.1
-filelock==3.16.0
+fastapi==0.115.0
+filelock==3.16.1
     # via huggingface-hub
     # via virtualenv
 flask==3.0.3
@@ -115,11 +114,11 @@ httpcore==1.0.5
 httpx==0.27.2
     # via anthropic
     # via openai
-huggingface-hub==0.24.7
+huggingface-hub==0.25.1
     # via tokenizers
-identify==2.6.0
+identify==2.6.1
     # via pre-commit
-idna==3.8
+idna==3.10
     # via anyio
     # via httpx
     # via requests
@@ -129,7 +128,7 @@ importlib-metadata==8.4.0
     # via opentelemetry-instrumentation-flask
 iniconfig==2.0.0
     # via pytest
-inline-snapshot==0.13.0
+inline-snapshot==0.13.3
 itsdangerous==2.2.0
     # via flask
 jinja2==3.1.4
@@ -140,7 +139,7 @@ jinja2==3.1.4
 jiter==0.5.0
     # via anthropic
     # via openai
-kombu==5.4.1
+kombu==5.4.2
     # via celery
 loguru==0.7.2
 markdown==3.7
@@ -172,7 +171,7 @@ mkdocs-autorefs==1.2.0
 mkdocs-get-deps==0.2.0
     # via mkdocs
 mkdocs-glightbox==0.4.0
-mkdocs-material==9.5.34
+mkdocs-material==9.5.37
 mkdocs-material-extensions==1.3.1
     # via mkdocs-material
 mkdocs-redirects==1.2.1
@@ -193,7 +192,7 @@ nodeenv==1.9.1
 numpy==2.1.1
     # via pandas
     # via pyarrow
-openai==1.45.0
+openai==1.47.1
 opentelemetry-api==1.27.0
     # via opentelemetry-exporter-otlp-proto-http
     # via opentelemetry-instrumentation
@@ -311,11 +310,11 @@ packaging==24.1
     # via pytest
 paginate==0.5.7
     # via mkdocs-material
-pandas==2.2.2
+pandas==2.2.3
 pathspec==0.12.1
     # via black
     # via mkdocs
-platformdirs==4.3.2
+platformdirs==4.3.6
     # via black
     # via mkdocs-get-deps
     # via mkdocstrings
@@ -323,16 +322,16 @@ platformdirs==4.3.2
 pluggy==1.5.0
     # via pytest
 pre-commit==3.8.0
-prompt-toolkit==3.0.47
+prompt-toolkit==3.0.48
     # via click-repl
-protobuf==4.25.4
+protobuf==4.25.5
     # via googleapis-common-protos
     # via logfire
     # via opentelemetry-proto
 psutil==6.0.0
     # via opentelemetry-instrumentation-system-metrics
-psycopg==3.2.1
-psycopg-binary==3.2.1
+psycopg==3.2.2
+psycopg-binary==3.2.2
     # via psycopg
 psycopg2-binary==2.9.9
 pyarrow==17.0.0
@@ -346,11 +345,11 @@ pydantic-core==2.24.0
 pygments==2.18.0
     # via mkdocs-material
     # via rich
-pymdown-extensions==10.9
+pymdown-extensions==10.10.1
     # via mkdocs-material
     # via mkdocstrings
-pymongo==4.8.0
-pyright==1.1.380
+pymongo==4.9.1
+pyright==1.1.382
 pytest==8.3.3
     # via pytest-django
     # via pytest-pretty
@@ -388,8 +387,8 @@ rich==13.8.1
     # via inline-snapshot
     # via logfire
     # via pytest-pretty
-ruff==0.6.4
-setuptools==74.1.2
+ruff==0.6.7
+setuptools==75.1.0
     # via opentelemetry-instrumentation
 six==1.16.0
     # via asttokens
@@ -399,24 +398,20 @@ sniffio==1.3.1
     # via anyio
     # via httpx
     # via openai
-sqlalchemy==2.0.34
+sqlalchemy==2.0.35
     # via sqlmodel
 sqlmodel==0.0.22
 sqlparse==0.5.1
     # via django
-starlette==0.38.5
+starlette==0.38.6
     # via fastapi
 structlog==24.4.0
 testcontainers==4.8.1
 tokenizers==0.20.0
     # via anthropic
-toml==0.10.2
-    # via inline-snapshot
 tqdm==4.66.5
     # via huggingface-hub
     # via openai
-types-toml==0.10.8.20240310
-    # via inline-snapshot
 typing-extensions==4.12.2
     # via anthropic
     # via fastapi
@@ -429,10 +424,12 @@ typing-extensions==4.12.2
     # via psycopg
     # via pydantic
     # via pydantic-core
+    # via pyright
     # via sqlalchemy
     # via testcontainers
-tzdata==2024.1
+tzdata==2024.2
     # via celery
+    # via kombu
     # via pandas
 urllib3==2.2.3
     # via docker
@@ -445,7 +442,7 @@ vine==5.1.0
     # via amqp
     # via celery
     # via kombu
-virtualenv==20.26.4
+virtualenv==20.26.5
     # via pre-commit
 watchdog==5.0.2
     # via mkdocs
@@ -462,8 +459,8 @@ wrapt==1.16.0
     # via opentelemetry-instrumentation-sqlalchemy
     # via testcontainers
     # via vcrpy
-yarl==1.11.1
+yarl==1.12.1
     # via aiohttp
     # via vcrpy
-zipp==3.20.1
+zipp==3.20.2
     # via importlib-metadata
