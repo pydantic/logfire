@@ -1,7 +1,7 @@
 A **span** is the building block of a trace. You might also think of spans as logs with extra functionality — a single row in our live view.
 
-Spans let you add context to your logs and measure code execution time. Multiple spans combine to form a trace,
-providing a complete picture of an operation's journey through your system.
+!!! info
+    Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
 
 ## Example #1
 
