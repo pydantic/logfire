@@ -31,7 +31,7 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-1. In addition to [configuring logfire](../reference/configuration.md) this line is generally all you need to instrument a FastAPI app with Logfire, the same applies to most other popular Python web frameworks.
+1. In addition to [configuring logfire](../reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
 2. The [integrations](../integrations/index.md) page has more information on how to instrument other parts of your app.
 
 We'll need the [FastAPI contrib package](../integrations/fastapi.md), FastAPI itself and uvicorn installed to run this:
