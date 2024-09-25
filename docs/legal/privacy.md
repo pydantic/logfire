@@ -121,7 +121,7 @@ We might share Personal Data with the following recipients:
 - Subprocessors and Service Providers: We might use vendors to provide services on our behalf, including hosting,
   marketing, advertising, social, analytics, support ticketing, credit card processing, or security services. They are
   bound by contractual obligations to ensure the security, privacy, and confidentiality of your information. Please
-  see [our list of sub-processors](cloud_subprocessors.md).
+  see [our list of sub-processors](cloud-subprocessors.md).
 - Other Third-party Applications: Upon your instruction, we might share Personal Data with third-party applications. You are responsible for the data you instruct us to share with these applications.
 
 ## Personal Data: _PSI_ Access
@@ -131,7 +131,7 @@ except as provided in this Privacy Statement and for:
 
 - security purposes
 - automated scanning or manual review for known vulnerabilities, active malware, or other content known to violate our
-  [Terms of Service](terms_of_service.md)
+  [Terms of Service](terms-of-service.md)
 - to assist the repository owner with a support matter
 - to maintain the integrity of the Services, or
 - to comply with our legal obligations if we have reason to believe the contents are in violation of the law.

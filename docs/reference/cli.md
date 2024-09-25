@@ -11,7 +11,7 @@
 You need to be authenticated to use the **Logfire**.
 
 !!! abstract
-    Read the [Terms of Service][terms_of_service] and [Privacy Policy][privacy_policy] if you want
+    Read the [Terms of Service][terms-of-service] and [Privacy Policy][privacy_policy] if you want
     to know how we handle your data. :nerd_face:
 
 To authenticate yourself, run the `auth` command in the terminal:
@@ -118,5 +118,5 @@ logfire projects new <project-name>
 
 Follow the instructions, and you'll have a new project created in no time! :partying_face:
 
-[terms_of_service]: ../legal/terms_of_service.md
+[terms-of-service]: ../legal/terms-of-service.md
 [privacy_policy]: ../legal/privacy.md

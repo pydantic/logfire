@@ -39,7 +39,7 @@ of the OpenTelemetry Flask Instrumentation package, read more about it [here][op
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-- [Quick guide](use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
+- [Quick guide](use-cases/web-frameworks.md#capturing-http-server-request-and-response-headers)
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#capture-http-request-and-response-headers)
 
 [flask]: https://flask.palletsprojects.com/en/2.0.x/

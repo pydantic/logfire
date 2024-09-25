@@ -78,4 +78,4 @@ Notice how we filtered on records that have the `http.method` attributes set. It
 
 This query is a good candidate for a Time Series chart in a dashboard:
 
-![Requests duration per percentile as Time Series chart](../../images/integrations/use_cases/web_frameworks/logfire-screenshot-chart-percentiles.png)
+![Requests duration per percentile as Time Series chart](../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles.png)
