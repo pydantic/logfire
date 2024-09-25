@@ -164,6 +164,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.ScrubbingOptions()
     logfire__all__.remove('ScrubbingOptions')
 
+    assert hasattr(logfire_api, 'AdvancedOptions')
+    logfire_api.AdvancedOptions()
+    logfire__all__.remove('AdvancedOptions')
+
     assert hasattr(logfire_api, 'METRICS_PREFERRED_TEMPORALITY')
     logfire__all__.remove('METRICS_PREFERRED_TEMPORALITY')
 

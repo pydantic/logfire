@@ -179,6 +179,9 @@ except ImportError:
         class ScrubbingOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class AdvancedOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 

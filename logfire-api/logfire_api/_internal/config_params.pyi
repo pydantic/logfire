@@ -29,12 +29,10 @@ class _DefaultCallback:
     """
     callback: Callable[[], Any]
 
-BASE_URL: Incomplete
 SEND_TO_LOGFIRE: Incomplete
 TOKEN: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
-SHOW_SUMMARY: Incomplete
 CREDENTIALS_DIR: Incomplete
 CONSOLE: Incomplete
 CONSOLE_COLORS: Incomplete
@@ -42,12 +40,14 @@ CONSOLE_SPAN_STYLE: Incomplete
 CONSOLE_INCLUDE_TIMESTAMP: Incomplete
 CONSOLE_VERBOSE: Incomplete
 CONSOLE_MIN_LOG_LEVEL: Incomplete
+CONSOLE_SHOW_PROJECT_LINK: Incomplete
 PYDANTIC_PLUGIN_RECORD: Incomplete
 PYDANTIC_PLUGIN_INCLUDE: Incomplete
 PYDANTIC_PLUGIN_EXCLUDE: Incomplete
 TRACE_SAMPLE_RATE: Incomplete
 INSPECT_ARGUMENTS: Incomplete
 IGNORE_NO_CONFIG: Incomplete
+BASE_URL: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass

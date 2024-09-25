@@ -183,7 +183,7 @@ def record_streaming(
         if chunk_content:
             content.append(chunk_content)
 
-    timer = logire_llm._config.ns_timestamp_generator  # type: ignore
+    timer = logire_llm._config.advanced.ns_timestamp_generator  # type: ignore
     start = timer()
     try:
         yield record_chunk
