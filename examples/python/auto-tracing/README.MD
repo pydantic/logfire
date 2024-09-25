@@ -53,7 +53,7 @@ pip install logfire
 Authenticate Logfire
 
 ```bash
-pip install logfire
+logfire auth
 ```
 
 
