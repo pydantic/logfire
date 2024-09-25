@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculation History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Calculation History</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Input Data</th>
+                <th>Result</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for calc in calculations %}
+            <tr>
+                <td>{{ calc.type }}</td>
+                <td>{{ calc.input_data }}</td>
+                <td>${{ "%.2f"|format(calc.result) }}</td>
+                <td>{{ calc.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('main.index') }}">Back to Calculator</a>
+</body>
+</html>

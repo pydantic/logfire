@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Calculator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Financial Calculator</h1>
+    <div id="calculator">
+        <select id="calculationType">
+            <option value="compound_interest">Compound Interest</option>
+            <option value="loan_payment">Loan Payment</option>
+        </select>
+        <div id="inputs"></div>
+        <button onclick="calculate()">Calculate</button>
+    </div>
+    <div id="result"></div>
+    <a href="{{ url_for('main.history') }}">View Calculation History</a>
+
+    <script>
+        const inputFields = {
+            compound_interest: [
+                {name: 'principal', label: 'Principal Amount', type: 'number'},
+                {name: 'rate', label: 'Annual Interest Rate (as decimal)', type: 'number', step: '0.01'},
+                {name: 'time', label: 'Time Period (years)', type: 'number', step: '0.1'},
+                {name: 'compounds_per_year', label: 'Compounds per Year', type: 'number'}
+            ],
+            loan_payment: [
+                {name: 'principal', label: 'Loan Amount', type: 'number'},
+                {name: 'rate', label: 'Annual Interest Rate (as decimal)', type: 'number', step: '0.01'},
+                {name: 'time', label: 'Loan Term (years)', type: 'number', step: '0.1'}
+            ]
+        };
+
+        function updateInputs() {
+            const calculationType = document.getElementById('calculationType').value;
+            const inputsDiv = document.getElementById('inputs');
+            inputsDiv.innerHTML = '';
+            inputFields[calculationType].forEach(field => {
+                const input = document.createElement('input');
+                input.type = field.type;
+                input.id = field.name;
+                input.placeholder = field.label;
+                if (field.step) input.step = field.step;
+                inputsDiv.appendChild(input);
+            });
+        }
+
+        function calculate() {
+            const calculationType = document.getElementById('calculationType').value;
+            const data = {type: calculationType};
+            inputFields[calculationType].forEach(field => {
+                data[field.name] = document.getElementById(field.name).value;
+            });
+
+            fetch('/calculate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerText = `Result: $${data.result.toFixed(2)}`;
+            });
+        }
+
+        document.getElementById('calculationType').addEventListener('change', updateInputs);
+        updateInputs();
+    </script>
+</body>
+</html>
