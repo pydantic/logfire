@@ -239,7 +239,7 @@ PSI shall use commercially reasonable efforts to implement and maintain reasonab
 
 PSI may immediately suspend, limit, or terminate your access to or use of the Services, or may suspend, limit, terminate, or delete the Client Data, including any backups thereof, (a) when reasonably necessary to address or mitigate a data security risk to the Services; (b) we reasonably determine that your use of the Services poses a risk to the Services or its other users; or (c) if we are legally compelled to do so. PSI shall promptly restore normal service to you once the cause for the suspension, limitation, or termination has lapsed or been eliminated.
 
-PSI shall process personal data within the Client Data in accordance with the [Data Processing Addendum](data_processing_addendum.md).
+PSI shall process personal data within the Client Data in accordance with the [Data Processing Addendum](data-processing-addendum.md).
 
 You shall be responsible for your own devices, systems, applications, connections, and software used to access the Services as well as for the protection of its communications and information systems. You are also responsible for properly configuring and using the Services and taking your own steps to maintain appropriate backups and other security measures to protect Client Data.
 

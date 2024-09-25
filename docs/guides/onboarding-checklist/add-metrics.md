@@ -262,4 +262,4 @@ You can read more about the Up-Down Counter metric in the [OpenTelemetry documen
 [counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-counter
 [gauge-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-gauge
 [up-down-counter-callback-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#asynchronous-updowncounter
-[system-metrics]: ../../integrations/system_metrics.md
+[system-metrics]: ../../integrations/system-metrics.md

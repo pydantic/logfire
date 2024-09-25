@@ -23,7 +23,7 @@ This dashboard offers a high-level view of your web services' well-being. It lik
 
 This dashboard shows essential system resource utilization metrics. It comes in two variants:
 
-- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../integrations/system_metrics.md).
+- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md).
 - **Basic System Metrics (OpenTelemetry):** Uses data exported by any OpenTelemetry-based instrumentation following the standard semantic conventions.
 
 Both variants include the following metrics:

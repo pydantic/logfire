@@ -20,7 +20,7 @@
 
 ### BREAKING CHANGES
 
-* **System metrics are no longer collected by default** when the correct dependency is installed. Use [`logfire.instrument_system_metrics()`](https://logfire.pydantic.dev/docs/integrations/system_metrics/) to enable system metrics collection. **If you are simply using the old 'Basic System Metrics' dashboard, then no further code changes are required, but that dashboard will no longer work properly and you should create a new dashboard from the template named 'Basic System Metrics (Logfire)'**. If you were using other collected metrics, see the documentation for how to collect those. By @alexmojaki in https://github.com/pydantic/logfire/pull/373
+* **System metrics are no longer collected by default** when the correct dependency is installed. Use [`logfire.instrument_system_metrics()`](https://logfire.pydantic.dev/docs/integrations/system-metrics/) to enable system metrics collection. **If you are simply using the old 'Basic System Metrics' dashboard, then no further code changes are required, but that dashboard will no longer work properly and you should create a new dashboard from the template named 'Basic System Metrics (Logfire)'**. If you were using other collected metrics, see the documentation for how to collect those. By @alexmojaki in https://github.com/pydantic/logfire/pull/373
 * Stop collecting package versions by @alexmojaki in https://github.com/pydantic/logfire/pull/387
 * Don't auto-trace generators by @alexmojaki in https://github.com/pydantic/logfire/pull/386
 * Disable ASGI send/receive spans by default by @alexmojaki in https://github.com/pydantic/logfire/pull/371
