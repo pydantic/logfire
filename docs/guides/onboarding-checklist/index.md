@@ -25,7 +25,7 @@ fix bugs, analyze user behavior, and make data-driven decisions.
   aspects of your application's performance and behavior.
 
 We'll walk you through the checklist step by step, introducing relevant features and concepts as we go. While the main
-focus of this guide is on getting data into Logfire so you can leverage it in the future, we'll also provide a
+focus of this guide is on getting data into Logfire so you can leverage it in the future, we'll also provide an
 introduction to the Logfire Web UI and show you how to interact with the data you're generating.
 
 !!! note
