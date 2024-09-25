@@ -6,7 +6,7 @@ use a wealth of existing tooling and infrastructure, including
 
 For example, we can instrument a simple FastAPI app with just 2 lines of code:
 
-```py title="fastapi_example.py" hl_lines="8 9 10"
+```py title="main.py" hl_lines="8 9 10"
 from datetime import date
 import logfire
 from pydantic import BaseModel
