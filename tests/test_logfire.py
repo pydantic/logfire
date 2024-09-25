@@ -1268,7 +1268,7 @@ def test_config_preserved_across_thread_or_process(
         send_to_logfire=False,
         console=False,
         service_name='foobar!',
-        additional_metric_readers=[InMemoryMetricReader()],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
     with executor_factory() as executor:

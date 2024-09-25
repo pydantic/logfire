@@ -1373,7 +1373,7 @@ def test_custom_exporters():
         send_to_logfire=False,
         console=False,
         additional_span_processors=[custom_span_processor],
-        additional_metric_readers=[custom_metric_reader],
+        metrics=logfire.MetricsOptions(additional_readers=[custom_metric_reader]),
     )
 
     [custom_processor_wrapper] = get_span_processors()

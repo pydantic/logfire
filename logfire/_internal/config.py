@@ -20,10 +20,11 @@ from uuid import uuid4
 from weakref import WeakSet
 
 import requests
-from opentelemetry import metrics, trace
+from opentelemetry import trace
 from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.metrics import Meter, NoOpMeterProvider, set_meter_provider
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -162,6 +163,12 @@ class PydanticPlugin:
     """Exclude specific modules from instrumentation."""
 
 
+@dataclass
+class MetricsOptions:
+    additional_readers: Sequence[MetricReader] | None = None
+    """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -177,7 +184,7 @@ def configure(  # noqa: D417
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
-    additional_metric_readers: Sequence[MetricReader] | None = None,
+    metrics: MetricsOptions | Literal[False] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
@@ -202,8 +209,6 @@ def configure(  # noqa: D417
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
-        additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
-            which exports metrics to Logfire's API.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
@@ -224,7 +229,8 @@ def configure(  # noqa: D417
     metric_readers = deprecated_kwargs.pop('metric_readers', None)  # type: ignore
     if metric_readers is not None:  # pragma: no cover
         raise ValueError(
-            'The `metric_readers` argument has been replaced by `additional_metric_readers`. '
+            'The `metric_readers` argument has been replaced by '
+            '`metrics=logfire.MetricsOptions(additional_readers=[...])`. '
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
 
@@ -298,6 +304,20 @@ def configure(  # noqa: D417
             stacklevel=2,
         )
 
+    additional_metric_readers: Any = deprecated_kwargs.pop('additional_metric_readers', None)  # type: ignore
+    if additional_metric_readers:
+        if metrics is not None:
+            raise ValueError(
+                'Cannot specify both `additional_metric_readers` and `metrics`. '
+                'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+            )
+        warnings.warn(
+            'The `additional_metric_readers` argument is deprecated. '
+            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.',
+            DeprecationWarning,
+        )
+        metrics = MetricsOptions(additional_readers=additional_metric_readers)
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
@@ -307,10 +327,10 @@ def configure(  # noqa: D417
         service_name=service_name,
         service_version=service_version,
         console=console,
+        metrics=metrics,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
         additional_span_processors=additional_span_processors,
-        additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
@@ -387,7 +407,7 @@ class _LogfireConfigData:
         config_dir: Path | None,
         data_dir: Path | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
-        additional_metric_readers: Sequence[MetricReader] | None,
+        metrics: MetricsOptions | Literal[False] | None,
         pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
@@ -437,6 +457,11 @@ class _LogfireConfigData:
                 show_project_link=param_manager.load_param('console_show_project_link'),
             )
 
+        if isinstance(metrics, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            metrics = MetricsOptions(**metrics)  # type: ignore
+        self.metrics = metrics
+
         if isinstance(pydantic_plugin, dict):
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
@@ -464,7 +489,6 @@ class _LogfireConfigData:
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
-        self.additional_metric_readers = additional_metric_readers
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -485,7 +509,7 @@ class LogfireConfig(_LogfireConfigData):
         config_dir: Path | None = None,
         data_dir: Path | None = None,
         additional_span_processors: Sequence[SpanProcessor] | None = None,
-        additional_metric_readers: Sequence[MetricReader] | None = None,
+        metrics: MetricsOptions | Literal[False] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
@@ -509,7 +533,7 @@ class LogfireConfig(_LogfireConfigData):
             config_dir=config_dir,
             data_dir=data_dir,
             additional_span_processors=additional_span_processors,
-            additional_metric_readers=additional_metric_readers,
+            metrics=metrics,
             pydantic_plugin=pydantic_plugin,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
@@ -521,7 +545,7 @@ class LogfireConfig(_LogfireConfigData):
         self._tracer_provider = ProxyTracerProvider(trace.NoOpTracerProvider(), self)
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
-        self._meter_provider = ProxyMeterProvider(metrics.NoOpMeterProvider())
+        self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -537,7 +561,7 @@ class LogfireConfig(_LogfireConfigData):
         config_dir: Path | None,
         data_dir: Path | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
-        additional_metric_readers: Sequence[MetricReader] | None,
+        metrics: MetricsOptions | Literal[False] | None,
         pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
@@ -555,7 +579,7 @@ class LogfireConfig(_LogfireConfigData):
                 config_dir,
                 data_dir,
                 additional_span_processors,
-                additional_metric_readers,
+                metrics,
                 pydantic_plugin,
                 scrubbing,
                 inspect_arguments,
@@ -658,7 +682,10 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
-            metric_readers = list(self.additional_metric_readers or [])
+            if isinstance(self.metrics, MetricsOptions):
+                metric_readers = list(self.metrics.additional_readers or [])
+            else:
+                metric_readers = []
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
                 show_project_link = self.console and self.console.show_project_link
@@ -754,7 +781,7 @@ class LogfireConfig(_LogfireConfigData):
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True
                 trace.set_tracer_provider(self._tracer_provider)
-                metrics.set_meter_provider(self._meter_provider)
+                set_meter_provider(self._meter_provider)
 
             @atexit.register
             def _exit_open_spans():  # type: ignore[reportUnusedFunction]  # pragma: no cover
@@ -817,7 +844,7 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     @cached_property
-    def meter(self) -> metrics.Meter:
+    def meter(self) -> Meter:
         """Get a meter from this `LogfireConfig`.
 
         This is used internally and should not be called by users of the SDK.
