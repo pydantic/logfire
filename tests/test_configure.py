@@ -18,7 +18,7 @@ import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.metrics import get_meter_provider
+from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
@@ -1453,6 +1453,14 @@ def test_otel_exporter_otlp_metrics_endpoint_env_var():
     assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(otel_metric_reader._exporter, OTLPMetricExporter)  # type: ignore
     assert otel_metric_reader._exporter._endpoint == 'otel_metrics_endpoint'  # type: ignore
+
+
+def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
+        logfire.configure(send_to_logfire=True, token='foo', metrics=False)
+
+    assert isinstance(get_meter_provider().provider, NoOpMeterProvider)  # type: ignore
 
 
 def get_span_processors() -> Iterable[SpanProcessor]:

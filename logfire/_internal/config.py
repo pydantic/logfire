@@ -165,7 +165,7 @@ class PydanticPlugin:
 
 @dataclass
 class MetricsOptions:
-    additional_readers: Sequence[MetricReader] | None = None
+    additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
 
@@ -484,7 +484,11 @@ class _LogfireConfigData:
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
+
+        if metrics is None:
+            metrics = MetricsOptions()
         self.metrics = metrics
+
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
@@ -679,7 +683,7 @@ class LogfireConfig(_LogfireConfigData):
                 )
 
             if isinstance(self.metrics, MetricsOptions):
-                metric_readers = list(self.metrics.additional_readers or [])
+                metric_readers = list(self.metrics.additional_readers)
             else:
                 metric_readers = []
 
@@ -756,16 +760,20 @@ class LogfireConfig(_LogfireConfigData):
             if (otlp_endpoint or otlp_metrics_endpoint) and otlp_metrics_exporter in ('otlp', ''):
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
 
-            meter_provider = MeterProvider(
-                metric_readers=metric_readers,
-                resource=resource,
-                views=[
-                    View(
-                        instrument_type=Histogram,
-                        aggregation=ExponentialBucketHistogramAggregation(),
-                    )
-                ],
-            )
+            if self.metrics:
+                meter_provider = MeterProvider(
+                    metric_readers=metric_readers,
+                    resource=resource,
+                    views=[
+                        View(
+                            instrument_type=Histogram,
+                            aggregation=ExponentialBucketHistogramAggregation(),
+                        )
+                    ],
+                )
+
+            else:
+                meter_provider = NoOpMeterProvider()
 
             # we need to shut down any existing providers to avoid leaking resources (like threads)
             # but if this takes longer than 100ms you should call `logfire.shutdown` before reconfiguring
