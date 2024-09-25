@@ -6,6 +6,7 @@ __pycache__
 *.env
 /scratch/
 /.coverage
+.DS_Store
 
 # stubgen
 out

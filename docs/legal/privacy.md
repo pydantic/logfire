@@ -135,14 +135,12 @@ except as provided in this Privacy Statement and for:
 - to assist the repository owner with a support matter
 - to maintain the integrity of the Services, or
 - to comply with our legal obligations if we have reason to believe the contents are in violation of the law.
-- understanding usage patterns and platform behavior during [beta testing](service_level_agreement.md#beta-definition)
-  of the Logfire platform
+- understanding usage patterns and platform behavior of the Logfire platform
 
 _PSI_ will provide you with notice regarding Personal Data access unless:
 
 - doing so is prohibited by law
 - _PSI_ acted in response to a security threat or other risk to security, or
-- our main platform is in a ["beta" state](service_level_agreement.md#beta-definition)
 
 ## Lawful Bases for Processing Personal Data (Applicable to EEA and UK End Users)
 
