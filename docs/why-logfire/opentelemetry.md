@@ -44,7 +44,7 @@ uvicorn fastapi_example:app # (2)!
 1. Install the `logfire` package with the `fastapi` extra, FastAPI, and uvicorn.
 2. Run the FastAPI app with uvicorn.
 
-This will give you information on the HTTP request, but also details of results from successful input validations:
+This will give you information on the HTTP request and details of results from successful input validations:
 
 ![Logfire FastAPI 200 response screenshot](../images/index/logfire-screenshot-fastapi-200.png)
 
