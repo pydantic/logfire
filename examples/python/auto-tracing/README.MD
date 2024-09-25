@@ -70,6 +70,6 @@ python main.py
 Now you should see
 
 - Python app running locally at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
-- Logfire app running live at https://logfire.pydantic.dev/<my-org>/<my-project>
+- Logfire app running live at `https://logfire.pydantic.dev/<my-org>/<my-project>`
 
 In order to see traces arrive in the Logfire app, interact with the local calculator app (click around, enter values into the fields, click calculate)
