@@ -5,6 +5,12 @@ A **span** is the building block of a trace. You might also think of spans as lo
 
 ## Example #1
 
+In this example:
+
+1. The outer span measures the time to count the total size of files in the current directory (`cwd`).
+2. Inner spans measure the time to read each individual file.
+3. Finally, the total size is logged.
+
 ```py
 from pathlib import Path
 import logfire
@@ -23,17 +29,18 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
     logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
 ```
 
-In this example:
-
-1. The outer span measures the time to count the total size of files in the current directory (`cwd`).
-2. Inner spans measure the time to read each individual file.
-3. Finally, the total size is logged.
-
 ![Counting size of loaded files screenshot](../images/logfire-screenshot-first-steps-load-files.png)
 
 ---
 
 ## Example #2
+
+In this example:
+
+1. The outer span sets the topic — the user's birthday
+2. The user input is captured in the terminal
+3. `dob` (date of birth) is displayed in the span
+3. Logfire calculates the age from the `dob` and displays age in the debug message
 
 ```py
 logfire.configure()
@@ -55,5 +62,3 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
 reliability of your applications.
-
-[conda]: https://conda.io/projects/conda/en/latest/user-guide/install/index.html
