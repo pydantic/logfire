@@ -165,6 +165,11 @@ class PydanticPlugin:
 
 @dataclass
 class MetricsOptions:
+    """Configuration of metrics.
+
+    This only has one option for now, but it's a place to add more related options in the future.
+    """
+
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
@@ -209,6 +214,8 @@ def configure(  # noqa: D417
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+        metrics: Set to `False` to disable sending all metrics,
+            or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
