@@ -457,11 +457,6 @@ class _LogfireConfigData:
                 show_project_link=param_manager.load_param('console_show_project_link'),
             )
 
-        if isinstance(metrics, dict):
-            # This is particularly for deserializing from a dict as in executors.py
-            metrics = MetricsOptions(**metrics)  # type: ignore
-        self.metrics = metrics
-
         if isinstance(pydantic_plugin, dict):
             # This is particularly for deserializing from a dict as in executors.py
             pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
@@ -489,6 +484,7 @@ class _LogfireConfigData:
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
+        self.metrics = metrics
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
