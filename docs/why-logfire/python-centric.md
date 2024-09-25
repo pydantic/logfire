@@ -7,7 +7,7 @@ Pydantic Logfire automatically instruments your code for minimal manual effort, 
 
 ![Logfire FastAPI screenshot](../images/logfire-screenshot-fastapi-arguments.png)
 
-In this example you can see the FastAPI arguments formatted as a Python object.
+In this example, you can see the parameters passed to a FastAPI endpoint formatted as a Python object.
 
 
 ## Profiling Python code
