@@ -37,6 +37,7 @@ theme:
     - content.code.annotate
     - content.code.copy
     - content.code.select
+    - navigation.expand
     - navigation.indexes
     - navigation.path
     - navigation.tabs
