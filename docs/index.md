@@ -50,7 +50,7 @@ logfire auth
 ## Instrument your project {#instrument}
 === ":material-cog-outline: Development"
     !!! tip "Development setup"
-        During development, we recommend using the CLI to configure Logfire. You can also use a write token.
+        During development, we recommend using the CLI to configure Logfire. You can also use a [write token](guides/advanced/creating-write-tokens.md).
 
     1. Set your project
 
