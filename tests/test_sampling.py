@@ -10,7 +10,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire
-from logfire.testing import SeededRandomIdGenerator, TestExporter, TimeGenerator
+from logfire.testing import SeededRandomIdGenerator, TestExporter
 
 
 @dataclass
@@ -59,7 +59,7 @@ def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
 def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs.update(
         sampling=logfire.SamplingOptions(head=0.3),
-        id_generator=SeededRandomIdGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
     )
     logfire.configure(**config_kwargs)
 
@@ -82,7 +82,7 @@ def test_sample_rate_runtime() -> None:  # pragma: no cover
     logfire.configure(
         send_to_logfire=False,
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        id_generator=SeededRandomIdGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
         additional_metric_readers=[InMemoryMetricReader()],
     )
 
@@ -104,8 +104,7 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        id_generator=SeededRandomIdGenerator(),
-        ns_timestamp_generator=TimeGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         additional_metric_readers=[InMemoryMetricReader()],
     )
@@ -132,8 +131,7 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        id_generator=SeededRandomIdGenerator(),
-        ns_timestamp_generator=TimeGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         additional_metric_readers=[InMemoryMetricReader()],
     )
@@ -166,8 +164,7 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
 
     logfire.configure(
         send_to_logfire=False,
-        id_generator=SeededRandomIdGenerator(),
-        ns_timestamp_generator=TimeGenerator(),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator()),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         additional_metric_readers=[InMemoryMetricReader()],
     )

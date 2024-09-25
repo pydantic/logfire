@@ -129,6 +129,20 @@ class ConsoleOptions:
 
 
 @dataclass
+class AdvancedOptions:
+    """Options primarily used for testing by Logfire developers."""
+
+    base_url: str = 'https://logfire-api.pydantic.dev'
+    """Root URL for the Logfire API."""
+
+    id_generator: IdGenerator = dataclasses.field(default_factory=RandomIdGenerator)
+    """Generator for trace and span IDs."""
+
+    ns_timestamp_generator: Callable[[], int] = time.time_ns
+    """Generator for nanosecond start and end timestamps of spans."""
+
+
+@dataclass
 class PydanticPlugin:
     """Options for the Pydantic plugin."""
 
@@ -162,15 +176,13 @@ def configure(  # noqa: D417
     console: ConsoleOptions | Literal[False] | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
-    base_url: str | None = None,
-    id_generator: IdGenerator | None = None,
-    ns_timestamp_generator: Callable[[], int] | None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
     additional_metric_readers: Sequence[MetricReader] | None = None,
     pydantic_plugin: PydanticPlugin | None = None,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> None:
     """Configure the logfire SDK.
@@ -189,10 +201,6 @@ def configure(  # noqa: D417
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
-        base_url: Root URL for the Logfire API. If `None` uses the `LOGFIRE_BASE_URL` environment variable, otherwise defaults to https://logfire-api.pydantic.dev.
-        id_generator: Generator for span IDs. Defaults to `RandomIdGenerator()` from the OpenTelemetry SDK.
-        ns_timestamp_generator: Generator for nanosecond timestamps. Defaults to [`time.time_ns`][time.time_ns] from the
-            Python standard library.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         additional_metric_readers: Sequence of metric readers to be used in addition to the default reader
             which exports metrics to Logfire's API.
@@ -203,6 +211,7 @@ def configure(  # noqa: D417
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
+        advanced: Advanced options primarily used for testing by Logfire developers.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
     """
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
@@ -276,11 +285,23 @@ def configure(  # noqa: D417
             DeprecationWarning,
         )
 
+    for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
+        value: Any = deprecated_kwargs.pop(key, None)  # type: ignore
+        if value is None:
+            continue
+        if advanced is not None:
+            raise ValueError(f'Cannot specify `{key}` and `advanced`. Use only `advanced`.')
+        # (this means that specifying two deprecated advanced kwargs at the same time will raise an error)
+        advanced = AdvancedOptions(**{key: value})
+        warnings.warn(
+            f'The `{key}` argument is deprecated. Use `advanced=logfire.AdvancedOptions({key}=...)` instead.',
+            stacklevel=2,
+        )
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
     GLOBAL_CONFIG.configure(
-        base_url=base_url,
         send_to_logfire=send_to_logfire,
         token=token,
         service_name=service_name,
@@ -288,14 +309,13 @@ def configure(  # noqa: D417
         console=console,
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
-        id_generator=id_generator,
-        ns_timestamp_generator=ns_timestamp_generator,
         additional_span_processors=additional_span_processors,
         additional_metric_readers=additional_metric_readers,
         pydantic_plugin=pydantic_plugin,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
+        advanced=advanced,
     )
 
 
@@ -318,9 +338,6 @@ class _LogfireConfigData:
     `_LogfireConfigData`, and none of the attributes added in `LogfireConfig`.
     """
 
-    base_url: str
-    """The base URL of the Logfire API"""
-
     send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire"""
 
@@ -339,12 +356,6 @@ class _LogfireConfigData:
     data_dir: Path
     """The directory to store Logfire data in"""
 
-    id_generator: IdGenerator
-    """The ID generator to use"""
-
-    ns_timestamp_generator: Callable[[], int]
-    """The nanosecond timestamp generator to use"""
-
     additional_span_processors: Sequence[SpanProcessor] | None
     """Additional span processors"""
 
@@ -360,12 +371,14 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options"""
 
+    advanced: AdvancedOptions
+    """Advanced options primarily used for testing by Logfire developers."""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
         # defaults exist is `__init__` and we don't forgot a parameter when
         # forwarding parameters from `__init__` to `load_configuration`
-        base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
         service_name: str | None,
@@ -373,19 +386,17 @@ class _LogfireConfigData:
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
-        id_generator: IdGenerator | None,
-        ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         param_manager = ParamManager.create(config_dir)
 
-        self.base_url = param_manager.load_param('base_url', base_url)
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
         self.service_name = param_manager.load_param('service_name', service_name)
@@ -445,8 +456,13 @@ class _LogfireConfigData:
             )
         self.sampling = sampling
 
-        self.id_generator = id_generator or RandomIdGenerator()
-        self.ns_timestamp_generator = ns_timestamp_generator or time.time_ns
+        if isinstance(advanced, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            advanced = AdvancedOptions(**advanced)  # type: ignore
+        elif advanced is None:
+            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+        self.advanced = advanced
+
         self.additional_span_processors = additional_span_processors
         self.additional_metric_readers = additional_metric_readers
         if self.service_version is None:
@@ -461,7 +477,6 @@ class _LogfireConfigData:
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
-        base_url: str | None = None,
         send_to_logfire: bool | None = None,
         token: str | None = None,
         service_name: str | None = None,
@@ -469,14 +484,13 @@ class LogfireConfig(_LogfireConfigData):
         console: ConsoleOptions | Literal[False] | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
-        id_generator: IdGenerator | None = None,
-        ns_timestamp_generator: Callable[[], int] | None = None,
         additional_span_processors: Sequence[SpanProcessor] | None = None,
         additional_metric_readers: Sequence[MetricReader] | None = None,
         pydantic_plugin: PydanticPlugin | None = None,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -487,7 +501,6 @@ class LogfireConfig(_LogfireConfigData):
         # The `load_configuration` is it's own method so that it can be called on an existing config object
         # in particular the global config object.
         self._load_configuration(
-            base_url=base_url,
             send_to_logfire=send_to_logfire,
             token=token,
             service_name=service_name,
@@ -495,14 +508,13 @@ class LogfireConfig(_LogfireConfigData):
             console=console,
             config_dir=config_dir,
             data_dir=data_dir,
-            id_generator=id_generator,
-            ns_timestamp_generator=ns_timestamp_generator,
             additional_span_processors=additional_span_processors,
             additional_metric_readers=additional_metric_readers,
             pydantic_plugin=pydantic_plugin,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -517,7 +529,6 @@ class LogfireConfig(_LogfireConfigData):
 
     def configure(
         self,
-        base_url: str | None,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | None,
         service_name: str | None,
@@ -525,19 +536,17 @@ class LogfireConfig(_LogfireConfigData):
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
-        id_generator: IdGenerator | None,
-        ns_timestamp_generator: Callable[[], int] | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
         additional_metric_readers: Sequence[MetricReader] | None,
         pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
             self._initialized = False
             self._load_configuration(
-                base_url,
                 send_to_logfire,
                 token,
                 service_name,
@@ -545,14 +554,13 @@ class LogfireConfig(_LogfireConfigData):
                 console,
                 config_dir,
                 data_dir,
-                id_generator,
-                ns_timestamp_generator,
                 additional_span_processors,
                 additional_metric_readers,
                 pydantic_plugin,
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                advanced,
             )
             self.initialize()
 
@@ -603,7 +611,7 @@ class LogfireConfig(_LogfireConfigData):
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
-                id_generator=self.id_generator,
+                id_generator=self.advanced.id_generator,
             )
 
             self._tracer_provider.shutdown()
@@ -658,12 +666,12 @@ class LogfireConfig(_LogfireConfigData):
                 if self.token is None:
                     if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
                         credentials = LogfireCredentials.initialize_project(
-                            logfire_api_url=self.base_url,
+                            logfire_api_url=self.advanced.base_url,
                             session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
-                    self.base_url = self.base_url or credentials.logfire_api_url
+                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
                     if show_project_link:  # pragma: no branch
                         credentials.print_token_summary()
                 else:
@@ -680,7 +688,9 @@ class LogfireConfig(_LogfireConfigData):
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
-                span_exporter = OTLPSpanExporter(endpoint=urljoin(self.base_url, '/v1/traces'), session=session)
+                span_exporter = OTLPSpanExporter(
+                    endpoint=urljoin(self.advanced.base_url, '/v1/traces'), session=session
+                )
                 span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                 span_exporter = FallbackSpanExporter(
                     span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
@@ -693,7 +703,7 @@ class LogfireConfig(_LogfireConfigData):
                     PeriodicExportingMetricReader(
                         QuietMetricExporter(
                             OTLPMetricExporter(
-                                endpoint=urljoin(self.base_url, '/v1/metrics'),
+                                endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
                                 headers=headers,
                                 session=session,
                                 # I'm pretty sure that this line here is redundant,
@@ -708,7 +718,7 @@ class LogfireConfig(_LogfireConfigData):
 
             if processors_with_pending_spans:
                 tracer_provider.add_span_processor(
-                    PendingSpanProcessor(self.id_generator, tuple(processors_with_pending_spans))
+                    PendingSpanProcessor(self.advanced.id_generator, tuple(processors_with_pending_spans))
                 )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
@@ -818,7 +828,7 @@ class LogfireConfig(_LogfireConfigData):
         return self.get_meter_provider().get_meter('logfire', VERSION)
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.base_url)
+        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.base_url)
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.

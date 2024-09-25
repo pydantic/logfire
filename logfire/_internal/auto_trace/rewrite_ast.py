@@ -113,7 +113,7 @@ class AutoTraceTransformer(BaseTransformer):
             config = self.logfire_instance._config  # type: ignore
 
             # Local vars for fast access
-            timer = config.ns_timestamp_generator
+            timer = config.advanced.ns_timestamp_generator
             min_duration = self.min_duration
 
             # This needs to be as fast as possible since it's the cost of auto-tracing a function

@@ -631,7 +631,7 @@ class Logfire:
 
             if not (self._console_log if console_log is None else console_log):
                 otlp_attributes[DISABLE_CONSOLE_KEY] = True
-            start_time = self._config.ns_timestamp_generator()
+            start_time = self._config.advanced.ns_timestamp_generator()
 
             span = self._logs_tracer.start_span(
                 msg_template,

@@ -307,8 +307,8 @@ def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporte
 def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
         sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3),
-        id_generator=SeededRandomIdGenerator(seed=1),
     )
+    config_kwargs['advanced'].id_generator = SeededRandomIdGenerator(seed=1)
     logfire.configure(**config_kwargs)
     # These spans should all be included because the level is above the default.
     for _ in range(100):
@@ -360,8 +360,8 @@ def test_raw_head_sampler_without_tail_sampling(config_kwargs: dict[str, Any], e
 def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs.update(
         sampling=logfire.SamplingOptions.level_or_duration(head=TestSampler(), background_rate=0.3),
-        id_generator=SeededRandomIdGenerator(seed=1),
     )
+    config_kwargs['advanced'].id_generator = SeededRandomIdGenerator(seed=1)
     logfire.configure(**config_kwargs)
 
     # These spans should all be excluded by the head sampler,
@@ -399,8 +399,8 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
             head=0.7,
             tail=get_tail_sample_rate,
         ),
-        id_generator=SeededRandomIdGenerator(seed=3),
     )
+    config_kwargs['advanced'].id_generator = SeededRandomIdGenerator(seed=3)
 
     logfire.configure(**config_kwargs)
 

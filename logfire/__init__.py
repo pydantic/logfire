@@ -8,7 +8,7 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
-from ._internal.config import METRICS_PREFERRED_TEMPORALITY, ConsoleOptions, PydanticPlugin, configure
+from ._internal.config import METRICS_PREFERRED_TEMPORALITY, AdvancedOptions, ConsoleOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.main import Logfire, LogfireSpan
@@ -84,6 +84,7 @@ __all__ = (
     'Logfire',
     'LogfireSpan',
     'LevelName',
+    'AdvancedOptions',
     'ConsoleOptions',
     'PydanticPlugin',
     'configure',

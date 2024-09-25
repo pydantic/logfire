@@ -117,8 +117,10 @@ def capfire() -> CaptureLogfire:
     logfire.configure(
         send_to_logfire=False,
         console=False,
-        id_generator=IncrementalIdGenerator(),
-        ns_timestamp_generator=TimeGenerator(),
+        advanced=logfire.AdvancedOptions(
+            id_generator=IncrementalIdGenerator(),
+            ns_timestamp_generator=TimeGenerator(),
+        ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         additional_metric_readers=[metrics_reader],
     )

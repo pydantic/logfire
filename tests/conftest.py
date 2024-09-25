@@ -12,6 +12,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
+import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -59,8 +60,10 @@ def config_kwargs(
     return dict(
         send_to_logfire=False,
         console=False,
-        id_generator=id_generator,
-        ns_timestamp_generator=time_generator,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+        ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things in most versions
         # (it's off by default for <3.11) but it's completely forbidden for 3.8.
