@@ -1,0 +1,26 @@
+{
+	"name": "logfire-cloudflare-worker-demo",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.4.5",
+		"@cloudflare/workers-types": "^4.20240821.1",
+		"typescript": "^5.5.2",
+		"wrangler": "^3.60.3"
+	},
+	"dependencies": {
+		"@microlabs/otel-cf-workers": "^1.0.0-rc.45",
+		"@opentelemetry/api": "^1.9.0"
+	},
+	"prettier": {
+		"printWidth": 140,
+		"singleQuote": true,
+		"semi": true,
+		"useTabs": true
+	}
+}
