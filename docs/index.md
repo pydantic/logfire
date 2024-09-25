@@ -63,7 +63,7 @@ logfire auth
 
     2. Write some basic logs in your Python app
 
-    ```py title="hello-world.py"
+    ```py title="hello_world.py"
     import logfire
 
     logfire.configure()  # (1)!
@@ -104,7 +104,7 @@ logfire auth
 
     3. Write some basic logs in your Python app
 
-    ```py title="hello-world.py"
+    ```py title="hello_world.py"
     import logfire
 
     logfire.configure()  # (1)!
