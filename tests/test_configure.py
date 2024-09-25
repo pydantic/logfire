@@ -1522,3 +1522,26 @@ def test_combine_deprecated_and_new_advanced():
         snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
     ):
         logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
+
+
+def test_additional_metric_readers_deprecated():
+    readers = [InMemoryMetricReader()]
+    with pytest.warns(DeprecationWarning) as warnings:
+        logfire.configure(additional_metric_readers=readers)  # type: ignore
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `additional_metric_readers` argument is deprecated. '
+        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+    )
+    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
+
+
+def test_additional_metric_readers_combined_with_metrics():
+    readers = [InMemoryMetricReader()]
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
+            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+        )
+    ):
+        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
