@@ -16,4 +16,4 @@ This might look similar to simple logging, but it's much more powerful — you g
 - **Custom-built platform** to view your data, with no configuration required
 - **Pretty display** of Python objects
 
-Ready to try Logfire? [Get Started](../index.md)
+Ready to try Logfire? [Get Started](../index.md)! 🚀
