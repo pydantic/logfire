@@ -20,11 +20,15 @@ from pydantic_core import core_schema
 from typing_extensions import Annotated
 
 import logfire
-from logfire._internal.config import GLOBAL_CONFIG, PydanticPlugin
-from logfire._internal.config_params import default_param_manager
-from logfire.integrations.pydantic import LogfirePydanticPlugin, get_schema_name
+from logfire._internal.config import GLOBAL_CONFIG
+from logfire.integrations.pydantic import LogfirePydanticPlugin, get_schema_name, instrument_pydantic
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
+
+
+@pytest.fixture(autouse=True)  # only applies within this module
+def reset_global_config():
+    instrument_pydantic(None)
 
 
 def test_plugin_listed():
@@ -48,9 +52,9 @@ def test_check_plugin_installed():
 def test_disable_logfire_pydantic_plugin() -> None:
     logfire.configure(
         send_to_logfire=False,
-        pydantic_plugin=PydanticPlugin(record='off'),
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
+    logfire.instrument_pydantic(record='off')
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
         core_schema.int_schema(), None, SchemaTypePath(module='', name=''), 'BaseModel', None, {}
@@ -79,7 +83,7 @@ def test_logfire_pydantic_plugin_settings_record_off_on_model(exporter: TestExpo
 
 
 def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporter: TestExporter) -> None:
-    GLOBAL_CONFIG.pydantic_plugin.record = 'all'
+    logfire.instrument_pydantic()
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'off'}}):
         x: int
@@ -120,9 +124,9 @@ def test_logfire_plugin_include_exclude_models(
 ) -> None:
     logfire.configure(
         send_to_logfire=False,
-        pydantic_plugin=PydanticPlugin(record='all', include=include, exclude=exclude),
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
+    logfire.instrument_pydantic(record='all', include=include, exclude=exclude)
     plugin = LogfirePydanticPlugin()
 
     result = plugin.new_schema_validator(
@@ -700,7 +704,7 @@ def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExpo
     assert len(exporter.exported_spans_as_dict()) == 6
 
     # TODO(Marcelo): Why are those lines not being reached?
-    span = exporter.exported_spans_as_dict()[0]  #  pragma: no cover
+    span = exporter.exported_spans_as_dict()[0]  # pragma: no cover
     assert span['attributes']['logfire.tags'] == ('test_tag',)  # pragma: no cover
 
 
@@ -1094,8 +1098,6 @@ def test_record_all_env_var(exporter: TestExporter) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'all'}):
-        default_param_manager.cache_clear()
-
         # This model should be instrumented even though logfire.configure() hasn't been called
         # because of the LOGFIRE_PYDANTIC_PLUGIN_RECORD env var.
         class MyModel(BaseModel):
@@ -1143,7 +1145,6 @@ def test_record_failure_env_var(exporter: TestExporter) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'failure'}):
-        default_param_manager.cache_clear()
 
         class MyModel(BaseModel):
             x: int
@@ -1188,7 +1189,6 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
     GLOBAL_CONFIG._initialized = False  # type: ignore
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'metrics'}):
-        default_param_manager.cache_clear()
 
         class MyModel(BaseModel):
             x: int
