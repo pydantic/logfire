@@ -110,6 +110,7 @@ __all__ = (
     'force_flush',
     'log_slow_async_callbacks',
     'install_auto_tracing',
+    'instrument_pydantic',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_anthropic',
