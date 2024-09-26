@@ -9,7 +9,7 @@ These are working, stand-alone apps and projects that you can clone, spin up loc
 
 If you want to see an example of a particular language or library, [get in touch](help.md).
 
-# Example repos on Github
+# Example repositories on GitHub
 
 ## Javascript
 
