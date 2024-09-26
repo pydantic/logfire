@@ -85,6 +85,7 @@ nav:
               - Add Logfire Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
               - Add Logfire Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
               - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
+          - Language Support: guides/language-support/index.md
           - Web UI:
               - Intro to the Web UI: guides/web-ui/index.md
               - Live View: guides/web-ui/live.md
