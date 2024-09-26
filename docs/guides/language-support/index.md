@@ -1,18 +1,17 @@
 # Language Support
 
-Because Pydantic Logfire is built on top of OpenTelemetry, Logfire supports all the backend languages supported by OTel.
+Because Pydantic Logfire is built on top of OpenTelemetry, Logfire **supports all languages supported by OTel**.
 
 [See all OTel supported languages](https://opentelemetry.io/docs/languages/){:target="_blank"}
 
-## Logfire backend support
+## Standards support
 
-| Standard | Supported?  | Details |
+| Standard | Supported?  | Docs &amp; details |
 |---|:---:|---|
-| [protobuf encoding](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  |  |
-| [JSON encoding](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  |  |
-| [http](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  |  |
-| [grpc](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ❌  | github issue |
-| [protobuf encoding](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  |  |
+| [protobuf encoding :material-open-in-new:](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
+| [JSON encoding :material-open-in-new:](https://www.json.org/json-en.html){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
+| [http :material-open-in-new:](https://www.cloudflare.com/en-gb/learning/ddos/glossary/hypertext-transfer-protocol-http/){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
+| [grpc :material-open-in-new:](https://grpc.io/){:target="_blank"} |  ❌  | github issue |
 
 
 ## Connection details
