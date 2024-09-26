@@ -10,6 +10,7 @@ from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.config import (
     AdvancedOptions,
+    CodeSource,
     ConsoleOptions,
     MetricsOptions,
     PydanticPlugin,
@@ -93,6 +94,7 @@ __all__ = (
     'LevelName',
     'AdvancedOptions',
     'ConsoleOptions',
+    'CodeSource',
     'PydanticPlugin',
     'configure',
     'span',

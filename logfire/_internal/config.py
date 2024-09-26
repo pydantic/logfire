@@ -63,6 +63,9 @@ from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
+    RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
+    RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
+    RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
     LevelName,
 )
 from .exporters.console import (
@@ -189,6 +192,25 @@ class MetricsOptions:
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
 
+@dataclass
+class CodeSource:
+    """Settings for the source code of the project."""
+
+    repository: str
+    """The repository URL for the code e.g. https://github.com/pydantic/logfire"""
+
+    revision: str
+    """The git revision of the code e.g. branch name, commit hash, tag name etc."""
+
+    root_path: str
+    """The root path for the source code in the repository.
+
+    Example:
+        If the `code.filename` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
+        for the source code will be `src/path/to/project/src/logfire/main.py`.
+    """
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -208,6 +230,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    code_source: CodeSource | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> None:
@@ -235,8 +258,9 @@ def configure(  # noqa: D417
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
-        advanced: Advanced options primarily used for testing by Logfire developers.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
+        code_source: Settings for the source code of the project.
+        advanced: Advanced options primarily used for testing by Logfire developers.
     """
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
@@ -358,6 +382,7 @@ def configure(  # noqa: D417
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
+        code_source=code_source,
         advanced=advanced,
     )
 
@@ -411,6 +436,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options"""
 
+    code_source: CodeSource | None
+    """Settings for the source code of the project"""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -431,6 +459,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        code_source: CodeSource | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -485,6 +514,11 @@ class _LogfireConfigData:
             )
         self.sampling = sampling
 
+        if isinstance(code_source, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            code_source = CodeSource(**code_source)  # type: ignore
+        self.code_source = code_source
+
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
@@ -522,6 +556,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        code_source: CodeSource | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -545,6 +580,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            code_source=code_source,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -572,6 +608,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        code_source: CodeSource | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -589,6 +626,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                code_source,
                 advanced,
             )
             self.initialize()
@@ -610,6 +648,14 @@ class LogfireConfig(_LogfireConfigData):
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
+            if self.code_source:
+                otel_resource_attributes.update(
+                    {
+                        RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
+                        RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
+                        RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
+                    }
+                )
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
