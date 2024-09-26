@@ -98,7 +98,7 @@ def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = No
             variables, otherwise defaults to `PydanticPlugin(record='off')`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_manual_tracing/#f-strings).
+            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
             Defaults to `True` if and only if the Python version is at least 3.11.
         advanced: Advanced options primarily used for testing by Logfire developers.

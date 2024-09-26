@@ -105,7 +105,7 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-- [Quick guide](use_cases/web_frameworks.md#capturing-http-server-request-and-response-headers)
+- [Quick guide](use-cases/web-frameworks.md#capturing-http-server-request-and-response-headers)
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html#capture-http-request-and-response-headers)
 
 [fastapi]: https://fastapi.tiangolo.com/

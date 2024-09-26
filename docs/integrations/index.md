@@ -29,10 +29,10 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [Redis](redis.md)                   | Databases               |
 | [Celery](celery.md)                 | Task Queue              |
 | [Stripe](stripe.md)                 | Payment Gateway         |
-| [System Metrics](system_metrics.md) | System Metrics          |
+| [System Metrics](system-metrics.md) | System Metrics          |
 
 If you are using Logfire with a web application, we also recommend reviewing
-our [Web Frameworks](use_cases/web_frameworks.md)
+our [Web Frameworks](use-cases/web-frameworks.md)
 documentation.
 
 ## Custom Integrations
