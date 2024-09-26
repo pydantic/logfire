@@ -8,7 +8,7 @@ This will be used as a base, and the SDK will append `/v1/traces` and `/v1/metri
 Alternatively, you can use the `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` environment variables to specify the URLs for traces and metrics separately. These URLs should include the full path, including `/v1/traces` and `/v1/metrics`.
 
 !!! note
-    The data will be encoded using **Protobuf** (not JSON) and sent over **HTTP** (not gRPC).
+    The data can be encoded using either **Protobuf** or **JSON** and sent over **HTTP** (not gRPC).
 
     Make sure that your backend supports this! :nerd_face:
 
