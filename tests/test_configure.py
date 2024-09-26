@@ -824,13 +824,18 @@ def test_config_serializable():
         console=logfire.ConsoleOptions(verbose=True),
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
+        code_source=logfire.CodeSource(
+            repository='https://github.com/pydantic/logfire',
+            revision='main',
+            root_path='.',
+        ),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
         )
 
     serialized = serialize_config()
