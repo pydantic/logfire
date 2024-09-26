@@ -14,7 +14,7 @@ you could create another file outside of the `app` package, e.g:
 import logfire
 
 logfire.configure()
-logfire.install_auto_tracing(modules=['app'])
+logfire.install_auto_tracing(modules=['app'], min_duration=0.01)
 
 from app.main import main
 
@@ -23,6 +23,20 @@ main()
 
 !!! note
     Generator functions will not be traced for reasons explained [here](../advanced/generators.md).
+
+## Only tracing functions above a minimum duration
+
+In most situations you don't want to trace every single function call in your application.
+The most convenient way to exclude functions from tracing is with the [`min_duration`][logfire.Logfire.install_auto_tracing(min_duration)] argument. For example, the code snippet above will only trace functions that take longer than 0.01 seconds.
+This means you automatically get observability for the heavier parts of your application without too much overhead or data. Note that there are some caveats:
+
+- A function will only start being traced after it runs longer than `min_duration` once. This means that:
+    - If it runs faster than `min_duration` the first few times, you won't get data about those first calls.
+    - The first time that it runs longer than `min_duration`, you also won't get data about that call.
+- After a function runs longer than `min_duration` once, it will be traced every time it's called afterwards, regardless of how long it takes.
+- Measuring the duration of a function call still adds a small overhead. For tiny functions that are called very frequently, it's best to still use the `@no_auto_trace` decorator to avoid any overhead. Auto-tracing with `min_duration` will still work for other undecorated functions.
+
+If you want to trace all function calls from the beginning, set `min_duration=0`.
 
 ## Filtering modules to trace
 
@@ -89,20 +103,3 @@ Renaming/aliasing either the function or module won't work.
 Neither will calling this indirectly via another function.
 
 This decorator simply returns the argument unchanged, so there is zero runtime overhead.
-
-## Only tracing functions above a minimum duration
-
-A more convenient way to exclude functions from tracing is to set the [`min_duration`][logfire.Logfire.install_auto_tracing(min_duration)] argument, e.g:
-
-```python
-# Only trace functions that take longer than 0.1 seconds
-logfire.install_auto_tracing(modules=['app'], min_duration=0.1)
-```
-
-This means you automatically get observability for the heavier parts of your application without too much overhead or data. Note that there are some caveats:
-
-- A function will only start being traced after it runs longer than `min_duration` once. This means that:
-    - If it runs faster than `min_duration` the first few times, you won't get data about those first calls.
-    - The first time that it runs longer than `min_duration`, you also won't get data about that call.
-- After a function runs longer than `min_duration` once, it will be traced every time it's called afterwards, regardless of how long it takes.
-- Measuring the duration of a function call still adds a small overhead. For tiny functions that are called very frequently, it's best to still use the `@no_auto_trace` decorator to avoid any overhead. Auto-tracing with `min_duration` will still work for other undecorated functions.
