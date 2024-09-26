@@ -2,7 +2,7 @@
 
 Because Pydantic Logfire is built on top of OpenTelemetry, Logfire **supports all languages supported by OTel**.
 
-[See all OTel supported languages](https://opentelemetry.io/docs/languages/){:target="_blank"}
+[See all OTel supported languages :material-open-in-new:](https://opentelemetry.io/docs/languages/){:target="_blank"}
 
 ## Standards support
 
