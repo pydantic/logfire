@@ -11,7 +11,7 @@ If you want to see an example of a particular language or library, [get in touch
 
 # Example repositories on GitHub
 
-## Javascript
+## JavaScript
 
 ### Cloudflare worker example
 
