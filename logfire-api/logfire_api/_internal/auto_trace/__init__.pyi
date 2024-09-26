@@ -4,7 +4,7 @@ from .import_hook import LogfireFinder as LogfireFinder
 from .types import AutoTraceModule as AutoTraceModule
 from typing import Callable, Literal, Sequence
 
-def install_auto_tracing(logfire: Logfire, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error', min_duration: float = 0) -> None:
+def install_auto_tracing(logfire: Logfire, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
     """Install automatic tracing.
 
     See `Logfire.install_auto_tracing` for more information.

@@ -49,7 +49,7 @@ def test_disable_logfire_pydantic_plugin() -> None:
     logfire.configure(
         send_to_logfire=False,
         pydantic_plugin=PydanticPlugin(record='off'),
-        additional_metric_readers=[InMemoryMetricReader()],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
     plugin = LogfirePydanticPlugin()
     assert plugin.new_schema_validator(
@@ -121,7 +121,7 @@ def test_logfire_plugin_include_exclude_models(
     logfire.configure(
         send_to_logfire=False,
         pydantic_plugin=PydanticPlugin(record='all', include=include, exclude=exclude),
-        additional_metric_readers=[InMemoryMetricReader()],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
     plugin = LogfirePydanticPlugin()
 
@@ -652,7 +652,7 @@ def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> 
         advanced=logfire.AdvancedOptions(
             id_generator=SeededRandomIdGenerator(),
         ),
-        additional_metric_readers=[InMemoryMetricReader()],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
@@ -685,7 +685,7 @@ def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExpo
         advanced=logfire.AdvancedOptions(
             id_generator=SeededRandomIdGenerator(),
         ),
-        additional_metric_readers=[InMemoryMetricReader()],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
     class MyModel(

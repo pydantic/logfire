@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v0.54.0] (2024-09-26)
+
+* **Changes in `logfire.configure()`:**
+  * Remove `show_summary` and `fast_shutdown` by @alexmojaki in https://github.com/pydantic/logfire/pull/431
+  * Move `base_url`, `id_generator`, and `ns_timestamp_generator` parameters into `advanced: AdvancedOptions` by @alexmojaki in https://github.com/pydantic/logfire/pull/432
+  * Add `metrics` parameter by @alexmojaki in https://github.com/pydantic/logfire/pull/444
+* Remove default `min_duration` for `install_auto_tracing` by @alexmojaki in https://github.com/pydantic/logfire/pull/446
+
 ## [v0.53.0] (2024-09-17)
 
 * Tail sampling by @alexmojaki in https://github.com/pydantic/logfire/pull/407
@@ -282,6 +290,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
 [v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
 [v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
 [v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0

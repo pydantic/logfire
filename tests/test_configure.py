@@ -18,7 +18,7 @@ import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.metrics import get_meter_provider
+from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
@@ -1373,7 +1373,7 @@ def test_custom_exporters():
         send_to_logfire=False,
         console=False,
         additional_span_processors=[custom_span_processor],
-        additional_metric_readers=[custom_metric_reader],
+        metrics=logfire.MetricsOptions(additional_readers=[custom_metric_reader]),
     )
 
     [custom_processor_wrapper] = get_span_processors()
@@ -1455,6 +1455,14 @@ def test_otel_exporter_otlp_metrics_endpoint_env_var():
     assert otel_metric_reader._exporter._endpoint == 'otel_metrics_endpoint'  # type: ignore
 
 
+def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
+        logfire.configure(send_to_logfire=True, token='foo', metrics=False)
+
+    assert isinstance(get_meter_provider().provider, NoOpMeterProvider)  # type: ignore
+
+
 def get_span_processors() -> Iterable[SpanProcessor]:
     return get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
 
@@ -1522,3 +1530,26 @@ def test_combine_deprecated_and_new_advanced():
         snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
     ):
         logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
+
+
+def test_additional_metric_readers_deprecated():
+    readers = [InMemoryMetricReader()]
+    with pytest.warns(DeprecationWarning) as warnings:
+        logfire.configure(additional_metric_readers=readers)  # type: ignore
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `additional_metric_readers` argument is deprecated. '
+        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+    )
+    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
+
+
+def test_additional_metric_readers_combined_with_metrics():
+    readers = [InMemoryMetricReader()]
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
+            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+        )
+    ):
+        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore

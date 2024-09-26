@@ -75,7 +75,9 @@ def config_kwargs(
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
     configure(
         **config_kwargs,
-        additional_metric_readers=[metrics_reader],
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+        ),
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them
