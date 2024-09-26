@@ -10,7 +10,7 @@ Because Pydantic Logfire is built on top of OpenTelemetry, Logfire **supports al
 |---|:---:|---|
 | [protobuf encoding :material-open-in-new:](https://protobuf.dev/programming-guides/encoding/){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
 | [JSON encoding :material-open-in-new:](https://www.json.org/json-en.html){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
-| [http :material-open-in-new:](https://www.cloudflare.com/en-gb/learning/ddos/glossary/hypertext-transfer-protocol-http/){:target="_blank"} |  ✅  | [Alternative backends](../advanced/alternative-backends.md) |
+| [HTTP :material-open-in-new:](https://www.cloudflare.com/en-gb/learning/ddos/glossary/hypertext-transfer-protocol-http/){:target="_blank"} | ✅ | [Alternative backends](../advanced/alternative-backends.md) |
 | [grpc :material-open-in-new:](https://grpc.io/){:target="_blank"} |  ❌  | github issue |
 
 
