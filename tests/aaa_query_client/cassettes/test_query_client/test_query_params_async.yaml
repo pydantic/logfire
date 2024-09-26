@@ -17,7 +17,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucqKSpN1THkAgAPkIWfJgAA
+        H4sIAJzt9WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucqKSpN1THkAgAPkIWfJgAA
         AA==
     headers:
       access-control-expose-headers:
@@ -29,18 +29,18 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Fri, 30 Aug 2024 16:08:34 GMT
+      - Thu, 26 Sep 2024 23:26:20 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-263b6bfa64dc44be3f58f4b0e850030a-dce4ce1f1c21487f-01
+      - 00-84e0b51b44353804e321f3a7b227c4fb-fd0e148a22449766-01
       transfer-encoding:
       - chunked
       vary:
       - Accept-Encoding
       x-api-version:
-      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
-      x-logfire-project:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
       - e2e-test/test-e2e-project
     status:
       code: 200
@@ -63,7 +63,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+        H4sIAJzt9WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
     headers:
       access-control-expose-headers:
       - traceresponse
@@ -74,18 +74,18 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Fri, 30 Aug 2024 16:08:34 GMT
+      - Thu, 26 Sep 2024 23:26:20 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-4cd967a98d7da5aefb74931b5e1791da-f374614f494b132f-01
+      - 00-c8a1820b09bd733fb97b280fe0379671-2ba4516ef7c87cab-01
       transfer-encoding:
       - chunked
       vary:
       - Accept-Encoding
       x-api-version:
-      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
-      x-logfire-project:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
       - e2e-test/test-e2e-project
     status:
       code: 200
@@ -108,7 +108,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+        H4sIAJzt9WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
     headers:
       access-control-expose-headers:
       - traceresponse
@@ -119,18 +119,18 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Fri, 30 Aug 2024 16:08:34 GMT
+      - Thu, 26 Sep 2024 23:26:20 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-38a1ad9bb2426224dd941d777ae1a568-8be52888bfe0205a-01
+      - 00-ce34b576216bfa6f10d5c9646e4e0b60-d3363d691c89d772-01
       transfer-encoding:
       - chunked
       vary:
       - Accept-Encoding
       x-api-version:
-      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
-      x-logfire-project:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
       - e2e-test/test-e2e-project
     status:
       code: 200
@@ -153,7 +153,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAILu0WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucCANUZtHYfAAAA
+        H4sIAJzt9WYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucCANUZtHYfAAAA
     headers:
       access-control-expose-headers:
       - traceresponse
@@ -164,18 +164,18 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Fri, 30 Aug 2024 16:08:34 GMT
+      - Thu, 26 Sep 2024 23:26:20 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-9c016048fd844e49b095fe52567b9f94-b35101f536d6b5b9-01
+      - 00-0fabff378ff7b68c4c6a6d24ac1b0d9c-1aa1b7fe7a709134-01
       transfer-encoding:
       - chunked
       vary:
       - Accept-Encoding
       x-api-version:
-      - IrAe09QtPMFmR9tG0nG94l9GFfbLxjXec2/mMxKUkoI=
-      x-logfire-project:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
       - e2e-test/test-e2e-project
     status:
       code: 200

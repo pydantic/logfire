@@ -10,7 +10,7 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 CLIENT_BASE_URL = 'http://localhost:8000/'
-CLIENT_READ_TOKEN = '6qdcmMdvHhyqy6sjhmSW08q1J5VCMRfLl23yNbdz3YGn'
+CLIENT_READ_TOKEN = 'Pq18yHflDKmCnzg1lqD9qp8s16C3CgzKt8t9LYmvL2gm'
 pytestmark = [
     pytest.mark.vcr(),
     pytest.mark.skipif(
@@ -34,34 +34,29 @@ def test_read_sync():
                 'columns': [
                     {
                         'name': 'kind',
-                        'datatype': 'String',
-                        'bit_settings': '',
+                        'data_type': 'Utf8',
+                        'nullable': False,
                         'values': ['log', 'log'],
                     },
                     {
                         'name': 'message',
-                        'datatype': 'String',
-                        'bit_settings': '',
+                        'data_type': 'Utf8',
+                        'nullable': True,
                         'values': ['about to raise an error', 'aha 0'],
                     },
                     {
                         'name': 'is_exception',
-                        'datatype': 'Boolean',
-                        'bit_settings': '',
+                        'data_type': 'Boolean',
+                        'nullable': True,
                         'values': [False, False],
                     },
                     {
                         'name': 'tags',
-                        'datatype': {'List': 'String'},
-                        'bit_settings': '',
+                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'nullable': True,
                         'values': [
-                            {'name': '', 'datatype': 'String', 'bit_settings': '', 'values': []},
-                            {
-                                'name': '',
-                                'datatype': 'String',
-                                'bit_settings': '',
-                                'values': ['tag1', 'tag2'],
-                            },
+                            [],
+                            ['tag1', 'tag2'],
                         ],
                     },
                 ]
@@ -70,10 +65,14 @@ def test_read_sync():
         assert client.query_json_rows(sql) == snapshot(
             {
                 'columns': [
-                    {'name': 'kind', 'datatype': 'String', 'bit_settings': ''},
-                    {'name': 'message', 'datatype': 'String', 'bit_settings': ''},
-                    {'name': 'is_exception', 'datatype': 'Boolean', 'bit_settings': ''},
-                    {'name': 'tags', 'datatype': {'List': 'String'}, 'bit_settings': ''},
+                    {'name': 'kind', 'data_type': 'Utf8', 'nullable': False},
+                    {'name': 'message', 'data_type': 'Utf8', 'nullable': True},
+                    {'name': 'is_exception', 'data_type': 'Boolean', 'nullable': True},
+                    {
+                        'name': 'tags',
+                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'nullable': True,
+                    },
                 ],
                 'rows': [
                     {
@@ -128,34 +127,29 @@ async def test_read_async():
                 'columns': [
                     {
                         'name': 'kind',
-                        'datatype': 'String',
-                        'bit_settings': '',
+                        'data_type': 'Utf8',
+                        'nullable': False,
                         'values': ['log', 'log'],
                     },
                     {
                         'name': 'message',
-                        'datatype': 'String',
-                        'bit_settings': '',
+                        'data_type': 'Utf8',
+                        'nullable': True,
                         'values': ['about to raise an error', 'aha 0'],
                     },
                     {
                         'name': 'is_exception',
-                        'datatype': 'Boolean',
-                        'bit_settings': '',
+                        'data_type': 'Boolean',
+                        'nullable': True,
                         'values': [False, False],
                     },
                     {
                         'name': 'tags',
-                        'datatype': {'List': 'String'},
-                        'bit_settings': '',
+                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'nullable': True,
                         'values': [
-                            {'name': '', 'datatype': 'String', 'bit_settings': '', 'values': []},
-                            {
-                                'name': '',
-                                'datatype': 'String',
-                                'bit_settings': '',
-                                'values': ['tag1', 'tag2'],
-                            },
+                            [],
+                            ['tag1', 'tag2'],
                         ],
                     },
                 ]
@@ -164,10 +158,14 @@ async def test_read_async():
         assert await client.query_json_rows(sql) == snapshot(
             {
                 'columns': [
-                    {'name': 'kind', 'datatype': 'String', 'bit_settings': ''},
-                    {'name': 'message', 'datatype': 'String', 'bit_settings': ''},
-                    {'name': 'is_exception', 'datatype': 'Boolean', 'bit_settings': ''},
-                    {'name': 'tags', 'datatype': {'List': 'String'}, 'bit_settings': ''},
+                    {'name': 'kind', 'data_type': 'Utf8', 'nullable': False},
+                    {'name': 'message', 'data_type': 'Utf8', 'nullable': True},
+                    {'name': 'is_exception', 'data_type': 'Boolean', 'nullable': True},
+                    {
+                        'name': 'tags',
+                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'nullable': True,
+                    },
                 ],
                 'rows': [
                     {
