@@ -182,6 +182,9 @@ except ImportError:
         class AdvancedOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class MetricsOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 
