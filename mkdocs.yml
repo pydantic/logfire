@@ -152,6 +152,7 @@ nav:
           - api/integrations/pydantic.md
           - api/integrations/logging.md
           - api/integrations/structlog.md
+  - Examples: examples.md
   - Help: help.md
   - Roadmap: roadmap.md
   - Legal:
@@ -224,6 +225,11 @@ plugins:
             - url: https://requests.readthedocs.io/en/latest/objects.inv
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
+  - privacy:
+      links: true
+      links_attr_map:
+        target: _blank
+      links_noopener: true
   - redirects:
       redirect_maps:
         "legal/service_level_agreement.md": "legal/terms-of-service.md"

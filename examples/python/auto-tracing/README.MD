@@ -1,6 +1,6 @@
 # Logfire Auto-Tracing Example on Python
 
-This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](../../../docs/guides/onboarding_checklist/add_auto_tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
+This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](../../../docs/guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
 
 ## Run the project
 
