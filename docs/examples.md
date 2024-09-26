@@ -32,7 +32,7 @@ This example demonstrates how to use OpenTelemetry to instrument an Express appl
 
 ### Auto-tracing example
 
-This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](../../../docs/guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
+This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
 
 **Check it out on github:**
 `https://github.com/pydantic/logfire/tree/main/examples/python/auto-tracing/`
