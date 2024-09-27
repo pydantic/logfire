@@ -89,7 +89,7 @@ nav:
               - Intro to the Web UI: guides/web-ui/index.md
               - Live View: guides/web-ui/live.md
               - Dashboards: guides/web-ui/dashboards.md
-              - Alerts: guides/web-ui/alerts.md
+              - Alerts (Beta): guides/web-ui/alerts.md
               - SQL Explorer: guides/web-ui/explore.md
           - Advanced User Guide:
               - Advanced User Guide: guides/advanced/index.md
