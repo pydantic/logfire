@@ -61,7 +61,7 @@ class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'
 
 ### Record
 
-The [`record`][logfire.integrations.pydantic.LogfireSettings.record] is used to configure what to record.
+The [`record`][logfire.integrations.pydantic.LogfireSettings.record] argument is used to configure what to record.
 It can be one of the following values:
 
   * `all`: Send traces and metrics for all events. This is default value for `logfire.instrument_pydantic`.
