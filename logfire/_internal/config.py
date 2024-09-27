@@ -105,7 +105,10 @@ METRICS_PREFERRED_TEMPORALITY = {
     ObservableUpDownCounter: AggregationTemporality.CUMULATIVE,
     ObservableGauge: AggregationTemporality.CUMULATIVE,
 }
-"""This should be passed as the `preferred_temporality` argument of metric readers and exporters."""
+"""
+This should be passed as the `preferred_temporality` argument of metric readers and exporters
+which send to the Logfire backend.
+"""
 
 
 @dataclass
