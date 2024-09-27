@@ -46,7 +46,7 @@ from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
@@ -83,7 +83,13 @@ from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor, ProxyTracerProvider
-from .utils import UnexpectedResponse, ensure_data_dir_exists, read_toml_file, suppress_instrumentation
+from .utils import (
+    SeededRandomIdGenerator,
+    UnexpectedResponse,
+    ensure_data_dir_exists,
+    read_toml_file,
+    suppress_instrumentation,
+)
 
 if TYPE_CHECKING:
     from .main import FastLogfireSpan, LogfireSpan
@@ -105,7 +111,10 @@ METRICS_PREFERRED_TEMPORALITY = {
     ObservableUpDownCounter: AggregationTemporality.CUMULATIVE,
     ObservableGauge: AggregationTemporality.CUMULATIVE,
 }
-"""This should be passed as the `preferred_temporality` argument of metric readers and exporters."""
+"""
+This should be passed as the `preferred_temporality` argument of metric readers and exporters
+which send to the Logfire backend.
+"""
 
 
 @dataclass
@@ -136,8 +145,11 @@ class AdvancedOptions:
     base_url: str = 'https://logfire-api.pydantic.dev'
     """Root URL for the Logfire API."""
 
-    id_generator: IdGenerator = dataclasses.field(default_factory=RandomIdGenerator)
-    """Generator for trace and span IDs."""
+    id_generator: IdGenerator = dataclasses.field(default_factory=lambda: SeededRandomIdGenerator(None))
+    """Generator for trace and span IDs.
+
+    The default generates random IDs and is unaffected by calls to `random.seed()`.
+    """
 
     ns_timestamp_generator: Callable[[], int] = time.time_ns
     """Generator for nanosecond start and end timestamps of spans."""

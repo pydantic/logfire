@@ -17,7 +17,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
-from .utils import UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
+from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from functools import cached_property

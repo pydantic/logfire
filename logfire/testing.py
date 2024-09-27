@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 
 import pytest
@@ -14,6 +13,7 @@ import logfire
 
 from ._internal.constants import ONE_SECOND_IN_NANOSECONDS
 from ._internal.exporters.test import TestExporter
+from ._internal.utils import SeededRandomIdGenerator
 
 __all__ = [
     'capfire',
@@ -54,28 +54,6 @@ class IncrementalIdGenerator(IdGenerator):
         if self.trace_id_counter > 2**128 - 1:  # pragma: no branch
             raise OverflowError('Trace ID overflow')  # pragma: no cover
         return self.trace_id_counter
-
-
-@dataclass(repr=True)
-class SeededRandomIdGenerator(IdGenerator):
-    """Generate random span/trace IDs from a random seed for deterministic tests.
-
-    Trace IDs are 64-bit integers.
-    Span IDs are 32-bit integers.
-    """
-
-    seed: int = 0
-
-    def __post_init__(self) -> None:
-        self.random = random.Random(self.seed)
-
-    def generate_span_id(self) -> int:
-        """Generates a random span id."""
-        return self.random.getrandbits(64)
-
-    def generate_trace_id(self) -> int:
-        """Generates a random trace id."""
-        return self.random.getrandbits(128)
 
 
 # Making this a dataclass causes errors in the process pool end-to-end tests
