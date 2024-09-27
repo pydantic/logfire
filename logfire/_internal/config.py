@@ -147,7 +147,7 @@ class AdvancedOptions:
 class PydanticPlugin:
     """Options for the Pydantic plugin.
 
-    This class is deprecated. Use `logfire.instrument_pydantic()` instead.
+    This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
     """
 
     record: PydanticPluginRecordValues = 'off'
@@ -331,9 +331,9 @@ def configure(  # noqa: D417
             'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
             DeprecationWarning,
         )
-        from logfire.integrations.pydantic import instrument_pydantic
+        from logfire.integrations.pydantic import set_pydantic_plugin_config
 
-        instrument_pydantic(pydantic_plugin)
+        set_pydantic_plugin_config(pydantic_plugin)
 
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')

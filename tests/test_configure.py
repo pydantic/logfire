@@ -51,7 +51,7 @@ from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire.exceptions import LogfireConfigError
-from logfire.integrations.pydantic import pydantic_plugin_config
+from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.testing import TestExporter
 
 
@@ -417,8 +417,8 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
 
 
 def fresh_pydantic_plugin():
-    GLOBAL_CONFIG.param_manager.__dict__.pop('pydantic_plugin', None)
-    return pydantic_plugin_config()
+    GLOBAL_CONFIG.param_manager.__dict__.pop('pydantic_plugin', None)  # reset the cached_property
+    return get_pydantic_plugin_config()
 
 
 def test_pydantic_plugin_include_exclude_strings():

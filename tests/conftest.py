@@ -15,7 +15,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
-from logfire.integrations.pydantic import instrument_pydantic
+from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
@@ -28,8 +28,8 @@ def anyio_backend():
 
 
 @pytest.fixture(autouse=True)
-def reset_global_config():
-    instrument_pydantic(None)
+def reset_pydantic_plugin_config():
+    set_pydantic_plugin_config(None)
 
 
 @pytest.fixture

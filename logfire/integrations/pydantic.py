@@ -28,12 +28,6 @@ METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # type: ign
 validation_counter = METER.create_counter('pydantic.validations')
 
 
-def instrument_pydantic(plugin_config: PydanticPlugin | None) -> None:
-    """Set the pydantic plugin config."""
-    global _pydantic_plugin_config_value
-    _pydantic_plugin_config_value = plugin_config
-
-
 class PluginSettings(TypedDict, total=False):
     """A typed dict for the Pydantic plugin settings.
 
@@ -347,7 +341,7 @@ class LogfirePydanticPlugin:
             if logfire_settings and 'record' in logfire_settings:
                 record = logfire_settings['record']
             else:
-                record = pydantic_plugin_config().record
+                record = get_pydantic_plugin_config().record
 
             if record == 'off':
                 return None, None, None
@@ -372,7 +366,7 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNO
 _pydantic_plugin_config_value: PydanticPlugin | None = None
 
 
-def pydantic_plugin_config() -> PydanticPlugin:
+def get_pydantic_plugin_config() -> PydanticPlugin:
     """Get the Pydantic plugin config."""
     if _pydantic_plugin_config_value is not None:
         return _pydantic_plugin_config_value
@@ -380,9 +374,15 @@ def pydantic_plugin_config() -> PydanticPlugin:
         return GLOBAL_CONFIG.param_manager.pydantic_plugin
 
 
+def set_pydantic_plugin_config(plugin_config: PydanticPlugin | None) -> None:
+    """Set the pydantic plugin config."""
+    global _pydantic_plugin_config_value
+    _pydantic_plugin_config_value = plugin_config
+
+
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
-    config = pydantic_plugin_config()
+    config = get_pydantic_plugin_config()
     include = config.include
     exclude = config.exclude
 
