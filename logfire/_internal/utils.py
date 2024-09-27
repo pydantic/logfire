@@ -372,12 +372,12 @@ class SeededRandomIdGenerator(IdGenerator):
 
     def generate_span_id(self) -> int:
         span_id = self.random.getrandbits(64)
-        while span_id == trace_api.INVALID_SPAN_ID:
+        while span_id == trace_api.INVALID_SPAN_ID:  # pragma: no cover
             span_id = self.random.getrandbits(64)
         return span_id
 
     def generate_trace_id(self) -> int:
         trace_id = self.random.getrandbits(128)
-        while trace_id == trace_api.INVALID_TRACE_ID:
+        while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
             trace_id = self.random.getrandbits(128)
         return trace_id
