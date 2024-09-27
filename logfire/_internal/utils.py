@@ -4,8 +4,10 @@ import inspect
 import json
 import logging
 import os
+import random
 import sys
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
@@ -13,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, Typ
 from opentelemetry import context, trace as trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event, ReadableSpan
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.status import Status
 from opentelemetry.util import types as otel_types
@@ -348,3 +351,33 @@ def maybe_capture_server_headers(capture: bool):
 
 def is_asgi_send_receive_span_name(name: str) -> bool:
     return name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive'))
+
+
+@dataclass(repr=True)
+class SeededRandomIdGenerator(IdGenerator):
+    """Generate random span/trace IDs from a seed for deterministic tests.
+
+    Similar to RandomIdGenerator from OpenTelemetry, but with a seed.
+    Set the seed to None for non-deterministic randomness.
+    In that case the difference from RandomIdGenerator is that it's not affected by `random.seed(...)`.
+
+    Trace IDs are 128-bit integers.
+    Span IDs are 64-bit integers.
+    """
+
+    seed: int | None = 0
+
+    def __post_init__(self) -> None:
+        self.random = random.Random(self.seed)
+
+    def generate_span_id(self) -> int:
+        span_id = self.random.getrandbits(64)
+        while span_id == trace_api.INVALID_SPAN_ID:
+            span_id = self.random.getrandbits(64)
+        return span_id
+
+    def generate_trace_id(self) -> int:
+        trace_id = self.random.getrandbits(128)
+        while trace_id == trace_api.INVALID_TRACE_ID:
+            trace_id = self.random.getrandbits(128)
+        return trace_id
