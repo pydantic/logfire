@@ -30,6 +30,7 @@ instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
+instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
@@ -108,6 +109,7 @@ __all__ = (
     'force_flush',
     'log_slow_async_callbacks',
     'install_auto_tracing',
+    'instrument_pydantic',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_anthropic',

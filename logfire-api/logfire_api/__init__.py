@@ -95,6 +95,8 @@ except ImportError:
             def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
+            def instrument_pydantic(self, *args, **kwargs) -> None: ...
+
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
@@ -144,6 +146,7 @@ except ImportError:
         log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
         install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
         instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
+        instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic

@@ -21,6 +21,7 @@ from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
 from .config import GLOBAL_CONFIG, OPEN_SPANS, LogfireConfig
+from .config_params import PydanticPluginRecordValues
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -49,7 +50,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -801,6 +802,54 @@ class Logfire:
 
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
+
+    def instrument_pydantic(
+        self,
+        record: PydanticPluginRecordValues = 'all',
+        include: Iterable[str] = (),
+        exclude: Iterable[str] = (),
+    ):
+        """Instrument Pydantic model validations.
+
+        This must be called before defining and importing the model classes you want to instrument.
+        See the [Pydantic integration guide](https://logfire.pydantic.dev/docs/integrations/pydantic/) for more info.
+
+        Args:
+            record: The record mode for the Pydantic plugin. It can be one of the following values:
+
+                - `all`: Send traces and metrics for all events. This is default value.
+                - `failure`: Send metrics for all validations and traces only for validation failures.
+                - `metrics`: Send only metrics.
+                - `off`: Disable instrumentation.
+            include:
+                By default, third party modules are not instrumented. This option allows you to include specific modules.
+            exclude:
+                Exclude specific modules from instrumentation.
+        """
+        # Note that unlike most instrument_* methods, we intentionally don't call
+        # _warn_if_not_initialized_for_instrumentation, because this method needs to be called early.
+
+        if record != 'off':
+            import pydantic
+
+            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
+                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
+
+        from logfire.integrations.pydantic import PydanticPlugin, set_pydantic_plugin_config
+
+        if isinstance(include, str):
+            include = {include}
+
+        if isinstance(exclude, str):
+            exclude = {exclude}
+
+        set_pydantic_plugin_config(
+            PydanticPlugin(
+                record=record,
+                include=set(include),
+                exclude=set(exclude),
+            )
+        )
 
     def instrument_fastapi(
         self,
