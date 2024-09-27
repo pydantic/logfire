@@ -16,21 +16,21 @@ interactions:
     uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20
   response:
     body:
-      string: '{"columns":[{"name":"kind","data_type":"Utf8","nullable":false,"values":["log","log"]},{"name":"message","data_type":"Utf8","nullable":true,"values":["about
-        to raise an error","aha 0"]},{"name":"is_exception","data_type":"Boolean","nullable":true,"values":[false,false]},{"name":"tags","data_type":{"List":{"name":"item","data_type":"Utf8","nullable":true}},"nullable":true,"values":[[],["tag1","tag2"]]}]}'
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8","values":["log","log"]},{"name":"message","nullable":true,"datatype":"Utf8","values":["about
+        to raise an error","aha 0"]},{"name":"is_exception","nullable":true,"datatype":"Boolean","values":[false,false]},{"name":"tags","nullable":true,"datatype":{"List":{"name":"item","nullable":true,"datatype":"Utf8"}},"values":[[],["tag1","tag2"]]}]}'
     headers:
       access-control-expose-headers:
       - traceresponse
       content-length:
-      - '406'
+      - '401'
       content-type:
       - application/json
       date:
-      - Thu, 26 Sep 2024 23:26:19 GMT
+      - Fri, 27 Sep 2024 15:19:45 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-1aa34fdf15209867ec52570dd481cc03-c34a2e2d50b782b9-01
+      - 00-8a57bdccb05b6ad2667c6b15d4d392ba-6cc451b9555f1963-01
       x-api-version:
       - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
       x-logfire-context:
@@ -55,22 +55,22 @@ interactions:
     uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20&json_rows=true
   response:
     body:
-      string: '{"columns":[{"name":"kind","data_type":"Utf8","nullable":false},{"name":"message","data_type":"Utf8","nullable":true},{"name":"is_exception","data_type":"Boolean","nullable":true},{"name":"tags","data_type":{"List":{"name":"item","data_type":"Utf8","nullable":true}},"nullable":true}],"rows":[{"kind":"log","message":"about
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8"},{"name":"message","nullable":true,"datatype":"Utf8"},{"name":"is_exception","nullable":true,"datatype":"Boolean"},{"name":"tags","nullable":true,"datatype":{"List":{"name":"item","nullable":true,"datatype":"Utf8"}}}],"rows":[{"kind":"log","message":"about
         to raise an error","is_exception":false,"tags":[]},{"kind":"log","message":"aha
         0","is_exception":false,"tags":["tag1","tag2"]}]}'
     headers:
       access-control-expose-headers:
       - traceresponse
       content-length:
-      - '453'
+      - '448'
       content-type:
       - application/json
       date:
-      - Thu, 26 Sep 2024 23:26:19 GMT
+      - Fri, 27 Sep 2024 15:19:45 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-239ecd04bc312edc88d3c330b21b27fc-57aa2339286722f8-01
+      - 00-ddfb891a849b297af92c214834559d5f-389928983edb083d-01
       x-api-version:
       - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
       x-logfire-context:
@@ -96,7 +96,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAJzt9WYC/y2LQQqAMAzA7ntF6bkH9TsypGqdw7nKOsHnK+othGSLeaZdzDgIRRvkmuSoUTNV
+        H4sIABHN9mYC/y2LQQqAMAzA7ntF6bkH9TsypGqdw7nKOsHnK+othGSLeaZdzDgIRRvkmuSoUTNV
         DuaSBuJRzwpVoXA0Ac4gpWihhZMJ9f6LVobmV9gjPneLSC90iB7dDVkJgRRqAAAA
     headers:
       access-control-expose-headers:
@@ -108,11 +108,11 @@ interactions:
       content-type:
       - text/csv; charset=utf-8
       date:
-      - Thu, 26 Sep 2024 23:26:19 GMT
+      - Fri, 27 Sep 2024 15:19:45 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-bcf3a83bd9516e9c3b5665c83d4bcd44-b78699552597fdc5-01
+      - 00-17855006a5c7f17120d888220d7536fb-0026d7fd484add2b-01
       transfer-encoding:
       - chunked
       vary:
@@ -142,7 +142,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAJzt9WYC/8VUvU7EMAx2/46CCtxQ6RBiyCMAU8c+BCMSynFRqeBa1BbpBgZGHoKBR+nIyAPw
+        H4sIABHN9mYC/8VUvU7EMAx2/46CCtxQ6RBiyCMAU8c+BCMSynFRqeBa1BbpBgZGHoKBR+nIyAPw
         LsFJHa6NbuB+BE6/2Inz2Y5bVUopEwdgDEoOIELsg48z7Tk+hDgAfJo7fCHeEde0fsY4J6gjHceJ
         EjUjFCdB3xsiXvqDTgNc4b7i542YA8VqeFYr+3PIGRnOK+4rO69vxOJWPDZ5WYCuN0YcwbGOEur6
         V+X8QP4e6rmoa54J4sGAt7wLBGPi+Xp0Nd7nxUztYSi5oP5FcIq8ie6U4jJE6kFfPNXZGL0h9XhG
@@ -155,11 +155,11 @@ interactions:
       content-encoding:
       - gzip
       date:
-      - Thu, 26 Sep 2024 23:26:19 GMT
+      - Fri, 27 Sep 2024 15:19:45 GMT
       server:
       - uvicorn
       traceresponse:
-      - 00-e977de2fb6459c88ed8510f06c894a8d-c775ee5f36fe7892-01
+      - 00-bf90027eadec96c865a44d70df809b2e-1e8c072281f216dd-01
       transfer-encoding:
       - chunked
       vary:

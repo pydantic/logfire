@@ -10,7 +10,7 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 CLIENT_BASE_URL = 'http://localhost:8000/'
-CLIENT_READ_TOKEN = 'Pq18yHflDKmCnzg1lqD9qp8s16C3CgzKt8t9LYmvL2gm'
+CLIENT_READ_TOKEN = '06KJCLLch8TCYx1FX4N1VGbr2mHrR760Z87zWjpb0TPm'
 pytestmark = [
     pytest.mark.vcr(),
     pytest.mark.skipif(
@@ -34,25 +34,25 @@ def test_read_sync():
                 'columns': [
                     {
                         'name': 'kind',
-                        'data_type': 'Utf8',
+                        'datatype': 'Utf8',
                         'nullable': False,
                         'values': ['log', 'log'],
                     },
                     {
                         'name': 'message',
-                        'data_type': 'Utf8',
+                        'datatype': 'Utf8',
                         'nullable': True,
                         'values': ['about to raise an error', 'aha 0'],
                     },
                     {
                         'name': 'is_exception',
-                        'data_type': 'Boolean',
+                        'datatype': 'Boolean',
                         'nullable': True,
                         'values': [False, False],
                     },
                     {
                         'name': 'tags',
-                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
                         'nullable': True,
                         'values': [
                             [],
@@ -65,13 +65,13 @@ def test_read_sync():
         assert client.query_json_rows(sql) == snapshot(
             {
                 'columns': [
-                    {'name': 'kind', 'data_type': 'Utf8', 'nullable': False},
-                    {'name': 'message', 'data_type': 'Utf8', 'nullable': True},
-                    {'name': 'is_exception', 'data_type': 'Boolean', 'nullable': True},
+                    {'name': 'kind', 'nullable': False, 'datatype': 'Utf8'},
+                    {'name': 'message', 'nullable': True, 'datatype': 'Utf8'},
+                    {'name': 'is_exception', 'nullable': True, 'datatype': 'Boolean'},
                     {
                         'name': 'tags',
-                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
                         'nullable': True,
+                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
                     },
                 ],
                 'rows': [
@@ -127,25 +127,25 @@ async def test_read_async():
                 'columns': [
                     {
                         'name': 'kind',
-                        'data_type': 'Utf8',
+                        'datatype': 'Utf8',
                         'nullable': False,
                         'values': ['log', 'log'],
                     },
                     {
                         'name': 'message',
-                        'data_type': 'Utf8',
+                        'datatype': 'Utf8',
                         'nullable': True,
                         'values': ['about to raise an error', 'aha 0'],
                     },
                     {
                         'name': 'is_exception',
-                        'data_type': 'Boolean',
+                        'datatype': 'Boolean',
                         'nullable': True,
                         'values': [False, False],
                     },
                     {
                         'name': 'tags',
-                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
+                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
                         'nullable': True,
                         'values': [
                             [],
@@ -158,13 +158,13 @@ async def test_read_async():
         assert await client.query_json_rows(sql) == snapshot(
             {
                 'columns': [
-                    {'name': 'kind', 'data_type': 'Utf8', 'nullable': False},
-                    {'name': 'message', 'data_type': 'Utf8', 'nullable': True},
-                    {'name': 'is_exception', 'data_type': 'Boolean', 'nullable': True},
+                    {'name': 'kind', 'nullable': False, 'datatype': 'Utf8'},
+                    {'name': 'message', 'nullable': True, 'datatype': 'Utf8'},
+                    {'name': 'is_exception', 'nullable': True, 'datatype': 'Boolean'},
                     {
                         'name': 'tags',
-                        'data_type': {'List': {'name': 'item', 'data_type': 'Utf8', 'nullable': True}},
                         'nullable': True,
+                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
                     },
                 ],
                 'rows': [

@@ -16,7 +16,7 @@ class QueryRequestError(RuntimeError):
 class ColumnDetails(TypedDict):
     """The details of a column in the row-oriented JSON-format query results."""
     name: str
-    data_type: Any
+    datatype: Any
     nullable: bool
 
 class ColumnData(ColumnDetails):
