@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v0.55.0] (2024-09-27)
+
+* Replace `pydantic_plugin` in `logfire.configure()` with `logfire.instrument_pydantic()` by @alexmojaki in https://github.com/pydantic/logfire/pull/453
+* Keep `METRICS_PREFERRED_TEMPORALITY` private by @alexmojaki in https://github.com/pydantic/logfire/pull/456
+* Use `SeededRandomIdGenerator` by default to prevent interference from `random.seed` by @alexmojaki in https://github.com/pydantic/logfire/pull/457
+
 ## [v0.54.0] (2024-09-26)
 
 * **Changes in `logfire.configure()`:**
@@ -290,6 +296,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
 [v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
 [v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
 [v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
