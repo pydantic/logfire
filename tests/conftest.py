@@ -15,6 +15,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
+from logfire.integrations.pydantic import instrument_pydantic
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
@@ -24,6 +25,11 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
     return 'asyncio'
+
+
+@pytest.fixture(autouse=True)
+def reset_global_config():
+    instrument_pydantic(None)
 
 
 @pytest.fixture

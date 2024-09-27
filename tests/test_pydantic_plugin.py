@@ -25,15 +25,9 @@ from logfire._internal.config import GLOBAL_CONFIG
 from logfire.integrations.pydantic import (
     LogfirePydanticPlugin,
     get_schema_name,
-    instrument_pydantic,
 )
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
-
-
-@pytest.fixture(autouse=True)  # only applies within this module
-def reset_global_config():
-    instrument_pydantic(None)
 
 
 def test_plugin_listed():

@@ -421,7 +421,13 @@ def fresh_pydantic_plugin():
     return pydantic_plugin_config()
 
 
-def test_deprecated_configure(config_kwargs: dict[str, Any]):
+def test_pydantic_plugin_include_exclude_strings():
+    logfire.instrument_pydantic(include='inc', exclude='exc')
+    assert fresh_pydantic_plugin().include == {'inc'}
+    assert fresh_pydantic_plugin().exclude == {'exc'}
+
+
+def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
     assert fresh_pydantic_plugin().record == 'off'
 
     with pytest.warns(DeprecationWarning) as warnings:
