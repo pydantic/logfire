@@ -145,7 +145,10 @@ class AdvancedOptions:
 
 @dataclass
 class PydanticPlugin:
-    """Options for the Pydantic plugin."""
+    """Options for the Pydantic plugin.
+
+    This class is deprecated. Use `logfire.instrument_pydantic()` instead.
+    """
 
     record: PydanticPluginRecordValues = 'off'
     """The record mode for the Pydantic plugin.

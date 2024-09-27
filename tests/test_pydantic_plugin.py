@@ -1232,3 +1232,45 @@ def test_cloudpickle():
 
     m = MyModel(x=1)
     assert cloudpickle.loads(cloudpickle.dumps(m)).model_dump() == m.model_dump() == {'x': 1}  # type: ignore
+
+
+def test_deprecated_configure(config_kwargs: dict[str, Any], exporter: TestExporter):
+    with pytest.warns(DeprecationWarning) as warnings:
+        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
+    )
+
+    class MyModel(BaseModel):
+        x: int
+
+    MyModel(x=1)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'pydantic.validate_python',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_pydantic_plugin.py',
+                    'code.function': 'test_deprecated_configure',
+                    'code.lineno': 123,
+                    'schema_name': 'MyModel',
+                    'validation_method': 'validate_python',
+                    'input_data': '{"x":1}',
+                    'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                    'logfire.level_num': 9,
+                    'logfire.span_type': 'span',
+                    'success': True,
+                    'result': '{"x":1}',
+                    'logfire.msg': 'Pydantic MyModel validate_python succeeded',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                },
+            }
+        ]
+    )
