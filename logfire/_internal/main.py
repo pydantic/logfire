@@ -811,6 +811,9 @@ class Logfire:
     ):
         """Instrument Pydantic model validations.
 
+        This must be called before defining and importing the model classes you want to instrument.
+        See the [Pydantic integration guide](https://logfire.pydantic.dev/docs/integrations/pydantic/) for more info.
+
         Args:
             record: The record mode for the Pydantic plugin. It can be one of the following values:
 
@@ -823,6 +826,9 @@ class Logfire:
             exclude:
                 Exclude specific modules from instrumentation.
         """
+        # Note that unlike most instrument_* methods, we intentionally don't call
+        # _warn_if_not_initialized_for_instrumentation, because this method needs to be called early.
+
         if record != 'off':
             import pydantic
 

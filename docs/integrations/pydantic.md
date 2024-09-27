@@ -18,13 +18,16 @@ pydantic_plugin_record = "all"
 ```py
 import logfire
 
-logfire.configure()
-
 logfire.instrument_pydantic()  # Defaults to record='all'
 ```
 
-Note that if you only use the last option then only models defined and imported *after* calling `logfire.instrument_pydantic`
+Note that if you only use the last option then only model classes defined and imported *after* calling `logfire.instrument_pydantic`
 will be instrumented.
+
+!!! note
+    Remember to call [`logfire.configure()`][logfire.configure] at some point, whether before or after
+    calling `logfire.instrument_pydantic` and defining model classes.
+    Model validations will only start being logged after calling `logfire.configure()`.
 
 ## Third party modules
 
@@ -32,10 +35,6 @@ By default, third party modules are not instrumented by the plugin to avoid nois
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
 ```py
-import logfire
-
-logfire.configure()
-
 logfire.instrument_pydantic(include={'openai'})
 ```
 
@@ -43,10 +42,6 @@ You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
 ```py
-import logfire
-
-logfire.configure()
-
 logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
