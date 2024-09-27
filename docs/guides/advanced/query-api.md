@@ -79,7 +79,7 @@ Here's an example of how to use these clients:
             # Retrieve data in arrow format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query))  # type: ignore
+            df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query))
             print(df_from_arrow)
 
             # Retrieve data in CSV format, and load into a polars DataFrame
@@ -123,7 +123,7 @@ Here's an example of how to use these clients:
             # Retrieve data in arrow format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))  # type: ignore
+            df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))
             print(df_from_arrow)
 
             # Retrieve data in CSV format, and load into a polars DataFrame
