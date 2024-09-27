@@ -172,9 +172,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.MetricsOptions()
     logfire__all__.remove('MetricsOptions')
 
-    assert hasattr(logfire_api, 'METRICS_PREFERRED_TEMPORALITY')
-    logfire__all__.remove('METRICS_PREFERRED_TEMPORALITY')
-
     assert hasattr(logfire_api, 'load_spans_from_file')
     logfire_api.load_spans_from_file(file_path='test')
     logfire__all__.remove('load_spans_from_file')

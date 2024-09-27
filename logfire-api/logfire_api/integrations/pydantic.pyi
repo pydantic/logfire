@@ -1,5 +1,4 @@
 from .._internal.config import GLOBAL_CONFIG as GLOBAL_CONFIG, PydanticPlugin as PydanticPlugin
-from .._internal.config_params import default_param_manager as default_param_manager
 from .._internal.utils import get_version as get_version
 from _typeshed import Incomplete
 from dataclasses import dataclass
@@ -92,5 +91,10 @@ class LogfirePydanticPlugin:
 plugin: Incomplete
 IGNORED_MODULES: tuple[str, ...]
 IGNORED_MODULE_PREFIXES: tuple[str, ...]
+
+def get_pydantic_plugin_config() -> PydanticPlugin:
+    """Get the Pydantic plugin config."""
+def set_pydantic_plugin_config(plugin_config: PydanticPlugin | None) -> None:
+    """Set the pydantic plugin config."""
 P = ParamSpec('P')
 R = TypeVar('R')

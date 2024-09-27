@@ -17,14 +17,12 @@ import logfire
 from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
-from .._internal.config_params import default_param_manager
 from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import ValidationError
     from pydantic.plugin import SchemaKind, SchemaTypePath
     from pydantic_core import CoreConfig, CoreSchema
-
 
 METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # type: ignore
 validation_counter = METER.create_counter('pydantic.validations')
@@ -343,7 +341,7 @@ class LogfirePydanticPlugin:
             if logfire_settings and 'record' in logfire_settings:
                 record = logfire_settings['record']
             else:
-                record = _pydantic_plugin_config().record
+                record = get_pydantic_plugin_config().record
 
             if record == 'off':
                 return None, None, None
@@ -365,17 +363,26 @@ plugin = LogfirePydanticPlugin()
 IGNORED_MODULES: tuple[str, ...] = 'fastapi', 'logfire_backend', 'fastui'
 IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNORED_MODULES)
 
+_pydantic_plugin_config_value: PydanticPlugin | None = None
 
-def _pydantic_plugin_config() -> PydanticPlugin:
-    if GLOBAL_CONFIG._initialized:  # type: ignore
-        return GLOBAL_CONFIG.pydantic_plugin
+
+def get_pydantic_plugin_config() -> PydanticPlugin:
+    """Get the Pydantic plugin config."""
+    if _pydantic_plugin_config_value is not None:
+        return _pydantic_plugin_config_value
     else:
-        return default_param_manager().pydantic_plugin
+        return GLOBAL_CONFIG.param_manager.pydantic_plugin
+
+
+def set_pydantic_plugin_config(plugin_config: PydanticPlugin | None) -> None:
+    """Set the pydantic plugin config."""
+    global _pydantic_plugin_config_value
+    _pydantic_plugin_config_value = plugin_config
 
 
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
-    config = _pydantic_plugin_config()
+    config = get_pydantic_plugin_config()
     include = config.include
     exclude = config.exclude
 
