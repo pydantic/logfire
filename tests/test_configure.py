@@ -51,7 +51,7 @@ from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire.exceptions import LogfireConfigError
-from logfire.integrations.pydantic import _pydantic_plugin_config  # type: ignore
+from logfire.integrations.pydantic import pydantic_plugin_config
 from logfire.testing import TestExporter
 
 
@@ -418,7 +418,21 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
 
 def fresh_pydantic_plugin():
     GLOBAL_CONFIG.param_manager.__dict__.pop('pydantic_plugin', None)
-    return _pydantic_plugin_config()
+    return pydantic_plugin_config()
+
+
+def test_deprecated_configure(config_kwargs: dict[str, Any]):
+    assert fresh_pydantic_plugin().record == 'off'
+
+    with pytest.warns(DeprecationWarning) as warnings:
+        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
+
+    assert fresh_pydantic_plugin().record == 'all'
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
+    )
 
 
 def test_read_config_from_environment_variables() -> None:

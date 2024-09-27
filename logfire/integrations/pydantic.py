@@ -347,7 +347,7 @@ class LogfirePydanticPlugin:
             if logfire_settings and 'record' in logfire_settings:
                 record = logfire_settings['record']
             else:
-                record = _pydantic_plugin_config().record
+                record = pydantic_plugin_config().record
 
             if record == 'off':
                 return None, None, None
@@ -372,7 +372,8 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNO
 _pydantic_plugin_config_value: PydanticPlugin | None = None
 
 
-def _pydantic_plugin_config() -> PydanticPlugin:
+def pydantic_plugin_config() -> PydanticPlugin:
+    """Get the Pydantic plugin config."""
     if _pydantic_plugin_config_value is not None:
         return _pydantic_plugin_config_value
     else:
@@ -381,7 +382,7 @@ def _pydantic_plugin_config() -> PydanticPlugin:
 
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
     """Check whether a model should be instrumented."""
-    config = _pydantic_plugin_config()
+    config = pydantic_plugin_config()
     include = config.include
     exclude = config.exclude
 
