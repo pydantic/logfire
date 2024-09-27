@@ -91,6 +91,7 @@ nav:
               - Dashboards: guides/web-ui/dashboards.md
               - Alerts (Beta): guides/web-ui/alerts.md
               - SQL Explorer: guides/web-ui/explore.md
+          - Language Support: guides/language-support/index.md
           - Advanced User Guide:
               - Advanced User Guide: guides/advanced/index.md
               - Alternative Backends: guides/advanced/alternative-backends.md
