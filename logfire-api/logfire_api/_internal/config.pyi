@@ -17,7 +17,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
-from .utils import UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, get_version as get_version, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
+from .utils import UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from functools import cached_property
@@ -59,7 +59,10 @@ class AdvancedOptions:
 
 @dataclass
 class PydanticPlugin:
-    """Options for the Pydantic plugin."""
+    """Options for the Pydantic plugin.
+
+    This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
+    """
     record: PydanticPluginRecordValues = ...
     include: set[str] = ...
     exclude: set[str] = ...
@@ -74,7 +77,7 @@ class MetricsOptions:
 
 class DeprecatedKwargs(TypedDict): ...
 
-def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, pydantic_plugin: PydanticPlugin | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> None:
+def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> None:
     """Configure the logfire SDK.
 
     Args:
@@ -94,8 +97,6 @@ def configure(*, send_to_logfire: bool | Literal['if-token-present'] | None = No
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
-        pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
-            variables, otherwise defaults to `PydanticPlugin(record='off')`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
@@ -123,21 +124,20 @@ class _LogfireConfigData:
     console: ConsoleOptions | Literal[False] | None
     data_dir: Path
     additional_span_processors: Sequence[SpanProcessor] | None
-    pydantic_plugin: PydanticPlugin
     scrubbing: ScrubbingOptions | Literal[False]
     inspect_arguments: bool
     sampling: SamplingOptions
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, pydantic_plugin: PydanticPlugin | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, advanced: AdvancedOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, pydantic_plugin: PydanticPlugin | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> ProxyTracerProvider:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
