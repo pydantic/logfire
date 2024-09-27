@@ -265,7 +265,6 @@ def configure(  # noqa: D417
         warnings.warn(
             'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
             'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
-            DeprecationWarning,
         )
         scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
 
@@ -273,7 +272,6 @@ def configure(  # noqa: D417
     if project_name is not None:
         warnings.warn(
             'The `project_name` argument is deprecated and not needed.',
-            DeprecationWarning,
         )
 
     trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore
@@ -295,7 +293,6 @@ def configure(  # noqa: D417
         warnings.warn(
             'The `show_summary` argument is deprecated. '
             'Use `console=False` or `console=logfire.ConsoleOptions(show_project_link=False)` instead.',
-            DeprecationWarning,
         )
 
     for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
@@ -321,7 +318,6 @@ def configure(  # noqa: D417
         warnings.warn(
             'The `additional_metric_readers` argument is deprecated. '
             'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.',
-            DeprecationWarning,
         )
         metrics = MetricsOptions(additional_readers=additional_metric_readers)
 

@@ -315,9 +315,7 @@ def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):  # pragma: no cover
         return str(match)
 
-    with pytest.warns(
-        DeprecationWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'
-    ):
+    with pytest.warns(UserWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'):
         logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)  # type: ignore
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
