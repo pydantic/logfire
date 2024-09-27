@@ -122,7 +122,7 @@ def capfire() -> CaptureLogfire:
             ns_timestamp_generator=TimeGenerator(),
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        additional_metric_readers=[metrics_reader],
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
     return CaptureLogfire(exporter=exporter, metrics_reader=metrics_reader)

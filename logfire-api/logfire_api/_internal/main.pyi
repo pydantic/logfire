@@ -335,8 +335,11 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error', min_duration: float = 0) -> None:
+    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
+
+        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
@@ -356,13 +359,13 @@ class Logfire:
         Args:
             modules: List of module names to trace, or a function which returns True for modules that should be traced.
                 If a list is provided, any submodules within a given module will also be traced.
+            min_duration: A minimum duration in seconds for which a function must run before it's traced.
+                Setting to `0` causes all functions to be traced from the beginning.
+                Otherwise, the first time(s) each function is called, it will be timed but not traced.
+                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
-            min_duration: An optional minimum duration in seconds for which a function must run before it's traced.
-                The default is `0`, which means all functions are traced from the beginning.
-                Otherwise, the first time(s) each function is called, it will be timed but not traced.
-                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.

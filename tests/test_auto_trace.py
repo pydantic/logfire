@@ -8,7 +8,7 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule, install_auto_tracing
+from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule
 from logfire._internal.auto_trace import (
     AutoTraceModuleAlreadyImportedException,
     AutoTraceModuleAlreadyImportedWarning,
@@ -22,9 +22,9 @@ from logfire.testing import TestExporter
 def test_auto_trace_sample(exporter: TestExporter) -> None:
     meta_path = sys.meta_path.copy()
 
-    logfire.with_tags('testing', 'auto-tracing').install_auto_tracing('tests.auto_trace_samples')
+    logfire.with_tags('testing', 'auto-tracing').install_auto_tracing('tests.auto_trace_samples', min_duration=0)
     # Check that having multiple LogfireFinders doesn't break things
-    install_auto_tracing('tests.blablabla')
+    logfire.install_auto_tracing('tests.blablabla', min_duration=0)
 
     assert sys.meta_path[2:] == meta_path
     finder = sys.meta_path[1]
@@ -40,7 +40,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     from tests.auto_trace_samples import foo
 
     # Check ignoring imported modules
-    install_auto_tracing('tests.auto_trace_samples', check_imported_modules='ignore')
+    logfire.install_auto_tracing('tests.auto_trace_samples', check_imported_modules='ignore', min_duration=0)
 
     loader = foo.__loader__
     assert isinstance(loader, LogfireLoader)
@@ -144,16 +144,16 @@ def test_check_already_imported() -> None:
     meta_path = sys.meta_path.copy()
 
     with pytest.raises(AutoTraceModuleAlreadyImportedException, match=r"The module 'tests.*' matches modules to trace"):
-        install_auto_tracing(['tests'])
+        logfire.install_auto_tracing(['tests'], min_duration=0)
 
     with pytest.raises(ValueError):
-        install_auto_tracing(['tests'], check_imported_modules='other')  # type: ignore
+        logfire.install_auto_tracing(['tests'], check_imported_modules='other', min_duration=0)  # type: ignore
 
     # No tracing installed.
     assert sys.meta_path == meta_path
 
     with pytest.warns(AutoTraceModuleAlreadyImportedWarning, match=r"The module 'tests.*' matches modules to trace"):
-        install_auto_tracing(['tests'], check_imported_modules='warn')
+        logfire.install_auto_tracing(['tests'], check_imported_modules='warn', min_duration=0)
 
     # The tracing was installed, undo it.
     assert sys.meta_path[1:] == meta_path
@@ -438,7 +438,7 @@ def test_generators():
 
 
 def test_min_duration(exporter: TestExporter):
-    install_auto_tracing('tests.auto_trace_samples.simple_nesting', min_duration=5)
+    logfire.install_auto_tracing('tests.auto_trace_samples.simple_nesting', min_duration=5)
 
     from tests.auto_trace_samples import simple_nesting
 
@@ -491,4 +491,4 @@ def test_min_duration(exporter: TestExporter):
 
 def test_wrong_type_modules():
     with pytest.raises(TypeError, match='modules must be a list of strings or a callable'):
-        install_auto_tracing(123)  # type: ignore
+        logfire.install_auto_tracing(123, min_duration=0)  # type: ignore
