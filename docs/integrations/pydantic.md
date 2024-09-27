@@ -1,6 +1,6 @@
 # Pydantic
 
-Logfire has a [Pydantic plugin][pydantic-plugin] to instrument [Pydantic][pydantic] models.
+Logfire has a Pydantic plugin to instrument [Pydantic][pydantic] models.
 The plugin provides logs and metrics about model validation.
 
 To enable the plugin, do one of the following:
@@ -99,4 +99,3 @@ class Foo(
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/
-[pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/
