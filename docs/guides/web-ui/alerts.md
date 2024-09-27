@@ -1,3 +1,6 @@
+!!! warning "Alerts in Beta"
+    The Alerts feature is still under construction, it could break or behave in unexpected ways. Please [create an issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"} if you find bugs, get frustrated, or have questions.
+
 With **Logfire**, you can set up alerts to notify you when certain conditions are met.
 
 ![Logfire alerts screen](../../images/guide/browser-alerts-full.png)
