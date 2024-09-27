@@ -430,7 +430,7 @@ def test_pydantic_plugin_include_exclude_strings():
 def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
     assert fresh_pydantic_plugin().record == 'off'
 
-    with pytest.warns(DeprecationWarning) as warnings:
+    with pytest.warns(UserWarning) as warnings:
         logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
 
     assert fresh_pydantic_plugin().record == 'all'

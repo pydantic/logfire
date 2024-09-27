@@ -337,7 +337,6 @@ def configure(  # noqa: D417
     if pydantic_plugin is not None:
         warnings.warn(
             'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
-            DeprecationWarning,
         )
         from logfire.integrations.pydantic import set_pydantic_plugin_config
 
