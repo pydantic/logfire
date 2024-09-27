@@ -32,7 +32,7 @@ WHERE
 
 1. The `SELECT * FROM records` statement is the base query that will be executed. The **records** table contains the spans and logs data.
 
-   You can use this table to filter the data you want to analyze.
+    You can use this table to filter the data you want to analyze.
 
 2. The `is_exception` field is a boolean field that indicates whether the record is an exception.
 3. The `service_name` field contains the name of the service that generated the record.
@@ -45,7 +45,7 @@ The **Webhook URL** field is where you can specify a URL to which the alert will
 For now, **Logfire** alerts only send the requests in [Slack format].
 
 ??? tip "Get a Slack webhook URL"
-To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks).
+    To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks).
 
 After filling in the form, click the **Create alert** button. And... Alert created! :tada:
 
