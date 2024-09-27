@@ -17,15 +17,13 @@ If you want to see an example of a particular language or library, [get in touch
 
 This example is based on the scaffolding created from `npm create cloudflare@latest`, and uses the [otel-cf-workers package](https://github.com/evanderkoogh/otel-cf-workers) to instrument a Cloudflare Worker and send traces and metrics to Logfire.
 
-**Check it out on github:**
-`https://github.com/pydantic/logfire/tree/main/examples/javascript/cloudflare-worker/`
+[See example on github](https://github.com/pydantic/logfire/tree/main/examples/javascript/cloudflare-worker/){:target="_blank"}
 
 ### Express example
 
 This example demonstrates how to use OpenTelemetry to instrument an Express application and send traces and metrics to Logfire.
 
-**Check it out on github:**
-`https://github.com/pydantic/logfire/tree/main/examples/javascript/express/`
+[See example on github](https://github.com/pydantic/logfire/tree/main/examples/javascript/express/){:target="_blank"}
 
 
 ## Python
@@ -34,5 +32,4 @@ This example demonstrates how to use OpenTelemetry to instrument an Express appl
 
 This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
 
-**Check it out on github:**
-`https://github.com/pydantic/logfire/tree/main/examples/python/auto-tracing/`
+[See example on github](https://github.com/pydantic/logfire/tree/main/examples/python/auto-tracing/){:target="_blank"}
