@@ -13,15 +13,17 @@ To enable the plugin, do one of the following:
 pydantic_plugin_record = "all"
 ```
 
-- Use the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] parameter in `logfire.configure`, e.g:
+- Call [`logfire.instrument_pydantic`][logfire.Logfire.instrument_pydantic] with the desired configuration, e.g:
 
 ```py
 import logfire
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))
+logfire.configure()
+
+logfire.instrument_pydantic()  # Defaults to record='all'
 ```
 
-Note that if you only use the last option then only models defined and imported *after* calling `logfire.configure`
+Note that if you only use the last option then only models defined and imported *after* calling `logfire.instrument_pydantic`
 will be instrumented.
 
 ## Third party modules
@@ -32,7 +34,9 @@ using the [`include`][logfire.PydanticPlugin.include] configuration.
 ```py
 import logfire
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', include={'openai'}))
+logfire.configure()
+
+logfire.instrument_pydantic(include={'openai'})
 ```
 
 You can also disable instrumentation for your own modules using the
@@ -41,7 +45,9 @@ You can also disable instrumentation for your own modules using the
 ```py
 import logfire
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', exclude={'app.api.v1'}))
+logfire.configure()
+
+logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
 ## Model configuration
@@ -63,10 +69,10 @@ class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'
 The [`record`][logfire.integrations.pydantic.LogfireSettings.record] is used to configure what to record.
 It can be one of the following values:
 
-  * `off`: Disable instrumentation. This is default value.
-  * `all`: Send traces and metrics for all events.
+  * `all`: Send traces and metrics for all events. This is default value for `logfire.instrument_pydantic`.
   * `failure`: Send metrics for all validations and traces only for validation failures.
   * `metrics`: Send only metrics.
+  * `off`: Disable instrumentation.
 
 <!--
 [Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in

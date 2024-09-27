@@ -31,7 +31,8 @@ from datetime import date
 import logfire
 from pydantic import BaseModel
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))  # (1)!
+logfire.configure()
+logfire.instrument_pydantic()  # (1)!
 
 class User(BaseModel):
     name: str
@@ -43,7 +44,7 @@ User(name='Ben', country_code='USA', dob='2000-02-02')
 User(name='Charlie', country_code='GBR', dob='1990-03-03')
 ```
 
-1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs][logfire.PydanticPlugin].
+1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs](../integrations/pydantic.md).
 2. Since we've enabled the Pydantic Plugin, all Pydantic validations will be recorded in Logfire.
 
 Learn more about the [Pydantic Plugin here](../integrations/pydantic.md).
