@@ -113,7 +113,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('log_slow_async_callbacks')
 
     assert hasattr(logfire_api, 'install_auto_tracing')
-    logfire_api.install_auto_tracing(modules=['all'])
+    logfire_api.install_auto_tracing(modules=['all'], min_duration=0)
     logfire__all__.remove('install_auto_tracing')
 
     assert hasattr(logfire_api, 'instrument')
@@ -168,8 +168,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.AdvancedOptions()
     logfire__all__.remove('AdvancedOptions')
 
-    assert hasattr(logfire_api, 'METRICS_PREFERRED_TEMPORALITY')
-    logfire__all__.remove('METRICS_PREFERRED_TEMPORALITY')
+    assert hasattr(logfire_api, 'MetricsOptions')
+    logfire_api.MetricsOptions()
+    logfire__all__.remove('MetricsOptions')
 
     assert hasattr(logfire_api, 'load_spans_from_file')
     logfire_api.load_spans_from_file(file_path='test')

@@ -8,7 +8,13 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
-from ._internal.config import METRICS_PREFERRED_TEMPORALITY, AdvancedOptions, ConsoleOptions, PydanticPlugin, configure
+from ._internal.config import (
+    AdvancedOptions,
+    ConsoleOptions,
+    MetricsOptions,
+    PydanticPlugin,
+    configure,
+)
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.main import Logfire, LogfireSpan
@@ -24,6 +30,7 @@ instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
+instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
@@ -102,6 +109,7 @@ __all__ = (
     'force_flush',
     'log_slow_async_callbacks',
     'install_auto_tracing',
+    'instrument_pydantic',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_anthropic',
@@ -126,7 +134,6 @@ __all__ = (
     'shutdown',
     'load_spans_from_file',
     'no_auto_trace',
-    'METRICS_PREFERRED_TEMPORALITY',
     'ScrubMatch',
     'ScrubbingOptions',
     'VERSION',
@@ -134,4 +141,5 @@ __all__ = (
     'StructlogProcessor',
     'LogfireLoggingHandler',
     'SamplingOptions',
+    'MetricsOptions',
 )

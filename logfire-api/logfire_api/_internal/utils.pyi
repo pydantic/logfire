@@ -1,9 +1,11 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
+from dataclasses import dataclass
 from logfire._internal.stack_info import is_user_code as is_user_code
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event as Event, ReadableSpan
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.status import Status
 from opentelemetry.util import types as otel_types
@@ -88,3 +90,20 @@ def log_internal_error() -> None: ...
 def handle_internal_errors() -> Generator[None, None, None]: ...
 def maybe_capture_server_headers(capture: bool): ...
 def is_asgi_send_receive_span_name(name: str) -> bool: ...
+
+@dataclass(repr=True)
+class SeededRandomIdGenerator(IdGenerator):
+    """Generate random span/trace IDs from a seed for deterministic tests.
+
+    Similar to RandomIdGenerator from OpenTelemetry, but with a seed.
+    Set the seed to None for non-deterministic randomness.
+    In that case the difference from RandomIdGenerator is that it's not affected by `random.seed(...)`.
+
+    Trace IDs are 128-bit integers.
+    Span IDs are 64-bit integers.
+    """
+    seed: int | None = ...
+    random = ...
+    def __post_init__(self) -> None: ...
+    def generate_span_id(self) -> int: ...
+    def generate_trace_id(self) -> int: ...

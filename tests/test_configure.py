@@ -18,7 +18,7 @@ import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.metrics import get_meter_provider
+from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
@@ -51,6 +51,7 @@ from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire.exceptions import LogfireConfigError
+from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.testing import TestExporter
 
 
@@ -415,29 +416,54 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
     )
 
 
+def fresh_pydantic_plugin():
+    GLOBAL_CONFIG.param_manager.__dict__.pop('pydantic_plugin', None)  # reset the cached_property
+    return get_pydantic_plugin_config()
+
+
+def test_pydantic_plugin_include_exclude_strings():
+    logfire.instrument_pydantic(include='inc', exclude='exc')
+    assert fresh_pydantic_plugin().include == {'inc'}
+    assert fresh_pydantic_plugin().exclude == {'exc'}
+
+
+def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
+    assert fresh_pydantic_plugin().record == 'off'
+
+    with pytest.warns(UserWarning) as warnings:
+        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
+
+    assert fresh_pydantic_plugin().record == 'all'
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
+    )
+
+
 def test_read_config_from_environment_variables() -> None:
-    assert LogfireConfig().pydantic_plugin.record == 'off'
+    assert fresh_pydantic_plugin().record == 'off'
 
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'all'}):
-        assert LogfireConfig().pydantic_plugin.record == 'all'
+        assert fresh_pydantic_plugin().record == 'all'
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_RECORD': 'test'}):
         with pytest.raises(
             LogfireConfigError,
             match="Expected pydantic_plugin_record to be one of \\('off', 'all', 'failure', 'metrics'\\), got 'test'",
         ):
-            LogfireConfig()
+            fresh_pydantic_plugin()
 
-    assert LogfireConfig().pydantic_plugin.include == set()
+    assert fresh_pydantic_plugin().include == set()
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': 'test'}):
-        assert LogfireConfig().pydantic_plugin.include == {'test'}
+        assert fresh_pydantic_plugin().include == {'test'}
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': 'test1, test2'}):
-        assert LogfireConfig().pydantic_plugin.include == {'test1', 'test2'}
+        assert fresh_pydantic_plugin().include == {'test1', 'test2'}
 
-    assert LogfireConfig().pydantic_plugin.exclude == set()
+    assert fresh_pydantic_plugin().exclude == set()
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test'}):
-        assert LogfireConfig().pydantic_plugin.exclude == {'test'}
+        assert fresh_pydantic_plugin().exclude == {'test'}
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, test2'}):
-        assert LogfireConfig().pydantic_plugin.exclude == {'test1', 'test2'}
+        assert fresh_pydantic_plugin().exclude == {'test1', 'test2'}
 
 
 def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
@@ -465,9 +491,9 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
-    assert GLOBAL_CONFIG.pydantic_plugin.record == 'metrics'
-    assert GLOBAL_CONFIG.pydantic_plugin.include == {'test1', 'test2'}
-    assert GLOBAL_CONFIG.pydantic_plugin.exclude == {'test3', 'test4'}
+    assert fresh_pydantic_plugin().record == 'metrics'
+    assert fresh_pydantic_plugin().include == {'test1', 'test2'}
+    assert fresh_pydantic_plugin().exclude == {'test3', 'test4'}
     assert GLOBAL_CONFIG.sampling.head == 0.123
 
 
@@ -794,7 +820,6 @@ def test_config_serializable():
     """
     logfire.configure(
         send_to_logfire=False,
-        pydantic_plugin=logfire.PydanticPlugin(record='all'),
         console=logfire.ConsoleOptions(verbose=True),
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
@@ -804,7 +829,7 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['pydantic_plugin', 'console', 'sampling', 'scrubbing', 'advanced']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced']
         )
 
     serialized = serialize_config()
@@ -820,7 +845,6 @@ def test_config_serializable():
 
     assert normalize(serialized) == normalize(serialized2)
 
-    assert isinstance(GLOBAL_CONFIG.pydantic_plugin, logfire.PydanticPlugin)
     assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
     assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
@@ -1373,7 +1397,7 @@ def test_custom_exporters():
         send_to_logfire=False,
         console=False,
         additional_span_processors=[custom_span_processor],
-        additional_metric_readers=[custom_metric_reader],
+        metrics=logfire.MetricsOptions(additional_readers=[custom_metric_reader]),
     )
 
     [custom_processor_wrapper] = get_span_processors()
@@ -1455,6 +1479,14 @@ def test_otel_exporter_otlp_metrics_endpoint_env_var():
     assert otel_metric_reader._exporter._endpoint == 'otel_metrics_endpoint'  # type: ignore
 
 
+def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
+        logfire.configure(send_to_logfire=True, token='foo', metrics=False)
+
+    assert isinstance(get_meter_provider().provider, NoOpMeterProvider)  # type: ignore
+
+
 def get_span_processors() -> Iterable[SpanProcessor]:
     return get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
 
@@ -1502,7 +1534,7 @@ def test_unknown_kwargs():
 
 def test_project_name_deprecated():
     with inline_snapshot.extra.raises(
-        snapshot('DeprecationWarning: The `project_name` argument is deprecated and not needed.')
+        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
     ):
         logfire.configure(project_name='foo')  # type: ignore
 
@@ -1522,3 +1554,26 @@ def test_combine_deprecated_and_new_advanced():
         snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
     ):
         logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
+
+
+def test_additional_metric_readers_deprecated():
+    readers = [InMemoryMetricReader()]
+    with pytest.warns(UserWarning) as warnings:
+        logfire.configure(additional_metric_readers=readers)  # type: ignore
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        'The `additional_metric_readers` argument is deprecated. '
+        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+    )
+    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
+
+
+def test_additional_metric_readers_combined_with_metrics():
+    readers = [InMemoryMetricReader()]
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
+            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
+        )
+    ):
+        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore

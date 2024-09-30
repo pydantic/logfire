@@ -5,6 +5,7 @@ from . import async_ as async_
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, OPEN_SPANS as OPEN_SPANS
+from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
@@ -24,7 +25,7 @@ from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attribute
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider
-from .utils import SysExcInfo as SysExcInfo, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
@@ -335,8 +336,11 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error', min_duration: float = 0) -> None:
+    def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
+
+        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
@@ -356,13 +360,31 @@ class Logfire:
         Args:
             modules: List of module names to trace, or a function which returns True for modules that should be traced.
                 If a list is provided, any submodules within a given module will also be traced.
+            min_duration: A minimum duration in seconds for which a function must run before it's traced.
+                Setting to `0` causes all functions to be traced from the beginning.
+                Otherwise, the first time(s) each function is called, it will be timed but not traced.
+                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
-            min_duration: An optional minimum duration in seconds for which a function must run before it's traced.
-                The default is `0`, which means all functions are traced from the beginning.
-                Otherwise, the first time(s) each function is called, it will be timed but not traced.
-                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
+        """
+    def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()):
+        """Instrument Pydantic model validations.
+
+        This must be called before defining and importing the model classes you want to instrument.
+        See the [Pydantic integration guide](https://logfire.pydantic.dev/docs/integrations/pydantic/) for more info.
+
+        Args:
+            record: The record mode for the Pydantic plugin. It can be one of the following values:
+
+                - `all`: Send traces and metrics for all events. This is default value.
+                - `failure`: Send metrics for all validations and traces only for validation failures.
+                - `metrics`: Send only metrics.
+                - `off`: Disable instrumentation.
+            include:
+                By default, third party modules are not instrumented. This option allows you to include specific modules.
+            exclude:
+                Exclude specific modules from instrumentation.
         """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.

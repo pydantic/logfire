@@ -15,6 +15,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
+from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
@@ -24,6 +25,11 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
     return 'asyncio'
+
+
+@pytest.fixture(autouse=True)
+def reset_pydantic_plugin_config():
+    set_pydantic_plugin_config(None)
 
 
 @pytest.fixture
@@ -75,7 +81,9 @@ def config_kwargs(
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
     configure(
         **config_kwargs,
-        additional_metric_readers=[metrics_reader],
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+        ),
     )
     # sanity check: there are no active spans
     # if there are, it means that some test forgot to close them

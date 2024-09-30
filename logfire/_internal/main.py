@@ -21,6 +21,7 @@ from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
 from .config import GLOBAL_CONFIG, OPEN_SPANS, LogfireConfig
+from .config_params import PydanticPluginRecordValues
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -49,7 +50,7 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     import anthropic
@@ -763,10 +764,13 @@ class Logfire:
         self,
         modules: Sequence[str] | Callable[[AutoTraceModule], bool],
         *,
+        min_duration: float,
         check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error',
-        min_duration: float = 0,
     ) -> None:
         """Install automatic tracing.
+
+        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
         It's equivalent to wrapping the body of every function in matching modules in `with logfire.span(...):`.
@@ -786,18 +790,66 @@ class Logfire:
         Args:
             modules: List of module names to trace, or a function which returns True for modules that should be traced.
                 If a list is provided, any submodules within a given module will also be traced.
+            min_duration: A minimum duration in seconds for which a function must run before it's traced.
+                Setting to `0` causes all functions to be traced from the beginning.
+                Otherwise, the first time(s) each function is called, it will be timed but not traced.
+                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
-            min_duration: An optional minimum duration in seconds for which a function must run before it's traced.
-                The default is `0`, which means all functions are traced from the beginning.
-                Otherwise, the first time(s) each function is called, it will be timed but not traced.
-                Only after the function has run for at least `min_duration` will it be traced in subsequent calls.
         """
         install_auto_tracing(self, modules, check_imported_modules=check_imported_modules, min_duration=min_duration)
 
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
+
+    def instrument_pydantic(
+        self,
+        record: PydanticPluginRecordValues = 'all',
+        include: Iterable[str] = (),
+        exclude: Iterable[str] = (),
+    ):
+        """Instrument Pydantic model validations.
+
+        This must be called before defining and importing the model classes you want to instrument.
+        See the [Pydantic integration guide](https://logfire.pydantic.dev/docs/integrations/pydantic/) for more info.
+
+        Args:
+            record: The record mode for the Pydantic plugin. It can be one of the following values:
+
+                - `all`: Send traces and metrics for all events. This is default value.
+                - `failure`: Send metrics for all validations and traces only for validation failures.
+                - `metrics`: Send only metrics.
+                - `off`: Disable instrumentation.
+            include:
+                By default, third party modules are not instrumented. This option allows you to include specific modules.
+            exclude:
+                Exclude specific modules from instrumentation.
+        """
+        # Note that unlike most instrument_* methods, we intentionally don't call
+        # _warn_if_not_initialized_for_instrumentation, because this method needs to be called early.
+
+        if record != 'off':
+            import pydantic
+
+            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
+                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
+
+        from logfire.integrations.pydantic import PydanticPlugin, set_pydantic_plugin_config
+
+        if isinstance(include, str):
+            include = {include}
+
+        if isinstance(exclude, str):
+            exclude = {exclude}
+
+        set_pydantic_plugin_config(
+            PydanticPlugin(
+                record=record,
+                include=set(include),
+                exclude=set(exclude),
+            )
+        )
 
     def instrument_fastapi(
         self,
