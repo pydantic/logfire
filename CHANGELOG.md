@@ -3,6 +3,7 @@
 ## [v1.0.0] (2024-09-30)
 
 * Upgrade `DeprecationWarning`s to `UserWarning`s by @alexmojaki in https://github.com/pydantic/logfire/pull/458
+* Update query client APIs by @dmontagu in https://github.com/pydantic/logfire/pull/454
 
 ## [v0.55.0] (2024-09-27)
 
