@@ -33,7 +33,7 @@ class ColumnDetails(TypedDict):
 
     name: str
     datatype: Any
-    bit_settings: str
+    nullable: bool
 
 
 class ColumnData(ColumnDetails):
