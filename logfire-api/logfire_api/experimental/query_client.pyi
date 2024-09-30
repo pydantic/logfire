@@ -17,7 +17,7 @@ class ColumnDetails(TypedDict):
     """The details of a column in the row-oriented JSON-format query results."""
     name: str
     datatype: Any
-    bit_settings: str
+    nullable: bool
 
 class ColumnData(ColumnDetails):
     """The data of a column in the column-oriented JSON-format query results."""
