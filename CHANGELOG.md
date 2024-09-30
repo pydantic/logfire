@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v1.0.0] (2024-09-30)
+
+* Upgrade `DeprecationWarning`s to `UserWarning`s by @alexmojaki in https://github.com/pydantic/logfire/pull/458
+
 ## [v0.55.0] (2024-09-27)
 
 * Replace `pydantic_plugin` in `logfire.configure()` with `logfire.instrument_pydantic()` by @alexmojaki in https://github.com/pydantic/logfire/pull/453
@@ -296,6 +300,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
 [v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
 [v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
 [v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
