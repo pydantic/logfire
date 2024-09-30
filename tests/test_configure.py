@@ -430,7 +430,7 @@ def test_pydantic_plugin_include_exclude_strings():
 def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
     assert fresh_pydantic_plugin().record == 'off'
 
-    with pytest.warns(DeprecationWarning) as warnings:
+    with pytest.warns(UserWarning) as warnings:
         logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
 
     assert fresh_pydantic_plugin().record == 'all'
@@ -1534,7 +1534,7 @@ def test_unknown_kwargs():
 
 def test_project_name_deprecated():
     with inline_snapshot.extra.raises(
-        snapshot('DeprecationWarning: The `project_name` argument is deprecated and not needed.')
+        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
     ):
         logfire.configure(project_name='foo')  # type: ignore
 
@@ -1558,7 +1558,7 @@ def test_combine_deprecated_and_new_advanced():
 
 def test_additional_metric_readers_deprecated():
     readers = [InMemoryMetricReader()]
-    with pytest.warns(DeprecationWarning) as warnings:
+    with pytest.warns(UserWarning) as warnings:
         logfire.configure(additional_metric_readers=readers)  # type: ignore
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot(

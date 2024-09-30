@@ -14,7 +14,7 @@ This is what you'll see when you come to the live view of a project with some da
 
 2. **Project pages:** These are links to the various project-specific pages, including the Live, [Dashboards](./dashboards.md), [Alerts](./alerts.md), [Explore](./explore.md), and Settings pages.
 
-3. **Feedback and Beta buttons:** Click the feedback button to provide us feedback.
+3. **Feedback button:** Click the feedback button to provide us feedback.
 
 4. **Light/Dark mode toggle:** Cycles between light, dark, and system — because everyone seems to have an opinion on this :smile:
 
