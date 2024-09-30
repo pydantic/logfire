@@ -1,6 +1,6 @@
 # Pydantic
 
-Logfire has a [Pydantic plugin][pydantic-plugin] to instrument [Pydantic][pydantic] models.
+Logfire has a Pydantic plugin to instrument [Pydantic][pydantic] models.
 The plugin provides logs and metrics about model validation.
 
 To enable the plugin, do one of the following:
@@ -13,16 +13,21 @@ To enable the plugin, do one of the following:
 pydantic_plugin_record = "all"
 ```
 
-- Use the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] parameter in `logfire.configure`, e.g:
+- Call [`logfire.instrument_pydantic`][logfire.Logfire.instrument_pydantic] with the desired configuration, e.g:
 
 ```py
 import logfire
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all'))
+logfire.instrument_pydantic()  # Defaults to record='all'
 ```
 
-Note that if you only use the last option then only models defined and imported *after* calling `logfire.configure`
+Note that if you only use the last option then only model classes defined and imported *after* calling `logfire.instrument_pydantic`
 will be instrumented.
+
+!!! note
+    Remember to call [`logfire.configure()`][logfire.configure] at some point, whether before or after
+    calling `logfire.instrument_pydantic` and defining model classes.
+    Model validations will only start being logged after calling `logfire.configure()`.
 
 ## Third party modules
 
@@ -30,18 +35,14 @@ By default, third party modules are not instrumented by the plugin to avoid nois
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
 ```py
-import logfire
-
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', include={'openai'}))
+logfire.instrument_pydantic(include={'openai'})
 ```
 
 You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
 ```py
-import logfire
-
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record='all', exclude={'app.api.v1'}))
+logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
 ## Model configuration
@@ -60,13 +61,13 @@ class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'
 
 ### Record
 
-The [`record`][logfire.integrations.pydantic.LogfireSettings.record] is used to configure what to record.
+The [`record`][logfire.integrations.pydantic.LogfireSettings.record] argument is used to configure what to record.
 It can be one of the following values:
 
-  * `off`: Disable instrumentation. This is default value.
-  * `all`: Send traces and metrics for all events.
+  * `all`: Send traces and metrics for all events. This is default value for `logfire.instrument_pydantic`.
   * `failure`: Send metrics for all validations and traces only for validation failures.
   * `metrics`: Send only metrics.
+  * `off`: Disable instrumentation.
 
 <!--
 [Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in
@@ -98,4 +99,3 @@ class Foo(
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/
-[pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/

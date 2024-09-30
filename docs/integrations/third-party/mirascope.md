@@ -32,7 +32,7 @@ This will give you:
   <figcaption>Mirascope Anthropic call span and Anthropic span and conversation</figcaption>
 </figure>
 
-Since Mirascope is built on top of [Pydantic][pydantic], you can use the [Pydantic plugin][pydantic-plugin] to track additional logs and metrics about model validation, which you can enable using the [`pydantic_plugin`][logfire.configure(pydantic_plugin)] configuration.
+Since Mirascope is built on top of [Pydantic][pydantic], you can use the [Pydantic plugin](../pydantic.md) to track additional logs and metrics about model validation.
 
 This can be particularly useful when [extracting structured information][mirascope-extracting-structured-information] using LLMs:
 
@@ -44,7 +44,8 @@ from mirascope.core import openai, prompt_template
 from mirascope.integrations.logfire import with_logfire
 from pydantic import BaseModel
 
-logfire.configure(pydantic_plugin=logfire.PydanticPlugin(record="all"))
+logfire.configure()
+logfire.instrument_pydantic()
 
 
 class TaskDetails(BaseModel):

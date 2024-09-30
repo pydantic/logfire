@@ -87,7 +87,6 @@ from .utils import (
     SeededRandomIdGenerator,
     UnexpectedResponse,
     ensure_data_dir_exists,
-    get_version,
     read_toml_file,
     suppress_instrumentation,
 )
@@ -158,7 +157,10 @@ class AdvancedOptions:
 
 @dataclass
 class PydanticPlugin:
-    """Options for the Pydantic plugin."""
+    """Options for the Pydantic plugin.
+
+    This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
+    """
 
     record: PydanticPluginRecordValues = 'off'
     """The record mode for the Pydantic plugin.
@@ -203,7 +205,6 @@ def configure(  # noqa: D417
     data_dir: Path | str | None = None,
     additional_span_processors: Sequence[SpanProcessor] | None = None,
     metrics: MetricsOptions | Literal[False] | None = None,
-    pydantic_plugin: PydanticPlugin | None = None,
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
@@ -229,8 +230,6 @@ def configure(  # noqa: D417
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
-        pydantic_plugin: Configuration for the Pydantic plugin. If `None` uses the `LOGFIRE_PYDANTIC_PLUGIN_*` environment
-            variables, otherwise defaults to `PydanticPlugin(record='off')`.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
@@ -338,6 +337,16 @@ def configure(  # noqa: D417
         )
         metrics = MetricsOptions(additional_readers=additional_metric_readers)
 
+    pydantic_plugin: Any = deprecated_kwargs.pop('pydantic_plugin', None)  # type: ignore
+    if pydantic_plugin is not None:
+        warnings.warn(
+            'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
+            DeprecationWarning,
+        )
+        from logfire.integrations.pydantic import set_pydantic_plugin_config
+
+        set_pydantic_plugin_config(pydantic_plugin)
+
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
@@ -351,7 +360,6 @@ def configure(  # noqa: D417
         config_dir=Path(config_dir) if config_dir else None,
         data_dir=Path(data_dir) if data_dir else None,
         additional_span_processors=additional_span_processors,
-        pydantic_plugin=pydantic_plugin,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
@@ -399,9 +407,6 @@ class _LogfireConfigData:
     additional_span_processors: Sequence[SpanProcessor] | None
     """Additional span processors"""
 
-    pydantic_plugin: PydanticPlugin
-    """Options for the Pydantic plugin"""
-
     scrubbing: ScrubbingOptions | Literal[False]
     """Options for redacting sensitive data, or False to disable."""
 
@@ -428,14 +433,13 @@ class _LogfireConfigData:
         data_dir: Path | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
         metrics: MetricsOptions | Literal[False] | None,
-        pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
-        param_manager = ParamManager.create(config_dir)
+        self.param_manager = param_manager = ParamManager.create(config_dir)
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         self.token = param_manager.load_param('token', token)
@@ -476,16 +480,6 @@ class _LogfireConfigData:
                 min_log_level=param_manager.load_param('console_min_log_level'),
                 show_project_link=param_manager.load_param('console_show_project_link'),
             )
-
-        if isinstance(pydantic_plugin, dict):
-            # This is particularly for deserializing from a dict as in executors.py
-            pydantic_plugin = PydanticPlugin(**pydantic_plugin)  # type: ignore
-        self.pydantic_plugin = pydantic_plugin or param_manager.pydantic_plugin
-        if self.pydantic_plugin.record != 'off':
-            import pydantic
-
-            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
-                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
 
         if isinstance(sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
@@ -530,7 +524,6 @@ class LogfireConfig(_LogfireConfigData):
         data_dir: Path | None = None,
         additional_span_processors: Sequence[SpanProcessor] | None = None,
         metrics: MetricsOptions | Literal[False] | None = None,
-        pydantic_plugin: PydanticPlugin | None = None,
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
@@ -554,7 +547,6 @@ class LogfireConfig(_LogfireConfigData):
             data_dir=data_dir,
             additional_span_processors=additional_span_processors,
             metrics=metrics,
-            pydantic_plugin=pydantic_plugin,
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
@@ -582,7 +574,6 @@ class LogfireConfig(_LogfireConfigData):
         data_dir: Path | None,
         additional_span_processors: Sequence[SpanProcessor] | None,
         metrics: MetricsOptions | Literal[False] | None,
-        pydantic_plugin: PydanticPlugin | None,
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
@@ -600,7 +591,6 @@ class LogfireConfig(_LogfireConfigData):
                 data_dir,
                 additional_span_processors,
                 metrics,
-                pydantic_plugin,
                 scrubbing,
                 inspect_arguments,
                 sampling,

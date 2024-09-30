@@ -62,10 +62,10 @@ Here's an example of how to use these clients:
 
     async def main():
         query = """
-          SELECT start_timestamp
-          FROM records
-          LIMIT 1
-          """
+        SELECT start_timestamp
+        FROM records
+        LIMIT 1
+        """
 
         async with AsyncLogfireQueryClient(read_token='<your_read_token>') as client:
             # Load data as JSON, in column-oriented format
@@ -105,36 +105,36 @@ Here's an example of how to use these clients:
 
 
     def main():
-      query = """
+        query = """
         SELECT start_timestamp
         FROM records
         LIMIT 1
         """
 
-      with LogfireQueryClient(read_token='<your_read_token>') as client:
-        # Load data as JSON, in column-oriented format
-        json_cols = client.query_json(sql=query)
-        print(json_cols)
+        with LogfireQueryClient(read_token='<your_read_token>') as client:
+            # Load data as JSON, in column-oriented format
+            json_cols = client.query_json(sql=query)
+            print(json_cols)
 
-        # Load data as JSON, in row-oriented format
-        json_rows = client.query_json_rows(sql=query)
-        print(json_rows)
+            # Load data as JSON, in row-oriented format
+            json_rows = client.query_json_rows(sql=query)
+            print(json_rows)
 
-        # Retrieve data in arrow format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as
-        # JSON-serialized strings
-        df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))  # type: ignore
-        print(df_from_arrow)
+            # Retrieve data in arrow format, and load into a polars DataFrame
+            # Note that JSON columns such as `attributes` will be returned as
+            # JSON-serialized strings
+            df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))
+            print(df_from_arrow)
 
-        # Retrieve data in CSV format, and load into a polars DataFrame
-        # Note that JSON columns such as `attributes` will be returned as
-        # JSON-serialized strings
-        df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
-        print(df_from_csv)
+            # Retrieve data in CSV format, and load into a polars DataFrame
+            # Note that JSON columns such as `attributes` will be returned as
+            # JSON-serialized strings
+            df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
+            print(df_from_csv)
 
 
     if __name__ == '__main__':
-      main()
+        main()
     ```
 
 ## Making Direct HTTP Requests
@@ -166,10 +166,7 @@ base_url = 'https://logfire-api.pydantic.dev'
 read_token = '<your_read_token_here>'
 
 # Set the headers for authentication
-headers = {
-    'Authorization': f'Bearer {read_token}',
-    'Content-Type': 'application/json'
-}
+headers = {'Authorization': f'Bearer {read_token}'}
 
 # Define your SQL query
 query = """
@@ -197,22 +194,21 @@ else:
 
 ### Additional Configuration
 
-The Logfire API supports various query parameters and response formats to give you flexibility in how you retrieve your data:
+The Logfire API supports various response formats and query parameters to give you flexibility in how you retrieve your data:
 
 - **Response Format**: Use the `Accept` header to specify the response format. Supported values include:
-  - `application/json`: Returns the data in JSON format. By default, this will be column-oriented unless specified otherwise with the `json_rows` parameter.
-  - `application/vnd.apache.arrow.stream`: Returns the data in Apache Arrow format, suitable for high-performance data processing.
-  - `text/csv`: Returns the data in CSV format, which is easy to use with many data tools.
-
-  If no `Accept` header is provided, the default response format is JSON.
-
+    - `application/json`: Returns the data in JSON format. By default, this will be column-oriented unless specified otherwise with the `json_rows` parameter.
+    - `application/vnd.apache.arrow.stream`: Returns the data in Apache Arrow format, suitable for high-performance data processing.
+    - `text/csv`: Returns the data in CSV format, which is easy to use with many data tools.
+    - If no `Accept` header is provided, the default response format is JSON.
 - **Query Parameters**:
-  - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
-  - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
-  - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 500**. The maximum allowed value is 10,000.
-  - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
+    - **`sql`**: The SQL query to execute. This is the only required query parameter.
+    - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
+    - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
+    - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 500**. The maximum allowed value is 10,000.
+    - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
 
-All query parameters are optional and can be used in any combination to tailor the API response to your needs.
+All query parameters besides `sql` are optional and can be used in any combination to tailor the API response to your needs.
 
 ### Important Notes
 
