@@ -3,8 +3,7 @@ import logfire
 logfire.configure()
 logfire.install_auto_tracing(modules=['app'], min_duration=0)
 
-from app.db import db  # noqa
-from app.server import app  # noqa
+from app.server import app, db  # noqa
 
 db.init_app(app)
 
