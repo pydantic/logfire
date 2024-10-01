@@ -11,7 +11,7 @@ If you want to see an example of a particular language or library, [get in touch
 
 ## Python
 
-### Auto-tracing example
+### Flask and SQLAlchemy example
 
 This example is a simple Python financial calculator app using Flask and SQLAlchemy which is instrumented using the appropriate integrations as well as [auto-tracing](guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
 
