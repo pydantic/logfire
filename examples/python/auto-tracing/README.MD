@@ -38,16 +38,10 @@ Activate your virtual environment
 source venv/bin/activate
 ```
 
-Install the app requirements
+Install dependencies:
 
 ```bash
-pip install -r requirements.txt
-```
-
-Install Logfire
-
-```bash
-pip install logfire
+pip install 'logfire[sqlalchemy,flask]' flask-sqlalchemy
 ```
 
 Authenticate Logfire
