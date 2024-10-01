@@ -1,18 +1,20 @@
-# Logfire Auto-Tracing Example on Python
+# Logfire + Flask + SQLAlchemy Example
 
-This example is a simple Python financial calculator app which is instrumented with the [auto-tracing method](../../../docs/guides/onboarding-checklist/add-auto-tracing.md). If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically.
+This example is a simple Python financial calculator app which is instrumented with Logfire. If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically. The instrumentation is done with just these lines of code at the start of `main.py`:
+
+```python
+import logfire
+
+logfire.install_auto_tracing(modules=['app'], min_duration=0)
+
+from app import app, db  # needs to be imported after install_auto_tracing
+
+logfire.configure()
+logfire.instrument_sqlalchemy()
+logfire.instrument_flask(app)
+```
 
 ## Run the project
-
-To run the example locally, you need
-1. A Logfire account
-2. This project cloned locally
-3. A recent version of Python installed.
-
-If you don't have a Logfire account, create a free one [in Logfire](https://logfire.pydantic.dev/).
-
-
-### Local setup
 
 Clone the repository:
 
@@ -44,22 +46,17 @@ Install dependencies:
 pip install 'logfire[sqlalchemy,flask]' flask-sqlalchemy
 ```
 
-Authenticate Logfire
+If you don't have a Logfire account, create a free one [in Logfire](https://logfire.pydantic.dev/). Then authenticate Logfire locally:
 
 ```bash
 logfire auth
 ```
-
-
-### Run your app locally
 
 Run the `main.py` file:
 
 ```bash
 python main.py
 ```
-
----
 
 Now you should see
 

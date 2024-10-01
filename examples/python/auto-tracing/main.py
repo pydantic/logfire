@@ -1,10 +1,10 @@
 import logfire
 
-logfire.configure()
 logfire.install_auto_tracing(modules=['app'], min_duration=0)
 
-from app import app, db  # noqa  # needs to be imported after auto-tracing
+from app import app, db  # noqa  # needs to be imported after install_auto_tracing
 
+logfire.configure()
 logfire.instrument_sqlalchemy()
 logfire.instrument_flask(app)
 
