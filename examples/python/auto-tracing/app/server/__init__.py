@@ -1,21 +1,51 @@
-from flask import Flask
+from flask import Flask, jsonify, render_template, request
 
 from app.db import db
+from app.db.models import Calculation
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///financial_calculator.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
-def create_app():
-    """Initialize app."""
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///financial_calculator.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+@app.route('/')
+def index():
+    """Render the calculator view."""
+    return render_template('index.html')
 
-    db.init_app(app)
 
-    from app.server.routes import main
+@app.route('/calculate', methods=['POST'])
+def calculate():
+    """Calculate the value."""
+    data = request.json
+    calculation_type = data['type']
+    result = 0
 
-    app.register_blueprint(main)
+    if calculation_type == 'compound_interest':
+        principal = float(data['principal'])
+        rate = float(data['rate'])
+        time = float(data['time'])
+        compounds_per_year = int(data['compounds_per_year'])
+        result = principal * (1 + rate / compounds_per_year) ** (compounds_per_year * time)
+    elif calculation_type == 'loan_payment':
+        principal = float(data['principal'])
+        rate = float(data['rate'])
+        time = float(data['time'])
+        monthly_rate = rate / 12
+        num_payments = time * 12
+        result = (
+            principal * (monthly_rate * (1 + monthly_rate) ** num_payments) / ((1 + monthly_rate) ** num_payments - 1)
+        )
 
-    with app.app_context():
-        db.create_all()
+    new_calculation = Calculation(type=calculation_type, input_data=str(data), result=result)
+    db.session.add(new_calculation)
+    db.session.commit()
 
-    return app
+    return jsonify({'result': result})
+
+
+@app.route('/history')
+def history():
+    """Render the history view."""
+    calculations = Calculation.query.order_by(Calculation.timestamp.desc()).limit(10).all()
+    return render_template('history.html', calculations=calculations)
