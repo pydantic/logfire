@@ -25,7 +25,7 @@ git clone https://github.com/pydantic/logfire.git
 `cd` into the example directory and install:
 
 ```bash
-cd examples/python/auto-tracing
+cd examples/python/flask-sqlalchemy
 ```
 
 Create a virtual environment in this repo
