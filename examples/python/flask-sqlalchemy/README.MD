@@ -1,18 +1,6 @@
 # Logfire + Flask + SQLAlchemy Example
 
-This example is a simple Python financial calculator app which is instrumented with Logfire. If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically. The instrumentation is done with just these lines of code at the start of `main.py`:
-
-```python
-import logfire
-
-logfire.install_auto_tracing(modules=['app'], min_duration=0)
-
-from app import app, db  # needs to be imported after install_auto_tracing
-
-logfire.configure()
-logfire.instrument_sqlalchemy()
-logfire.instrument_flask(app)
-```
+This example is a simple Python financial calculator app which is instrumented with Logfire. If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically. The Logfire instrumentation is done with just a few lines of code in `main.py`.
 
 ## Run the project
 
