@@ -730,7 +730,7 @@ class LogfireConfig(_LogfireConfigData):
                 schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                 add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
 
-                if metric_readers:
+                if metric_readers is not None:
                     metric_readers += [
                         PeriodicExportingMetricReader(
                             QuietMetricExporter(
@@ -762,10 +762,14 @@ class LogfireConfig(_LogfireConfigData):
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
 
-            if (otlp_endpoint or otlp_metrics_endpoint) and otlp_metrics_exporter in ('otlp', '') and metric_readers:
+            if (
+                (otlp_endpoint or otlp_metrics_endpoint)
+                and otlp_metrics_exporter in ('otlp', '')
+                and metric_readers is not None
+            ):
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
 
-            if metric_readers:
+            if metric_readers is not None:
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
