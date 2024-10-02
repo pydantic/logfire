@@ -687,10 +687,9 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
+            metric_readers: list[MetricReader] | None = None
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
-            else:
-                metric_readers = []
 
             if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
                 show_project_link = self.console and self.console.show_project_link
@@ -731,22 +730,23 @@ class LogfireConfig(_LogfireConfigData):
                 schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                 add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
 
-                metric_readers += [
-                    PeriodicExportingMetricReader(
-                        QuietMetricExporter(
-                            OTLPMetricExporter(
-                                endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
-                                headers=headers,
-                                session=session,
-                                # I'm pretty sure that this line here is redundant,
-                                # and that passing it to the QuietMetricExporter is what matters
-                                # because the PeriodicExportingMetricReader will read it from there.
+                if metric_readers:
+                    metric_readers += [
+                        PeriodicExportingMetricReader(
+                            QuietMetricExporter(
+                                OTLPMetricExporter(
+                                    endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
+                                    headers=headers,
+                                    session=session,
+                                    # I'm pretty sure that this line here is redundant,
+                                    # and that passing it to the QuietMetricExporter is what matters
+                                    # because the PeriodicExportingMetricReader will read it from there.
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                ),
                                 preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                            ),
-                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                            )
                         )
-                    )
-                ]
+                    ]
 
             if processors_with_pending_spans:
                 tracer_provider.add_span_processor(
@@ -762,10 +762,10 @@ class LogfireConfig(_LogfireConfigData):
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
 
-            if (otlp_endpoint or otlp_metrics_endpoint) and otlp_metrics_exporter in ('otlp', ''):
+            if (otlp_endpoint or otlp_metrics_endpoint) and otlp_metrics_exporter in ('otlp', '') and metric_readers:
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
 
-            if self.metrics:
+            if metric_readers:
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
@@ -776,7 +776,6 @@ class LogfireConfig(_LogfireConfigData):
                         )
                     ],
                 )
-
             else:
                 meter_provider = NoOpMeterProvider()
 
