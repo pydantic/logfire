@@ -44,3 +44,70 @@ exporter = OTLPSpanExporter(
     headers={'Authorization': 'your-write-token'},
 )
 ```
+
+
+## Example with Rust
+
+First, set up a new Cargo project:
+
+```sh
+cargo new --bin otel-example && cd otel-example
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+```
+
+Update the `Cargo.toml` and `main.rs` files with the following contents:
+
+```toml
+# Cargo.toml
+[package]
+name = "otel-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+opentelemetry = { version = "0.24", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "0.17", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+```
+
+```rust
+// src/main.rs
+use opentelemetry::{
+    global::ObjectSafeSpan,
+    trace::{Tracer, TracerProvider},
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // If you don't want to export environment variables, you could also just
+    // set them here at the top of main.
+    //
+    // std::env::set_var(
+    //     "OTEL_EXPORTER_OTLP_HEADERS",
+    //     "Authorization=your-write-token",
+    // );
+    // std::env::set_var(
+    //     "OTEL_EXPORTER_OTLP_ENDPOINT",
+    //     "https://logfire-api.pydantic.dev",
+    // );
+
+    let otlp_exporter = opentelemetry_otlp::new_exporter()
+        .http()
+        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary);
+
+    let tracer_provider = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(otlp_exporter)
+        .install_simple()?;
+    let tracer = tracer_provider.tracer("my_tracer");
+
+    tracer.span_builder("Hello World").start(&tracer).end();
+
+    tracer_provider.force_flush();
+    tracer_provider.shutdown()?;
+
+    Ok(())
+}
+
+```
+
+Finally, use `cargo run` to execute.
