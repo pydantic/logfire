@@ -291,6 +291,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                 'prompt_tokens': 2,
                                 'total_tokens': 3,
                                 'completion_tokens_details': None,
+                                'prompt_tokens_details': None,
                             },
                         }
                     ),
@@ -373,6 +374,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                 'prompt_tokens': 2,
                                 'total_tokens': 3,
                                 'completion_tokens_details': None,
+                                'prompt_tokens_details': None,
                             },
                         }
                     ),

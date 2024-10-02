@@ -56,7 +56,7 @@ pygments==2.18.0
     # via rich
 requests==2.32.3
     # via opentelemetry-exporter-otlp-proto-http
-rich==13.8.1
+rich==13.9.1
     # via logfire
 setuptools==75.1.0
     # via opentelemetry-instrumentation
