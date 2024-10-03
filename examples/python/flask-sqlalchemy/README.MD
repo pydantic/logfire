@@ -4,33 +4,13 @@ This example is a simple Python financial calculator app which is instrumented w
 
 ## Run the project
 
-Clone the repository:
+Clone the repository, navigate to it, setup a virtual environment, and install the dependencies:
 
 ```bash
 git clone https://github.com/pydantic/logfire.git
-```
-
-`cd` into the example directory and install:
-
-```bash
 cd examples/python/flask-sqlalchemy
-```
-
-Create a virtual environment in this repo
-
-```bash
 python -m venv venv
-```
-
-Activate your virtual environment
-
-```bash
 source venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install 'logfire[sqlalchemy,flask]' flask-sqlalchemy
 ```
 
