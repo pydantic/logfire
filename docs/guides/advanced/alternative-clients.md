@@ -58,8 +58,7 @@ export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
 Update the `Cargo.toml` and `main.rs` files with the following contents:
 
-```toml
-# Cargo.toml
+```toml title="Cargo.toml"
 [package]
 name = "otel-example"
 version = "0.1.0"
