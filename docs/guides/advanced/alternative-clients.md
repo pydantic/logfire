@@ -65,8 +65,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-opentelemetry = { version = "0.24", default-features = false, features = ["trace"] }
-opentelemetry-otlp = { version = "0.17", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+opentelemetry = { version = "*", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "*", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 ```
 
 ```rust title="src/main.rs"
