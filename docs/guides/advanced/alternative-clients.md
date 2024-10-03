@@ -76,21 +76,22 @@ use opentelemetry::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // If you don't want to export environment variables, you could also just
-    // set them here at the top of main.
-    //
-    // std::env::set_var(
-    //     "OTEL_EXPORTER_OTLP_HEADERS",
-    //     "Authorization=your-write-token",
-    // );
-    // std::env::set_var(
-    //     "OTEL_EXPORTER_OTLP_ENDPOINT",
-    //     "https://logfire-api.pydantic.dev",
-    // );
-
     let otlp_exporter = opentelemetry_otlp::new_exporter()
         .http()
-        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary);
+        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
+        // If you don't want to export environment variables, you can also configure
+        // programmatically like so:
+        //
+        // .with_endpoint("https://logfire-api.pydantic.dev/v1/traces")
+        // .with_headers({
+        //     let mut headers = std::collections::HashMap::new();
+        //     headers.insert(
+        //         "Authorization".into(),
+        //         "your-write-token".into(),
+        //     );
+        //     headers
+        // })
+        ;
 
     let tracer_provider = opentelemetry_otlp::new_pipeline()
         .tracing()
@@ -99,9 +100,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tracer = tracer_provider.tracer("my_tracer");
 
     tracer.span_builder("Hello World").start(&tracer).end();
-
-    tracer_provider.force_flush();
-    tracer_provider.shutdown()?;
 
     Ok(())
 }
