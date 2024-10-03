@@ -1,7 +1,8 @@
+---
+hide:
+- navigation
+---
 # Examples
-
-!!! Tip "Logfire playground"
-Example projects provide options to try out Logfire without needing to instrument your app in production.
 
 These are working, stand-alone apps and projects that you can clone, spin up locally and play around with to get a feel for the different capabilities of Logfire.
 
