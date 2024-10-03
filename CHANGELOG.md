@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v1.0.1] (2024-10-02)
+
+* Fix warning about unregistered MetricReaders by @alexmojaki in https://github.com/pydantic/logfire/pull/465
+
 ## [v1.0.0] (2024-09-30)
 
 * Upgrade `DeprecationWarning`s to `UserWarning`s by @alexmojaki in https://github.com/pydantic/logfire/pull/458
@@ -301,6 +305,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
 [v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
 [v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
