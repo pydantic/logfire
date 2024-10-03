@@ -69,8 +69,7 @@ opentelemetry = { version = "0.24", default-features = false, features = ["trace
 opentelemetry-otlp = { version = "0.17", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 ```
 
-```rust
-// src/main.rs
+```rust title="src/main.rs"
 use opentelemetry::{
     global::ObjectSafeSpan,
     trace::{Tracer, TracerProvider},
