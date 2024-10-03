@@ -152,6 +152,7 @@ nav:
           - api/integrations/pydantic.md
           - api/integrations/logging.md
           - api/integrations/structlog.md
+  - Examples: examples.md
   - Help: help.md
   - Roadmap: roadmap.md
   - Legal:
