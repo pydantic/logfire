@@ -82,6 +82,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // If you don't want to export environment variables, you can also configure
         // programmatically like so:
         //
+        // (You'll need to add `use opentelemetry_otlp::WithExportConfig;` to the top of the
+        // file to access the `.with_endpoint` method.)
+        //
         // .with_endpoint("https://logfire-api.pydantic.dev/v1/traces")
         // .with_headers({
         //     let mut headers = std::collections::HashMap::new();
