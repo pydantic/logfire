@@ -66,6 +66,8 @@ edition = "2021"
 
 [dependencies]
 opentelemetry = { version = "*", default-features = false, features = ["trace"] }
+# Note: `reqwest-rustls` feature is necessary else you'll have a cryptic failure to export;
+# see https://github.com/open-telemetry/opentelemetry-rust/issues/2169
 opentelemetry-otlp = { version = "*", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 ```
 
