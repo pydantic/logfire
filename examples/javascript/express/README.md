@@ -12,7 +12,7 @@ Clone the repository:
 git clone https://github.com/pydantic/logfire.git
 ```
 
-`cd` into the example directory and install:
+`cd` into the example directory, ensure you're using version `20.17.0` of `node`, and install:
 
 ```bash
 cd examples/javascript/express
