@@ -48,11 +48,19 @@ const resource = new Resource({
 const contextManager = new AsyncLocalStorageContextManager();
 
 const sdk = new NodeSDK({
-  contextManager,
-  resource,
-  traceExporter,
-  metricReader,
-  instrumentations: [getNodeAutoInstrumentations()],
+    contextManager,
+    resource,
+    traceExporter,
+    metricReader,
+    instrumentations: [
+        getNodeAutoInstrumentations({
+            // https://opentelemetry.io/docs/languages/js/libraries/#registration
+            // This particular instrumentation creates a lot of noise on startup
+            '@opentelemetry/instrumentation-fs': {
+                enabled: false,
+            },
+        }),
+    ],
 });
 
 sdk.start();

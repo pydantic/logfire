@@ -23,7 +23,7 @@ Then, add an .env file with your Logfire token and configuration:
 
 ```bash
 # Used for reporting traces to Logfire
-LOGFIRE_BASE_URL=http://logfire-api.pydantic.dev/
+LOGFIRE_BASE_URL=https://logfire-api.pydantic.dev/
 # The write token for your project
 LOGFIRE_WRITE_TOKEN=your-write-token
 EXPRESS_PORT=8080
