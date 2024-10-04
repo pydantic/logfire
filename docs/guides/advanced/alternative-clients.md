@@ -44,3 +44,71 @@ exporter = OTLPSpanExporter(
     headers={'Authorization': 'your-write-token'},
 )
 ```
+
+
+## Example with Rust
+
+First, set up a new Cargo project:
+
+```sh
+cargo new --bin otel-example && cd otel-example
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+```
+
+Update the `Cargo.toml` and `main.rs` files with the following contents:
+
+```toml title="Cargo.toml"
+[package]
+name = "otel-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+opentelemetry = { version = "*", default-features = false, features = ["trace"] }
+# Note: `reqwest-rustls` feature is necessary else you'll have a cryptic failure to export;
+# see https://github.com/open-telemetry/opentelemetry-rust/issues/2169
+opentelemetry-otlp = { version = "*", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+```
+
+```rust title="src/main.rs"
+use opentelemetry::{
+    global::ObjectSafeSpan,
+    trace::{Tracer, TracerProvider},
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let otlp_exporter = opentelemetry_otlp::new_exporter()
+        .http()
+        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
+        // If you don't want to export environment variables, you can also configure
+        // programmatically like so:
+        //
+        // (You'll need to add `use opentelemetry_otlp::WithExportConfig;` to the top of the
+        // file to access the `.with_endpoint` method.)
+        //
+        // .with_endpoint("https://logfire-api.pydantic.dev/v1/traces")
+        // .with_headers({
+        //     let mut headers = std::collections::HashMap::new();
+        //     headers.insert(
+        //         "Authorization".into(),
+        //         "your-write-token".into(),
+        //     );
+        //     headers
+        // })
+        ;
+
+    let tracer_provider = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(otlp_exporter)
+        .install_simple()?;
+    let tracer = tracer_provider.tracer("my_tracer");
+
+    tracer.span_builder("Hello World").start(&tracer).end();
+
+    Ok(())
+}
+
+```
+
+Finally, use `cargo run` to execute.

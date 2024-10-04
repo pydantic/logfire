@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "1.0.0"
+version = "1.0.1"
 description = "The best Python observability tool! 🪵🔥"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -211,9 +211,11 @@ reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 exclude = [
     "docs/**/*.py",
+    "examples/**/*.py",
     "site/**/*.py",
     ".venv",
     "venv*",
+    "**/venv*",
     "ignoreme",
     "out",
     "logfire-api",
