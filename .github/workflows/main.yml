@@ -70,8 +70,6 @@ jobs:
           allow-prereleases: true
       - uses: eifinger/setup-rye@v2.6
       - name: Pin python-version ${{ matrix.python-version }}
-      # rye pin doesn't work with python 3.13, so we skip it - tbd if this works?
-        if: matrix.python-version != '3.13'
         run: rye pin ${{ matrix.python-version }}
       - run: rye config --set-bool behavior.use-uv=true
       # Update all dependencies to the latest version possible
