@@ -71,8 +71,10 @@ jobs:
       # We're using uv here bc rye doesn't yet work with pre-releases
       - run: pip install uv
       - run: uv python pin ${{ matrix.python-version }}
-      - run: uv pip install --system -r requirements-dev.lock
+      # Update all dependencies to the latest version possible
+      - run: uv pip sync pyproject.toml
       - run: uv pip install "logfire-api @ file://logfire-api"
+      - run: uv pip install coverage
       - run: mkdir coverage
       - run: uv run coverage run -m pytest
         env:
