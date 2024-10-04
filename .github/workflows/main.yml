@@ -70,12 +70,12 @@ jobs:
           allow-prereleases: true
       - uses: eifinger/setup-rye@v2.6
       - name: Pin python-version ${{ matrix.python-version }}
-        run: rye pin ${{ matrix.python-version }}
-      - run: rye config --set-bool behavior.use-uv=true
-      # Update all dependencies to the latest version possible
-      - run: rye sync --update-all
-      - run: |
+        # We're using uv here bc I couldn't get rye to work with pins for beta
+        # Update all dependencies to the latest version possible
+        run: |
           pip install uv
+          uv python pin ${{ matrix.python-version }}
+          uv sync --update-all
           uv pip install "logfire-api @ file://logfire-api"
       - run: rye show
       - run: mkdir coverage
