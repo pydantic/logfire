@@ -68,13 +68,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
-      - uses: eifinger/setup-rye@v2.6
       # We're using uv here bc rye doesn't yet work with pre-releases
       - run: pip install uv
       - run: uv python pin ${{ matrix.python-version }}
-      # Update all dependencies to the latest version possible
-      - run: uv pip sync pyproject.toml
-      - run: uv pip install "logfire-api @ file://logfire-api" coverage
+      - run: uv pip install --system -r requirements-dev.lock
+      - run: uv pip install "logfire-api @ file://logfire-api"
       - run: mkdir coverage
       - run: uv run coverage run -m pytest
         env:
