@@ -75,7 +75,7 @@ jobs:
         run: |
           pip install uv
           uv python pin ${{ matrix.python-version }}
-          uv sync --update-all
+          uv sync
           uv pip install "logfire-api @ file://logfire-api"
       - run: rye show
       - run: mkdir coverage
