@@ -73,7 +73,7 @@ jobs:
       - run: pip install uv
       - run: uv python pin ${{ matrix.python-version }}
       # Update all dependencies to the latest version possible
-      - run: uv sync --frozen
+      - run: uv pip sync pyproject.toml
       - run: uv pip install "logfire-api @ file://logfire-api"
       - run: mkdir coverage
       - run: uv run coverage run -m pytest
