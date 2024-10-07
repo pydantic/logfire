@@ -795,18 +795,6 @@ wheels = [
 ]
 
 [[package]]
-name = "deprecation"
-version = "2.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178 },
-]
-
-[[package]]
 name = "dirty-equals"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -865,9 +853,9 @@ name = "docker"
 version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "requests" },
-    { name = "urllib3" },
+    { name = "pywin32", marker = "python_full_version >= '3.9' and sys_platform == 'win32'" },
+    { name = "requests", marker = "python_full_version >= '3.9'" },
+    { name = "urllib3", marker = "python_full_version >= '3.9'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/91/9b/4a2ea29aeba62471211598dac5d96825bb49348fa07e906ea930394a83ce/docker-7.1.0.tar.gz", hash = "sha256:ad8c70e6e3f8926cb8a92619b832b4ea5299e2831c14284663184e200546fa6c", size = 117834 }
 wheels = [
@@ -1497,7 +1485,7 @@ dev = [
     { name = "sqlalchemy" },
     { name = "sqlmodel" },
     { name = "structlog" },
-    { name = "testcontainers" },
+    { name = "testcontainers", marker = "python_full_version >= '3.9'" },
     { name = "uvicorn" },
 ]
 
@@ -1600,7 +1588,7 @@ dev = [
     { name = "sqlalchemy" },
     { name = "sqlmodel" },
     { name = "structlog" },
-    { name = "testcontainers" },
+    { name = "testcontainers", marker = "python_full_version >= '3.9'" },
     { name = "uvicorn", specifier = ">=0.30.6" },
 ]
 
@@ -3614,15 +3602,17 @@ wheels = [
 
 [[package]]
 name = "testcontainers"
-version = "3.7.1"
+version = "4.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "deprecation" },
-    { name = "docker" },
-    { name = "wrapt" },
+    { name = "docker", marker = "python_full_version >= '3.9'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.9'" },
+    { name = "urllib3", marker = "python_full_version >= '3.9'" },
+    { name = "wrapt", marker = "python_full_version >= '3.9'" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/44/42/62109a1057763b0e9a95a1893ee8e6a39c9adac142b9d131a8f8d31bafcf/testcontainers-4.8.1.tar.gz", hash = "sha256:5ded4820b7227ad526857eb3caaafcabce1bbac05d22ad194849b136ffae3cb0", size = 63671 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/37/38c595414d764cb1d9f3a0c907878c4146a21505ab974c63bcf3d8145807/testcontainers-3.7.1-py2.py3-none-any.whl", hash = "sha256:7f48cef4bf0ccd78f1a4534d4b701a003a3bace851f24eae58a32f9e3f0aeba0", size = 45321 },
+    { url = "https://files.pythonhosted.org/packages/eb/fb/f94ab2c9c275032e4e672f1223a279a9bbd204f4bb393b00a6bce134ed5d/testcontainers-4.8.1-py3-none-any.whl", hash = "sha256:d8ae43e8fe34060fcd5c3f494e0b7652b7774beabe94568a2283d0881e94d489", size = 104422 },
 ]
 
 [[package]]
