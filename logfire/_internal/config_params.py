@@ -93,7 +93,7 @@ TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRA
 INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
-"""Whether to show a warning message if logire if used without calling logfire.configure()"""
+"""Whether to show a warning message if logfire if used without calling logfire.configure()"""
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 # fmt: on

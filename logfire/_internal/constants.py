@@ -145,6 +145,21 @@ LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
+RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION = 'vcs.repository.ref.revision'
+"""The revision of the VCS repository e.g. git commit hash, branch name, tag name, etc.
+
+Check https://opentelemetry.io/docs/specs/semconv/attributes-registry/vcs/ for more information.
+"""
+
+RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL = 'vcs.repository.url.full'
+"""The full URL of the VCS repository e.g. https://github.com/pydantic/logfire.
+
+Check https://opentelemetry.io/docs/specs/semconv/attributes-registry/vcs/ for more information.
+"""
+
+RESOURCE_ATTRIBUTES_CODE_ROOT_PATH = 'logfire.code.root_path'
+"""The root path of the current repository."""
+
 OTLP_MAX_INT_SIZE = 2**63 - 1
 """OTLP only supports signed 64-bit integers, larger integers get sent as strings."""
 

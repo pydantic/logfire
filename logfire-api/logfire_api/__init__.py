@@ -179,6 +179,9 @@ except ImportError:
         class SamplingOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class CodeSource:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class ScrubbingOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 

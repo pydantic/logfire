@@ -808,7 +808,7 @@ class Logfire:
         record: PydanticPluginRecordValues = 'all',
         include: Iterable[str] = (),
         exclude: Iterable[str] = (),
-    ):
+    ) -> None:
         """Instrument Pydantic model validations.
 
         This must be called before defining and importing the model classes you want to instrument.

@@ -36,6 +36,7 @@ import logfire
 from logfire import configure
 from logfire._internal.config import (
     GLOBAL_CONFIG,
+    CodeSource,
     ConsoleOptions,
     LogfireConfig,
     LogfireCredentials,
@@ -823,13 +824,18 @@ def test_config_serializable():
         console=logfire.ConsoleOptions(verbose=True),
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
+        code_source=logfire.CodeSource(
+            repository='https://github.com/pydantic/logfire',
+            revision='main',
+            root_path='.',
+        ),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
         )
 
     serialized = serialize_config()
@@ -988,9 +994,7 @@ def test_initialize_project_not_using_existing_project(
             [create_project_response],
         )
 
-        logfire.configure(
-            send_to_logfire=True,
-        )
+        logfire.configure(send_to_logfire=True)
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -1577,3 +1581,52 @@ def test_additional_metric_readers_combined_with_metrics():
         )
     ):
         logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
+
+
+def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(
+        **config_kwargs,
+        service_version='1.2.3',
+        code_source=CodeSource(
+            repository='https://github.com/pydantic/logfire',
+            revision='main',
+            root_path='logfire',
+        ),
+    )
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_code_source',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'logfire.code.root_path': 'logfire',
+                        'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
+                        'vcs.repository.ref.revision': 'main',
+                        'service.version': '1.2.3',
+                    }
+                },
+            }
+        ]
+    )

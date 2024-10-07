@@ -160,6 +160,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.SamplingOptions()
     logfire__all__.remove('SamplingOptions')
 
+    assert hasattr(logfire_api, 'CodeSource')
+    logfire_api.CodeSource(repository='https://github.com/pydantic/logfire', revision='main', root_path='test')
+    logfire__all__.remove('CodeSource')
+
     assert hasattr(logfire_api, 'ScrubbingOptions')
     logfire_api.ScrubbingOptions()
     logfire__all__.remove('ScrubbingOptions')
