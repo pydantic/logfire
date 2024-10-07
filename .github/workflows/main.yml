@@ -118,7 +118,7 @@ jobs:
         with:
           merge-multiple: true
           path: coverage
-      - run: uv pip install coverage[toml]
+      - run: uv pip install --system coverage[toml]
       - run: ls -lh coverage
       - run: uv run coverage combine coverage
       - run: uv run coverage xml
