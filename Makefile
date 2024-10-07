@@ -61,4 +61,4 @@ cf-pages-build:
 	python3 -m pip install uv
 	python3 -m uv sync --frozen
 	python3 -m uv pip install --system --extra-index-url $(PPPR_URL) -U mkdocs-material mkdocstrings-python griffe==0.48.0
-	python3 -m mkdocs build
+	python3 -m uv run --no-sync mkdocs build
