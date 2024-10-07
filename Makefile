@@ -1,5 +1,4 @@
 .DEFAULT_GOAL := all
-sources = logfire tests
 
 .PHONY: .uv  # Check that uv is installed
 .uv:
@@ -27,7 +26,7 @@ lint:
 
 .PHONY: typecheck  # Typecheck the code
 typecheck:
-	uv run pyright $(sources)
+	uv run pyright
 
 .PHONY: test  # Run the tests
 test:
@@ -41,16 +40,16 @@ generate-stubs:
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov: test
 	@echo "building coverage html"
-	@uv run coverage html --show-contexts
+	uv run coverage html --show-contexts
 
 .PHONY: docs  # Build the documentation
 docs:
-	mkdocs build
+	uv run mkdocs build
 
 # no strict so you can build the docs without insiders packages
 .PHONY: docs-serve  # Build and serve the documentation
 docs-serve:
-	mkdocs serve --no-strict
+	uv run mkdocs serve --no-strict
 
 .PHONY: all
 all: format lint test

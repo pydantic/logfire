@@ -25,8 +25,8 @@ repos:
         types: [python]
       - id: pyright
         name: pyright
-        entry: uv
+        entry: make
         language: system
-        args: ["run", "pyright"]
+        args: [typecheck]
         types: [python]
         pass_filenames: false
