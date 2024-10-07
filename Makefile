@@ -59,6 +59,6 @@ all: format lint test
 cf-pages-build:
 	python3 -V
 	python3 -m pip install uv
-	python3 -m uv pip install --system -r requirements.lock -r requirements-dev.lock
+	python3 -m uv sync --frozen
 	python3 -m uv pip install --system --extra-index-url $(PPPR_URL) -U mkdocs-material mkdocstrings-python griffe==0.48.0
 	python3 -m mkdocs build
