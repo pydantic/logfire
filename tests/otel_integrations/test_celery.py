@@ -26,7 +26,7 @@ def redis_container() -> Generator[RedisContainer, None, None]:
 
 @pytest.fixture
 def celery_app(redis_container: RedisContainer) -> Iterator[Celery]:
-    redis_uri = f'redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0'  # type: ignore
+    redis_uri = f'redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0'
     app = Celery('tasks', broker=redis_uri, backend=redis_uri)
 
     @app.task(name='tasks.say_hello')  # type: ignore
