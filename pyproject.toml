@@ -96,7 +96,8 @@ dev-dependencies = [
     "pydantic @ git+https://github.com/pydantic/pydantic",
     "requests",
     "sqlalchemy",
-    "pandas",
+    "pandas>=2.1.2; python_version >= '3.12'",
+    "pandas; python_version >= '3.9' and python_version < '3.12'",
     "attrs",
     "openai",
     "opentelemetry-instrumentation-aiohttp-client",
@@ -141,7 +142,7 @@ dev-dependencies = [
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
-    "numpy==1.26.4; python_version >= '3.9'",
+    "numpy>=2.0; python_version >= '3.9' and python_version < '3.12'",
     "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
