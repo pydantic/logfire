@@ -26,5 +26,5 @@ To do this we provide the parameter `send_to_logfire='if-token-present'` in the 
 If you set it to `'if-token-present'`, logfire will only send data to logfire if a write token is present in the environment variable `LOGFIRE_TOKEN` or there is a token saved locally.
 If you run tests in CI no data will be sent.
 
-You can also set the environmnet variable `LOGFIRE_SEND_TO_LOGFIRE` to configure this option.
+You can also set the environment variable `LOGFIRE_SEND_TO_LOGFIRE` to configure this option.
 For example, you can set it to `LOGFIRE_SEND_TO_LOGFIRE=true` in your deployed application and `LOGFIRE_SEND_TO_LOGFIRE=false` in your tests setup.
