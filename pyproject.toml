@@ -139,7 +139,6 @@ dev-dependencies = [
     "testcontainers",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0",
-    "pre-commit",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy==1.26.4; python_version >= '3.9'",
     "numpy<1.24.4; python_version < '3.9'",
