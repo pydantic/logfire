@@ -23,11 +23,11 @@ jobs:
           version: "0.4.12"
           enable-cache: true
 
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python 3.9
+        run: uv python install 3.9
 
       - name: Install dependencies
-        run: uv sync --python 3.12 --frozen
+        run: uv sync --python 3.9 --frozen
 
       - run: make lint
       - run: make typecheck
@@ -43,10 +43,10 @@ jobs:
           version: "0.4.12"
           enable-cache: true
 
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python 3.9
+        run: uv python install 3.9
 
-      - run: uv sync --python 3.12 --frozen
+      - run: uv sync --python 3.9 --frozen
       - run: uv pip install --upgrade mkdocs-material mkdocstrings-python griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
