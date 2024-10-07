@@ -5,7 +5,8 @@ resolution-markers = [
     "python_full_version < '3.9' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*'",
+    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.11.*'",
     "python_full_version == '3.12.*'",
     "python_full_version >= '3.13'",
@@ -430,7 +431,7 @@ name = "cffi"
 version = "1.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "platform_python_implementation != 'PyPy' or python_full_version >= '3.10'" },
+    { name = "pycparser" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/97/c783634659c2920c3fc70419e3af40972dbaf758daa229a7d6ea6135c90d/cffi-1.17.1.tar.gz", hash = "sha256:1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824", size = 516621 }
 wheels = [
@@ -1536,7 +1537,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aiohttp" },
+    { name = "aiohttp", specifier = ">=3.10.9" },
     { name = "anthropic", specifier = ">=0.27.0" },
     { name = "anyio", specifier = "<4.4.0" },
     { name = "asyncpg" },
@@ -1551,7 +1552,7 @@ dev = [
     { name = "fastapi" },
     { name = "flask" },
     { name = "griffe" },
-    { name = "httpx" },
+    { name = "httpx", specifier = ">=0.27.2" },
     { name = "inline-snapshot" },
     { name = "logfire-api", editable = "logfire-api" },
     { name = "loguru" },
@@ -1590,14 +1591,14 @@ dev = [
     { name = "psycopg2-binary" },
     { name = "pyarrow", specifier = ">=17.0.0" },
     { name = "pydantic", git = "https://github.com/pydantic/pydantic" },
-    { name = "pymongo" },
+    { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql" },
     { name = "pyright", specifier = ">=1.1.360" },
     { name = "pytest" },
     { name = "pytest-django" },
     { name = "pytest-pretty" },
     { name = "pytest-recording", specifier = ">=0.13.2" },
-    { name = "redis" },
+    { name = "redis", specifier = ">=5.1.1" },
     { name = "requests" },
     { name = "requests-mock" },
     { name = "ruff" },
@@ -2106,7 +2107,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*'",
+    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.11.*'",
     "python_full_version == '3.12.*'",
     "python_full_version >= '3.13'",
@@ -2637,7 +2639,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*'",
+    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.11.*'",
     "python_full_version == '3.12.*'",
     "python_full_version >= '3.13'",
@@ -3717,7 +3720,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*'",
+    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.11.*'",
     "python_full_version == '3.12.*'",
     "python_full_version >= '3.13'",

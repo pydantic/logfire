@@ -81,11 +81,11 @@ logfire = "logfire.testing"
 [tool.uv]
 managed = true
 dev-dependencies = [
-    "anyio<4.4.0",
-    "httpx",
-    "aiohttp",
-    "redis",
-    "pymongo",
+    "anyio < 4.4.0",
+    "httpx >= 0.27.2",
+    "aiohttp >= 3.10.9",
+    "redis >= 5.1.1",
+    "pymongo >= 4.10.1",
     "fastapi",
     "Flask",
     "django",
