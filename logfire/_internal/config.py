@@ -194,7 +194,11 @@ class MetricsOptions:
 
 @dataclass
 class CodeSource:
-    """Settings for the source code of the project."""
+    """Settings for the source code of the project.
+
+    !!! Warning
+        This setting is experimental, and may change in the future!
+    """
 
     repository: str
     """The repository URL for the code e.g. https://github.com/pydantic/logfire"""
@@ -260,6 +264,8 @@ def configure(  # noqa: D417
             Defaults to `True` if and only if the Python version is at least 3.11.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
+            !!! Warning
+                This setting is experimental, and may change in the future!
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
