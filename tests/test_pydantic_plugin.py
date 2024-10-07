@@ -917,7 +917,7 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
 
 
 def test_old_plugin_style(exporter: TestExporter) -> None:
-    # Test that plguins for the old API still work together with the logfire plugin.
+    # Test that plugins for the old API still work together with the logfire plugin.
 
     events: list[str] = []
 

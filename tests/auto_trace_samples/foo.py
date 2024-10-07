@@ -12,7 +12,7 @@ def gen() -> Iterator[int]:
     yield from range(3)
 
 
-# @instrument oerrides auto-tracing
+# @instrument overrides auto-tracing
 @logfire.instrument('Calling async_gen via @instrument')
 async def async_gen():
     def inner():
