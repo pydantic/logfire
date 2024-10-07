@@ -47,7 +47,7 @@ jobs:
         run: uv python install 3.12
 
       - run: uv sync --python 3.12 --frozen
-      - run: uv pip install --system -U mkdocs-material mkdocstrings-python
+      - run: uv pip install mkdocs-material mkdocstrings-python
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
