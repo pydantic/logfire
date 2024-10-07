@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 
 import mysql.connector
 import pytest
@@ -21,11 +22,12 @@ def mysql_container():
         yield mysql_container
 
 
+@contextmanager
 def get_mysql_connection(mysql_container: MySqlContainer):
     host = mysql_container.get_container_host_ip()
     port = mysql_container.get_exposed_port(3306)  # type: ignore
-    connection = mysql.connector.connect(host=host, port=port, user='test', password='test', database='test')
-    return connection
+    with mysql.connector.connect(host=host, port=port, user='test', password='test', database='test') as conn:
+        yield conn
 
 
 def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlContainer):
