@@ -58,6 +58,7 @@ all: format lint test
 .PHONY: cf-pages-build  # Build the docs for GitHub Pages
 cf-pages-build:
 	curl -LsSf https://astral.sh/uv/0.4.6/install.sh | sh
+	source $HOME/.cargo/env
 	uv python install 3.12
 	uv sync --python 3.12 --frozen
 	uv pip install --upgrade --system --extra-index-url $(PPPR_URL) mkdocs-material mkdocstrings-python griffe==0.48.0
