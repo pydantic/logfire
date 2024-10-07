@@ -136,7 +136,8 @@ dev-dependencies = [
     "sqlmodel",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers; python_version >= '3.9'",
+    "testcontainers>3.7.1; python_version >= '3.9'",
+    "testcontainers==3.7.1; python_version < '3.9'",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
