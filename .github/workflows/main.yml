@@ -85,7 +85,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - run: uv sync --frozen
+      - run: uv sync --verbose --frozen
 
       - run: mkdir coverage
       - run: make test
