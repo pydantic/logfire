@@ -85,7 +85,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - run: uv sync --upgrade
+      - run: uv --python ${{ matrix.python-version }} sync --upgrade
 
       - run: mkdir coverage
       - run: make test
