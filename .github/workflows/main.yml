@@ -52,9 +52,9 @@ jobs:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
           if [[ -n "${{ github.head_ref }}" && "${{ github.repository }}" != "${{ github.event.pull_request.head.repo.full_name }}" ]]; then
-            uv run mkdocs build --no-strict
+            uv run --no-sync mkdocs build --no-strict
           else
-            uv run mkdocs build
+            uv run --no-sync mkdocs build
           fi
 
   test:
