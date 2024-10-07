@@ -52,9 +52,9 @@ jobs:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
           if [[ -n "${{ github.head_ref }}" && "${{ github.repository }}" != "${{ github.event.pull_request.head.repo.full_name }}" ]]; then
-            mkdocs build --no-strict
+            uv run mkdocs build --no-strict
           else
-            mkdocs build
+            uv run mkdocs build
           fi
 
   test:
@@ -120,8 +120,8 @@ jobs:
           path: coverage
       - run: uv pip install coverage[toml]
       - run: ls -lh coverage
-      - run: coverage combine coverage
-      - run: coverage xml
+      - run: uv run coverage combine coverage
+      - run: uv run coverage xml
       - uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
