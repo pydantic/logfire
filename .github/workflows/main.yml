@@ -16,27 +16,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.8"
-      - uses: eifinger/setup-rye@v2.6
-      - run: rye config --set-bool behavior.use-uv=true
-      - run: rye sync --no-lock
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python 3.8
+        run: uv python install 3.8
+
+      - name: Install dependencies
+        run: uv sync --python 3.8 --frozen
+
       - run: make lint
-      - run: rye run pyright logfire tests
+      - run: make typecheck
 
   docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.12"
-      # we use uv directly here since I couldn't get rye to work with UV_EXTRA_INDEX_URL
-      # see https://github.com/pydantic/logfire/pull/12
-      - run: pip install uv
-      - run: uv pip install --system -r requirements.lock -r requirements-dev.lock
-      - run: uv pip install --system -U mkdocs-material mkdocstrings-python griffe==0.48.0
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - run: uv sync --python 3.12 --frozen
+      - run: uv pip install --system -U mkdocs-material mkdocstrings-python
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
@@ -57,26 +68,25 @@ jobs:
       PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Ensure requests to production domains fail
         if: runner.os == 'Linux'
         run: |
           echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
-      - name: set up python
-        uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
-      - uses: eifinger/setup-rye@v2.6
-      - name: Pin python-version ${{ matrix.python-version }}
-        run: rye pin ${{ matrix.python-version }}
-      - run: rye config --set-bool behavior.use-uv=true
-      # Update all dependencies to the latest version possible
-      - run: rye sync --update-all
-      - run: |
-          pip install uv
-          uv pip install "logfire-api @ file://logfire-api"
-      - run: rye show
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - run: make install
+
       - run: mkdir coverage
       - run: make test
         env:
@@ -93,15 +103,22 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.12"
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
       - name: get coverage files
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: coverage
-      - run: pip install coverage[toml]
+      - run: uv pip install coverage[toml]
       - run: ls -lh coverage
       - run: coverage combine coverage
       - run: coverage xml
@@ -134,19 +151,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: set up python
-        uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: "3.12"
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
 
       - name: check GITHUB_REF matches package version
         uses: samuelcolvin/check-python-version@v4.1
         with:
           version_file_path: pyproject.toml
 
-      - uses: eifinger/setup-rye@v2
-      - run: rye config --set-bool behavior.use-uv=true
-      - run: rye build
+      - run: uv build
 
       - name: Publish logfire to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -154,7 +174,7 @@ jobs:
           skip-existing: true
 
       - name: Build logfire-api
-        run: rye build
+        run: uv build
         working-directory: logfire-api/
 
       - name: Publish logfire-api to PyPI

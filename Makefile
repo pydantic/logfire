@@ -1,51 +1,56 @@
 .DEFAULT_GOAL := all
-sources = pydantic tests docs/plugins
+sources = logfire tests
 
-.PHONY: .rye  # Check that Rye is installed
-.rye:
-	@rye --version || echo 'Please install Rye: https://rye-up.com/guide/installation/'
+.PHONY: .uv  # Check that uv is installed
+.uv:
+	@uv --version || echo 'Please install uv: https://docs.astral.sh/uv/getting-started/installation/'
 
 .PHONY: .pre-commit  # Check that pre-commit is installed
 .pre-commit:
 	@pre-commit -V || echo 'Please install pre-commit: https://pre-commit.com/'
 
 .PHONY: install  # Install the package, dependencies, and pre-commit for local development
-install: .rye .pre-commit
-	rye show
-	rye sync --no-lock
+install: .uv .pre-commit
+	uv sync --frozen
 	uv pip install -e logfire-api
 	pre-commit install --install-hooks
 
 .PHONY: format  # Format the code
 format:
-	rye format
-	rye lint --fix
+	uv run ruff format
+	uv run ruff check --fix
 
 .PHONY: lint  # Lint the code
 lint:
-	rye lint
-	rye format --check
+	uv run ruff check
+	uv run ruff format --check --diff
+
+.PHONY: typecheck  # Typecheck the code
+typecheck:
+	uv run pyright $(sources)
 
 .PHONY: test  # Run the tests
 test:
-	rye run coverage run -m pytest
+	uv run coverage run -m pytest
 
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
-	rye run generate-stubs
+	stubgen -p logfire --include-docstrings --no-analysis
+	rsync -a out/logfire/ logfire-api/logfire_api/
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov: test
 	@echo "building coverage html"
-	@rye run coverage html --show-contexts
+	@uv run coverage html --show-contexts
 
 .PHONY: docs  # Build the documentation
 docs:
-	rye run docs
+	mkdocs build
 
+# no strict so you can build the docs without insiders packages
 .PHONY: docs-serve  # Build and serve the documentation
 docs-serve:
-	rye run docs-serve
+	mkdocs serve --no-strict
 
 .PHONY: all
 all: format lint test

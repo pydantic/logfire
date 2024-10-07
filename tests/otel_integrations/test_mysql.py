@@ -23,7 +23,7 @@ def mysql_container():
 
 def get_mysql_connection(mysql_container: MySqlContainer):
     host = mysql_container.get_container_host_ip()
-    port = mysql_container.get_exposed_port(3306)
+    port = mysql_container.get_exposed_port(3306)  # type: ignore
     connection = mysql.connector.connect(host=host, port=port, user='test', password='test', database='test')
     return connection
 

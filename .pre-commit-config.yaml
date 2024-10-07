@@ -25,8 +25,8 @@ repos:
         types: [python]
       - id: pyright
         name: pyright
-        entry: rye
+        entry: uv
         language: system
-        args: ["run", "typecheck"]
+        args: ["run", "pyright"]
         types: [python]
         pass_filenames: false

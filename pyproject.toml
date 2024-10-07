@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "logfire"
 version = "1.0.1"
 description = "The best Python observability tool! 🪵🔥"
+requires-python = ">=3.8"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
@@ -47,7 +48,7 @@ dependencies = [
     "protobuf >= 4.23.4",
     "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
-    "executing>=2.0.1",
+    "executing >= 2.0.1",
 ]
 
 [project.optional-dependencies]
@@ -77,7 +78,7 @@ logfire-plugin = "logfire.integrations.pydantic:plugin"
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
 
-[tool.rye]
+[tool.uv]
 managed = true
 dev-dependencies = [
     "anyio<4.4.0",
@@ -124,14 +125,12 @@ dev-dependencies = [
     "ruff",
     "pyright>=1.1.360",
     "pre-commit>=3.5.0",
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.17",
-    "mkdocs-glightbox>=0.3.7",
-    "mkdocstrings-python>=1.8.0",
     "coverage[toml]>=7.5.0",
     "psycopg[binary]",
     "psycopg2-binary",
     "asyncpg",
+    "pymysql",
+    "cryptography",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel",
@@ -139,21 +138,28 @@ dev-dependencies = [
     "celery>=5.4.0",
     "testcontainers",
     "mysql-connector-python~=8.0",
-    "griffe==0.48.0",
     "pyarrow>=17.0.0",
+    # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
+    "numpy==1.26.4; python_version >= '3.9'",
+    "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
+    # Documentation
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.17",
+    "mkdocs-glightbox>=0.3.7",
+    "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
+    "griffe",
+    # Logfire API
+    "logfire-api",
 ]
 
-[tool.rye.scripts]
-typecheck = "pyright"
-docs = "mkdocs build"
-# no strict so you can build the docs without insiders packages
-docs-serve = "mkdocs serve --no-strict"
-generate-stubs = { chain = ["generate-stubs:stubgen", "generate-stubs:sync"] }
-"generate-stubs:stubgen" = "stubgen -p logfire --include-docstrings --no-analysis"
-"generate-stubs:sync" = "rsync -a out/logfire/ logfire-api/logfire_api/"
+[tool.uv.sources]
+logfire-api = { workspace = true }
+
+[tool.uv.workspace]
+members = ["logfire-api"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
