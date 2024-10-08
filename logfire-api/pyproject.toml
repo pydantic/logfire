@@ -20,7 +20,7 @@ dependencies = []
 readme = "README.md"
 requires-python = ">= 3.8"
 
-[tool.rye]
+[tool.uv]
 managed = true
 dev-dependencies = []
 

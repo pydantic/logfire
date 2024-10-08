@@ -81,7 +81,7 @@ except ImportError:
 
             def force_flush(self, *args, **kwargs) -> None: ...
 
-            def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no branch
+            def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no cover
                 return nullcontext()
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...

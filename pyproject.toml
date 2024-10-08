@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "logfire"
 version = "1.0.1"
 description = "The best Python observability tool! 🪵🔥"
+requires-python = ">=3.8"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
@@ -47,7 +48,7 @@ dependencies = [
     "protobuf >= 4.23.4",
     "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
-    "executing>=2.0.1",
+    "executing >= 2.0.1",
 ]
 
 [project.optional-dependencies]
@@ -77,25 +78,26 @@ logfire-plugin = "logfire.integrations.pydantic:plugin"
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
 
-[tool.rye]
+[tool.uv]
 managed = true
 dev-dependencies = [
-    "anyio<4.4.0",
-    "httpx",
-    "aiohttp",
-    "redis",
-    "pymongo",
-    "fastapi",
-    "Flask",
-    "django",
-    "dirty-equals",
-    "pytest",
+    "anyio < 4.4.0",
+    "httpx >= 0.27.2",
+    "aiohttp >= 3.10.9",
+    "redis >= 5.1.1",
+    "pymongo >= 4.10.1",
+    "fastapi >= 0.115.0",
+    "Flask >= 3.0.3",
+    "django >= 4.2.16",
+    "dirty-equals >= 0.8.0",
+    "pytest >= 8.3.3",
     "pytest-django",
     "pytest-pretty",
     "pydantic @ git+https://github.com/pydantic/pydantic",
     "requests",
     "sqlalchemy",
-    "pandas",
+    "pandas>=2.1.2; python_version >= '3.9'",
+    "pandas; python_version < '3.9'",
     "attrs",
     "openai",
     "opentelemetry-instrumentation-aiohttp-client",
@@ -124,36 +126,42 @@ dev-dependencies = [
     "ruff",
     "pyright>=1.1.360",
     "pre-commit>=3.5.0",
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.17",
-    "mkdocs-glightbox>=0.3.7",
-    "mkdocstrings-python>=1.8.0",
     "coverage[toml]>=7.5.0",
     "psycopg[binary]",
     "psycopg2-binary",
     "asyncpg",
+    "pymysql",
+    "cryptography",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers",
+    "testcontainers>3.7.1; python_version >= '3.9'",
+    "testcontainers==3.7.1; python_version < '3.9'",
     "mysql-connector-python~=8.0",
-    "griffe==0.48.0",
     "pyarrow>=17.0.0",
+    # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
+    "numpy>=2.0; python_version >= '3.9' and python_version < '3.12'",
+    "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
+    # Documentation
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.17",
+    "mkdocs-glightbox>=0.3.7",
+    "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
+    "griffe",
+    # Logfire API
+    "logfire-api",
 ]
 
-[tool.rye.scripts]
-typecheck = "pyright"
-docs = "mkdocs build"
-# no strict so you can build the docs without insiders packages
-docs-serve = "mkdocs serve --no-strict"
-generate-stubs = { chain = ["generate-stubs:stubgen", "generate-stubs:sync"] }
-"generate-stubs:stubgen" = "stubgen -p logfire --include-docstrings --no-analysis"
-"generate-stubs:sync" = "rsync -a out/logfire/ logfire-api/logfire_api/"
+[tool.uv.sources]
+logfire-api = { workspace = true }
+
+[tool.uv.workspace]
+members = ["logfire-api"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
