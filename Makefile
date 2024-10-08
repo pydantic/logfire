@@ -34,7 +34,7 @@ test:
 
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
-	stubgen -p logfire --include-docstrings --no-analysis
+	uv run stubgen -p logfire --include-docstrings --no-analysis
 	rsync -a out/logfire/ logfire-api/logfire_api/
 
 .PHONY: testcov  # Run tests and generate a coverage report
