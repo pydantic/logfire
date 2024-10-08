@@ -131,7 +131,8 @@ dev-dependencies = [
     "coverage[toml]>=7.5.0",
     "psycopg[binary]",
     "psycopg2-binary",
-    "asyncpg",
+    # Re when we can support for 3.13, see: https://github.com/MagicStack/asyncpg/issues/1181
+    "asyncpg; python_version < '3.13'",
     "pymysql",
     "cryptography",
     "cloudpickle>=3.0.0",
