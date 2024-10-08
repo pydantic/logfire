@@ -36,6 +36,7 @@ test:
 generate-stubs:
 	uv run stubgen -p logfire --include-docstrings --no-analysis
 	rsync -a out/logfire/ logfire-api/logfire_api/
+	rm -rf out
 	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi || true
 	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
 
