@@ -550,7 +550,7 @@ class _LogfireConfigData:
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
-        send_to_logfire: bool | None = None,
+        send_to_logfire: bool | Literal['if-token-present'] | None = None,
         token: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,

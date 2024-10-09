@@ -6,6 +6,7 @@ We'd love anyone interested to contribute to the Logfire SDK and documentation.
 
 1. Fork and clone the repository
 2. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+3. [Install pre-commit](https://pre-commit.com/#install)
 3. Run `make install` to install dependencies
 4. Run `make test` to run unit tests
 5. Run `make format` to format code
