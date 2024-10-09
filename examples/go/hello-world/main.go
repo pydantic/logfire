@@ -2,40 +2,36 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {
+	// Initialize the OpenTelemetry tracing system
 	shutdown := initTracer()
 
+	// Ensure the tracer is shut down at the end of the program
 	defer shutdown()
 
+	// Create a tracer and context
 	tracer := otel.Tracer("go-example")
 	ctx := context.Background()
 
 	// work begins
-	parentFunction(ctx, tracer)
-
-	// bonus work
-	exceptionFunction(ctx, tracer)
+	helloWorld(ctx, tracer)
 }
 
 func initTracer() func() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 	// Set up a trace exporter
-	traceExporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint("logfire-api.pydantic.dev"),
-	)
+	traceExporter, err := otlptracehttp.New(ctx)
 	if err != nil {
 		log.Fatalf("failed to create HTTP exporter: %v", err)
 	}
@@ -59,7 +55,7 @@ func initTracer() func() {
 	}
 }
 
-func parentFunction(ctx context.Context, tracer trace.Tracer) {
+func helloWorld(ctx context.Context, tracer trace.Tracer) {
 	ctx, parentSpan := tracer.Start(
 		ctx,
 		"hello world",
@@ -68,28 +64,15 @@ func parentFunction(ctx context.Context, tracer trace.Tracer) {
 
 	defer parentSpan.End()
 
+	time.Sleep(100 * time.Millisecond)
 	childFunction(ctx, tracer)
+	time.Sleep(100 * time.Millisecond)
 }
 
 func childFunction(ctx context.Context, tracer trace.Tracer) {
 	ctx, childSpan := tracer.Start(ctx, "child span")
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
-	childSpan.AddEvent("child span has event")
 	defer childSpan.End()
-}
-
-func exceptionFunction(ctx context.Context, tracer trace.Tracer) {
-	ctx, exceptionSpan := tracer.Start(
-		ctx,
-		"exception span")
-	defer exceptionSpan.End()
-
-	err := errors.New("division by zero")
-
-	if err != nil {
-		exceptionSpan.RecordError(err)
-		exceptionSpan.SetStatus(codes.Error, err.Error())
-	}
 }

@@ -1,26 +1,33 @@
 # Alternative clients
 
-**Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs in many languages to export to the **Logfire** backend. Depending on your SDK, you may need to set only these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
+**Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs in many languages to export to the **Logfire** backend.
 
-- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev` for both traces and metrics, or:
-    - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces` for just traces
-    - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics` for just metrics
-- `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Creating Write Tokens](./creating-write-tokens.md) to obtain a write token and replace `your-write-token` with it.
-- `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` to export in Protobuf format over HTTP (not gRPC). The **Logfire** backend supports both Protobuf and JSON, but only over HTTP for now. Some SDKs (such as Python) already use this value as the default so setting this isn't required, but other SDKs use `grpc` as the default.
+## Required OpenTelemetry environment variables {#otel-env-vars}
+
+In general, you'll need to set the following two environment variables regardless of what language you're using:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=<your-write-token>'
+```
+
+See [Creating Write Tokens](./creating-write-tokens.md) to obtain a write token and replace `<your-write-token>` with it.
+
+There are a number of other available, see the [OpenTelemetry](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/) documentation.
 
 ## Example with Python
 
-First, run these commands:
+Install the required dependencies:
 
 ```sh
 pip install opentelemetry-exporter-otlp
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 ```
+
+Set required OTel environment variables, [see above :point_up:](#otel-env-vars).
 
 Then run this script with `python`:
 
-```python
+```python title="main.py"
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -45,22 +52,19 @@ exporter = OTLPSpanExporter(
 )
 ```
 
-
 ## Example with Rust
 
 First, set up a new Cargo project:
 
 ```sh
-cargo new --bin otel-example && cd otel-example
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+cargo new --bin logfire-rust-example && cd logfire-rust-example
 ```
 
-Update the `Cargo.toml` and `main.rs` files with the following contents:
+Update the `Cargo.toml` and `src/main.rs` files with the following contents:
 
 ```toml title="Cargo.toml"
 [package]
-name = "otel-example"
+name = "logfire-rust-example"
 version = "0.1.0"
 edition = "2021"
 
@@ -111,4 +115,122 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 ```
 
-Finally, use `cargo run` to execute.
+Set required OTel environment variables, [see above :point_up:](#otel-env-vars).
+
+Finally, run
+
+```bash
+cargo run
+```
+
+to execute.
+
+## Example with Go
+
+First, set up a new Go project:
+
+```sh
+mkdir logfire-go-example && cd logfire-go-example
+go mod init logfire-go-example
+```
+
+Update the `go.mod` to include the following:
+
+```go
+module logfire-go-example
+
+go 1.23.2
+
+require (
+	go.opentelemetry.io/otel v1.30.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.30.0
+	go.opentelemetry.io/otel/sdk v1.30.0
+	go.opentelemetry.io/otel/trace v1.30.0
+)
+```
+
+Install those dependencies with
+
+```sh
+go get .
+```
+
+Then create a `main.go` file with the following contents:
+
+```go title="main.go"
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
+)
+
+func main() {
+  // Initialize the OpenTelemetry tracing system
+	shutdown := initTracer()
+
+  // Ensure the tracer is shut down at the end of the program
+	defer shutdown()
+
+  // Create a tracer and context
+	tracer := otel.Tracer("go-example")
+	ctx := context.Background()
+
+	// create a span with span name "hello world"
+	ctx, span := tracer.Start(
+		ctx,
+		"hello world",
+		trace.WithAttributes(attribute.String("string-attribute", "potato")),
+	)
+
+  // set the span to end when the function returns
+	defer span.End()
+}
+
+func initTracer() func() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	// Set up a trace exporter
+	traceExporter, err := otlptracehttp.New(ctx)
+	if err != nil {
+		log.Fatalf("failed to create HTTP exporter: %v", err)
+	}
+
+	// Register the trace exporter with a TracerProvider, using a batch
+	// span processor to aggregate spans before export.
+	batchSpanProcessor := sdktrace.NewBatchSpanProcessor(traceExporter)
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSpanProcessor(batchSpanProcessor),
+	)
+	otel.SetTracerProvider(tracerProvider)
+
+	return func() {
+		// Shutdown will flush any remaining spans and shut down the exporter.
+		err := tracerProvider.Shutdown(ctx)
+		if err != nil {
+			log.Fatalf("failed to shutdown TracerProvider: %v", err)
+		}
+		cancel()
+	}
+}
+```
+
+Set required OTel environment variables, [see above :point_up:](#otel-env-vars).
+
+Finally, run
+
+```bash
+go run main.go
+```
+
+to execute.
+
+There's a complete example in the [`/examples/go/hello-world`](https://github.com/pydantic/logfire/tree/main/examples/go/hello-world/){:target="_blank"} directory of the logfire SDK repo.

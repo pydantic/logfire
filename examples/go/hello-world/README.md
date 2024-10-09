@@ -6,8 +6,25 @@ This is a very simple example of sending traces to Logfire from a Go application
 
 ## Run the project
 
-1. Install Go if you haven't already
-2. Install deps, the internet suggests you should run `go get .`
-3. Set a Logfire write token to use as the `Authorization` header, via the `OTEL_EXPORTER_OTLP_HEADERS` env variable, e.g. `export OTEL_EXPORTER_OTLP_HEADERS='Authorization=<write-token>'`
-4. Run the project with `go run main.go`
-5. You should see two traces in the Logfire app, one with a nested span
+Install Go if you haven't already
+
+To install GO dependencies, from within this directory run:
+
+```bash
+go get .
+```
+
+Set the relevant environment variables for OTel:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+```
+
+Run the project with
+
+```bash
+go run main.go
+```
+
+You should see a trace in the Logfire app.
