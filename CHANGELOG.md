@@ -312,6 +312,7 @@ First release from new repo!
 [v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
 [v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
 [v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
+[v0.50.1]: https://github.com/pydantic/logfire/compare/v0.50.0...v0.50.1
 [v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
 [v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
 [v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0

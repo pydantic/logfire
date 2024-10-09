@@ -1,4 +1,4 @@
-"""Integration with Loguru."""
+"""Integration with [Loguru](https://github.com/Delgan/loguru)."""
 
 from __future__ import annotations
 

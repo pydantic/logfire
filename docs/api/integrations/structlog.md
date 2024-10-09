@@ -1,1 +1,0 @@
-::: logfire.integrations.structlog
