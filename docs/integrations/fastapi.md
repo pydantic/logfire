@@ -103,7 +103,7 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
 - The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
 
 !!! example
-    If you'd like to trace all URLs except the base `/` URL, you can use the following regex: `^https?://[^/]+/$`
+    If you'd like to trace all URLs except the base `/` URL, you can use the following regex for `excluded_urls`: `^https?://[^/]+/$`
 
     Breaking it down:
 
