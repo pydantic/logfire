@@ -17,7 +17,7 @@ There are a number of other available, see the [OpenTelemetry](https://opentelem
 
 ## Example with Python
 
-Install the required dependencies:
+First, install the required dependencies:
 
 ```sh
 pip install opentelemetry-exporter-otlp
