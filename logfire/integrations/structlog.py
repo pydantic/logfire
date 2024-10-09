@@ -1,4 +1,4 @@
-"""Logfire processor for structlog."""
+"""Logfire processor for [structlog](https://www.structlog.org/en/stable/)."""
 
 from __future__ import annotations
 

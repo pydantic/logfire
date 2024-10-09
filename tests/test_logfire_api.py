@@ -152,6 +152,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.LogfireLoggingHandler()
     logfire__all__.remove('LogfireLoggingHandler')
 
+    assert hasattr(logfire_api, 'loguru_handler')
+    logfire_api.loguru_handler()
+    logfire__all__.remove('loguru_handler')
+
     assert hasattr(logfire_api, 'StructlogProcessor')
     logfire_api.StructlogProcessor()
     logfire__all__.remove('StructlogProcessor')

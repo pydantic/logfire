@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import importlib
 import sys
-from typing import TYPE_CHECKING, ContextManager, Literal
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
+from typing import Any, ContextManager, Literal, TYPE_CHECKING
 from unittest.mock import MagicMock
 
 try:
@@ -165,6 +164,8 @@ except ImportError:
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
+
+        def loguru_handler() -> dict[str, Any]: ...
 
         def no_auto_trace(x):
             return x
