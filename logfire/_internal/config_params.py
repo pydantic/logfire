@@ -189,7 +189,7 @@ class ParamManager:
                     return self._cast(value, name, arg)
                 except LogfireConfigError:
                     pass
-            raise LogfireConfigError(f'Expected {name} to be one of {get_args(tp)}, got {value!r}')
+            raise LogfireConfigError(f'Expected {name} to be an instance of one of {get_args(tp)}, got {value!r}')
         if tp is bool:
             return _check_bool(value, name)  # type: ignore
         if tp is float:
