@@ -53,7 +53,7 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_CURRENT_TEST' not in
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off
-SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool | Literal['if-token-present'])
+SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
 """Whether to send spans to Logfire."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
