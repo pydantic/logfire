@@ -233,4 +233,4 @@ go run main.go
 
 to execute.
 
-There's a complete example in the [`/examples/go/hello-world`](https://github.com/pydantic/logfire/tree/main/examples/go/hello-world/){:target="_blank"} directory of the logfire SDK repo.
+There's a complete example in the [`/examples/go/hello-world`](https://github.com/pydantic/logfire/tree/main/examples/go/hello-world/){:target="_blank"} directory of the logfire SDK repository.
