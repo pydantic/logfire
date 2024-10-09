@@ -142,6 +142,7 @@ __all__ = (
     'suppress_instrumentation',
     'StructlogProcessor',
     'LogfireLoggingHandler',
+    'loguru_handler',
     'SamplingOptions',
     'MetricsOptions',
 )

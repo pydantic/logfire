@@ -138,21 +138,17 @@ nav:
       - Use Cases:
           - Web Frameworks: integrations/use-cases/web-frameworks.md
   - Reference:
-      - Reference: reference/index.md
+      - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization-structure.md
       - SDK CLI: reference/cli.md
-  - SDK API:
-      - Logfire: api/logfire.md
-      - Testing: api/testing.md
-      - Sampling: api/sampling.md
-      - Propagate: api/propagate.md
-      - Exceptions: api/exceptions.md
-      - Integrations:
-          - api/integrations/pydantic.md
-          - api/integrations/logging.md
-          - api/integrations/structlog.md
-  - Examples: examples.md
+      - SDK API:
+          - Logfire: reference/api/logfire.md
+          - Testing: reference/api/testing.md
+          - Sampling: reference/api/sampling.md
+          - Propagate: reference/api/propagate.md
+          - Exceptions: reference/api/exceptions.md
+          - Pydantic: reference/api/pydantic.md
   - Help: help.md
   - Roadmap: roadmap.md
   - Legal:
