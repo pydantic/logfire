@@ -8,5 +8,6 @@ This is a very simple example of sending traces to Logfire from a Go application
 
 1. Install Go if you haven't already
 2. Install deps, the internet suggests you should run `go get .`
-3. Set a Logfire write token to to the `Authorization` header, via the `OTEL_EXPORTER_OTLP_HEADERS` env variable, e.g. `export OTEL_EXPORTER_OTLP_HEADERS='Authorization=...'`
+3. Set a Logfire write token to use as the `Authorization` header, via the `OTEL_EXPORTER_OTLP_HEADERS` env variable, e.g. `export OTEL_EXPORTER_OTLP_HEADERS='Authorization=<write-token>'`
 4. Run the project with `go run main.go`
+5. You should see two traces in the Logfire app, one with a nested span
