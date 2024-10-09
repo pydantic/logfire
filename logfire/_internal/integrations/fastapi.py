@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import inspect
 from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Awaitable, Callable, ContextManager, Iterable, cast
 from weakref import WeakKeyDictionary
@@ -15,6 +16,9 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
 
+import logfire
+
+from ... import suppress_instrumentation
 from ..main import Logfire
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import maybe_capture_server_headers
@@ -111,6 +115,18 @@ def instrument_fastapi(
     return uninstrument_context()
 
 
+current_request: ContextVar[Request | WebSocket | None] = ContextVar('current_request', default=None)
+
+
+@contextmanager
+def current_request_context(request: Request | WebSocket):
+    token = current_request.set(request)
+    try:
+        yield
+    finally:
+        current_request.reset(token)
+
+
 @lru_cache  # only patch once
 def patch_fastapi():
     """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
@@ -134,13 +150,36 @@ def patch_fastapi():
         if isinstance(values, _InstrumentedValues):
             request = values.request
             if instrumentation := registry.get(request.app):  # pragma: no branch
-                return await instrumentation.run_endpoint_function(
-                    original_run_endpoint_function, request, dependant, values, **kwargs
-                )
+                if instrumentation.is_url_excluded(request):
+                    with suppress_instrumentation():
+                        return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+
+        elif (
+            (request := current_request.get())
+            and (instrumentation := registry.get(request.app))
+            and instrumentation.is_url_excluded(request)
+        ):
+            with suppress_instrumentation():
+                return await original_run_endpoint_function(
+                    dependant=dependant, values=values, **kwargs
+                )  # pragma: no cover
+
         return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)  # pragma: no cover
 
     original_run_endpoint_function = fastapi.routing.run_endpoint_function
     fastapi.routing.run_endpoint_function = patched_run_endpoint_function
+
+    def patched_get_request_handler(*args: Any, **kwargs: Any) -> Any:
+        original_handler = original_get_request_handler(*args, **kwargs)
+
+        async def wrapped(request: Any) -> Any:
+            with current_request_context(request):
+                return await original_handler(request)
+
+        return wrapped
+
+    original_get_request_handler = fastapi.routing.get_request_handler
+    fastapi.routing.get_request_handler = patched_get_request_handler
 
     return registry
 
@@ -168,15 +207,11 @@ class FastAPIInstrumentation:
             self.excluded_urls_list = parse_excluded_urls(excluded_urls)  # pragma: no cover
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
-        try:
-            url = cast(str, get_host_port_url_tuple(request.scope)[2])
-            excluded = self.excluded_urls_list.url_disabled(url)
-        except Exception:  # pragma: no cover
-            excluded = False
-            self.logfire_instance.exception('Error checking if URL is excluded from instrumentation')
+        excluded = self.is_url_excluded(request)
 
         if excluded:
-            return await original  # pragma: no cover
+            with logfire.suppress_instrumentation():
+                return await original  # pragma: no cover
 
         with self.logfire_instance.span('FastAPI arguments') as span:
             result: Any = await original
@@ -274,6 +309,14 @@ class FastAPIInstrumentation:
             _level='debug',
         ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+
+    def is_url_excluded(self, request: Request | WebSocket) -> bool:
+        try:
+            url = cast(str, get_host_port_url_tuple(request.scope)[2])
+            return self.excluded_urls_list.url_disabled(url)
+        except Exception:  # pragma: no cover
+            self.logfire_instance.exception('Error checking if URL is excluded from instrumentation')
+            return False
 
 
 def _default_request_attributes_mapper(
