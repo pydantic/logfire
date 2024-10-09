@@ -110,9 +110,11 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
     * `^` matches the start of the string
     * `https?` matches `http` or `https`
     * `://` matches `://`
-    * `[^/]+` matches one or more characters that are not `/`
+    * `[^/]+` matches one or more characters that are not `/` (this will be the host part of the URL)
     * `/` matches `/`
     * `$` matches the end of the string
+    
+    So this regex will only match routes that have no path after the host.
 
     This instrumentation might look like:
 
