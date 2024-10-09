@@ -105,6 +105,14 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
 !!! example
     If you'd like to trace all URLs except the base `/` URL, you can use the following regex: `^https?://[^/]+/$`
 
+    Breaking it down:
+    * `^` matches the start of the string
+    * `https?` matches `http` or `https`
+    * `://` matches `://`
+    * `[^/]+` matches one or more characters that are not `/`
+    * `/` matches `/`
+    * `$` matches the end of the string
+
     This instrumentation might look like:
 
     ```py
