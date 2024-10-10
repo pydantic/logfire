@@ -1262,17 +1262,15 @@ def test_send_to_logfire_if_token_present_empty() -> None:
 
 
 def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
-    os.environ['LOGFIRE_TOKEN'] = ''
-    os.environ['LOGFIRE_SEND_TO_LOGFIRE'] = 'if-token-present'
-    try:
-        with ExitStack() as stack:
-            stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
-            requests_mocker = stack.enter_context(requests_mock.Mocker())
-            configure(console=False)
-            assert len(requests_mocker.request_history) == 0
-    finally:
-        del os.environ['LOGFIRE_TOKEN']
-        del os.environ['LOGFIRE_SEND_TO_LOGFIRE']
+    with patch.dict(
+        os.environ,
+        {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
+    ), mock.patch(
+        'logfire._internal.config.Confirm.ask',
+        side_effect=RuntimeError,
+    ), requests_mock.Mocker() as requests_mocker:
+        configure(console=False)
+    assert len(requests_mocker.request_history) == 0
 
 
 def wait_for_check_token_thread():
