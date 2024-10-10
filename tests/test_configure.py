@@ -455,9 +455,10 @@ def test_read_config_from_environment_variables() -> None:
             fresh_pydantic_plugin()
 
     with patch.dict(os.environ, {'LOGFIRE_SEND_TO_LOGFIRE': 'not-valid'}):
-        with pytest.raises(
-            LogfireConfigError,
-            match="Expected send_to_logfire to be an instance of one of \\(<class 'bool'>, typing.Literal\\['if-token-present'\\]\\), got 'not-valid'",
+        with inline_snapshot.extra.raises(
+            snapshot(
+                "LogfireConfigError: Expected send_to_logfire to be an instance of one of (<class 'bool'>, typing.Literal['if-token-present']), got 'not-valid'"
+            )
         ):
             configure()
 
