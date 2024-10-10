@@ -134,8 +134,8 @@ To avoid tracing certain URLs, you can specify a string of comma-separated regex
         uvicorn.run(app)
     ```
 
-    If you visit http://127.0.0.1:8000/, that matches the above regex, so no span will be sent to logfire.
-    If you visit http://127.0.0.1:8000/hello/ (or any other endpoing that's not `/`, for that matter), a span will be sent to logfire.
+    If you visit http://127.0.0.1:8000/, that matches the above regex, so no tracing data will be recorded or sent to Logfire.
+    If you visit http://127.0.0.1:8000/hello/ (or any other endpoing that's not `/`, for that matter), a trace will be started and sent to Logfire.
     
     Note that under the hood, the `opentelemetry` library is using `re.search` (not `re.match` or `re.fullmatch`) to check for a match between the route and the `excluded_urls` regex, which is why we need to include the `^` at the start and `$` at the end of the regex.
 
