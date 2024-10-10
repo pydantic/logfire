@@ -454,6 +454,14 @@ def test_read_config_from_environment_variables() -> None:
         ):
             fresh_pydantic_plugin()
 
+    with patch.dict(os.environ, {'LOGFIRE_SEND_TO_LOGFIRE': 'not-valid'}):
+        with inline_snapshot.extra.raises(
+            snapshot(
+                "LogfireConfigError: Expected send_to_logfire to be an instance of one of (<class 'bool'>, typing.Literal['if-token-present']), got 'not-valid'"
+            )
+        ):
+            configure()
+
     assert fresh_pydantic_plugin().include == set()
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': 'test'}):
         assert fresh_pydantic_plugin().include == {'test'}
@@ -1252,6 +1260,18 @@ def test_send_to_logfire_if_token_present_empty() -> None:
             assert len(requests_mocker.request_history) == 0
     finally:
         del os.environ['LOGFIRE_TOKEN']
+
+
+def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
+    with patch.dict(
+        os.environ,
+        {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
+    ), mock.patch(
+        'logfire._internal.config.Confirm.ask',
+        side_effect=RuntimeError,
+    ), requests_mock.Mocker() as requests_mocker:
+        configure(console=False)
+    assert len(requests_mocker.request_history) == 0
 
 
 def wait_for_check_token_thread():
