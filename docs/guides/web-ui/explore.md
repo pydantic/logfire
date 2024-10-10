@@ -138,3 +138,8 @@ controls the maximum number of result rows returned.
 The Explore page provides a flexible interface to query your traces and metrics using standard SQL.
 
 Happy querying! :rocket:
+
+
+## SQL Reference
+
+The primary reference for the SQL syntax can be found in the [SQL Language Reference for Apache DataFusion](https://datafusion.apache.org/user-guide/sql/index.html). For specific information on json related functions, see the [DataFusion JSON functions](https://github.com/datafusion-contrib/datafusion-functions-json).
