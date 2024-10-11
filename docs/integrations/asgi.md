@@ -44,6 +44,11 @@ if __name__ == "__main__":
 
 You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-asgi].
 
+## Excluding URLs from instrumentation
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
+
+- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
+
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 

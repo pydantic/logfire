@@ -95,50 +95,10 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
     contents of `values` or `errors`, but it can safely replace them with new values.
 
 ## Excluding URLs from instrumentation
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-To avoid tracing certain URLs, you can specify a string of comma-separated regexes which will be matched against the full request URL. This can be passed to:
-
-- [`instrument_fastapi`][logfire.Logfire.instrument_fastapi] as [`excluded_urls`][logfire.Logfire.instrument_fastapi(excluded_urls)], e.g: `logfire.instrument_fastapi(app, excluded_urls='/health')`
-- The environment variable `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`.
-- The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
-
-!!! example
-    If you'd like to trace all URLs except the base `/` URL, you can use the following regex for `excluded_urls`: `^https?://[^/]+/$`
-
-    Breaking it down:
-
-    * `^` matches the start of the string
-    * `https?` matches `http` or `https`
-    * `://` matches `://`
-    * `[^/]+` matches one or more characters that are not `/` (this will be the host part of the URL)
-    * `/` matches `/`
-    * `$` matches the end of the string
-    
-    So this regex will only match routes that have no path after the host.
-
-    This instrumentation might look like:
-
-    ```py
-    from fastapi import FastAPI
-
-    import logfire
-
-    app = FastAPI()
-
-    logfire.configure()
-    logfire.instrument_fastapi(app, excluded_urls='^https?://[^/]+/$')
-
-    if __name__ == '__main__':
-        import uvicorn
-
-        uvicorn.run(app)
-    ```
-
-    If you visit http://127.0.0.1:8000/, that matches the above regex, so no tracing data will be recorded or sent to Logfire.
-    If you visit http://127.0.0.1:8000/hello/ (or any other endpoing that's not `/`, for that matter), a trace will be started and sent to Logfire.
-    
-    Note that under the hood, the `opentelemetry` library is using `re.search` (not `re.match` or `re.fullmatch`) to check for a match between the route and the `excluded_urls` regex, which is why we need to include the `^` at the start and `$` at the end of the regex.
-
+- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html#exclude-lists)
 
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
