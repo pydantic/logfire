@@ -22,6 +22,7 @@ from weakref import WeakSet
 import requests
 from opentelemetry import trace
 from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
+from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import Meter, NoOpMeterProvider, set_meter_provider
@@ -772,7 +773,9 @@ class LogfireConfig(_LogfireConfigData):
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                 session.headers.update(headers)
                 span_exporter = OTLPSpanExporter(
-                    endpoint=urljoin(self.advanced.base_url, '/v1/traces'), session=session
+                    endpoint=urljoin(self.advanced.base_url, '/v1/traces'),
+                    session=session,
+                    compression=Compression.Gzip,
                 )
                 span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                 span_exporter = FallbackSpanExporter(
@@ -790,6 +793,7 @@ class LogfireConfig(_LogfireConfigData):
                                     endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
                                     headers=headers,
                                     session=session,
+                                    compression=Compression.Gzip,
                                     # I'm pretty sure that this line here is redundant,
                                     # and that passing it to the QuietMetricExporter is what matters
                                     # because the PeriodicExportingMetricReader will read it from there.
