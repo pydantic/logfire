@@ -6,7 +6,18 @@ import traceback
 import warnings
 from functools import cached_property
 from time import time
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -50,7 +61,12 @@ from .json_schema import (
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import ProxyTracerProvider
-from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import (
+    get_version,
+    handle_internal_errors,
+    log_internal_error,
+    uniquify_sequence,
+)
 
 if TYPE_CHECKING:
     import anthropic
@@ -74,7 +90,10 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
-    from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
+    from .integrations.system_metrics import (
+        Base as SystemMetricsBase,
+        Config as SystemMetricsConfig,
+    )
     from .utils import SysExcInfo
 
     # This is the type of the exc_info/_exc_info parameter of the log methods.
@@ -209,7 +228,10 @@ class Logfire:
             return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
-        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
+        self,
+        name: str,
+        attributes: dict[str, otel_types.AttributeValue],
+        function_args: dict[str, Any],
     ) -> FastLogfireSpan:
         """A version of `_span` used by `@instrument` with `extract_args=True`.
 
@@ -729,7 +751,7 @@ class Logfire:
             tags=self._tags + tuple(tags),
             sample_rate=self._sample_rate,
             console_log=self._console_log if console_log is None else console_log,
-            otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
+            otel_scope=(self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}'),
         )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
@@ -798,7 +820,12 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
-        install_auto_tracing(self, modules, check_imported_modules=check_imported_modules, min_duration=min_duration)
+        install_auto_tracing(
+            self,
+            modules,
+            check_imported_modules=check_imported_modules,
+            min_duration=min_duration,
+        )
 
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
@@ -835,7 +862,10 @@ class Logfire:
             if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
 
-        from logfire.integrations.pydantic import PydanticPlugin, set_pydantic_plugin_config
+        from logfire.integrations.pydantic import (
+            PydanticPlugin,
+            set_pydantic_plugin_config,
+        )
 
         if isinstance(include, str):
             include = {include}
@@ -856,14 +886,16 @@ class Logfire:
         app: FastAPI,
         *,
         capture_headers: bool = False,
-        request_attributes_mapper: Callable[
-            [
-                Request | WebSocket,
-                dict[str, Any],
-            ],
-            dict[str, Any] | None,
-        ]
-        | None = None,
+        request_attributes_mapper: (
+            Callable[
+                [
+                    Request | WebSocket,
+                    dict[str, Any],
+                ],
+                dict[str, Any] | None,
+            ]
+            | None
+        ) = None,
         use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
@@ -927,11 +959,9 @@ class Logfire:
 
     def instrument_openai(
         self,
-        openai_client: openai.OpenAI
-        | openai.AsyncOpenAI
-        | type[openai.OpenAI]
-        | type[openai.AsyncOpenAI]
-        | None = None,
+        openai_client: (
+            openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None
+        ) = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -986,7 +1016,11 @@ class Logfire:
         import openai
 
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
-        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.openai import (
+            get_endpoint_config,
+            is_async_client,
+            on_response,
+        )
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
@@ -1001,11 +1035,13 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: anthropic.Anthropic
-        | anthropic.AsyncAnthropic
-        | type[anthropic.Anthropic]
-        | type[anthropic.AsyncAnthropic]
-        | None = None,
+        anthropic_client: (
+            anthropic.Anthropic
+            | anthropic.AsyncAnthropic
+            | type[anthropic.Anthropic]
+            | type[anthropic.AsyncAnthropic]
+            | None
+        ) = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
@@ -1059,7 +1095,11 @@ class Logfire:
         """
         import anthropic
 
-        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.anthropic import (
+            get_endpoint_config,
+            is_async_client,
+            on_response,
+        )
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1193,7 +1233,11 @@ class Logfire:
         return instrument_psycopg(conn_or_module, **kwargs)
 
     def instrument_flask(
-        self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
+        self,
+        app: Flask,
+        *,
+        capture_headers: bool = False,
+        **kwargs: Unpack[FlaskInstrumentKwargs],
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1317,7 +1361,9 @@ class Logfire:
         return instrument_mysql(conn, **kwargs)
 
     def instrument_system_metrics(
-        self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'
+        self,
+        config: SystemMetricsConfig | None = None,
+        base: SystemMetricsBase = 'basic',
     ) -> None:
         """Collect system metrics.
 
@@ -1502,7 +1548,12 @@ class Logfire:
         self._config.meter.create_observable_counter(name, callbacks, unit, description)
 
     def metric_gauge_callback(
-        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
+        self,
+        name: str,
+        callbacks: Sequence[CallbackT],
+        *,
+        unit: str = '',
+        description: str = '',
     ) -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
@@ -1542,7 +1593,12 @@ class Logfire:
         self._config.meter.create_observable_gauge(name, callbacks, unit, description)
 
     def metric_up_down_counter_callback(
-        self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
+        self,
+        name: str,
+        callbacks: Sequence[CallbackT],
+        *,
+        unit: str = '',
+        description: str = '',
     ) -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
 
@@ -1628,7 +1684,12 @@ class FastLogfireSpan:
         return self
 
     @handle_internal_errors()
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: Any,
+    ) -> None:
         OPEN_SPANS.remove(self)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
@@ -1676,7 +1737,12 @@ class LogfireSpan(ReadableSpan):
         return self
 
     @handle_internal_errors()
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: Any,
+    ) -> None:
         if self._token is None:  # pragma: no cover
             return
 
@@ -1698,7 +1764,17 @@ class LogfireSpan(ReadableSpan):
 
     @property
     def tags(self) -> Sequence[str]:  # pragma: no cover
-        return self._get_attribute(ATTRIBUTES_TAGS_KEY, [])
+        return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
+
+    @tags.setter
+    @handle_internal_errors()
+    def tags(self, new_tags: Sequence[str]) -> None:
+        """Set or add tags to the span."""
+        updated_tags = uniquify_sequence(tuple(new_tags))
+        if self._span is None:
+            self._otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
+        else:
+            self._span.set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
 
     @property
     def message(self) -> str:
@@ -1726,7 +1802,8 @@ class LogfireSpan(ReadableSpan):
             with handle_internal_errors():
                 if self._added_attributes:
                     self._span.set_attribute(
-                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                        ATTRIBUTES_JSON_SCHEMA_KEY,
+                        attributes_json_schema(self._json_schema_properties),
                     )
 
                 self._span.end()
@@ -1819,7 +1896,12 @@ class NoopSpan:
     def __enter__(self) -> NoopSpan:
         return self
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: Any,
+    ) -> None:
         pass
 
     # Implement methods/properties that return something to get the type right.

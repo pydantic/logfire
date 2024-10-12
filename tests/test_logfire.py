@@ -22,7 +22,11 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
-from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
+from logfire._internal.config import (
+    LogfireConfig,
+    LogfireNotConfiguredWarning,
+    configure,
+)
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -32,7 +36,10 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
     LevelName,
 )
-from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
+from logfire._internal.formatter import (
+    FormattingFailedWarning,
+    InspectArgumentsFailedWarning,
+)
 from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
@@ -46,14 +53,16 @@ def test_log_methods_without_kwargs(method: str):
 
     [warning] = warnings
     assert warning.filename.endswith('test_logfire.py')
-    assert str(warning.message) == snapshot("""\
+    assert str(warning.message) == snapshot(
+        """\
 
     Ensure you are either:
       (1) passing an f-string directly, with inspect_arguments enabled and working, or
       (2) passing a literal `str.format`-style template, not a preformatted string.
     See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.
     The problem was: The field {foo} is not defined.\
-""")
+"""
+    )
 
 
 def test_instrument_with_no_args(exporter: TestExporter) -> None:
@@ -94,7 +103,10 @@ def test_instrument_without_kwargs():
         home()
 
     warning = warnings.pop()
-    assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
+    assert warning.filename.endswith('test_logfire.py'), (
+        warning.filename,
+        warning.lineno,
+    )
 
 
 def test_span_without_kwargs() -> None:
@@ -107,7 +119,13 @@ def test_span_without_kwargs() -> None:
 
 
 def test_span_with_kwargs(exporter: TestExporter) -> None:
-    with logfire.span('test {name=} {number}', _span_name='test span', name='foo', number=3, extra='extra') as s:
+    with logfire.span(
+        'test {name=} {number}',
+        _span_name='test span',
+        name='foo',
+        number=3,
+        extra='extra',
+    ) as s:
         pass
 
     assert s.name == 'test span'
@@ -257,7 +275,11 @@ def test_span_with_parent(exporter: TestExporter) -> None:
 
 def test_span_with_tags(exporter: TestExporter) -> None:
     with logfire.with_tags('tag1', 'tag2').span(
-        'test {name} {number}', _span_name='test span', name='foo', number=3, extra='extra'
+        'test {name} {number}',
+        _span_name='test span',
+        name='foo',
+        number=3,
+        extra='extra',
     ) as s:
         pass
 
@@ -1769,7 +1791,8 @@ GLOBAL_VAR = 1
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11), reason='f-string magic clashes with @logfire.instrument() in Python < 3.11'
+    sys.version_info < (3, 11),
+    reason='f-string magic clashes with @logfire.instrument() in Python < 3.11',
 )
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
@@ -2291,22 +2314,26 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
 
 
 @pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
+    sys.version_info[:2] == (3, 8),
+    reason='Warning is only raised in Python 3.9+ because f-string magic is enabled',
 )
 def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
     span = partial(logfire.span, 'span')
     with pytest.warns(
-        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+        InspectArgumentsFailedWarning,
+        match="Couldn't identify the `msg_template` argument in the call.",
     ):
         info()
     with pytest.warns(
-        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+        InspectArgumentsFailedWarning,
+        match="Couldn't identify the `msg_template` argument in the call.",
     ):
         log()
     with pytest.warns(
-        InspectArgumentsFailedWarning, match="Couldn't identify the `msg_template` argument in the call."
+        InspectArgumentsFailedWarning,
+        match="Couldn't identify the `msg_template` argument in the call.",
     ):
         with span():
             pass
@@ -2575,7 +2602,11 @@ def test_otel_status_code(exporter: TestExporter):
 
 
 def test_force_flush(exporter: TestExporter):
-    logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[BatchSpanProcessor(exporter)])
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        additional_span_processors=[BatchSpanProcessor(exporter)],
+    )
     logfire.info('hi')
 
     assert not exporter.exported_spans_as_dict()
@@ -2583,3 +2614,20 @@ def test_force_flush(exporter: TestExporter):
     logfire.force_flush()
 
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_tags_setter():
+    with logfire.span('foo') as span:
+        span.tags = ('a', 'b')
+        assert span.tags == ('a', 'b')
+
+        # Only unique tags are kept
+        span.tags += ('a',)
+        assert span.tags == ('a', 'b')
+
+        # Adding new tags
+        span.tags += ('c',)
+        assert span.tags == ('a', 'b', 'c')
+
+        span.tags += ('d',)
+        assert span.tags == ('a', 'b', 'c', 'd')
