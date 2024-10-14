@@ -1,7 +1,6 @@
 import ast
 from ..ast_utils import BaseTransformer as BaseTransformer, LogfireArgs as LogfireArgs
 from ..main import Logfire as Logfire
-from _typeshed import Incomplete
 from dataclasses import dataclass
 from typing import Any, Callable, ContextManager, TypeVar
 
@@ -51,7 +50,4 @@ def no_auto_trace(x: T) -> T:
 
     This decorator simply returns the argument unchanged, so there is zero runtime overhead.
     """
-
-GENERATOR_CODE_FLAGS: Incomplete
-
-def is_generator_function(func_def: ast.FunctionDef | ast.AsyncFunctionDef): ...
+def has_yield(node: ast.AST): ...
