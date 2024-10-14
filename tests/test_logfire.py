@@ -36,10 +36,7 @@ from logfire._internal.constants import (
     NULL_ARGS_KEY,
     LevelName,
 )
-from logfire._internal.formatter import (
-    FormattingFailedWarning,
-    InspectArgumentsFailedWarning,
-)
+from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
