@@ -59,23 +59,25 @@ Here is a sample query to compute those percentiles for HTTP requests duration:
 WITH dataset AS (
   SELECT
     time_bucket('%time_bucket_duration%', start_timestamp) AS x,
-    (extract(epoch from end_timestamp - start_timestamp) * 1000) as duration_ms
+    (extract(ms from end_timestamp - start_timestamp)) as duration_ms
   FROM records
   WHERE attributes ? 'http.method'
 )
 SELECT
   x,
-  percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms) as percentile_99,
-  percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) as percentile_95,
-  percentile_cont(0.90) WITHIN GROUP (ORDER BY duration_ms) as percentile_90,
-  percentile_cont(0.50) WITHIN GROUP (ORDER BY duration_ms) as percentile_50
+  approx_percentile_cont(duration_ms, 0.50) as percentile_50,
+  approx_percentile_cont(duration_ms, 0.90) as percentile_90,
+  approx_percentile_cont(duration_ms, 0.95) as percentile_95,
+  approx_percentile_cont(duration_ms, 0.99) as percentile_99
 FROM dataset
 GROUP BY x
-ORDER BY x DESC;
+ORDER BY x
 ```
 
 Notice how we filtered on records that have the `http.method` attributes set. It's a good starting point to retrieve traces that are relevant for HTTP requests, but depending on your setup, you might need to add more filters.
 
-This query is a good candidate for a Time Series chart in a dashboard:
+You can use this query in a Time Series chart in a dashboard:
 
 ![Requests duration per percentile as Time Series chart](../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles.png)
+
+See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions_new.html#approx-percentile-cont) for more information on the `approx_percentile_cont` function.
