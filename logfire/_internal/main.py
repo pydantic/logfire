@@ -1734,7 +1734,7 @@ class LogfireSpan(ReadableSpan):
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
         updated_tags = uniquify_sequence(list(new_tags))
-        if self._span is None:
+        if self._span is None:  # pragma: no cover
             self._otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
         else:
             self._span.set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
