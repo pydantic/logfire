@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v1.1.0] (2024-10-14)
+
+* Fix error in checking for generators in auto-tracing by @alexmojaki in https://github.com/pydantic/logfire/pull/498
+* Support `'if-token-present'` for env var `'LOGFIRE_SEND_TO_LOGFIRE'` by @sydney-runkle in https://github.com/pydantic/logfire/pull/488
+* Use `Compression.Gzip` by @Kludex in https://github.com/pydantic/logfire/pull/491
+
 ## [v1.0.1] (2024-10-02)
 
 * Fix warning about unregistered MetricReaders by @alexmojaki in https://github.com/pydantic/logfire/pull/465
@@ -305,6 +311,7 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
+[v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
 [v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
