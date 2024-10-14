@@ -417,13 +417,12 @@ def test_no_auto_trace():
     )
 
 
-# language=Python
 generators_sample = """
 def make_gen():
     def gen():
         async def foo():
             async def bar():
-                pass
+                return lambda: (yield 1)
             yield bar()
         yield from foo()
     return gen
