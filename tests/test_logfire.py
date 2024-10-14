@@ -2592,3 +2592,19 @@ def test_force_flush(exporter: TestExporter):
 def test_instrument_pydantic_on_2_5() -> None:
     with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
         logfire.instrument_pydantic()
+        
+def test_tags_setter():
+    with logfire.span('foo') as span:
+        span.tags = ('a', 'b')
+        assert span.tags == ('a', 'b')
+
+        # Only unique tags are kept
+        span.tags += ('a',)
+        assert span.tags == ('a', 'b')
+
+        # Adding new tags
+        span.tags += ('c',)
+        assert span.tags == ('a', 'b', 'c')
+
+        span.tags += ('d',)
+        assert span.tags == ('a', 'b', 'c', 'd')
