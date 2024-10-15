@@ -2608,3 +2608,11 @@ def test_tags_setter():
 
         span.tags += ('d',)
         assert span.tags == ('a', 'b', 'c', 'd')
+
+
+def test_tags_with_setter_and_non_initialized_span(exporter: TestExporter) -> None:
+    span = logfire.with_tags('tag1', 'tag2').span('test span')
+    assert span.tags == ('tag1', 'tag2')
+
+    span.tags = ('tag3', 'tag4')
+    assert span.tags == ('tag3', 'tag4')

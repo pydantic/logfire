@@ -1726,15 +1726,15 @@ class LogfireSpan(ReadableSpan):
         return self._get_attribute(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, None)
 
     @property
-    def tags(self) -> Sequence[str]:  # pragma: no cover
+    def tags(self) -> tuple[str, ...]:
         return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
 
     @tags.setter
     @handle_internal_errors()
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
-        updated_tags = uniquify_sequence(list(new_tags))
-        if self._span is None:  # pragma: no cover
+        updated_tags: tuple[str, ...] = uniquify_sequence(tuple(new_tags))
+        if self._span is None:
             self._otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
         else:
             self._span.set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
