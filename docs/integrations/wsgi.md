@@ -36,11 +36,6 @@ with make_server("", 8000, app) as httpd:
 
 You can read more about the OpenTelemetry WSGI middleware [here][opentelemetry-wsgi].
 
-## Excluding URLs from instrumentation
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
-
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
