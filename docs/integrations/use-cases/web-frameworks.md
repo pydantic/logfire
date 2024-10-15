@@ -84,7 +84,7 @@ See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/
 
 ## Excluding URLs from instrumentation
 
-If you want to exclude certain URLs from tracing, you can either use logfire's instrumentation methods or OpenTelemetry configuration.
+If you want to exclude certain URLs from tracing, you can either use Logfire's instrumentation methods or OpenTelemetry configuration.
 You can specify said URLs using a string of comma-separated regexes which will be matched against the full request URL.
 
 ### Using Logfire
