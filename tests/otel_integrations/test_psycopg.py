@@ -1,4 +1,5 @@
 import sys
+from typing import Any, Callable, Tuple, cast
 from unittest import mock
 
 import psycopg
@@ -23,7 +24,7 @@ def test_check_version():
 
 
 def test_instrument_psycopg():
-    original_connect = psycopg.connect
+    original_connect = cast('Callable[..., psycopg.Connection[Tuple[Any, ...]]]', psycopg.connect)
 
     instrument_psycopg(psycopg)
     assert original_connect is not psycopg.connect
