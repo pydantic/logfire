@@ -127,7 +127,10 @@ dev-dependencies = [
     "pyright>=1.1.360",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.5.0",
-    "psycopg[binary]",
+    # 3.1.20+ doesn't support MacOS versions < 14.0, so we pin this for ease of development.
+    # Can be reconsidered in the future if needed.
+    # See https://www.psycopg.org/psycopg3/docs/basic/install.html#binary-installation for details.
+    "psycopg[binary]==3.1.18",
     "psycopg2-binary",
     "asyncpg",
     "pymysql",
