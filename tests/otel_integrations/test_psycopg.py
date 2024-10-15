@@ -75,7 +75,7 @@ def test_instrument_psycopg_connection():
     instrument_psycopg(conn)
     assert original_cursor_factory is not conn.cursor_factory
     assert conn._is_instrumented_by_opentelemetry  # type: ignore
-    PsycopgInstrumentor().uninstrument_connection(conn)  # type: ignore
+    PsycopgInstrumentor().uninstrument_connection(conn)
     assert original_cursor_factory is conn.cursor_factory
 
     pgconn.status = psycopg.pq.ConnStatus.BAD
