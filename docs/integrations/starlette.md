@@ -49,6 +49,12 @@ The keyword arguments of `logfire.instrument_starlette()` are passed to the `Sta
     `StarletteInstrumentor` actually wraps the ASGI middleware and adds some additional
     information related to the routes.
 
+## Excluding URLs from instrumentation
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
+
+- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html#exclude-lists)
+
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
