@@ -4,6 +4,54 @@ The live view is the main view of Logfire, where you can see traces in real-time
 
 The live view is useful (as the name suggests) for watching what's going on within your application in real-time, but it can also be used to explore historical data.
 
+
+## The Live View SQL Box
+The live view has a query box at the top. Here you can enter the `WHERE` clause of a SQL query.
+
+![Logfire Live View SQL query box](../../images/guide/live-view-sql-box.png)
+
+Note: you can run more complex queries on the [explore screen](explore.md)
+
+
+The schema for the records table is:
+
+```sql
+CREATE TABLE records AS (
+    start_timestamp timestamp with time zone,
+    created_at timestamp with time zone,
+    trace_id text,
+    span_id text,
+    parent_span_id text,
+    kind span_kind,
+    end_timestamp timestamp with time zone,
+    level smallint,
+    span_name text,
+    message text,
+    attributes_json_schema text,
+    attributes jsonb,
+    tags text[],
+    otel_links jsonb,
+    otel_events jsonb,
+    is_exception boolean,
+    otel_status_code status_code,
+    otel_status_message text,
+    otel_scope_name text,
+    otel_scope_version text,
+    otel_scope_attributes jsonb,
+    service_namespace text,
+    service_name text,
+    service_version text,
+    service_instance_id text,
+    process_pid integer
+)
+```
+
+Some basic examples to get started:
+
+- To view your warnings and errors type: `level > 'info'`
+- To see just exceptions type: `is_exception`
+- To filter by service name (which you can find on the detail panel of any given trace): `service_name = 'crud-api'`
+
 ## Details panel closed
 
 ![Logfire OpenAI Image Generation](../../images/logfire-screenshot-live-view.png)
