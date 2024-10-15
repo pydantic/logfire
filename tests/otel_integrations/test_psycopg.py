@@ -1,5 +1,6 @@
 # can be removed once we upgrade to latest of psycopg-binary, see https://github.com/psycopg/psycopg/issues/708
 # pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
 
 import sys
 from unittest import mock
@@ -30,12 +31,12 @@ def test_instrument_psycopg():
 
     instrument_psycopg(psycopg)
     assert original_connect is not psycopg.connect
-    PsycopgInstrumentor().uninstrument()  # type: ignore
+    PsycopgInstrumentor().uninstrument()
     assert original_connect is psycopg.connect
 
     instrument_psycopg('psycopg')
     assert original_connect is not psycopg.connect
-    PsycopgInstrumentor().uninstrument()  # type: ignore
+    PsycopgInstrumentor().uninstrument()
     assert original_connect is psycopg.connect
 
 
@@ -44,12 +45,12 @@ def test_instrument_psycopg2():
 
     instrument_psycopg(psycopg2)
     assert original_connect is not psycopg2.connect
-    Psycopg2Instrumentor().uninstrument()  # type: ignore
+    Psycopg2Instrumentor().uninstrument()
     assert original_connect is psycopg2.connect
 
     instrument_psycopg('psycopg2')
     assert original_connect is not psycopg2.connect
-    Psycopg2Instrumentor().uninstrument()  # type: ignore
+    Psycopg2Instrumentor().uninstrument()
     assert original_connect is psycopg2.connect
 
 
@@ -60,8 +61,8 @@ def test_instrument_both():
     instrument_psycopg()
     assert original_connect is not psycopg.connect
     assert original_connect2 is not psycopg2.connect
-    PsycopgInstrumentor().uninstrument()  # type: ignore
-    Psycopg2Instrumentor().uninstrument()  # type: ignore
+    PsycopgInstrumentor().uninstrument()
+    Psycopg2Instrumentor().uninstrument()
     assert original_connect is psycopg.connect
     assert original_connect2 is psycopg2.connect
 
