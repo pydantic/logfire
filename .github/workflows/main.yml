@@ -125,10 +125,10 @@ jobs:
       - name: Set up Python 3.12
         run: uv python install 3.12
 
+      - run: uv sync --python 3.12 --upgrade
+
       - name: Install pydantic ${{ matrix.pydantic-version }}
         run: uv pip install pydantic==${{ matrix.pydantic-version }}
-
-      - run: uv sync --python 3.12 --upgrade
 
       - run: mkdir coverage
       - run: make test
