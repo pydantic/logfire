@@ -98,6 +98,48 @@ jobs:
           path: coverage
           include-hidden-files: true
 
+  test-pydantic:
+    name: test on ${{ matrix.pydantic-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pydantic-version: ["2.6.4", "2.7.4", "2.8.2", "2.9.2"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure requests to production domains fail
+        if: runner.os == 'Linux'
+        run: |
+          echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.12"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install pydantic ${{ matrix.pydantic-version }}
+        run: uv pip install pydantic==${{ matrix.pydantic-version }}
+
+      - run: uv sync --python 3.12 --upgrade
+
+      - run: mkdir coverage
+      - run: make test
+        env:
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-pydantic-${{ matrix.pydantic-version }}
+      - name: store coverage files
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pydantic-${{ matrix.pydantic-version }}
+          path: coverage
+          include-hidden-files: true
+
   coverage:
     runs-on: ubuntu-latest
     needs: [test]
