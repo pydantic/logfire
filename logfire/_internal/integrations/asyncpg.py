@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 
+from logfire import Logfire
+
 if TYPE_CHECKING:
     from typing_extensions import TypedDict, Unpack
 
@@ -11,9 +13,15 @@ if TYPE_CHECKING:
         skip_dep_check: bool
 
 
-def instrument_asyncpg(**kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
+def instrument_asyncpg(logfire_instance: Logfire, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
     """Instrument the `asyncpg` module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_asyncpg` method for details.
     """
-    AsyncPGInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    AsyncPGInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+        **{
+            'tracer_provider': logfire_instance.config.get_tracer_provider(),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        }
+    )

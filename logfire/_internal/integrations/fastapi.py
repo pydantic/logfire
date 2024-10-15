@@ -74,10 +74,14 @@ def instrument_fastapi(
 
     if use_opentelemetry_instrumentation:  # pragma: no branch
         maybe_capture_server_headers(capture_headers)
+        opentelemetry_kwargs = {
+            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **opentelemetry_kwargs,
+        }
         FastAPIInstrumentor.instrument_app(  # type: ignore
             app,
             excluded_urls=excluded_urls,
-            tracer_provider=tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             **opentelemetry_kwargs,
         )
 

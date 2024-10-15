@@ -34,6 +34,9 @@ def instrument_starlette(
     maybe_capture_server_headers(capture_headers)
     StarletteInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
         app,
-        tracer_provider=tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
-        **kwargs,
+        **{  # type: ignore
+            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        },
     )

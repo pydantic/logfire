@@ -901,7 +901,6 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The tracer provider.
         """
-        self.warn_if_not_initialized('No logs or spans will be created')
         return self._tracer_provider
 
     def get_meter_provider(self) -> ProxyMeterProvider:
@@ -912,7 +911,6 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The meter provider.
         """
-        self.warn_if_not_initialized('No metrics will be created')
         return self._meter_provider
 
     def warn_if_not_initialized(self, message: str):

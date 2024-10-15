@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from packaging.requirements import Requirement
 
+from logfire import Logfire
+
 if TYPE_CHECKING:  # pragma: no cover
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
@@ -28,7 +30,9 @@ if TYPE_CHECKING:  # pragma: no cover
 PACKAGE_NAMES = ('psycopg', 'psycopg2')
 
 
-def instrument_psycopg(conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+def instrument_psycopg(
+    logfire_instance: Logfire, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]
+) -> None:
     """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_psycopg` method for details.
@@ -37,13 +41,13 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstr
         # By default, instrument whichever libraries are installed.
         for package in PACKAGE_NAMES:
             if find_spec(package):  # pragma: no branch
-                instrument_psycopg(package, **kwargs)
+                instrument_psycopg(logfire_instance, package, **kwargs)
         return
     elif conn_or_module in PACKAGE_NAMES:
-        _instrument_psycopg(conn_or_module, **kwargs)
+        _instrument_psycopg(logfire_instance, conn_or_module, **kwargs)
         return
     elif isinstance(conn_or_module, ModuleType):
-        instrument_psycopg(conn_or_module.__name__, **kwargs)
+        instrument_psycopg(logfire_instance, conn_or_module.__name__, **kwargs)
         return
     else:
         # Given an object that's not a module or string,
@@ -55,13 +59,15 @@ def instrument_psycopg(conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstr
                     raise TypeError(
                         f'Extra keyword arguments are only supported when instrumenting the {package} module, not a connection.'
                     )
-                _instrument_psycopg(package, conn_or_module, **kwargs)
+                _instrument_psycopg(logfire_instance, package, conn_or_module, **kwargs)
                 return
 
     raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
 
-def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+def _instrument_psycopg(
+    logfire_instance: Logfire, name: str, conn: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]
+) -> None:
     try:
         instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
     except ImportError:
@@ -83,10 +89,17 @@ def _instrument_psycopg(name: str, conn: Any = None, **kwargs: Unpack[PsycopgIns
             # OTEL looks for __libpq_version__ which only exists in psycopg2.
             mod.__libpq_version__ = psycopg.pq.version()  # type: ignore
 
-        instrumentor.instrument(skip_dep_check=skip_dep_check, **kwargs)
+        instrumentor.instrument(
+            skip_dep_check=skip_dep_check,
+            **{
+                'tracer_provider': logfire_instance.config.get_tracer_provider(),
+                'meter_provider': logfire_instance.config.get_meter_provider(),
+                **kwargs,
+            },
+        )
     else:
         # instrument_connection doesn't have a skip_dep_check argument.
-        instrumentor.instrument_connection(conn)
+        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())
 
 
 def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:
