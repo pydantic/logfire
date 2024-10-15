@@ -99,11 +99,12 @@ jobs:
           include-hidden-files: true
 
   test-pydantic:
-    name: test on ${{ matrix.pydantic-version }}
+    name: test with pydantic ${{ matrix.pydantic-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        # keep up to date with 3-4 latest pydantic versions
         pydantic-version: ["2.6.4", "2.7.4", "2.8.2", "2.9.2"]
     steps:
       - uses: actions/checkout@v4
