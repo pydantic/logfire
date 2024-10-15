@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, Set, TypeVar
+from typing import Any, Callable, Literal, Set, TypeVar, Union
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
@@ -53,7 +53,7 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_CURRENT_TEST' not in
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off
-SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool)
+SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
 """Whether to send spans to Logfire."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
@@ -183,6 +183,13 @@ class ParamManager:
             return value
         if get_origin(tp) is Literal:
             return _check_literal(value, name, tp)
+        if get_origin(tp) is Union:
+            for arg in get_args(tp):
+                try:
+                    return self._cast(value, name, arg)
+                except LogfireConfigError:
+                    pass
+            raise LogfireConfigError(f'Expected {name} to be an instance of one of {get_args(tp)}, got {value!r}')
         if tp is bool:
             return _check_bool(value, name)  # type: ignore
         if tp is float:
