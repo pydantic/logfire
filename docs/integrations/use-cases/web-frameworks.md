@@ -86,7 +86,7 @@ This query is a good candidate for a Time Series chart in a dashboard:
 If you want to exclude certain URLs from tracing, you can either use logfire's instrumentation methods or OpenTelemetry configuration.
 You can specify said URLs using a string of comma-separated regexes which will be matched against the full request URL.
 
-### Using logfire
+### Using Logfire
 
 Some methods (e.g. `logfire.instrument_fastapi()`) allow you to pass the argument `excluded_urls` as a string of comma-separated regexes.
 
@@ -136,5 +136,4 @@ You can set one of two environment variables to exclude URLs from tracing:
         Under the hood, the `opentelemetry` library is using `re.search` (not `re.match` or `re.fullmatch`) to check for a match between the route and the `excluded_urls` regex, which is why we need to include the `^` at the start and `$` at the end of the regex.
 
 !!! note
-    Specifying excluded URLs for a given instrumentation suppresses tracing for any automatic instrumentation that applies to said framework.
-    It does not suppress tracing for manual instrumentation.
+    Specifying excluded URLs for a given instrumentation only prevents that specific instrumentation from creating spans/metrics, it doesn't suppress other instrumentation within the excluded endpoints.
