@@ -10,7 +10,7 @@ The live view has a query box at the top. Here you can enter the `WHERE` clause 
 
 ![Logfire Live View SQL query box](../../images/guide/live-view-sql-box.png)
 
-Note: you can run more complex queries on the [explore screen](explore.md))
+Note: you can run more complex queries on the [explore screen](explore.md)
 
 
 The schema for the records table is:
@@ -46,14 +46,11 @@ CREATE TABLE records AS (
 )
 ```
 
-So for example, to view your warnings and errors you could query:
-- `level > 'info'`
+Some basic examples to get started:
 
-To see just exceptions you could do:
-- `is_exception = true`
-
-To filter by service name (which you can find on the detail panel of any given trace):
-- `service_name = 'crud-api'`
+- To view your warnings and errors type: `level > 'info'`
+- To see just exceptions type: `is_exception = true`
+- To filter by service name (which you can find on the detail panel of any given trace): `service_name = 'crud-api'`
 
 ## Details panel closed
 
