@@ -49,7 +49,7 @@ CREATE TABLE records AS (
 Some basic examples to get started:
 
 - To view your warnings and errors type: `level > 'info'`
-- To see just exceptions type: `is_exception = true`
+- To see just exceptions type: `is_exception`
 - To filter by service name (which you can find on the detail panel of any given trace): `service_name = 'crud-api'`
 
 ## Details panel closed
