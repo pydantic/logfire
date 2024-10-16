@@ -64,6 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        pydantic-version: ["1.10.18", "2.4.2", "2.5.3", "2.6.4", "2.7.4", "2.8.2", "2.9.2"]
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -87,56 +88,17 @@ jobs:
 
       - run: uv sync --python ${{ matrix.python-version }} --upgrade
 
-      - run: mkdir coverage
-      - run: make test
-        env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}
-      - name: store coverage files
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.python-version }}
-          path: coverage
-          include-hidden-files: true
-
-  test-pydantic:
-    name: test with pydantic ${{ matrix.pydantic-version }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        pydantic-version: ["1.10.18", "2.4.2", "2.5.3", "2.6.4", "2.7.4", "2.8.2", "2.9.2"]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Ensure requests to production domains fail
-        if: runner.os == 'Linux'
-        run: |
-          echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
-          echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
-          echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "0.4.12"
-          enable-cache: true
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
-
-      - run: uv sync --python 3.12 --upgrade
-
       - name: Install pydantic ${{ matrix.pydantic-version }}
         run: uv pip install pydantic==${{ matrix.pydantic-version }}
 
       - run: mkdir coverage
       - run: make test
         env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-pydantic-${{ matrix.pydantic-version }}
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic${{ matrix.pydantic-version }}
       - name: store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-pydantic-${{ matrix.pydantic-version }}
+          name: coverage-${{ matrix.python-version }}
           path: coverage
           include-hidden-files: true
 
@@ -177,7 +139,7 @@ jobs:
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [lint, docs, test, test-pydantic, coverage]
+    needs: [lint, docs, test, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
