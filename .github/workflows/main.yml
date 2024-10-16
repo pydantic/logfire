@@ -104,8 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # keep up to date with 3-4 latest pydantic versions
-        pydantic-version: ["2.6.4", "2.7.4", "2.8.2", "2.9.2"]
+        pydantic-version: ["1.10.18", "2.4.2", "2.5.3", "2.6.4", "2.7.4", "2.8.2", "2.9.2"]
     steps:
       - uses: actions/checkout@v4
 

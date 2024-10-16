@@ -832,7 +832,7 @@ class Logfire:
         if record != 'off':
             import pydantic
 
-            if get_version(pydantic.__version__) < get_version('2.5.0'):  # pragma: no cover
+            if get_version(pydantic.__version__) < get_version('2.5.0'):
                 raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
 
         from logfire.integrations.pydantic import PydanticPlugin, set_pydantic_plugin_config
