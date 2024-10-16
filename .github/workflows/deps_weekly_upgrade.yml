@@ -23,7 +23,11 @@ jobs:
         - name: Upgrade dependencies
           run: uv sync --python 3.12 --upgrade
 
-        # Commit and push changes if any
+        - name: Create Branch
+          run: |
+            git checkout -b automate-uv-sync
+            echo "Switched to automate-uv-sync branch"
+
         - name: Commit and Push Changes
           run: |
             git config --local user.email "github-actions[bot]@users.noreply.github.com"
@@ -33,7 +37,6 @@ jobs:
             git push origin automate-uv-sync || echo "No changes to push"
             continue-on-error: true
 
-        # Create Pull Request
         - name: Create Pull Request
           uses: peter-evans/create-pull-request@v5
           with:
