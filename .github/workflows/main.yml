@@ -98,7 +98,7 @@ jobs:
       - name: store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: coverage-py${{ matrix.python-version }}-pydantic${{ matrix.pydantic-version }}
           path: coverage
           include-hidden-files: true
 
