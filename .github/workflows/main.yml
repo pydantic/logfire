@@ -58,7 +58,7 @@ jobs:
           fi
 
   test:
-    name: test on ${{ matrix.python-version }}
+    name: test on Python ${{ matrix.python-version }} and pydantic v${{ matrix.pydantic-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
