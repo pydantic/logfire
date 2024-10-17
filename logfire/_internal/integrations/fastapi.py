@@ -11,6 +11,8 @@ import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
+from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace import Span
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
@@ -23,7 +25,6 @@ from .asgi import tweak_asgi_spans_tracer_provider
 try:
     from opentelemetry.instrumentation.asgi import ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.semconv.trace import SpanAttributes
 except ModuleNotFoundError:
     raise RuntimeError(
         'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
@@ -274,7 +275,7 @@ LOGFIRE_SPAN_SCOPE_KEY = 'logfire.span'
 def _server_request_hook(user_hook: ServerRequestHook | None):
     # Add the span to the request scope so that we can access it in `solve_dependencies`.
     # Also call the user's hook if they passed one.
-    def hook(span: Any, scope: dict[str, Any]):
+    def hook(span: Span, scope: dict[str, Any]):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
         if user_hook:
             user_hook(span, scope)

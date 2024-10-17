@@ -23,6 +23,7 @@ import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
+from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire.testing import TestExporter
 
 
@@ -1560,10 +1561,14 @@ def make_request_hook_spans(record_send_receive: bool):
     app.post('/echo_body')(echo_body)
     client = TestClient(app)
 
+    def server_request_hook(span: Any, _scope: dict[str, Any]):
+        logfire.info('server_request_hook')
+        set_user_attributes_on_raw_span(span, {'attr_key': 'attr_val'})
+
     with logfire.instrument_fastapi(
         app,
         record_send_receive=record_send_receive,
-        server_request_hook=lambda *_, **__: logfire.info('server_request_hook'),  # type: ignore
+        server_request_hook=server_request_hook,
         client_request_hook=lambda *_, **__: logfire.info('client_request_hook'),  # type: ignore
         client_response_hook=lambda *_, **__: logfire.info('client_response_hook'),  # type: ignore
     ):
@@ -1588,7 +1593,7 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'logfire.msg_template': 'server_request_hook',
                     'logfire.msg': 'server_request_hook',
                     'code.filepath': 'test_fastapi.py',
-                    'code.function': '<lambda>',
+                    'code.function': 'server_request_hook',
                     'code.lineno': 123,
                 },
             },
@@ -1707,10 +1712,11 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/echo_body',
+                    'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1735,7 +1741,7 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'logfire.msg_template': 'server_request_hook',
                     'logfire.msg': 'server_request_hook',
                     'code.filepath': 'test_fastapi.py',
-                    'code.function': '<lambda>',
+                    'code.function': 'server_request_hook',
                     'code.lineno': 123,
                 },
             },
@@ -1895,10 +1901,11 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/echo_body',
+                    'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
