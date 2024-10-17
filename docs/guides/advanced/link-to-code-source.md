@@ -33,7 +33,7 @@ You can check more about it on the [`logfire.CodeSource`][logfire.CodeSource] on
 
 ## Alternative Configuration
 
-You can configure these settings using the [`OTEL_RESOURCE_ATTRIBUTES`][otel-resource-attributes] environment variable:
+Alternatively, you can configure these settings using the [`OTEL_RESOURCE_ATTRIBUTES`][otel-resource-attributes] environment variable:
 
 ```
 OTEL_RESOURCE_ATTRIBUTES=vcs.repository.url.full=https://github.com/pydantic/platform
