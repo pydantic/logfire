@@ -226,7 +226,7 @@ class FastAPIInstrumentation:
 
                 span.set_attributes(attributes)
                 for key in ('values', 'errors'):
-                    if key in attributes:
+                    if key in attributes:  # pragma: no branch
                         attributes['fastapi.arguments.' + key] = attributes.pop(key)
                 set_user_attributes_on_raw_span(root_span, attributes)
             except Exception as e:  # pragma: no cover

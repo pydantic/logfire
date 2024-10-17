@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import sys
@@ -1947,15 +1948,13 @@ def set_user_attribute(
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
     otlp_attributes = user_attributes(attributes)
-    if json_schema_properties := attributes_json_schema_properties(attributes):
+    if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema_str and isinstance(existing_json_schema_str, str):
-            try:
+            with contextlib.suppress(json.JSONDecodeError):
                 existing_json_schema = json.loads(existing_json_schema_str)
                 existing_properties = existing_json_schema.get('properties', {})
-            except json.JSONDecodeError:
-                pass
         existing_properties.update(json_schema_properties)
         otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(existing_properties)
     span.set_attributes(otlp_attributes)
