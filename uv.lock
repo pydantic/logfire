@@ -1502,7 +1502,6 @@ dev = [
     { name = "structlog" },
     { name = "testcontainers", version = "3.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "testcontainers", version = "4.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "toml" },
     { name = "uvicorn" },
 ]
 
@@ -1608,7 +1607,6 @@ dev = [
     { name = "structlog" },
     { name = "testcontainers", marker = "python_full_version < '3.9'", specifier = "==3.7.1" },
     { name = "testcontainers", marker = "python_full_version >= '3.9'", specifier = ">3.7.1" },
-    { name = "toml" },
     { name = "uvicorn", specifier = ">=0.30.6" },
 ]
 

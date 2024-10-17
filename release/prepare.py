@@ -4,17 +4,19 @@ from datetime import date
 from pathlib import Path
 
 import requests
-import toml
 
 from release.shared import API_PYPROJECT, CHANGELOG_FILE, GITHUB_TOKEN, REPO, ROOT_PYPROJECT, run_command
 
 
 def update_version(pyproject_file: str, new_version: str) -> None:
     """Update the version in a given pyproject.toml."""
-    config = toml.load(pyproject_file)
-    config['project']['version'] = new_version
+    with open(pyproject_file) as f:
+        content = f.read()
+
+    updated_content = re.sub(r'version\s*=\s*"[^\"]+"', f'version = "{new_version}"', content)
+
     with open(pyproject_file, 'w') as f:
-        toml.dump(config, f)
+        f.write(updated_content)
 
 
 def generate_stubs() -> None:

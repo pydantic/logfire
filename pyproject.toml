@@ -156,7 +156,6 @@ dev-dependencies = [
     # Logfire API
     "logfire-api",
     "requests",
-    "toml"
 ]
 
 [tool.uv.sources]
