@@ -1265,7 +1265,13 @@ class Logfire:
         from .integrations.sqlalchemy import instrument_sqlalchemy
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_sqlalchemy(**kwargs)
+        return instrument_sqlalchemy(
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
@@ -1277,7 +1283,13 @@ class Logfire:
         from .integrations.pymongo import instrument_pymongo
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_pymongo(**kwargs)
+        return instrument_pymongo(
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
@@ -1293,7 +1305,14 @@ class Logfire:
         from .integrations.redis import instrument_redis
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_redis(capture_statement=capture_statement, **kwargs)
+        return instrument_redis(
+            capture_statement=capture_statement,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_mysql(
         self,
@@ -1317,7 +1336,14 @@ class Logfire:
         from .integrations.mysql import instrument_mysql
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_mysql(conn, **kwargs)
+        return instrument_mysql(
+            conn=conn,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'

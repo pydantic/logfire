@@ -141,7 +141,7 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
         del config['process.runtime.cpu.utilization']
 
     instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
-    instrumentor.instrument()  # type: ignore
+    instrumentor.instrument(meter_provider=logfire_instance.config.get_meter_provider())  # type: ignore
 
 
 def measure_simple_cpu_utilization(logfire_instance: Logfire):
