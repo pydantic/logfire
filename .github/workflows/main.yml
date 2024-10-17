@@ -110,11 +110,11 @@ jobs:
       - run: mkdir coverage
       - run: make test
         env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic${{ matrix.pydantic-version }}
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
       - name: store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-py${{ matrix.python-version }}-pydantic${{ matrix.pydantic-version }}
+          name: coverage-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
           path: coverage
           include-hidden-files: true
 
