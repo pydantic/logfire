@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-        pydantic-version: "git+https://github.com/pydantic/pydantic.git"
+        pydantic-version: "main"
         include:
             - python-version: '3.12'
               pydantic-version: '1.10.18'
@@ -104,6 +104,7 @@ jobs:
       - run: uv sync --python ${{ matrix.python-version }} --upgrade
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
+        if: matrix.pydantic-version != 'main'
         run: uv pip install pydantic==${{ matrix.pydantic-version }}
 
       - run: mkdir coverage
