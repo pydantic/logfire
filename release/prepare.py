@@ -57,6 +57,7 @@ def get_notes(new_version: str) -> str:
         r'https://github.com/pydantic/logfire/pull/(\d+)', r'[#\1](https://github.com/pydantic/logfire/pull/\1)', body
     )
     body = re.sub(r'\*\*Full Changelog.*', '', body, flags=re.DOTALL)
+    body = re.sub(r"## What's Changed\n", '', body)
 
     return body.strip()
 
