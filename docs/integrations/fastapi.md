@@ -95,12 +95,10 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
     contents of `values` or `errors`, but it can safely replace them with new values.
 
 ## Excluding URLs from instrumentation
+<!-- note that this section is duplicated for different frameworks but with slightly different links -->
 
-To avoid tracing certain URLs, you can specify a string of comma-separated regexes which will be matched against the full request URL. This can be passed to:
-
-- [`instrument_fastapi`][logfire.Logfire.instrument_fastapi] as [`excluded_urls`][logfire.Logfire.instrument_fastapi(excluded_urls)], e.g: `logfire.instrument_fastapi(app, excluded_urls='/health')`
-- The environment variable `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`.
-- The environment variable `OTEL_PYTHON_EXCLUDED_URLS` (which will also apply to other instrumentation).
+- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
+- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html#exclude-lists)
 
 ## Capturing request and response headers
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->

@@ -81,3 +81,59 @@ You can use this query in a Time Series chart in a dashboard:
 ![Requests duration per percentile as Time Series chart](../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles.png)
 
 See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions_new.html#approx-percentile-cont) for more information on the `approx_percentile_cont` function.
+
+## Excluding URLs from instrumentation
+
+If you want to exclude certain URLs from tracing, you can either use Logfire's instrumentation methods or OpenTelemetry configuration.
+You can specify said URLs using a string of comma-separated regexes which will be matched against the full request URL.
+
+### Using Logfire
+
+Some methods (e.g. `logfire.instrument_fastapi()`) allow you to pass the argument `excluded_urls` as a string of comma-separated regexes.
+
+### Using OpenTelemetry
+
+You can set one of two environment variables to exclude URLs from tracing:
+
+- `OTEL_PYTHON_EXCLUDED_URLS`, which will also apply to all instrumentations for which excluded URLs apply).
+- `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`, for example, which will only apply to FastAPI instrumentation. You can replace `FASTAPI` with the name of the framework you're using.
+
+If you'd like to trace all URLs except the base `/` URL, you can use the following regex for `excluded_urls`: `^https?://[^/]+/$`
+
+Breaking it down:
+
+* `^` matches the start of the string
+* `https?` matches `http` or `https`
+* `://` matches `://`
+* `[^/]+` matches one or more characters that are not `/` (this will be the host part of the URL)
+* `/` matches `/`
+* `$` matches the end of the string
+
+So this regex will only match routes that have no path after the host.
+
+This instrumentation might look like:
+
+```py
+from fastapi import FastAPI
+
+import logfire
+
+app = FastAPI()
+
+logfire.configure()
+logfire.instrument_fastapi(app, excluded_urls='^https?://[^/]+/$')
+
+if __name__ == '__main__':
+    import uvicorn
+
+    uvicorn.run(app)
+```
+
+If you visit http://127.0.0.1:8000/, that matches the above regex, so no spans will be sent to Logfire.
+If you visit http://127.0.0.1:8000/hello/ (or any other endpoint that's not `/`, for that matter), a trace will be started and sent to Logfire.
+
+!!! note
+    Under the hood, the `opentelemetry` library is using `re.search` (not `re.match` or `re.fullmatch`) to check for a match between the route and the `excluded_urls` regex, which is why we need to include the `^` at the start and `$` at the end of the regex.
+
+!!! note
+    Specifying excluded URLs for a given instrumentation only prevents that specific instrumentation from creating spans/metrics, it doesn't suppress other instrumentation within the excluded endpoints.
