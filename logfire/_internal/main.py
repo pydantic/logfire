@@ -1886,7 +1886,7 @@ def _record_exception(
         # insert a more detailed breakdown of pydantic errors
         try:
             err_json = exception.json(include_url=False)
-        except TypeError:  # pragma: no cover
+        except TypeError:
             # pydantic v1
             err_json = exception.json()
         span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
