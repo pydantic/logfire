@@ -174,7 +174,8 @@ class Logfire:
 
             tags = (self._tags or ()) + tuple(_tags or ())
             if tags:
-                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
+                updated_tags = uniquify_sequence(tags)
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
 
             sample_rate = (
                 self._sample_rate
@@ -1727,17 +1728,16 @@ class LogfireSpan(ReadableSpan):
 
     @property
     def tags(self) -> tuple[str, ...]:
-        return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
+        return tuple(self._get_attribute(ATTRIBUTES_TAGS_KEY, ()))
 
     @tags.setter
     @handle_internal_errors()
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
-        updated_tags: tuple[str, ...] = uniquify_sequence(tuple(new_tags))
-        if self._span is None:
-            self._otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
-        else:
-            self._span.set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
+        if isinstance(new_tags, str):
+            new_tags = (new_tags,)
+        updated_tags: tuple[str, ...] = uniquify_sequence(new_tags)
+        self._set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
 
     @property
     def message(self) -> str:
@@ -1745,10 +1745,7 @@ class LogfireSpan(ReadableSpan):
 
     @message.setter
     def message(self, message: str):
-        if self._span is None:  # pragma: no cover
-            self._otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = message
-        else:
-            self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
+        self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
     def end(self) -> None:
         """Sets the current time as the span's end time.
@@ -1832,6 +1829,13 @@ class LogfireSpan(ReadableSpan):
         attributes = getattr(self._span, 'attributes', self._otlp_attributes)
         return attributes.get(key, default)
 
+    def _set_attribute(self, key: str, value: Any) -> None:
+        """Set an attribute on the span or in the _otlp_attributes if span is not yet created."""
+        if self._span is None:
+            self._otlp_attributes[key] = value
+        else:
+            self._span.set_attribute(key, value)
+
 
 class NoopSpan:
     """Implements the same methods as `LogfireSpan` but does nothing.
@@ -1867,8 +1871,8 @@ class NoopSpan:
         return ''
 
     @property
-    def tags(self) -> Sequence[str]:  # pragma: no cover
-        return []
+    def tags(self) -> tuple[str, ...]:
+        return ()
 
     @property
     def message(self) -> str:  # pragma: no cover

@@ -1548,50 +1548,6 @@ def test_readable_span_signature():
     }
 
 
-def test_tags(exporter: TestExporter) -> None:
-    lf = logfire.with_tags('tag1', 'tag2')
-    with lf.span('a span', _tags=('tag2', 'tag3')):
-        lf.info('a log', _tags=('tag4', 'tag1'))
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'a log',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'a log',
-                    'logfire.msg': 'a log',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_tags',
-                    'code.lineno': 123,
-                    'logfire.tags': ('tag1', 'tag2', 'tag4'),
-                },
-            },
-            {
-                'name': 'a span',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_tags',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'a span',
-                    'logfire.msg': 'a span',
-                    'logfire.tags': ('tag1', 'tag2', 'tag3'),
-                    'logfire.span_type': 'span',
-                },
-            },
-        ]
-    )
-
-
 def test_exc_info(exporter: TestExporter):
     logger = getLogger(__name__)
     logger.addHandler(LogfireLoggingHandler())
@@ -2546,7 +2502,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
         # These methods/properties are implemented to return the right type
         assert span.is_recording() is False
         assert span.message == span.message_template == ''
-        assert span.tags == []
+        assert span.tags == ()
 
         # These methods exist on LogfireSpan, but NoopSpan handles them with __getattr__
         span.set_attribute('x', 1)
@@ -2593,7 +2549,51 @@ def test_instrument_pydantic_on_2_5() -> None:
     with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
         logfire.instrument_pydantic()
         
-def test_tags_setter():
+def test_tags(exporter: TestExporter) -> None:
+    lf = logfire.with_tags('tag1', 'tag2')
+    with lf.span('a span', _tags=('tag2', 'tag3')):
+        lf.info('a log', _tags=('tag4', 'tag1'))
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'a log',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'a log',
+                    'logfire.msg': 'a log',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_tags',
+                    'code.lineno': 123,
+                    'logfire.tags': ('tag1', 'tag2', 'tag4'),
+                },
+            },
+            {
+                'name': 'a span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_tags',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'a span',
+                    'logfire.msg': 'a span',
+                    'logfire.tags': ('tag1', 'tag2', 'tag3'),
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_tags_setter_basic_operations():
     with logfire.span('foo') as span:
         span.tags = ('a', 'b')
         assert span.tags == ('a', 'b')
@@ -2610,9 +2610,46 @@ def test_tags_setter():
         assert span.tags == ('a', 'b', 'c', 'd')
 
 
-def test_tags_with_setter_and_non_initialized_span(exporter: TestExporter) -> None:
+def test_tags_setter_empty_tags_returns_empty_tuple():
+    with logfire.span('foo') as span:
+        assert span.tags == ()
+
+
+def test_tags_setter_with_non_initialized_span() -> None:
     span = logfire.with_tags('tag1', 'tag2').span('test span')
     assert span.tags == ('tag1', 'tag2')
 
+    # Set tags using the setter with self._span not yet created
     span.tags = ('tag3', 'tag4')
     assert span.tags == ('tag3', 'tag4')
+
+    # Call __enter__ to initialize _span, check that tags remain unchanged
+    with span:
+        assert span.tags == ('tag3', 'tag4')
+
+    # Check that tags remain unchanged
+    assert span.tags == ('tag3', 'tag4')
+
+
+def test_tags_setter_valid_type_extensions() -> None:
+    span = logfire.span('test span')
+
+    # Setting tags with a list should work
+    span.tags = ['tag1', 'tag2']
+    assert span.tags == ('tag1', 'tag2')
+
+    # Setting tags with a string should work
+    span.tags = 'bar'
+    assert span.tags == ('bar',)
+
+
+def test_tags_setter_invalid_type_extensions() -> None:
+    span = logfire.span('test span')
+
+    # Setting tags with a non-iterable type should raise an error, unless it's a string
+    with pytest.raises(TypeError, match="'int' object is not iterable"):
+        span.tags = 123  # type: ignore
+
+    # Setting tags using the += operator with a non-tuple type should raise an error, including for lists
+    with pytest.raises(TypeError, match=r'can only concatenate tuple \(not \"list\"\) to tuple'):
+        span.tags += ['tag3']  # type: ignore
