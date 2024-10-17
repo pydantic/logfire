@@ -69,17 +69,17 @@ jobs:
             - python-version: '3.12'
               pydantic-version: '1.10.18'
             - python-version: '3.12'
-              pydantic-version: '2.4.2'
+              pydantic-version: '2.4.0'
             - python-version: '3.12'
-              pydantic-version: '2.5.3'
+              pydantic-version: '2.5.0'
             - python-version: '3.12'
-              pydantic-version: '2.6.4'
+              pydantic-version: '2.6.0'
             - python-version: '3.12'
-              pydantic-version: '2.7.4'
+              pydantic-version: '2.7.0'
             - python-version: '3.12'
-              pydantic-version: '2.8.2'
+              pydantic-version: '2.8.0'
             - python-version: '3.12'
-              pydantic-version: '2.9.2'
+              pydantic-version: '2.9.0'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -105,7 +105,8 @@ jobs:
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
         if: matrix.pydantic-version != 'main'
-        run: uv pip install pydantic==${{ matrix.pydantic-version }}
+        # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
+        run: uv pip install 'pydantic~=${{ matrix.pydantic-version }}'
 
       - run: mkdir coverage
       - run: make test
