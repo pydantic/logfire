@@ -53,7 +53,9 @@ def get_notes(new_version: str) -> str:
     # Clean up the release notes
     body = re.sub(r'<!--.*?-->\n\n', '', body)
     body = re.sub(r'([^\n])(\n#+ .+?\n)', r'\1\n\2', body)  # Add blank line before headers
-    body = re.sub(r'https://github.com/pydantic/logfire/pull/(\d+)', r'[#\1](https://github.com/pydantic/logfire/pull/\1)', body)
+    body = re.sub(
+        r'https://github.com/pydantic/logfire/pull/(\d+)', r'[#\1](https://github.com/pydantic/logfire/pull/\1)', body
+    )
     body = re.sub(r'\*\*Full Changelog.*', '', body, flags=re.DOTALL)
 
     return body.strip()
