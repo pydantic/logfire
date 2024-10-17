@@ -115,6 +115,7 @@ class Logfire:
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
+        self._config.warn_if_not_initialized('No logs or spans will be created')
         return self._config.get_tracer_provider()
 
     @cached_property
@@ -843,6 +844,7 @@ class Logfire:
         if isinstance(exclude, str):
             exclude = {exclude}
 
+        # TODO instrument using this instance, i.e. pass `self` somewhere, rather than always using the global instance
         set_pydantic_plugin_config(
             PydanticPlugin(
                 record=record,
@@ -1078,7 +1080,7 @@ class Logfire:
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asyncpg(**kwargs)
+        return instrument_asyncpg(self, **kwargs)
 
     def instrument_httpx(self, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -1090,7 +1092,7 @@ class Logfire:
         from .integrations.httpx import instrument_httpx
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_httpx(**kwargs)
+        return instrument_httpx(self, **kwargs)
 
     def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
@@ -1102,7 +1104,7 @@ class Logfire:
         from .integrations.celery import instrument_celery
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_celery(**kwargs)
+        return instrument_celery(self, **kwargs)
 
     def instrument_django(
         self,
@@ -1147,6 +1149,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_django(
+            self,
             capture_headers=capture_headers,
             is_sql_commentor_enabled=is_sql_commentor_enabled,
             request_hook=request_hook,
@@ -1166,7 +1169,7 @@ class Logfire:
         from .integrations.requests import instrument_requests
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_requests(excluded_urls=excluded_urls, **kwargs)
+        return instrument_requests(self, excluded_urls=excluded_urls, **kwargs)
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
@@ -1190,7 +1193,7 @@ class Logfire:
         from .integrations.psycopg import instrument_psycopg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_psycopg(conn_or_module, **kwargs)
+        return instrument_psycopg(self, conn_or_module, **kwargs)
 
     def instrument_flask(
         self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
@@ -1206,7 +1209,7 @@ class Logfire:
         from .integrations.flask import instrument_flask
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_flask(app, capture_headers=capture_headers, **kwargs)
+        return instrument_flask(self, app, capture_headers=capture_headers, **kwargs)
 
     def instrument_starlette(
         self,
@@ -1250,7 +1253,7 @@ class Logfire:
         from .integrations.aiohttp_client import instrument_aiohttp_client
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_client(**kwargs)
+        return instrument_aiohttp_client(self, **kwargs)
 
     def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
@@ -1262,7 +1265,13 @@ class Logfire:
         from .integrations.sqlalchemy import instrument_sqlalchemy
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_sqlalchemy(**kwargs)
+        return instrument_sqlalchemy(
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
@@ -1274,7 +1283,13 @@ class Logfire:
         from .integrations.pymongo import instrument_pymongo
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_pymongo(**kwargs)
+        return instrument_pymongo(
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
@@ -1290,7 +1305,14 @@ class Logfire:
         from .integrations.redis import instrument_redis
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_redis(capture_statement=capture_statement, **kwargs)
+        return instrument_redis(
+            capture_statement=capture_statement,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_mysql(
         self,
@@ -1314,7 +1336,14 @@ class Logfire:
         from .integrations.mysql import instrument_mysql
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_mysql(conn, **kwargs)
+        return instrument_mysql(
+            conn=conn,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'

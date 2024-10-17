@@ -1650,3 +1650,60 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
             }
         ]
     )
+
+
+def test_local_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    local_exporter = TestExporter()
+    config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(local_exporter)]
+    local_logfire = logfire.configure(**config_kwargs, local=True)
+
+    assert local_logfire != logfire.DEFAULT_LOGFIRE_INSTANCE
+    assert local_logfire.config != logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    logfire.info('test1')
+    local_logfire.info('test2')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_local_config',
+                    'code.lineno': 123,
+                },
+            }
+        ]
+    )
+    assert local_exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test2',
+                'context': {
+                    'trace_id': 2,
+                    'span_id': 2,
+                    'is_remote': False,
+                },
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_local_config',
+                    'code.lineno': 123,
+                },
+            }
+        ]
+    )
