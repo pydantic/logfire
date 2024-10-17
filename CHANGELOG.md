@@ -2,10 +2,6 @@
 
 ## [v1.2.0] (2024-10-17)
 
-## What's Changed
-* Update duration percentile example with `approx_percentile_cont` by @alexmojaki in [#500](https://github.com/pydantic/logfire/pull/500)
-* PYD-1326: basic live view sql explanation in docs by @ChristopherGS in [#501](https://github.com/pydantic/logfire/pull/501)
-* Add `excluded_urls` example for `/` by @sydney-runkle in [#487](https://github.com/pydantic/logfire/pull/487)
 * Add `local` parameter to `logfire.configure()` by @alexmojaki in [#508](https://github.com/pydantic/logfire/pull/508)
 
 ## [v1.1.0] (2024-10-14)
