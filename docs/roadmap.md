@@ -40,13 +40,6 @@ new event has occurred.
 
 See [this GitHub issue][alerts-email-gh-issue] for more information.
 
-### Links to GitHub code source
-
-You'll be able to go to your GitHub repository directly from the Logfire UI, and see
-the code of a logfire call or exception.
-
-See [this GitHub issue][gh-code-source-gh-issue] for more information.
-
 ### Cross-Project Dashboards
 
 You'll be able to create dashboards with information from multiple projects.
