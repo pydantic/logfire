@@ -21,7 +21,7 @@ def update_version(pyproject_file: str, new_version: str) -> None:
 
 def generate_stubs() -> None:
     """Run make logic to generate stubs and update __init__.pyi."""
-    run_command('make', 'run', 'generate-stubs')
+    run_command('make', 'generate-stubs')
 
 
 def get_last_tag() -> str:
