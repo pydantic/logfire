@@ -3,7 +3,10 @@ import subprocess
 
 def run_command(*args: str) -> str:
     """Run a shell command and return the output."""
-    p = subprocess.run(args, stdout=subprocess.PIPE, check=True, encoding='utf-8')
+    try:
+        p = subprocess.run(args, capture_output=True, check=True, encoding='utf-8')
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f'Error running command: {" ".join(args)} with error: {e.stderr}')
     return p.stdout.strip()
 
 
