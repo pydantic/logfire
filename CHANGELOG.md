@@ -1,14 +1,5 @@
 # Release Notes
 
-## [v1.1.1] (2024-10-17)
-
-## What's Changed
-* Update duration percentile example with approx_percentile_cont by @alexmojaki in [#500](https://github.com/pydantic/logfire/pull/500)
-* PYD-1326: basic live view sql explanation in docs by @ChristopherGS in [#501](https://github.com/pydantic/logfire/pull/501)
-* Add `excluded_urls` example for `/` by @sydney-runkle in [#487](https://github.com/pydantic/logfire/pull/487)
-* Bump dependencies with `uv sync --upgrade` by @sydney-runkle in [#506](https://github.com/pydantic/logfire/pull/506)
-* Revert "Bump dependencies with `uv sync --upgrade`" by @sydney-runkle in [#510](https://github.com/pydantic/logfire/pull/510)
-
 ## [v1.1.0] (2024-10-14)
 
 * Fix error in checking for generators in auto-tracing by @alexmojaki in https://github.com/pydantic/logfire/pull/498
@@ -362,4 +353,3 @@ First release from new repo!
 [v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
 [v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
 [v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
-[v1.1.1]: https://github.com/pydantic/logfire/compare/v1.1.0...v1.1.1
