@@ -155,6 +155,7 @@ dev-dependencies = [
     "griffe",
     # Logfire API
     "logfire-api",
+    "requests",
 ]
 
 [tool.uv.sources]
