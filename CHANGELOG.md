@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v1.2.0] (2024-10-17)
+
+* Add `local` parameter to `logfire.configure()` by @alexmojaki in [#508](https://github.com/pydantic/logfire/pull/508)
+
 ## [v1.1.0] (2024-10-14)
 
 * Fix error in checking for generators in auto-tracing by @alexmojaki in https://github.com/pydantic/logfire/pull/498
@@ -353,3 +357,4 @@ First release from new repo!
 [v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
 [v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
 [v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
+[v1.2.0]: https://github.com/pydantic/logfire/compare/v1.1.0...v1.2.0
