@@ -6,25 +6,26 @@ This applies to maintainers preparing a new release.
 
 ### Prerequisites:
 
-* gh cli is installed - see installation instructions [here](https://docs.github.com/en/github-cli/github-cli/quickstart)
-Run gh auth login to authenticate with GitHub, which is needed for the API calls made in the release process.
+* The `gh` cli is installed and ready for use:
+    * See installation instructions [here](https://github.com/cli/cli#installation)
+    * See the quickstart instructions [here](https://docs.github.com/en/github-cli/github-cli/quickstart)
+        * Run `gh auth` to authenticate with GitHub, which is needed for the API calls made in the release process.
+* Your development environment is setup (you've run `make install`) and you have the necessary dev dependencies (like `requests` and `toml`) installed.
 
-1. Check out a new branch for the release (perhaps name it `release-v{VERSION}`).
-2. Run `uv run release/prepare.py --version {VERSION}` from the root of the repository.
-This will:
+1. Run `uv run release/prepare.py --version {VERSION}` from the root of the repository. This will:
     * Update the version number in the `pyproject.toml` files in the root and in `logfire-api`.
     * Add a new section to CHANGELOG.md with a title containing the version number tag and current date.
     * Add a line at the end of this section that looks something like [v1.0.1]: https://github.com/pydantic/logfire/compare/v{PREV_VERSION}...v1.0.1 but with the correct version number tags.
-3. Curate the changes in CHANGELOG.md:
+2. Curate the changes in CHANGELOG.md:
     * Make sure the markdown is valid; in particular, check text that should be in code-blocks is.
     * Mark any breaking changes with **Breaking Change:**.
     * Deduplicate the packaging entries to include only the most recent version bumps for each package.
-4. Run `uv run release/push.py` from the root of the repository. This will:
+3. Run `uv run release/push.py` from the root of the repository. This will:
     * Create a PR with the changes you made in the previous steps.
     * Add a label to the PR to indicate that it's a release PR.
     * Open a draft release on GitHub with the changes you made in the previous steps.
-5. Review the PR and merge it.
-6. Publish the release and wait for the CI to finish building and publishing the new version.
+4. Review the PR and merge it.
+5. Publish the release and wait for the CI to finish building and publishing the new version.
 
 ## Manual release process
 
