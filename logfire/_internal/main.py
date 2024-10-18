@@ -1726,8 +1726,16 @@ class LogfireSpan(ReadableSpan):
         return self._get_attribute(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, None)
 
     @property
-    def tags(self) -> Sequence[str]:  # pragma: no cover
-        return self._get_attribute(ATTRIBUTES_TAGS_KEY, [])
+    def tags(self) -> tuple[str, ...]:
+        return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
+
+    @tags.setter
+    @handle_internal_errors()
+    def tags(self, new_tags: Sequence[str]) -> None:
+        """Set or add tags to the span."""
+        if isinstance(new_tags, str):
+            new_tags = (new_tags,)
+        self._set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
 
     @property
     def message(self) -> str:
@@ -1735,10 +1743,7 @@ class LogfireSpan(ReadableSpan):
 
     @message.setter
     def message(self, message: str):
-        if self._span is None:  # pragma: no cover
-            self._otlp_attributes[ATTRIBUTES_MESSAGE_KEY] = message
-        else:
-            self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
+        self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
     def end(self) -> None:
         """Sets the current time as the span's end time.
@@ -1822,6 +1827,13 @@ class LogfireSpan(ReadableSpan):
         attributes = getattr(self._span, 'attributes', self._otlp_attributes)
         return attributes.get(key, default)
 
+    def _set_attribute(self, key: str, value: Any) -> None:
+        """Set an attribute on the span or in the _otlp_attributes if span is not yet created."""
+        if self._span is None:
+            self._otlp_attributes[key] = value
+        else:
+            self._span.set_attribute(key, value)
+
 
 class NoopSpan:
     """Implements the same methods as `LogfireSpan` but does nothing.
@@ -1857,8 +1869,13 @@ class NoopSpan:
         return ''
 
     @property
-    def tags(self) -> Sequence[str]:  # pragma: no cover
-        return []
+    def tags(self) -> tuple[str, ...]:
+        return ()
+
+    # This is required to make `span.tags = ` not raise an error.
+    @tags.setter
+    def tags(self, new_tags: Sequence[str]) -> None:
+        pass
 
     @property
     def message(self) -> str:  # pragma: no cover
