@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
+from logfire import Logfire
+
 if TYPE_CHECKING:
     from typing_extensions import TypedDict, Unpack
 
@@ -11,9 +13,15 @@ if TYPE_CHECKING:
         skip_dep_check: bool
 
 
-def instrument_celery(**kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+def instrument_celery(logfire_instance: Logfire, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
     """Instrument the `celery` module so that spans are automatically created for each task.
 
     See the `Logfire.instrument_celery` method for details.
     """
-    return CeleryInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    return CeleryInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+        **{
+            'tracer_provider': logfire_instance.config.get_tracer_provider(),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        }
+    )

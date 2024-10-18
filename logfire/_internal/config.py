@@ -96,7 +96,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .main import FastLogfireSpan, LogfireSpan
+    from .main import FastLogfireSpan, Logfire, LogfireSpan
 
 # NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
 OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
@@ -223,6 +223,7 @@ class DeprecatedKwargs(TypedDict):
 
 def configure(  # noqa: D417
     *,
+    local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | None = None,
     service_name: str | None = None,
@@ -238,10 +239,12 @@ def configure(  # noqa: D417
     code_source: CodeSource | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
-) -> None:
+) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
+        local: If `True`, configures and returns a `Logfire` instance that is not the default global instance.
+            Use this to create multiple separate configurations, e.g. to send to different projects.
         send_to_logfire: Whether to send logs to logfire.dev. Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment
             variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
             a token is present.
@@ -269,6 +272,8 @@ def configure(  # noqa: D417
                 This setting is experimental, and may change in the future!
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
+    from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
+
     processors = deprecated_kwargs.pop('processors', None)  # type: ignore
     if processors is not None:  # pragma: no cover
         raise ValueError(
@@ -376,7 +381,11 @@ def configure(  # noqa: D417
     if deprecated_kwargs:
         raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
-    GLOBAL_CONFIG.configure(
+    if local:
+        config = LogfireConfig()
+    else:
+        config = GLOBAL_CONFIG
+    config.configure(
         send_to_logfire=send_to_logfire,
         token=token,
         service_name=service_name,
@@ -392,6 +401,11 @@ def configure(  # noqa: D417
         code_source=code_source,
         advanced=advanced,
     )
+
+    if local:
+        return Logfire(config=config)
+    else:
+        return DEFAULT_LOGFIRE_INSTANCE
 
 
 def _get_int_from_env(env_var: str) -> int | None:
@@ -638,14 +652,14 @@ class LogfireConfig(_LogfireConfigData):
             )
             self.initialize()
 
-    def initialize(self) -> ProxyTracerProvider:
+    def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
         with self._lock:
-            return self._initialize()
+            self._initialize()
 
-    def _initialize(self) -> ProxyTracerProvider:
+    def _initialize(self) -> None:
         if self._initialized:  # pragma: no cover
-            return self._tracer_provider
+            return
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
@@ -867,8 +881,6 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
-            return self._tracer_provider
-
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -889,7 +901,6 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The tracer provider.
         """
-        self.warn_if_not_initialized('No logs or spans will be created')
         return self._tracer_provider
 
     def get_meter_provider(self) -> ProxyMeterProvider:
@@ -900,7 +911,6 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The meter provider.
         """
-        self.warn_if_not_initialized('No metrics will be created')
         return self._meter_provider
 
     def warn_if_not_initialized(self, message: str):

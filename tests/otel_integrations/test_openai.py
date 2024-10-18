@@ -282,6 +282,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'message': {
                                 'content': 'Nine',
                                 'refusal': None,
+                                'audio': None,
                                 'role': 'assistant',
                                 'function_call': None,
                                 'tool_calls': None,
@@ -365,6 +366,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'message': {
                                 'content': 'Nine',
                                 'refusal': None,
+                                'audio': None,
                                 'role': 'assistant',
                                 'function_call': None,
                                 'tool_calls': None,

@@ -1,5 +1,6 @@
 from typing import Any
 
+from logfire import Logfire
 from logfire._internal.utils import maybe_capture_server_headers
 
 try:
@@ -12,10 +13,16 @@ except ModuleNotFoundError:
     )
 
 
-def instrument_django(*, capture_headers: bool = False, **kwargs: Any):
+def instrument_django(logfire_instance: Logfire, *, capture_headers: bool = False, **kwargs: Any):
     """Instrument the `django` module so that spans are automatically created for each web request.
 
     See the `Logfire.instrument_django` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    DjangoInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    DjangoInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+        **{
+            'tracer_provider': logfire_instance.config.get_tracer_provider(),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        }
+    )

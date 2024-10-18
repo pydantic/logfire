@@ -1,4 +1,5 @@
 from flask.app import Flask
+from logfire import Logfire as Logfire
 from logfire._internal.utils import maybe_capture_server_headers as maybe_capture_server_headers
 from opentelemetry.trace import Span
 from typing_extensions import Protocol, TypedDict, Unpack
@@ -17,7 +18,7 @@ class FlaskInstrumentKwargs(TypedDict, total=False):
     enable_commenter: bool | None
     commenter_options: dict[str, str] | None
 
-def instrument_flask(app: Flask, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]):
+def instrument_flask(logfire_instance: Logfire, app: Flask, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]):
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_flask` method for details.
