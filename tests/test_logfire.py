@@ -2498,6 +2498,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
         assert isinstance(span, NoopSpan)
 
         span.message = 'bar'  # this is ignored
+        span.tags = 'bar'  # this is ignored
 
         # These methods/properties are implemented to return the right type
         assert span.is_recording() is False
@@ -2634,6 +2635,9 @@ def test_tags_setter_with_non_initialized_span() -> None:
 def test_tags_setter_valid_type_extensions() -> None:
     span = logfire.span('test span')
 
+    # Check default tags value is empty tuple
+    assert span.tags == ()
+
     # Setting tags with a list should work
     span.tags = ['tag1', 'tag2']
     assert span.tags == ('tag1', 'tag2')
@@ -2645,6 +2649,7 @@ def test_tags_setter_valid_type_extensions() -> None:
 
 def test_tags_setter_invalid_type_extensions() -> None:
     span = logfire.span('test span')
+    assert span.tags == ()
 
     # Setting tags with a non-iterable type should raise an error, unless it's a string
     with pytest.raises(TypeError, match="'int' object is not iterable"):

@@ -174,8 +174,7 @@ class Logfire:
 
             tags = (self._tags or ()) + tuple(_tags or ())
             if tags:
-                updated_tags = uniquify_sequence(tags)
-                otlp_attributes[ATTRIBUTES_TAGS_KEY] = updated_tags
+                otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
             sample_rate = (
                 self._sample_rate
@@ -1728,7 +1727,7 @@ class LogfireSpan(ReadableSpan):
 
     @property
     def tags(self) -> tuple[str, ...]:
-        return tuple(self._get_attribute(ATTRIBUTES_TAGS_KEY, ()))
+        return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
 
     @tags.setter
     @handle_internal_errors()
@@ -1736,8 +1735,7 @@ class LogfireSpan(ReadableSpan):
         """Set or add tags to the span."""
         if isinstance(new_tags, str):
             new_tags = (new_tags,)
-        updated_tags: tuple[str, ...] = uniquify_sequence(new_tags)
-        self._set_attribute(ATTRIBUTES_TAGS_KEY, updated_tags)
+        self._set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
 
     @property
     def message(self) -> str:
@@ -1873,6 +1871,11 @@ class NoopSpan:
     @property
     def tags(self) -> tuple[str, ...]:
         return ()
+
+    # This is required to make `span.tags = ` not raise an error.
+    @tags.setter
+    def tags(self, new_tags: Sequence[str]) -> None:
+        pass
 
     @property
     def message(self) -> str:  # pragma: no cover
