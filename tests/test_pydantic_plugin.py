@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import cloudpickle
@@ -11,23 +11,43 @@ from dirty_equals import IsInt
 from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    TypeAdapter,
+    ValidationError,
+    __version__ as pydantic_version,
+    field_validator,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
-from pydantic.functional_validators import AfterValidator
-from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
-from pydantic.type_adapter import TypeAdapter
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
 import logfire
 import logfire.integrations.pydantic
 from logfire._internal.config import GLOBAL_CONFIG
+from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
     LogfirePydanticPlugin,
     get_schema_name,
 )
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
+
+pytestmark = pytest.mark.skipif(
+    get_version(pydantic_version) < get_version('2.5.0'),
+    reason='Skipping all tests for versions less than 2.5.',
+)
+
+if TYPE_CHECKING:
+    from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
+
+try:
+    from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
+except ImportError:
+    # it's fine, pydantic version <v2.5
+    pass
 
 
 def test_plugin_listed():

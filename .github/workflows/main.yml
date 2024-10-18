@@ -58,12 +58,26 @@ jobs:
           fi
 
   test:
-    name: test on ${{ matrix.python-version }}
+    name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        pydantic-version: ['main']
+        include:
+            - python-version: '3.12'
+              pydantic-version: '2.4'
+            - python-version: '3.12'
+              pydantic-version: '2.5'
+            - python-version: '3.12'
+              pydantic-version: '2.6'
+            - python-version: '3.12'
+              pydantic-version: '2.7'
+            - python-version: '3.12'
+              pydantic-version: '2.8'
+            - python-version: '3.12'
+              pydantic-version: '2.9'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -87,14 +101,19 @@ jobs:
 
       - run: uv sync --python ${{ matrix.python-version }} --upgrade
 
+      - name: Install pydantic ${{ matrix.pydantic-version }}
+        if: matrix.pydantic-version != 'main'
+        # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
+        run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
+
       - run: mkdir coverage
-      - run: make test
+      - run: uv run --no-sync coverage run -m pytest
         env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
       - name: store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: coverage-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
           path: coverage
           include-hidden-files: true
 

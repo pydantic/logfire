@@ -30,6 +30,7 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from opentelemetry.trace import get_tracer_provider
+from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
@@ -51,6 +52,7 @@ from logfire._internal.exporters.remove_pending import RemovePendingSpansExporte
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
+from logfire._internal.utils import get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.testing import TestExporter
@@ -422,6 +424,9 @@ def fresh_pydantic_plugin():
     return get_pydantic_plugin_config()
 
 
+@pytest.mark.skipif(
+    get_version(pydantic_version) < get_version('2.5.0'), reason='skipping for pydantic versions < v2.5'
+)
 def test_pydantic_plugin_include_exclude_strings():
     logfire.instrument_pydantic(include='inc', exclude='exc')
     assert fresh_pydantic_plugin().include == {'inc'}
