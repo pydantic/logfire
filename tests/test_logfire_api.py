@@ -32,7 +32,7 @@ def import_logfire_api_with_logfire() -> ModuleType:
     return importlib.reload(logfire_api)
 
 
-@pytest.mark.skipif(get_version(pydantic_version) < get_version('2.5.0'))
+@pytest.mark.skipif(get_version(pydantic_version) < get_version('2.5.0'), reason='Skipping on Pydantic versions < v2.5')
 @pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [

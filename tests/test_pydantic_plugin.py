@@ -2,20 +2,25 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import cloudpickle
-import pydantic
 import pytest
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    TypeAdapter,
+    ValidationError,
+    __version__ as pydantic_version,
+    field_validator,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
-from pydantic.functional_validators import AfterValidator
-from pydantic.type_adapter import TypeAdapter
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
@@ -31,14 +36,17 @@ from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
 
 pytestmark = pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.5.0'),
-    reason='Skipping all tests except plugin warning test for versions less than 2.5.',
+    get_version(pydantic_version) < get_version('2.5.0'),
+    reason='Skipping all tests for versions less than 2.5.',
 )
+
+if TYPE_CHECKING:
+    from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
 
 try:
     from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
 except ImportError:
-    if not get_version(pydantic.__version__) < get_version('2.5.0'):
+    if not get_version(pydantic_version) < get_version('2.5.0'):
         raise
 
 

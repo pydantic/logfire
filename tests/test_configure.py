@@ -424,7 +424,9 @@ def fresh_pydantic_plugin():
     return get_pydantic_plugin_config()
 
 
-@pytest.mark.skipif(get_version(pydantic_version) < get_version('2.5.0'))
+@pytest.mark.skipif(
+    get_version(pydantic_version) < get_version('2.5.0'), reason='skipping for pydantic versions < v2.5'
+)
 def test_pydantic_plugin_include_exclude_strings():
     logfire.instrument_pydantic(include='inc', exclude='exc')
     assert fresh_pydantic_plugin().include == {'inc'}
