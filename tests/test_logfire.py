@@ -17,7 +17,7 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.trace import StatusCode
-from pydantic import BaseModel
+from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
 import logfire
@@ -2583,3 +2583,12 @@ def test_force_flush(exporter: TestExporter):
     logfire.force_flush()
 
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+@pytest.mark.skipif(
+    pydantic_version != '2.4.2',  # type: ignore
+    reason='just testing compatibility with versions less that Pydantic v2.5.0',
+)
+def test_instrument_pydantic_on_2_5() -> None:
+    with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
+        logfire.instrument_pydantic()
