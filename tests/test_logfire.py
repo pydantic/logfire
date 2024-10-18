@@ -2585,7 +2585,10 @@ def test_force_flush(exporter: TestExporter):
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
-@pytest.mark.skipif(pydantic_version != '2.4.2')
+@pytest.mark.skipif(
+    pydantic_version != '2.4.2',  # type: ignore
+    reason='just testing compatibility with versions less that Pydantic v2.5.0',
+)
 def test_instrument_pydantic_on_2_5() -> None:
     with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
         logfire.instrument_pydantic()
