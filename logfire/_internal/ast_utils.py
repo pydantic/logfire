@@ -79,7 +79,7 @@ class BaseTransformer(ast.NodeTransformer):
         )
         return ast.fix_missing_locations(
             ast.copy_location(
-                type(node)(  # type: ignore
+                type(node)(
                     name=node.name,
                     args=node.args,
                     body=[span],
