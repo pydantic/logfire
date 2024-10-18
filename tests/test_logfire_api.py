@@ -32,7 +32,6 @@ def import_logfire_api_with_logfire() -> ModuleType:
     return importlib.reload(logfire_api)
 
 
-@pytest.mark.skipif(get_version(pydantic_version) < get_version('2.5.0'), reason='Skipping on Pydantic versions < v2.5')
 @pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [
@@ -141,7 +140,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        getattr(logfire_api, member)()
+        if get_version(pydantic_version) >= get_version('2.5.0') and member == 'instrument_pydantic':
+            # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
+            getattr(logfire_api, member)()
+        # just remove the member unconditionally to pass future asserts
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'shutdown')
