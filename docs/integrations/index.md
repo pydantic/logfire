@@ -27,6 +27,7 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [PyMongo](pymongo.md)               | Databases               |
 | [MySQL](mysql.md)                   | Databases               |
 | [Redis](redis.md)                   | Databases               |
+| [BigQuery](bigquery.md)             | Databases               |
 | [Celery](celery.md)                 | Task Queue              |
 | [Stripe](stripe.md)                 | Payment Gateway         |
 | [System Metrics](system-metrics.md) | System Metrics          |
