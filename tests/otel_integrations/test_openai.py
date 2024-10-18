@@ -277,7 +277,24 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"content":"Nine","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
+                    'response_data': IsJson(
+                        {
+                            'message': {
+                                'content': 'Nine',
+                                'refusal': None,
+                                'role': 'assistant',
+                                'function_call': None,
+                                'tool_calls': None,
+                            },
+                            'usage': {
+                                'completion_tokens': 1,
+                                'prompt_tokens': 2,
+                                'total_tokens': 3,
+                                'completion_tokens_details': None,
+                                'prompt_tokens_details': None,
+                            },
+                        }
+                    ),
                     'logfire.json_schema': IsJson(
                         {
                             'type': 'object',
@@ -343,7 +360,24 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"content":"Nine","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
+                    'response_data': IsJson(
+                        {
+                            'message': {
+                                'content': 'Nine',
+                                'refusal': None,
+                                'role': 'assistant',
+                                'function_call': None,
+                                'tool_calls': None,
+                            },
+                            'usage': {
+                                'completion_tokens': 1,
+                                'prompt_tokens': 2,
+                                'total_tokens': 3,
+                                'completion_tokens_details': None,
+                                'prompt_tokens_details': None,
+                            },
+                        }
+                    ),
                     'logfire.json_schema': IsJson(
                         {
                             'type': 'object',
