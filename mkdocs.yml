@@ -98,10 +98,11 @@ nav:
           - Sampling: guides/advanced/sampling.md
           - Scrubbing: guides/advanced/scrubbing.md
           - Generators: guides/advanced/generators.md
-          - Testing: guides/advanced/testing.md
-          - Backfill: guides/advanced/backfill.md
           - Creating Write Tokens: guides/advanced/creating-write-tokens.md
           - Query API: guides/advanced/query-api.md
+          - Link to Code Source: guides/advanced/link-to-code-source.md
+          - Testing: guides/advanced/testing.md
+          - Backfill: guides/advanced/backfill.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
@@ -120,6 +121,7 @@ nav:
           - PyMongo: integrations/pymongo.md
           - MySQL: integrations/mysql.md
           - Redis: integrations/redis.md
+          - BigQuery: integrations/bigquery.md
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
           - System Metrics: integrations/system-metrics.md
