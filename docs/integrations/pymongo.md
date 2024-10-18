@@ -2,6 +2,9 @@
 
 The [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo] method will create a span for every operation performed using your [PyMongo][pymongo] clients.
 
+!!! success "Also works with Motor... 🚗"
+    This integration also works with [`motor`](https://motor.readthedocs.io/en/stable/), the asynchronous driver for MongoDB.
+
 ## Installation
 
 Install `logfire` with the `pymongo` extra:
@@ -25,19 +28,41 @@ docker run --name mongo -p 27017:27017 -d mongo:latest
 
 The following script connects to a MongoDB database, inserts a document, and queries it:
 
-```py
-import logfire
-from pymongo import MongoClient
+=== "Sync"
 
-logfire.configure()
-logfire.instrument_pymongo()
+    ```py
+    import logfire
+    from pymongo import MongoClient
 
-client = MongoClient()
-db = client["database"]
-collection = db["collection"]
-collection.insert_one({"name": "MongoDB"})
-collection.find_one()
-```
+    logfire.configure()
+    logfire.instrument_pymongo()
+
+    client = MongoClient()
+    db = client["database"]
+    collection = db["collection"]
+    collection.insert_one({"name": "MongoDB"})
+    collection.find_one()
+    ```
+
+=== "Async"
+
+    ```py
+    import asyncio
+    import logfire
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    logfire.configure()
+    logfire.instrument_pymongo()
+
+    async def main():
+        client = AsyncIOMotorClient()
+        db = client["database"]
+        collection = db["collection"]
+        await collection.insert_one({"name": "MongoDB"})
+        await collection.find_one()
+
+    asyncio.run(main())
+    ```
 
 !!! info
     You can pass `capture_statement=True` to `logfire.instrument_pymongo()` to capture the queries.
