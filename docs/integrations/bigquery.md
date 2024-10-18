@@ -4,7 +4,7 @@ To start sending data to **Logfire**, you need to install the [Google Cloud BigQ
 
 Let's see an example:
 
-```bash
+```python
 from google.cloud import bigquery
 
 import logfire
