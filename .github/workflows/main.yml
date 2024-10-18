@@ -109,7 +109,7 @@ jobs:
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - run: mkdir coverage
-      - run: make test
+      - run: uv run --no-sync coverage run -m pytest
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
       - name: store coverage files
