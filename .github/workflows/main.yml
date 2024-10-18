@@ -67,8 +67,6 @@ jobs:
         pydantic-version: ['main']
         include:
             - python-version: '3.12'
-              pydantic-version: '1.10.18'
-            - python-version: '3.12'
               pydantic-version: '2.4'
             - python-version: '3.12'
               pydantic-version: '2.5'

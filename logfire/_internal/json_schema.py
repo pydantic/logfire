@@ -276,7 +276,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     try:
         fields = obj.model_fields
         extra = obj.model_extra or {}
-    except AttributeError:
+    except AttributeError:  # pragma: no cover
         # pydantic v1
         fields = obj.__fields__  # type: ignore
         extra = {}
