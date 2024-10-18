@@ -121,6 +121,7 @@ nav:
           - PyMongo: integrations/pymongo.md
           - MySQL: integrations/mysql.md
           - Redis: integrations/redis.md
+          - BigQuery: integrations/bigquery.md
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
           - System Metrics: integrations/system-metrics.md
