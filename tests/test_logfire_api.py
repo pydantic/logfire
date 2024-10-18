@@ -8,6 +8,9 @@ from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import __version__ as pydantic_version
+
+from logfire._internal.utils import get_version
 
 
 def logfire_dunder_all() -> set[str]:
@@ -29,6 +32,7 @@ def import_logfire_api_with_logfire() -> ModuleType:
     return importlib.reload(logfire_api)
 
 
+@pytest.mark.skipif(get_version(pydantic_version) < get_version('2.5.0'))
 @pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [

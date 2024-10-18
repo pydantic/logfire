@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import patch
 
 import cloudpickle
+import pydantic
 import pytest
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
@@ -14,7 +15,6 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic.functional_validators import AfterValidator
-from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
 from pydantic.type_adapter import TypeAdapter
 from pydantic_core import core_schema
 from typing_extensions import Annotated
@@ -22,12 +22,24 @@ from typing_extensions import Annotated
 import logfire
 import logfire.integrations.pydantic
 from logfire._internal.config import GLOBAL_CONFIG
+from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
     LogfirePydanticPlugin,
     get_schema_name,
 )
 from logfire.testing import SeededRandomIdGenerator, TestExporter
 from tests.test_metrics import get_collected_metrics
+
+pytestmark = pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.5.0'),
+    reason='Skipping all tests except plugin warning test for versions less than 2.5.',
+)
+
+try:
+    from pydantic.plugin import PydanticPluginProtocol, SchemaTypePath, ValidatePythonHandlerProtocol
+except ImportError:
+    if not get_version(pydantic.__version__) < get_version('2.5.0'):
+        raise
 
 
 def test_plugin_listed():
