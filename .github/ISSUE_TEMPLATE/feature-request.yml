@@ -1,3 +1,12 @@
 name: 💡Feature Request
-about: Suggest a feature or new functionality for Logfire
+description: Suggest a feature or new functionality for Logfire
 labels: [Feature Request]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: "Tell us what you're thinking..."
+    validations:
+      required: true
