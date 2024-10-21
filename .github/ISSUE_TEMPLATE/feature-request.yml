@@ -7,7 +7,6 @@ body:
     id: description
     attributes:
       label: Description
-      description: Tell us what you're thinking...
-
+      description: "Tell us what you're thinking..."
     validations:
       required: true

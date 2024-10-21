@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v1.2.0] (2024-10-17)
+
+* Add `local` parameter to `logfire.configure()` by @alexmojaki in [#508](https://github.com/pydantic/logfire/pull/508)
+
 ## [v1.1.0] (2024-10-14)
 
 * Fix error in checking for generators in auto-tracing by @alexmojaki in https://github.com/pydantic/logfire/pull/498
@@ -311,45 +315,46 @@ First release from new repo!
 * Ensure `logfire.testing` doesn't depend on pydantic and eval_type_backport by @alexmojaki in https://github.com/pydantic/logfire/pull/40
 * Allow using pydantic plugin with models defined before calling logfire.configure by @alexmojaki in https://github.com/pydantic/logfire/pull/36
 
-[v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
-[v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
-[v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
-[v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
-[v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
-[v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
-[v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
-[v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
-[v0.50.1]: https://github.com/pydantic/logfire/compare/v0.50.0...v0.50.1
-[v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
-[v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
-[v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
-[v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1
-[v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
-[v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
-[v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
-[v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
-[v0.45.1]: https://github.com/pydantic/logfire/compare/v0.45.0...v0.45.1
-[v0.45.0]: https://github.com/pydantic/logfire/compare/v0.44.0...v0.45.0
-[v0.44.0]: https://github.com/pydantic/logfire/compare/v0.43.0...v0.44.0
-[v0.43.0]: https://github.com/pydantic/logfire/compare/v0.42.0...v0.43.0
-[v0.42.0]: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
-[v0.41.0]: https://github.com/pydantic/logfire/compare/v0.40.0...v0.41.0
-[v0.40.0]: https://github.com/pydantic/logfire/compare/v0.39.0...v0.40.0
-[v0.39.0]: https://github.com/pydantic/logfire/compare/v0.38.0...v0.39.0
-[v0.38.0]: https://github.com/pydantic/logfire/compare/v0.37.0...v0.38.0
-[v0.37.0]: https://github.com/pydantic/logfire/compare/v0.36.1...v0.37.0
-[v0.36.1]: https://github.com/pydantic/logfire/compare/v0.36.0...v0.36.1
-[v0.36.0]: https://github.com/pydantic/logfire/compare/v0.35.0...v0.36.0
-[v0.35.0]: https://github.com/pydantic/logfire/compare/v0.34.0...v0.35.0
-[v0.34.0]: https://github.com/pydantic/logfire/compare/v0.33.0...v0.34.0
-[v0.33.0]: https://github.com/pydantic/logfire/compare/v0.32.1...v0.33.0
-[v0.32.1]: https://github.com/pydantic/logfire/compare/v0.32.0...v0.32.1
-[v0.32.0]: https://github.com/pydantic/logfire/compare/v0.31.0...v0.32.0
-[v0.31.0]: https://github.com/pydantic/logfire/compare/v0.30.0...v0.31.0
-[v0.30.0]: https://github.com/pydantic/logfire/compare/v0.29.0...v0.30.0
-[v0.29.0]: https://github.com/pydantic/logfire/compare/v0.28.3...v0.29.0
-[v0.28.3]: https://github.com/pydantic/logfire/compare/v0.28.2...v0.28.3
-[v0.28.2]: https://github.com/pydantic/logfire/compare/v0.28.1...v0.28.2
-[v0.28.1]: https://github.com/pydantic/logfire/compare/v0.28.0...v0.28.1
-[v0.28.0]: https://github.com/pydantic/logfire/compare/v0.27.0...v0.28.0
 [v0.27.0]: https://github.com/pydantic/logfire/commits/v0.27.0
+[v0.28.0]: https://github.com/pydantic/logfire/compare/v0.27.0...v0.28.0
+[v0.28.1]: https://github.com/pydantic/logfire/compare/v0.28.0...v0.28.1
+[v0.28.2]: https://github.com/pydantic/logfire/compare/v0.28.1...v0.28.2
+[v0.28.3]: https://github.com/pydantic/logfire/compare/v0.28.2...v0.28.3
+[v0.29.0]: https://github.com/pydantic/logfire/compare/v0.28.3...v0.29.0
+[v0.30.0]: https://github.com/pydantic/logfire/compare/v0.29.0...v0.30.0
+[v0.31.0]: https://github.com/pydantic/logfire/compare/v0.30.0...v0.31.0
+[v0.32.0]: https://github.com/pydantic/logfire/compare/v0.31.0...v0.32.0
+[v0.32.1]: https://github.com/pydantic/logfire/compare/v0.32.0...v0.32.1
+[v0.33.0]: https://github.com/pydantic/logfire/compare/v0.32.1...v0.33.0
+[v0.34.0]: https://github.com/pydantic/logfire/compare/v0.33.0...v0.34.0
+[v0.35.0]: https://github.com/pydantic/logfire/compare/v0.34.0...v0.35.0
+[v0.36.0]: https://github.com/pydantic/logfire/compare/v0.35.0...v0.36.0
+[v0.36.1]: https://github.com/pydantic/logfire/compare/v0.36.0...v0.36.1
+[v0.37.0]: https://github.com/pydantic/logfire/compare/v0.36.1...v0.37.0
+[v0.38.0]: https://github.com/pydantic/logfire/compare/v0.37.0...v0.38.0
+[v0.39.0]: https://github.com/pydantic/logfire/compare/v0.38.0...v0.39.0
+[v0.40.0]: https://github.com/pydantic/logfire/compare/v0.39.0...v0.40.0
+[v0.41.0]: https://github.com/pydantic/logfire/compare/v0.40.0...v0.41.0
+[v0.42.0]: https://github.com/pydantic/logfire/compare/v0.41.0...v0.42.0
+[v0.43.0]: https://github.com/pydantic/logfire/compare/v0.42.0...v0.43.0
+[v0.44.0]: https://github.com/pydantic/logfire/compare/v0.43.0...v0.44.0
+[v0.45.0]: https://github.com/pydantic/logfire/compare/v0.44.0...v0.45.0
+[v0.45.1]: https://github.com/pydantic/logfire/compare/v0.45.0...v0.45.1
+[v0.46.0]: https://github.com/pydantic/logfire/compare/v0.45.1...v0.46.0
+[v0.46.1]: https://github.com/pydantic/logfire/compare/v0.46.0...v0.46.1
+[v0.47.0]: https://github.com/pydantic/logfire/compare/v0.46.1...v0.47.0
+[v0.48.0]: https://github.com/pydantic/logfire/compare/v0.47.0...v0.48.0
+[v0.48.1]: https://github.com/pydantic/logfire/compare/v0.48.0...v0.48.1
+[v0.49.0]: https://github.com/pydantic/logfire/compare/v0.48.1...v0.49.0
+[v0.49.1]: https://github.com/pydantic/logfire/compare/v0.49.0...v0.49.1
+[v0.50.0]: https://github.com/pydantic/logfire/compare/v0.49.1...v0.50.0
+[v0.50.1]: https://github.com/pydantic/logfire/compare/v0.50.0...v0.50.1
+[v0.51.0]: https://github.com/pydantic/logfire/compare/v0.50.1...v0.51.0
+[v0.52.0]: https://github.com/pydantic/logfire/compare/v0.51.0...v0.52.0
+[v0.53.0]: https://github.com/pydantic/logfire/compare/v0.52.0...v0.53.0
+[v0.54.0]: https://github.com/pydantic/logfire/compare/v0.53.0...v0.54.0
+[v0.55.0]: https://github.com/pydantic/logfire/compare/v0.54.0...v0.55.0
+[v1.0.0]: https://github.com/pydantic/logfire/compare/v0.55.0...v1.0.0
+[v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
+[v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
+[v1.2.0]: https://github.com/pydantic/logfire/compare/v1.1.0...v1.2.0

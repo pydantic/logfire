@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from logfire import Logfire as Logfire
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 from typing import Any
@@ -17,7 +18,7 @@ class PsycopgInstrumentKwargs(TypedDict, total=False):
 
 PACKAGE_NAMES: Incomplete
 
-def instrument_psycopg(conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+def instrument_psycopg(logfire_instance: Logfire, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
     """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_psycopg` method for details.

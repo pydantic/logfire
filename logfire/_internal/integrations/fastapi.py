@@ -72,10 +72,14 @@ def instrument_fastapi(
         excluded_urls = ','.join(excluded_urls)
 
     maybe_capture_server_headers(capture_headers)
+    opentelemetry_kwargs = {
+        'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+        'meter_provider': logfire_instance.config.get_meter_provider(),
+        **opentelemetry_kwargs,
+    }
     FastAPIInstrumentor.instrument_app(  # type: ignore
         app,
         excluded_urls=excluded_urls,
-        tracer_provider=tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
         server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
         **opentelemetry_kwargs,
     )

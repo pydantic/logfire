@@ -8,6 +8,9 @@ from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import __version__ as pydantic_version
+
+from logfire._internal.utils import get_version
 
 
 def logfire_dunder_all() -> set[str]:
@@ -137,7 +140,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        getattr(logfire_api, member)()
+        if not (get_version(pydantic_version) < get_version('2.5.0') and member == 'instrument_pydantic'):
+            # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
+            getattr(logfire_api, member)()
+        # just remove the member unconditionally to pass future asserts
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'shutdown')

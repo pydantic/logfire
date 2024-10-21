@@ -30,6 +30,7 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from opentelemetry.trace import get_tracer_provider
+from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
@@ -51,6 +52,7 @@ from logfire._internal.exporters.remove_pending import RemovePendingSpansExporte
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
+from logfire._internal.utils import get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.testing import TestExporter
@@ -422,6 +424,9 @@ def fresh_pydantic_plugin():
     return get_pydantic_plugin_config()
 
 
+@pytest.mark.skipif(
+    get_version(pydantic_version) < get_version('2.5.0'), reason='skipping for pydantic versions < v2.5'
+)
 def test_pydantic_plugin_include_exclude_strings():
     logfire.instrument_pydantic(include='inc', exclude='exc')
     assert fresh_pydantic_plugin().include == {'inc'}
@@ -1646,6 +1651,63 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'vcs.repository.ref.revision': 'main',
                         'service.version': '1.2.3',
                     }
+                },
+            }
+        ]
+    )
+
+
+def test_local_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    local_exporter = TestExporter()
+    config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(local_exporter)]
+    local_logfire = logfire.configure(**config_kwargs, local=True)
+
+    assert local_logfire != logfire.DEFAULT_LOGFIRE_INSTANCE
+    assert local_logfire.config != logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    logfire.info('test1')
+    local_logfire.info('test2')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_local_config',
+                    'code.lineno': 123,
+                },
+            }
+        ]
+    )
+    assert local_exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test2',
+                'context': {
+                    'trace_id': 2,
+                    'span_id': 2,
+                    'is_remote': False,
+                },
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_local_config',
+                    'code.lineno': 123,
                 },
             }
         ]
