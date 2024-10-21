@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import sys
 from contextlib import contextmanager, nullcontext
-from typing import Any, ContextManager, Literal, TYPE_CHECKING
+from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
 
 try:
@@ -32,8 +32,11 @@ except ImportError:
                 return ''
 
             @property
-            def tags(self) -> Sequence[str]:  # pragma: no cover
-                return []
+            def tags(self) -> tuple[str, ...]:  # pragma: no cover
+                return ()
+
+            @tags.setter
+            def tags(self, new_tags: Sequence[str]) -> None: ...  # pragma: no cover
 
             @property
             def message(self) -> str:  # pragma: no cover
