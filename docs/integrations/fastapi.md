@@ -40,7 +40,7 @@ if __name__ == "__main__":
     uvicorn.run(app)
 ```
 
-Then visit http://localhost:8000/hello?name=world and check the logs.
+Then visit [http://localhost:8000/hello?name=world](http://localhost:8000/hello?name=world) and check the logs.
 
 ## OpenTelemetry FastAPI Instrumentation
 
