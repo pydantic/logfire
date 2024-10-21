@@ -42,19 +42,10 @@ if __name__ == "__main__":
 
 Then visit [http://localhost:8000/hello?name=world](http://localhost:8000/hello?name=world) and check the logs.
 
-## OpenTelemetry FastAPI Instrumentation
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] accepts arbitrary additional keyword arguments
+and passes them to the OpenTelemetry `FastAPIInstrumentor.instrument_app()` method. See [their documentation][opentelemetry-fastapi] for more details.
 
-The third-party [OpenTelemetry FastAPI Instrumentation][opentelemetry-fastapi] package adds spans to every request with
-detailed attributes about the HTTP request such as the full URL and the user agent. The start and end times let you see
-how long it takes to process each request.
-
-[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] applies this instrumentation by default.
-You can disable it by passing `use_opentelemetry_instrumentation=False`.
-
-[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] also accepts arbitrary additional keyword arguments
-and passes them to the OpenTelemetry `FastAPIInstrumentor.instrument_app()` method. See their documentation for more details.
-
-## Logfire instrumentation: logging endpoint arguments and validation errors
+## Endpoint arguments and validation errors
 
 [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] will emit a span for each request
 called `FastAPI arguments` which shows how long it takes FastAPI to parse and validate the endpoint function
@@ -93,6 +84,10 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
 !!! note
     The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't mutate the
     contents of `values` or `errors`, but it can safely replace them with new values.
+
+!!! note
+    The attributes on the `FastAPI arguments` span are also set on the root span created by OpenTelemetry for easier querying.
+    The `values` and `error` attributes are under the names `fastapi.arguments.values` and `fastapi.arguments.errors` to avoid name collisions.
 
 ## Excluding URLs from instrumentation
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
