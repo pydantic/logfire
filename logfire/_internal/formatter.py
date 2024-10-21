@@ -8,7 +8,7 @@ import warnings
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import Any, Final, Literal
+from typing import Any, Literal
 
 import executing
 from typing_extensions import NotRequired, TypedDict
@@ -33,8 +33,6 @@ class ArgChunk(TypedDict):
 
 
 class ChunksFormatter(Formatter):
-    NONE_REPR: Final[str] = 'null'
-
     def chunks(
         self,
         format_string: str,
@@ -284,15 +282,12 @@ class ChunksFormatter(Formatter):
                 )
                 format_spec = ''.join(chunk['v'] for chunk in format_spec_chunks)
 
-                if obj is None:
-                    value = self.NONE_REPR
-                else:
-                    try:
-                        value = self.format_field(obj, format_spec)
-                    except Exception as exc:
-                        raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
-                    value, value_scrubbed = self._clean_value(field_name, value, scrubber)
-                    scrubbed += value_scrubbed
+                try:
+                    value = self.format_field(obj, format_spec)
+                except Exception as exc:
+                    raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
+                value, value_scrubbed = self._clean_value(field_name, value, scrubber)
+                scrubbed += value_scrubbed
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
