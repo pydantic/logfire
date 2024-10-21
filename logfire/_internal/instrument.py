@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-import ast
+import contextlib
 import inspect
-import uuid
-from dataclasses import dataclass
-from functools import lru_cache, update_wrapper
-from types import CodeType, FunctionType
-from typing import TYPE_CHECKING, Callable, Iterator, TypeVar
+from collections.abc import Sequence
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
+from opentelemetry.util import types as otel_types
 from typing_extensions import ParamSpec
 
-from .ast_utils import BaseTransformer, LogfireArgs
+from .ast_utils import LogfireArgs
+from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
+from .stack_info import get_filepath_attribute
+from .utils import safe_repr, uniquify_sequence
 
 if TYPE_CHECKING:
     from .main import Logfire
@@ -22,116 +24,66 @@ R = TypeVar('R')
 
 def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        # This creates a new function object with code compiled from a modified AST
-        # from the original function's source code.
-        # Since this doesn't wrap/call the original function,
-        # any decorators applied to the original function are 'lost', so the user shouldn't do that.
+        if inspect.isasyncgenfunction(func):
+            raise ValueError('You cannot instrument an async generator function')
 
-        if not isinstance(func, FunctionType):  # pragma: no cover
-            raise ValueError(
-                'You can only instrument pure Python functions. '
-                'The decorator must be applied first, at the bottom of the list.'
-            )
+        span_name, attributes = arg_values(func, args.msg_template, args.span_name, args.tags)
+        sig = inspect.signature(func)
 
-        if func.__dict__:  # pragma: no cover
-            # This is just a rough check for other decorators.
-            # In particular this will detect decorators that use functools.wraps.
-            raise ValueError('The decorator must be applied first, at the bottom of the list.')
+        @contextmanager
+        def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+            if args.extract_args:
+                with logfire._instrument_span_with_args(  # type: ignore
+                    span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
+                ):
+                    yield
+            else:
+                with logfire._fast_span(span_name, attributes):  # type: ignore
+                    yield
 
-        func_code = func.__code__
-        new_func_code, logfire_name = transform_code(func_code, args)
-        new_func = FunctionType(new_func_code, func.__globals__, func.__name__, func.__defaults__, func.__closure__)
-        update_wrapper(new_func, func)
-        new_func.__kwdefaults__ = func.__kwdefaults__
-        if args.extract_args:
-            span_func = logfire._instrument_span_with_args  # type: ignore
+        if inspect.isgeneratorfunction(func):
+
+            def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
+                with open_span(*func_args, **func_kwargs):
+                    yield from func(*func_args, **func_kwargs)
+        elif inspect.iscoroutinefunction(func):
+
+            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
+                with open_span(*func_args, **func_kwargs):
+                    return await func(*func_args, **func_kwargs)
         else:
-            span_func = logfire._fast_span  # type: ignore
-        new_func.__globals__[logfire_name] = span_func
-        return new_func
+
+            def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
+                with open_span(*func_args, **func_kwargs):
+                    return func(*func_args, **func_kwargs)
+
+        return wrapper  # type: ignore
 
     return decorator
 
 
-# The expensive work of retrieving source code, parsing, transforming, and compiling is cached here.
-# The cache size is limited in case the decorator is called with highly variable arguments.
-@lru_cache(maxsize=4096)
-def transform_code(func_code: CodeType, args: LogfireArgs):
-    logfire_name = f'logfire_{uuid.uuid4().hex}'
+def arg_values(
+    func: Any, msg_template: str | None = None, span_name: str | None = None, tags: Sequence[str] | None = None
+) -> tuple[str, dict[str, otel_types.AttributeValue]]:
+    func = inspect.unwrap(func)
+    func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
+    if not msg_template:
+        try:
+            msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # type: ignore
+        except Exception:
+            msg_template = f'Calling {func_name}'
+    attributes: dict[str, otel_types.AttributeValue] = {
+        'code.function': func_name,
+        ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
+    }
+    with contextlib.suppress(Exception):
+        attributes['code.lineno'] = func.__code__.co_firstlineno
+    with contextlib.suppress(Exception):
+        attributes.update(get_filepath_attribute(inspect.getsourcefile(func)))  # type: ignore
 
-    if func_code.co_name == (lambda: 0).__code__.co_name:  # pragma: no cover
-        raise ValueError('lambda functions cannot be instrumented')
+    span_name = span_name or msg_template
 
-    module = inspect.getmodule(func_code)
-    assert module is not None
-    filename = inspect.getsourcefile(func_code)
+    if tags:
+        attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-    # We have to process the entire source file, not just the function definition,
-    # so that the compiled code has the correct context for things like closures.
-    file_source_lines, _ = inspect.findsource(func_code)
-    assert filename is not None
-    file_source = ''.join(file_source_lines)
-    tree = ast.parse(file_source)
-    transformer = InstrumentTransformer(args, logfire_name, filename, module.__name__, func_code.co_firstlineno)
-    tree = transformer.visit(tree)
-    new_file_code = compile(tree, filename, 'exec', dont_inherit=True)
-
-    # Recursively walk through the compiled code (starting from the module)
-    # to find the compiled code for the function we're instrumenting.
-
-    def find_code(root_code: CodeType) -> Iterator[CodeType]:
-        for const in root_code.co_consts:
-            if not isinstance(const, CodeType):
-                continue
-            matches = const.co_firstlineno == func_code.co_firstlineno and const.co_name == func_code.co_name
-            if matches:
-                yield const
-            yield from find_code(const)
-
-    [new_func_code] = find_code(new_file_code)
-    return new_func_code, logfire_name
-
-
-@dataclass
-class InstrumentTransformer(BaseTransformer):
-    """Only modifies the function definition at the given line."""
-
-    code_lineno: int
-
-    def rewrite_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.AST:
-        # For some reason, code.co_firstlineno starts at the first decorator.
-        if node.decorator_list:
-            lineno = node.decorator_list[0].lineno
-        else:
-            lineno = node.lineno
-
-        if lineno != self.code_lineno:
-            return node
-
-        return super().rewrite_function(node, qualname)
-
-    def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
-        return ast.Call(
-            func=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
-            args=self.logfire_method_arg_nodes(node, qualname),
-            keywords=[],
-        )
-
-    def logfire_method_arg_nodes(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> list[ast.expr]:
-        msg, attributes = self.logfire_method_arg_values(qualname, node.lineno)
-        attributes_stmt = ast.parse(repr(attributes)).body[0]
-        assert isinstance(attributes_stmt, ast.Expr)
-        attributes_node = attributes_stmt.value
-        result = [ast.Constant(value=msg), attributes_node]
-        if self.logfire_args.extract_args:
-            args = node.args
-            arg_names = [
-                arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg) if arg
-            ]
-            result.append(
-                ast.Dict(
-                    keys=[ast.Constant(value=name) for name in arg_names],
-                    values=[ast.Name(id=name, ctx=ast.Load()) for name in arg_names],
-                )
-            )
-        return result
+    return span_name, attributes
