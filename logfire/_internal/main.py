@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
+import json
 import sys
 import traceback
 import warnings
@@ -866,12 +868,14 @@ class Logfire:
             dict[str, Any] | None,
         ]
         | None = None,
-        use_opentelemetry_instrumentation: bool = True,
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
     ) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
+
+        Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
+        under the hood, with some additional features.
 
         Args:
             app: The FastAPI app to instrument.
@@ -895,11 +899,6 @@ class Logfire:
                 matches any of the regexes. This applies to both the Logfire and OpenTelemetry instrumentation.
                 If not provided, the environment variables
                 `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` and `OTEL_PYTHON_EXCLUDED_URLS` will be checked.
-            use_opentelemetry_instrumentation: If True (the default) then
-                [`FastAPIInstrumentor`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor]
-                will also instrument the app.
-
-                See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
             record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
@@ -922,7 +921,6 @@ class Logfire:
             capture_headers=capture_headers,
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
-            use_opentelemetry_instrumentation=use_opentelemetry_instrumentation,
             record_send_receive=record_send_receive,
             **opentelemetry_kwargs,
         )
@@ -1992,6 +1990,20 @@ def set_user_attribute(
         otel_value = logfire_json_dumps(value)
     otlp_attributes[key] = otel_value
     return key, otel_value
+
+
+def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
+    otlp_attributes = user_attributes(attributes)
+    if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
+        existing_properties = JsonSchemaProperties({})
+        existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
+        if existing_json_schema_str and isinstance(existing_json_schema_str, str):
+            with contextlib.suppress(json.JSONDecodeError):
+                existing_json_schema = json.loads(existing_json_schema_str)
+                existing_properties = existing_json_schema.get('properties', {})
+        existing_properties.update(json_schema_properties)
+        otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(existing_properties)
+    span.set_attributes(otlp_attributes)
 
 
 P = ParamSpec('P')
