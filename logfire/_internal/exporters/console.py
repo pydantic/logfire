@@ -67,7 +67,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             force_terminal = colors == 'always'
         self._console = Console(
-            color_system='standard' if os.environ.get('PYTEST_CURRENT_TEST') else 'auto',
+            color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
             file=self._output,
             force_terminal=force_terminal,
             highlight=False,

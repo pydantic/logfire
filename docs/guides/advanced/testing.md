@@ -1,5 +1,8 @@
 # Testing with Logfire
 
+!!! tip "Running under Pytest... 🧪"
+    When running your test suite under Pytest, we set [`send_to_logfire=False`][logfire.configure(send_to_logfire)] by default.
+
 You may want to check that your API is logging the data you expect, that spans correctly track the work they wrap, etc.
 This can often be difficult, including with Python's built in logging and OpenTelemetry's SDKs.
 
