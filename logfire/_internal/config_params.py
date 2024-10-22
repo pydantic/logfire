@@ -49,7 +49,7 @@ class _DefaultCallback:
     callback: Callable[[], Any]
 
 
-_send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_CURRENT_TEST' not in os.environ)
+_send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_VERSION' not in os.environ)
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off

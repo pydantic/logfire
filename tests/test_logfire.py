@@ -484,7 +484,7 @@ def test_log(exporter: TestExporter, level: LevelName):
 
     assert s.attributes is not None
     assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name} {number} {none}'
-    assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 null'
+    assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 None'
     assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
     assert s.attributes['name'] == 'foo'
     assert s.attributes['number'] == 2
@@ -503,7 +503,7 @@ def test_log(exporter: TestExporter, level: LevelName):
                 'logfire.span_type': 'log',
                 'logfire.level_num': LEVEL_NUMBERS[level],
                 'logfire.msg_template': 'test {name} {number} {none}',
-                'logfire.msg': 'test foo 2 null',
+                'logfire.msg': 'test foo 2 None',
                 'code.filepath': 'test_logfire.py',
                 'code.lineno': 123,
                 'code.function': 'test_log',
