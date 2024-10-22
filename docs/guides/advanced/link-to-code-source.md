@@ -19,6 +19,7 @@ logfire.configure(
         repository='https://github.com/pydantic/logfire',  #(1)!
         revision='<hash of commit used on release>',  #(2)!
         root_path='.',  #(3)!
+        work_dir='.'  #(4)!
     )
 )
 ```
@@ -26,6 +27,7 @@ logfire.configure(
 1. The URL of the repository e.g. `https://github.com/pydantic/logfire`.
 2. The specific branch, tag, or commit hash to link to e.g. `main`.
 3. The path to the root of the repository. If your code is in a subdirectory, you can specify it here.
+4. The path to where the code is being executed. This is used to determine the relative path of the code file.
 
 You can learn more in our [`logfire.CodeSource`][logfire.CodeSource] API reference.
 

@@ -1647,6 +1647,7 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'logfire.code.root_path': 'logfire',
+                        'logfire.code.work_dir': '.',
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
                         'service.version': '1.2.3',
