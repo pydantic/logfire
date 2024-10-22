@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import inspect
 from collections.abc import Sequence
-from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from opentelemetry.util import types as otel_types
@@ -30,16 +29,13 @@ def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]]
         span_name, attributes = arg_values(func, args.msg_template, args.span_name, args.tags)
         sig = inspect.signature(func)
 
-        @contextmanager
         def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
             if args.extract_args:
-                with logfire._instrument_span_with_args(  # type: ignore
+                return logfire._instrument_span_with_args(  # type: ignore
                     span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
-                ):
-                    yield
+                )
             else:
-                with logfire._fast_span(span_name, attributes):  # type: ignore
-                    yield
+                return logfire._fast_span(span_name, attributes)  # type: ignore
 
         if inspect.isgeneratorfunction(func):
 
