@@ -9,6 +9,7 @@ import logfire
 
 from .._internal.constants import (
     ATTRIBUTES_LOGGING_ARGS_KEY,
+    ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
@@ -100,6 +101,7 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes['code.filepath'] = record.pathname
         attributes['code.lineno'] = record.lineno
         attributes['code.function'] = record.funcName
+        attributes[ATTRIBUTES_LOGGING_NAME] = record.name
 
         attributes[ATTRIBUTES_MESSAGE_KEY], args = _format_message(record)
         attributes.update(args)
