@@ -54,7 +54,7 @@ def commit_and_push_changes(version: str) -> None:
     branch_name = f'release/v{version}'
     run_command('git', 'checkout', '-b', branch_name)
     run_command('git', 'add', '.')
-    run_command('git', 'commit', '-m', f"'Bump version to v{version}'")
+    run_command('git', 'commit', '-m', f'Bump version to v{version}')
     run_command('git', 'push', 'origin', branch_name)
 
 
