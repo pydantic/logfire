@@ -126,6 +126,10 @@ ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
 """Key in OTEL attributes that collects the JSON schema."""
 
 ATTRIBUTES_LOGGING_ARGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logging_args'
+"""Key in OTEL attributes that collects the arguments from standard library logging."""
+
+ATTRIBUTES_LOGGING_NAME = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logger_name'
+"""Key in OTEL attributes that collects the standard library logger name."""
 
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""
