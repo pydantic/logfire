@@ -3,5 +3,87 @@
 {% block content %}
 {{ super() }}
 <script src="/flarelytics/client.js"></script>
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init(
+        'phc_WEVBsfcilPS9u6e0CY22d8DqtFt0zalAP9A6iyCBHNH',
+        {
+            api_host: 'https://eu.i.posthog.com',
+            persistence: 'memory',  // cookieless tracking: https://posthog.com/tutorials/cookieless-tracking
+        }
+    );
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var searchForm = document.querySelector('.md-search__form');
+        var searchInput = document.querySelector('[data-md-component="search-query"]');
+        var searchResults = document.querySelector('.md-search__output');
+        var lastSearchTerm = '';
+        var searchTimeout;
+        var lastSearchTime = 0;
+        const DEBOUNCE_MS = 1000; // Wait 1 second between typed searches
+
+        if (searchForm && searchInput && searchResults) {
+            // Track when search results appear from typing (debounced)
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const searchTerm = this.value.trim();
+
+                // Don't track if term hasn't changed or is too short
+                if (searchTerm === lastSearchTerm || searchTerm.length < 3) {
+                    return;
+                }
+
+                searchTimeout = setTimeout(function() {
+                    const now = Date.now();
+                    // Only track if:
+                    // 1. Results exist
+                    // 2. Enough time has passed since last search
+                    if (searchResults.querySelector('.md-search-result__item') &&
+                        now - lastSearchTime > DEBOUNCE_MS) {
+                        posthog.capture('documentation_search', {
+                            search_term: searchTerm,
+                            search_type: 'typed'
+                        });
+                        lastSearchTerm = searchTerm;
+                        lastSearchTime = now;
+                    }
+                }, DEBOUNCE_MS);
+            });
+
+            // Track submitted searches
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                clearTimeout(searchTimeout); // Cancel any pending typed search
+                const searchTerm = searchInput.value.trim();
+
+                // Only track if:
+                // 1. Term exists
+                // 2. Term is different from last search OR it's been a while
+                const now = Date.now();
+                if (searchTerm &&
+                    (searchTerm !== lastSearchTerm || now - lastSearchTime > DEBOUNCE_MS)) {
+                    posthog.capture('documentation_search', {
+                        search_term: searchTerm,
+                        search_type: 'submitted'
+                    });
+                    lastSearchTerm = searchTerm;
+                    lastSearchTime = now;
+                }
+            });
+
+            // Track result clicks (unchanged)
+            searchResults.addEventListener('click', function(e) {
+                var clickedLink = e.target.closest('a');
+                if (clickedLink) {
+                    posthog.capture('search_result_click', {
+                        search_term: searchInput.value.trim(),
+                        clicked_url: clickedLink.href,
+                        clicked_text: clickedLink.innerText.trim()
+                    });
+                }
+            });
+        }
+    });
+</script>
 {% include 'mkdocs_run_deps.html' ignore missing %}
 {% endblock %}
