@@ -4,27 +4,27 @@ import dataclasses
 import inspect
 from contextlib import contextmanager
 from functools import lru_cache
-from typing import Any, Awaitable, Callable, ContextManager, Iterable, cast
+from typing import Any, Awaitable, Callable, ContextManager, Iterable
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
+from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace import Span
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
 
-from ..main import Logfire
+from ..main import Logfire, set_user_attributes_on_raw_span
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import maybe_capture_server_headers
 from .asgi import tweak_asgi_spans_tracer_provider
 
 try:
-    from opentelemetry.instrumentation.asgi import get_host_port_url_tuple  # type: ignore
+    from opentelemetry.instrumentation.asgi import ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.semconv.trace import SpanAttributes
-    from opentelemetry.util.http import get_excluded_urls, parse_excluded_urls
 except ModuleNotFoundError:
     raise RuntimeError(
         'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
@@ -58,7 +58,6 @@ def instrument_fastapi(
         dict[str, Any] | None,
     ]
     | None = None,
-    use_opentelemetry_instrumentation: bool = True,
     excluded_urls: str | Iterable[str] | None = None,
     record_send_receive: bool = False,
     **opentelemetry_kwargs: Any,
@@ -72,18 +71,18 @@ def instrument_fastapi(
         # FastAPIInstrumentor expects a comma-separated string, not a list.
         excluded_urls = ','.join(excluded_urls)
 
-    if use_opentelemetry_instrumentation:  # pragma: no branch
-        maybe_capture_server_headers(capture_headers)
-        opentelemetry_kwargs = {
-            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **opentelemetry_kwargs,
-        }
-        FastAPIInstrumentor.instrument_app(  # type: ignore
-            app,
-            excluded_urls=excluded_urls,
-            **opentelemetry_kwargs,
-        )
+    maybe_capture_server_headers(capture_headers)
+    opentelemetry_kwargs = {
+        'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+        'meter_provider': logfire_instance.config.get_meter_provider(),
+        **opentelemetry_kwargs,
+    }
+    FastAPIInstrumentor.instrument_app(  # type: ignore
+        app,
+        excluded_urls=excluded_urls,
+        server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
+        **opentelemetry_kwargs,
+    )
 
     registry = patch_fastapi()
     if app in registry:  # pragma: no cover
@@ -96,7 +95,6 @@ def instrument_fastapi(
         registry[_app] = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
-            excluded_urls,
         )
 
     @contextmanager
@@ -109,8 +107,7 @@ def instrument_fastapi(
         finally:
             for _app in mounted_apps:
                 del registry[_app]
-                if use_opentelemetry_instrumentation:  # pragma: no branch
-                    FastAPIInstrumentor.uninstrument_app(_app)
+                FastAPIInstrumentor.uninstrument_app(_app)
 
     return uninstrument_context()
 
@@ -160,29 +157,27 @@ class FastAPIInstrumentation:
             ],
             dict[str, Any] | None,
         ],
-        excluded_urls: str | None,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
         self.request_attributes_mapper = request_attributes_mapper
 
-        # These lines, as well as the `excluded_urls_list.url_disabled` call below, are copied from OTEL.
-        if excluded_urls is None:
-            self.excluded_urls_list = get_excluded_urls('FASTAPI')
-        else:
-            self.excluded_urls_list = parse_excluded_urls(excluded_urls)  # pragma: no cover
-
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
-        try:
-            url = cast(str, get_host_port_url_tuple(request.scope)[2])
-            excluded = self.excluded_urls_list.url_disabled(url)
-        except Exception:  # pragma: no cover
-            excluded = False
-            self.logfire_instance.exception('Error checking if URL is excluded from instrumentation')
-
-        if excluded:
+        root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
+        if not root_span:
             return await original  # pragma: no cover
 
         with self.logfire_instance.span('FastAPI arguments') as span:
+            if isinstance(request, Request):  # pragma: no branch
+                span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
+            route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
+            if route:  # pragma: no branch
+                root_span.set_attribute('fastapi.route.name', route.name)
+                span.set_attribute('fastapi.route.name', route.name)
+                span.set_attribute(SpanAttributes.HTTP_ROUTE, route.path)
+                if isinstance(route, APIRoute):  # pragma: no branch
+                    root_span.set_attribute('fastapi.route.operation_id', route.operation_id)
+                    span.set_attribute('fastapi.route.operation_id', route.operation_id)
+
             result: Any = await original
 
             solved_values: dict[str, Any]
@@ -233,24 +228,11 @@ class FastAPIInstrumentation:
                 if attributes.get('errors'):
                     span.set_level('error')
 
-                # Add a few basic attributes about the request, particularly so that the user can group logs by endpoint.
-                # Usually this will all be inside a span added by FastAPIInstrumentor with more detailed attributes.
-                # We only add these attributes after the request_attributes_mapper so that the user
-                # doesn't rely on what we add here - they can use `request` instead.
-                if isinstance(request, Request):  # pragma: no branch
-                    attributes[SpanAttributes.HTTP_METHOD] = request.method
-                route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
-                if route:  # pragma: no branch
-                    attributes.update(
-                        {
-                            SpanAttributes.HTTP_ROUTE: route.path,
-                            'fastapi.route.name': route.name,
-                        }
-                    )
-                    if isinstance(route, APIRoute):  # pragma: no branch
-                        attributes['fastapi.route.operation_id'] = route.operation_id
-
                 span.set_attributes(attributes)
+                for key in ('values', 'errors'):
+                    if key in attributes:  # pragma: no branch
+                        attributes['fastapi.arguments.' + key] = attributes.pop(key)
+                set_user_attributes_on_raw_span(root_span, attributes)
             except Exception as e:  # pragma: no cover
                 span.record_exception(e)
 
@@ -289,3 +271,17 @@ def _default_request_attributes_mapper(
 
 class _InstrumentedValues(dict):  # type: ignore
     request: Request
+
+
+LOGFIRE_SPAN_SCOPE_KEY = 'logfire.span'
+
+
+def _server_request_hook(user_hook: ServerRequestHook | None):
+    # Add the span to the request scope so that we can access it in `solve_dependencies`.
+    # Also call the user's hook if they passed one.
+    def hook(span: Span, scope: dict[str, Any]):
+        scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        if user_hook:
+            user_hook(span, scope)
+
+    return hook
