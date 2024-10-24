@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v1.3.0] (2024-10-24)
+
+* Add Code Source links by @Kludex in [#451](https://github.com/pydantic/logfire/pull/451) and [#505](https://github.com/pydantic/logfire/pull/505)
+* Add fastapi arguments attributes directly on the root OTel span, remove `use_opentelemetry_instrumentation` kwarg by @alexmojaki in [#509](https://github.com/pydantic/logfire/pull/509)
+* Allow setting tags on logfire spans by @AdolfoVillalobos in [#497](https://github.com/pydantic/logfire/pull/497)
+* Add logger name to `LogfireLoggingHandler` spans by @samuelcolvin in [#534](https://github.com/pydantic/logfire/pull/534)
+* Format `None` as `None` instead of `null` in messages by @alexmojaki in [#525](https://github.com/pydantic/logfire/pull/525)
+* Use `PYTEST_VERSION` instead of `PYTEST_CURRENT_TEST` to detect `logfire.configure()` being called within a pytest run but outside any test by @Kludex in [#531](https://github.com/pydantic/logfire/pull/531)
+
 ## [v1.2.0] (2024-10-17)
 
 * Add `local` parameter to `logfire.configure()` by @alexmojaki in [#508](https://github.com/pydantic/logfire/pull/508)
@@ -358,3 +367,4 @@ First release from new repo!
 [v1.0.1]: https://github.com/pydantic/logfire/compare/v1.0.0...v1.0.1
 [v1.1.0]: https://github.com/pydantic/logfire/compare/v1.0.1...v1.1.0
 [v1.2.0]: https://github.com/pydantic/logfire/compare/v1.1.0...v1.2.0
+[v1.3.0]: https://github.com/pydantic/logfire/compare/v1.2.0...v1.3.0
