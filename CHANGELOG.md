@@ -3,7 +3,7 @@
 ## [v1.3.0] (2024-10-24)
 
 * Add Code Source links by @Kludex in [#451](https://github.com/pydantic/logfire/pull/451) and [#505](https://github.com/pydantic/logfire/pull/505)
-* Add fastapi arguments attributes directly on the root OTEL span, remove `use_opentelemetry_instrumentation` kwarg by @alexmojaki in [#509](https://github.com/pydantic/logfire/pull/509)
+* Add fastapi arguments attributes directly on the root OTel span, remove `use_opentelemetry_instrumentation` kwarg by @alexmojaki in [#509](https://github.com/pydantic/logfire/pull/509)
 * Allow setting tags on logfire spans by @AdolfoVillalobos in [#497](https://github.com/pydantic/logfire/pull/497)
 * Add logger name to `LogfireLoggingHandler` spans by @samuelcolvin in [#534](https://github.com/pydantic/logfire/pull/534)
 * Format `None` as `None` instead of `null` in messages by @alexmojaki in [#525](https://github.com/pydantic/logfire/pull/525)
