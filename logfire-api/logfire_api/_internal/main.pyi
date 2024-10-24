@@ -30,7 +30,7 @@ from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
-from opentelemetry.sdk.trace import ReadableSpan, Span as Span
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 from starlette.applications import Starlette
@@ -386,8 +386,11 @@ class Logfire:
             exclude:
                 Exclude specific modules from instrumentation.
         """
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
+
+        Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
+        under the hood, with some additional features.
 
         Args:
             app: The FastAPI app to instrument.
@@ -411,11 +414,6 @@ class Logfire:
                 matches any of the regexes. This applies to both the Logfire and OpenTelemetry instrumentation.
                 If not provided, the environment variables
                 `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` and `OTEL_PYTHON_EXCLUDED_URLS` will be checked.
-            use_opentelemetry_instrumentation: If True (the default) then
-                [`FastAPIInstrumentor`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor]
-                will also instrument the app.
-
-                See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
             record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
@@ -934,7 +932,8 @@ class LogfireSpan(ReadableSpan):
     @property
     def tags(self) -> tuple[str, ...]: ...
     @tags.setter
-    def tags(self, new_tags: Sequence[str]) -> None: ...
+    def tags(self, new_tags: Sequence[str]) -> None:
+        """Set or add tags to the span."""
     @property
     def message(self) -> str: ...
     @message.setter
@@ -1008,5 +1007,6 @@ def set_user_attribute(otlp_attributes: dict[str, otel_types.AttributeValue], ke
     Returns the final key and value that was added to the dictionary.
     The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
     """
+def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None: ...
 P = ParamSpec('P')
 R = TypeVar('R')
