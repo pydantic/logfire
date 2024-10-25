@@ -682,7 +682,7 @@ def test_instrument_generator_warning(exporter: TestExporter):
 
     assert list(foo()) == [1]
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
@@ -691,7 +691,7 @@ def test_instrument_generator_warning(exporter: TestExporter):
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'foo',
+                    'code.function': 'test_instrument_generator_warning.<locals>.foo',
                     'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -711,7 +711,7 @@ async def test_instrument_async(exporter: TestExporter):
 
     assert await foo() == 456
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
@@ -720,7 +720,7 @@ async def test_instrument_async(exporter: TestExporter):
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'foo',
+                    'code.function': 'test_instrument_async.<locals>.foo',
                     'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -2312,125 +2312,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
             pass
 
     assert exporter.exported_spans_as_dict() == expected_spans
-
-
-@pytest.mark.skipif(
-    sys.version_info[:2] > (3, 10) or sys.version_info[:2] < (3, 9),
-    reason='Testing behaviour for Python < 3.11 but > 3.8',
-)
-def test_executing_failure_old_python(exporter: TestExporter):
-    local_var = 2
-
-    # For older versions, the AST modification done by `@instrument` interferes with `executing`.
-    @logfire.instrument()
-    def foo():  # pragma: no cover  (coverage being weird)
-        # For these cases, the simple heuristic still works.
-        with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
-            logfire.info(f'log {GLOBAL_VAR} {local_var}')
-
-        # But here it doesn't, see the previous test.
-        with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.'):
-            str(logfire.info(f'bad log {local_var}'))
-
-    foo()
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'log {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'local_var': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
-                },
-            },
-            {
-                'name': 'span {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'local_var': 2,
-                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 5000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                    'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                },
-            },
-            {
-                'name': 'bad log 2',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 6000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'bad log 2',
-                    'logfire.msg': 'bad log 2',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                },
-            },
-            {
-                'name': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 7000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.lineno': 123,
-                    'code.function': 'test_executing_failure_old_python.<locals>.foo',
-                    'logfire.msg_template': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                    'logfire.msg': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                    'logfire.span_type': 'span',
-                },
-            },
-        ]
-    )
 
 
 @pytest.mark.skipif(

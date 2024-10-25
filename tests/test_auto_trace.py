@@ -53,7 +53,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
@@ -81,7 +81,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'inner',
+                    'code.function': 'async_gen.<locals>.inner',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                     'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'pending_span',
@@ -98,7 +98,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'inner',
+                    'code.function': 'async_gen.<locals>.inner',
                     'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                     'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'span',
