@@ -9,6 +9,7 @@ from functools import partial
 from logging import getLogger
 from typing import Any, Callable
 
+import inline_snapshot.extra
 import pytest
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
@@ -653,6 +654,16 @@ def test_instrument(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_instrument_async_gen():
+    async def foo():
+        yield 1
+
+    inst = logfire.instrument()
+
+    with inline_snapshot.extra.raises(snapshot('ValueError: You cannot instrument an async generator function')):
+        inst(foo)
 
 
 def test_instrument_extract_false(exporter: TestExporter):
