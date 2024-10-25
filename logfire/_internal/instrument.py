@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import warnings
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
@@ -38,6 +39,7 @@ def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]]
                 return logfire._fast_span(span_name, attributes)  # type: ignore
 
         if inspect.isgeneratorfunction(func):
+            warnings.warn('Instrumenting a generator function is not recommended', stacklevel=2)
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
                 with open_span(*func_args, **func_kwargs):

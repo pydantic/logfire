@@ -666,6 +666,43 @@ def test_instrument_async_gen():
         inst(foo)
 
 
+def test_instrument_generator_warning(exporter: TestExporter):
+    def foo():
+        yield 1
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot('Instrumenting a generator function is not recommended')
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 5  # type: ignore
+
+    assert list(foo()) == [1]
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_extract_false(exporter: TestExporter):
     @logfire.instrument('hello {a}!', extract_args=False)
     def hello_world(a: int) -> str:
