@@ -703,6 +703,35 @@ def test_instrument_generator_warning(exporter: TestExporter):
     )
 
 
+@pytest.mark.anyio
+async def test_instrument_async(exporter: TestExporter):
+    @logfire.instrument()
+    async def foo():
+        return 456
+
+    assert await foo() == 456
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_extract_false(exporter: TestExporter):
     @logfire.instrument('hello {a}!', extract_args=False)
     def hello_world(a: int) -> str:
