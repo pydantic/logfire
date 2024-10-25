@@ -41,7 +41,7 @@ from .constants import (
     log_level_attributes,
 )
 from .formatter import logfire_format, logfire_format_with_magic
-from .instrument import LogfireArgs, instrument
+from .instrument import instrument
 from .json_encoder import logfire_json_dumps
 from .json_schema import (
     JsonSchemaProperties,
@@ -546,8 +546,7 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
         """
-        args = LogfireArgs(tuple(self._tags), self._sample_rate, msg_template, span_name, extract_args)
-        return instrument(self, args)
+        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args)
 
     def log(
         self,

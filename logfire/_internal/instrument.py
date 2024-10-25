@@ -7,9 +7,8 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from opentelemetry.util import types as otel_types
-from typing_extensions import ParamSpec
+from typing_extensions import LiteralString, ParamSpec
 
-from .ast_utils import LogfireArgs
 from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
 from .stack_info import get_filepath_attribute
 from .utils import safe_repr, uniquify_sequence
@@ -22,21 +21,23 @@ P = ParamSpec('P')
 R = TypeVar('R')
 
 
-def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def instrument(
+    logfire: Logfire, tags: Sequence[str], msg_template: LiteralString | None, span_name: str | None, extract_args: bool
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         if inspect.isasyncgenfunction(func):
             raise ValueError('You cannot instrument an async generator function')
 
-        span_name, attributes = arg_values(func, args.msg_template, args.span_name, args.tags)
+        final_span_name, attributes = arg_values(func, msg_template, span_name, tags)
         sig = inspect.signature(func)
 
         def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-            if args.extract_args:
+            if extract_args:
                 return logfire._instrument_span_with_args(  # type: ignore
-                    span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
+                    final_span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
                 )
             else:
-                return logfire._fast_span(span_name, attributes)  # type: ignore
+                return logfire._fast_span(final_span_name, attributes)  # type: ignore
 
         if inspect.isgeneratorfunction(func):
             warnings.warn('Instrumenting a generator function is not recommended', stacklevel=2)
@@ -61,7 +62,7 @@ def instrument(logfire: Logfire, args: LogfireArgs) -> Callable[[Callable[P, R]]
 
 
 def arg_values(
-    func: Any, msg_template: str | None = None, span_name: str | None = None, tags: Sequence[str] | None = None
+    func: Any, msg_template: str | None, span_name: str | None, tags: Sequence[str] | None
 ) -> tuple[str, dict[str, otel_types.AttributeValue]]:
     func = inspect.unwrap(func)
     func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
