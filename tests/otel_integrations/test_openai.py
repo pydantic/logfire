@@ -49,6 +49,139 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     object='chat.completion.chunk',
                 )
                 return httpx.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
+            elif json_body['messages'][0]['content'] == 'streamed tool call':
+                chunks = [
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    role='assistant',
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0,
+                                            id='1',
+                                            function=cc_chunk.ChoiceDeltaToolCallFunction(
+                                                arguments='', name='get_current_weather'
+                                            ),
+                                            type='function',
+                                        )
+                                    ],
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='{"')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='location')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='":"')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='Boston')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='"}')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[cc_chunk.Choice(delta=cc_chunk.ChoiceDelta(), finish_reason='stop', index=0)],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                        usage=completion_usage.CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
+                    ),
+                ]
+                return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
             else:
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
@@ -519,6 +652,90 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
             },
         ]
     )
+
+
+def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'system', 'content': 'streamed tool call'}],
+        stream=True,
+        # stream_options={"include_usage": True},
+        tool_choice={'type': 'function', 'function': {'name': 'get_current_weather'}},
+        tools=[
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_current_weather',
+                    'description': 'Get the current weather in a given location',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'location': {
+                                'type': 'string',
+                                'description': 'The city and state, e.g. San Francisco, CA',
+                            },
+                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                        },
+                        'required': ['location'],
+                    },
+                },
+            },
+        ],
+    )
+    combined_arguments = ''.join(
+        chunk.choices[0].delta.tool_calls[0].function.arguments
+        for chunk in response
+        if chunk.choices
+        and chunk.choices[0].delta.tool_calls
+        and chunk.choices[0].delta.tool_calls[0].function
+        and chunk.choices[0].delta.tool_calls[0].function.arguments
+    )
+    assert combined_arguments == '{"location":"Boston"}'
+    assert exporter.exported_spans_as_dict() == snapshot()
+
+
+async def test_async_chat_tool_call_stream(
+    instrumented_async_client: openai.AsyncClient, exporter: TestExporter
+) -> None:
+    response = await instrumented_async_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'system', 'content': 'streamed tool call'}],
+        stream=True,
+        # stream_options={"include_usage": True},
+        tool_choice={'type': 'function', 'function': {'name': 'get_current_weather'}},
+        tools=[
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_current_weather',
+                    'description': 'Get the current weather in a given location',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'location': {
+                                'type': 'string',
+                                'description': 'The city and state, e.g. San Francisco, CA',
+                            },
+                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                        },
+                        'required': ['location'],
+                    },
+                },
+            },
+        ],
+    )
+    combined_arguments = ''.join(
+        [
+            chunk.choices[0].delta.tool_calls[0].function.arguments
+            async for chunk in response
+            if chunk.choices
+            and chunk.choices[0].delta.tool_calls
+            and chunk.choices[0].delta.tool_calls[0].function
+            and chunk.choices[0].delta.tool_calls[0].function.arguments
+        ]
+    )
+    assert combined_arguments == '{"location":"Boston"}'
+    assert exporter.exported_spans_as_dict() == snapshot()
 
 
 def test_sync_chat_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
