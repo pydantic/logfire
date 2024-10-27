@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta
 
-from .types import EndpointConfig
+from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
@@ -32,13 +32,12 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            content_from_stream=content_from_messages,
+            stream_state_cls=AnthropicMessagesStreamState,
         )
     else:
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
             span_data={'request_data': json_data, 'url': url},
-            content_from_stream=None,
         )
 
 
@@ -48,6 +47,19 @@ def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | No
     if hasattr(chunk, 'delta'):
         return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # type: ignore
     return None
+
+
+class AnthropicMessagesStreamState(StreamState):
+    def __init__(self):
+        self._content: list[str] = []
+
+    def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
+        content = content_from_messages(chunk)
+        if content:
+            self._content.append(content)
+
+    def get_response_data(self) -> Any:
+        return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:

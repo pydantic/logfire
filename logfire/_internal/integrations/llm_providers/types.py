@@ -1,8 +1,23 @@
 from __future__ import annotations
 
-from typing import Any, Callable, NamedTuple
+from abc import ABC, abstractmethod
+from typing import Any, NamedTuple
 
 from typing_extensions import LiteralString
+
+
+class StreamState(ABC):
+    """Keeps track of the state of a streamed response."""
+
+    @abstractmethod
+    def record_chunk(self, chunk: Any) -> None:
+        """Update the state based on a chunk from the streamed response."""
+        ...
+
+    @abstractmethod
+    def get_response_data(self) -> Any:
+        """Returns the response data for including in the log."""
+        ...
 
 
 class EndpointConfig(NamedTuple):
@@ -10,4 +25,4 @@ class EndpointConfig(NamedTuple):
 
     message_template: LiteralString
     span_data: dict[str, Any]
-    content_from_stream: Callable[[Any], str | None] | None
+    stream_state_cls: type[StreamState] | None = None
