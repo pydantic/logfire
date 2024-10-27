@@ -314,7 +314,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"","chunk_count":0}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
                 },
             },
         ]
@@ -376,7 +376,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
                 },
             },
         ]
@@ -441,7 +441,7 @@ async def test_async_messages_stream(
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
                 },
             },
         ]
