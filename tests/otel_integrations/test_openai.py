@@ -589,9 +589,9 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
+                    'logfire.null_args': ('response_data',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"","chunk_count":0}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{}}}',
                 },
             },
         ]

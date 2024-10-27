@@ -179,7 +179,7 @@ def record_streaming(
     stream_state = stream_state_cls() if stream_state_cls else None
 
     def record_chunk(chunk: Any) -> None:
-        if stream_state:
+        if chunk and stream_state:
             stream_state.record_chunk(chunk)
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # type: ignore

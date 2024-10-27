@@ -95,11 +95,14 @@ class OpenaiChatCompletionStreamState(StreamState):
         self._stream_state.handle_chunk(chunk)
 
     def get_response_data(self) -> Any:
-        final_completion = self._stream_state.get_final_completion()
-        return {
-            'message': final_completion.choices[0].message,
-            'usage': final_completion.usage,
-        }
+        try:
+            final_completion = self._stream_state.get_final_completion()
+            return {
+                'message': final_completion.choices[0].message if final_completion.choices else None,
+                'usage': final_completion.usage,
+            }
+        except Exception:
+            return None
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
