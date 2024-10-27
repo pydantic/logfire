@@ -86,7 +86,8 @@ class OpenaiCompletionStreamState(StreamState):
 class OpenaiChatCompletionStreamState(StreamState):
     def __init__(self):
         self._stream_state = ChatCompletionStreamState(
-            # We do not parse back into python objects so can leave these as NOT_GIVEN
+            # We do not need the response to be parsed into Python objects so can skip
+            # providing the `response_format` and `input_tools` arguments.
             input_tools=openai.NOT_GIVEN,
             response_format=openai.NOT_GIVEN,
         )
