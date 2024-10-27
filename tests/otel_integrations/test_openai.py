@@ -198,7 +198,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     cc_chunk.ChatCompletionChunk(
                         id='2',
                         choices=[
-                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
+                            cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
                         ],
                         created=1,
                         model='gpt-4',
@@ -206,7 +206,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ),
                     cc_chunk.ChatCompletionChunk(
                         id='3',
-                        choices=[cc_chunk.Choice(index=2, delta=cc_chunk.ChoiceDelta(content=None, role='assistant'))],
+                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=None, role='assistant'))],
                         created=1,
                         model='gpt-4',
                         object='chat.completion.chunk',
