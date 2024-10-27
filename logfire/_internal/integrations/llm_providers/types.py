@@ -12,12 +12,12 @@ class StreamState(ABC):
     @abstractmethod
     def record_chunk(self, chunk: Any) -> None:
         """Update the state based on a chunk from the streamed response."""
-        ...
+        ...  # pragma: no cover
 
     @abstractmethod
     def get_response_data(self) -> Any:
         """Returns the response data for including in the log."""
-        ...
+        ...  # pragma: no cover
 
 
 class EndpointConfig(NamedTuple):

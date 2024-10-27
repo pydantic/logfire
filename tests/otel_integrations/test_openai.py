@@ -593,7 +593,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'response_data': '{"combined_chunk_content":""}',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
         ]
@@ -649,7 +649,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"message":null,"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
         ]
@@ -732,7 +732,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'async': False,
                     'duration': 1.0,
                     'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
                     'logfire.tags': ('LLM',),
                 },
             },
@@ -820,7 +820,7 @@ async def test_async_chat_tool_call_stream(
                     'async': True,
                     'duration': 1.0,
                     'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
                     'logfire.tags': ('LLM',),
                 },
             },
@@ -879,7 +879,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistantassistantassistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
         ]
@@ -940,7 +940,7 @@ async def test_async_chat_completions_stream(
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistantassistantassistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
         ]
@@ -1027,7 +1027,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"},"duration":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
         ]

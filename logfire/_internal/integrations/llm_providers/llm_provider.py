@@ -174,12 +174,12 @@ def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
 def record_streaming(
     logire_llm: Logfire,
     span_data: dict[str, Any],
-    stream_state_cls: type[StreamState] | None,
+    stream_state_cls: type[StreamState],
 ):
-    stream_state = stream_state_cls() if stream_state_cls else None
+    stream_state = stream_state_cls()
 
     def record_chunk(chunk: Any) -> None:
-        if chunk and stream_state:
+        if chunk:
             stream_state.record_chunk(chunk)
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # type: ignore
@@ -188,10 +188,9 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        if stream_state:
-            span_data['response_data'] = stream_state.get_response_data()
         logire_llm.info(
             'streaming response from {request_data[model]!r} took {duration:.2f}s',
             **span_data,
             duration=duration,
+            response_data=stream_state.get_response_data(),
         )
