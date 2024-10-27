@@ -646,7 +646,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"","chunk_count":0}',
+                    'response_data': '{"message":null,"usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
                 },
             },
