@@ -188,9 +188,10 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
+        if stream_state:
+            span_data['response_data'] = stream_state.get_response_data()
         logire_llm.info(
             'streaming response from {request_data[model]!r} took {duration:.2f}s',
             **span_data,
             duration=duration,
-            response_data=stream_state.get_response_data() if stream_state else None,
         )

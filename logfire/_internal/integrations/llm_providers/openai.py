@@ -97,13 +97,15 @@ class OpenaiChatCompletionStreamState(StreamState):
 
     def get_response_data(self) -> Any:
         try:
-            final_completion = self._stream_state.get_final_completion()
-            return {
-                'message': final_completion.choices[0].message if final_completion.choices else None,
-                'usage': final_completion.usage,
-            }
-        except Exception:
-            return None
+            final_completion = self._stream_state.current_completion_snapshot
+        except AssertionError:
+            # AssertionError is raised when there is no completion snapshot
+            # Return empty content to show an empty Assistant response in the UI
+            return {'combined_chunk_content': ''}
+        return {
+            'message': final_completion.choices[0].message if final_completion.choices else None,
+            'usage': final_completion.usage,
+        }
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
