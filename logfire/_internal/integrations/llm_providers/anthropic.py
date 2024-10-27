@@ -32,7 +32,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            stream_state_cls=AnthropicMessagesStreamState,
+            stream_state_cls=AnthropicMessageStreamState,
         )
     else:
         return EndpointConfig(
@@ -49,7 +49,7 @@ def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | No
     return None
 
 
-class AnthropicMessagesStreamState(StreamState):
+class AnthropicMessageStreamState(StreamState):
     def __init__(self):
         self._content: list[str] = []
 
