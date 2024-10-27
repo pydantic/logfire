@@ -181,7 +181,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                         usage=completion_usage.CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
                     ),
                 ]
-                return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
+                return httpx.Response(
+                    200, text=''.join(f'data: {chunk.model_dump_json(exclude_unset=True)}\n\n' for chunk in chunks)
+                )
             else:
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
