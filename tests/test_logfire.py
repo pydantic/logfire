@@ -609,7 +609,9 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 
 
 def test_instrument(exporter: TestExporter):
-    @logfire.instrument('hello-world {a=}')
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}')
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -628,6 +630,7 @@ def test_instrument(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'test_instrument.<locals>.hello_world',
                     'a': 123,
+                    'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=123',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
@@ -646,6 +649,7 @@ def test_instrument(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'test_instrument.<locals>.hello_world',
                     'a': 123,
+                    'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
                     'logfire.span_type': 'span',

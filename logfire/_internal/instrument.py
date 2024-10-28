@@ -67,6 +67,7 @@ def arg_values(
     func = inspect.unwrap(func)
     if not inspect.isfunction(func) and hasattr(func, '__call__'):
         func = func.__call__
+        func = inspect.unwrap(func)
     func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
     if not msg_template:
         try:
