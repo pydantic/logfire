@@ -171,12 +171,12 @@ class FastAPIInstrumentation:
                 span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
             route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
             if route:  # pragma: no branch
-                root_span.set_attribute('fastapi.route.name', route.name)
-                span.set_attribute('fastapi.route.name', route.name)
                 span.set_attribute(SpanAttributes.HTTP_ROUTE, route.path)
+                fastapi_route_attributes: dict[str, Any] = {'fastapi.route.name': route.name}
                 if isinstance(route, APIRoute):  # pragma: no branch
-                    root_span.set_attribute('fastapi.route.operation_id', route.operation_id)
-                    span.set_attribute('fastapi.route.operation_id', route.operation_id)
+                    fastapi_route_attributes['fastapi.route.operation_id'] = route.operation_id
+                set_user_attributes_on_raw_span(root_span, fastapi_route_attributes)
+                span.set_attributes(fastapi_route_attributes)
 
             result: Any = await original
 
