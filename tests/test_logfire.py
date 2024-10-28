@@ -696,7 +696,7 @@ def test_instrument_other_callable(exporter: TestExporter):
 
 
 def test_instrument_async_gen():
-    async def foo():
+    async def foo():  # pragma: no cover
         yield 1
 
     inst = logfire.instrument()
