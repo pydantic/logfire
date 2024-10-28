@@ -65,11 +65,13 @@ def arg_values(
     func: Any, msg_template: str | None, span_name: str | None, tags: Sequence[str] | None
 ) -> tuple[str, dict[str, otel_types.AttributeValue]]:
     func = inspect.unwrap(func)
+    if not inspect.isfunction(func) and hasattr(func, '__call__'):
+        func = func.__call__
     func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
     if not msg_template:
         try:
             msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # type: ignore
-        except Exception:
+        except Exception:  # pragma: no cover
             msg_template = f'Calling {func_name}'
     attributes: dict[str, otel_types.AttributeValue] = {
         'code.function': func_name,

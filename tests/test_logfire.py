@@ -656,6 +656,41 @@ def test_instrument(exporter: TestExporter):
     )
 
 
+def test_instrument_other_callable(exporter: TestExporter):
+    class Instrumented:
+        def __call__(self, a: int) -> str:
+            return f'hello {a}'
+
+        def __repr__(self):
+            return '<Instrumented>'
+
+    inst = logfire.instrument()(Instrumented())
+
+    assert inst(456) == 'hello 456'
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'a': 456,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_async_gen():
     async def foo():
         yield 1
