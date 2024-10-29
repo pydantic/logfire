@@ -57,14 +57,17 @@ def instrument(
             )
 
         final_span_name, attributes = arg_values(func, msg_template, span_name, tags)
-        sig = inspect.signature(func)
 
-        def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-            if extract_args:
+        if extract_args:
+            sig = inspect.signature(func)
+
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
                 )
-            else:
+        else:
+
+            def open_span(*_: P.args, **__: P.kwargs):
                 return logfire._fast_span(final_span_name, attributes)  # type: ignore
 
         if inspect.isgeneratorfunction(func):
