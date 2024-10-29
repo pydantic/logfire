@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from wsgiref.types import WSGIApplication, WSGIEnvironment
 
 from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
 
@@ -9,6 +8,7 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 if TYPE_CHECKING:
     from typing import Callable, Protocol, TypedDict
+    from wsgiref.types import WSGIApplication, WSGIEnvironment
 
     from opentelemetry.trace import Span
     from typing_extensions import Unpack
