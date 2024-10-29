@@ -56,7 +56,8 @@ def instrument(
                 stacklevel=2,
             )
 
-        final_span_name, attributes = arg_values(func, msg_template, span_name, tags)
+        attributes = get_attributes(func, msg_template, tags)
+        final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
         if extract_args:
             sig = inspect.signature(func)
@@ -109,9 +110,9 @@ def instrument(
     return decorator
 
 
-def arg_values(
-    func: Any, msg_template: str | None, span_name: str | None, tags: Sequence[str] | None
-) -> tuple[str, dict[str, otel_types.AttributeValue]]:
+def get_attributes(
+    func: Any, msg_template: str | None, tags: Sequence[str] | None
+) -> dict[str, otel_types.AttributeValue]:
     func = inspect.unwrap(func)
     if not inspect.isfunction(func) and hasattr(func, '__call__'):
         func = func.__call__
@@ -131,9 +132,7 @@ def arg_values(
     with contextlib.suppress(Exception):
         attributes.update(get_filepath_attribute(inspect.getsourcefile(func)))  # type: ignore
 
-    span_name = span_name or msg_template
-
     if tags:
         attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
-    return span_name, attributes
+    return attributes
