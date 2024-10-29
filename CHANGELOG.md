@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v1.3.2] (2024-10-29)
+
+* Handle NonRecordingSpans for fastapi arguments by @alexmojaki in [#551](https://github.com/pydantic/logfire/pull/551)
+* Preserve docstrings in auto-tracing by @alexmojaki in [#550](https://github.com/pydantic/logfire/pull/550)
+
 ## [v1.3.1] (2024-10-28)
 
 * Handle null fastapi route.name and route.operation_id by @alexmojaki in [#547](https://github.com/pydantic/logfire/pull/547)
@@ -373,3 +378,4 @@ First release from new repo!
 [v1.2.0]: https://github.com/pydantic/logfire/compare/v1.1.0...v1.2.0
 [v1.3.0]: https://github.com/pydantic/logfire/compare/v1.2.0...v1.3.0
 [v1.3.1]: https://github.com/pydantic/logfire/compare/v1.3.0...v1.3.1
+[v1.3.2]: https://github.com/pydantic/logfire/compare/v1.3.1...v1.3.2

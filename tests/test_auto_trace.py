@@ -165,8 +165,10 @@ def test_check_already_imported() -> None:
 
 
 # language=Python
-nested_sample = """
+nested_sample = '''
 def func():
+    """A docstring"""
+
     x = 1
 
     class Class:
@@ -193,7 +195,7 @@ class Class3:
     def method4(self):
         b = 7
         return b
-"""
+'''
 
 
 def test_rewrite_ast():
@@ -207,8 +209,9 @@ def test_rewrite_ast():
         context_factories,
         min_duration=0,
     )
-    result = """
+    result = '''
 def func():
+    """A docstring"""
     with logfire_span[3]():
         x = 1
 
@@ -240,7 +243,7 @@ class Class3:
         with logfire_span[4]():
             b = 7
             return b
-"""
+'''
 
     if sys.version_info >= (3, 9):  # pragma: no branch
         assert ast.unparse(tree).strip() == result.strip()
@@ -258,7 +261,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 8,
+                    'code.lineno': 10,
                     'code.function': 'func.<locals>.Class.method',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method',
                 },
@@ -267,7 +270,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 16,
+                    'code.lineno': 18,
                     'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                 },
@@ -276,7 +279,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method2',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 12,
+                    'code.lineno': 14,
                     'code.function': 'func.<locals>.Class.method2',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2',
                 },
@@ -294,7 +297,7 @@ class Class3:
                 'Calling module.name.Class3.method4',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 26,
+                    'code.lineno': 28,
                     'code.function': 'Class3.method4',
                     'logfire.msg_template': 'Calling module.name.Class3.method4',
                 },

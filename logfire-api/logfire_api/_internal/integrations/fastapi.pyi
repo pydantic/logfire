@@ -1,6 +1,6 @@
 from ..main import Logfire as Logfire, set_user_attributes_on_raw_span as set_user_attributes_on_raw_span
 from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_code_object_info
-from ..utils import maybe_capture_server_headers as maybe_capture_server_headers
+from ..utils import handle_internal_errors as handle_internal_errors, maybe_capture_server_headers as maybe_capture_server_headers
 from .asgi import tweak_asgi_spans_tracer_provider as tweak_asgi_spans_tracer_provider
 from _typeshed import Incomplete
 from fastapi import FastAPI
