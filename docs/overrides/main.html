@@ -13,77 +13,75 @@
         }
     );
 
-    document.addEventListener('DOMContentLoaded', function() {
-        var searchForm = document.querySelector('.md-search__form');
-        var searchInput = document.querySelector('[data-md-component="search-query"]');
-        var searchResults = document.querySelector('.md-search__output');
-        var lastSearchTerm = '';
-        var searchTimeout;
-        var lastSearchTime = 0;
-        const DEBOUNCE_MS = 1000; // Wait 1 second between typed searches
-
-        if (searchForm && searchInput && searchResults) {
-            // Track when search results appear from typing (debounced)
-            searchInput.addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                const searchTerm = this.value.trim();
-
-                // Don't track if term hasn't changed or is too short
-                if (searchTerm === lastSearchTerm || searchTerm.length < 3) {
-                    return;
-                }
-
-                searchTimeout = setTimeout(function() {
-                    const now = Date.now();
-                    // Only track if:
-                    // 1. Results exist
-                    // 2. Enough time has passed since last search
-                    if (searchResults.querySelector('.md-search-result__item') &&
-                        now - lastSearchTime > DEBOUNCE_MS) {
-                        posthog.capture('documentation_search', {
-                            search_term: searchTerm,
-                            search_type: 'typed'
-                        });
-                        lastSearchTerm = searchTerm;
-                        lastSearchTime = now;
-                    }
-                }, DEBOUNCE_MS);
-            });
-
-            // Track submitted searches
-            searchForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                clearTimeout(searchTimeout); // Cancel any pending typed search
-                const searchTerm = searchInput.value.trim();
-
-                // Only track if:
-                // 1. Term exists
-                // 2. Term is different from last search OR it's been a while
-                const now = Date.now();
-                if (searchTerm &&
-                    (searchTerm !== lastSearchTerm || now - lastSearchTime > DEBOUNCE_MS)) {
-                    posthog.capture('documentation_search', {
-                        search_term: searchTerm,
-                        search_type: 'submitted'
-                    });
-                    lastSearchTerm = searchTerm;
-                    lastSearchTime = now;
-                }
-            });
-
-            // Track result clicks (unchanged)
-            searchResults.addEventListener('click', function(e) {
-                var clickedLink = e.target.closest('a');
-                if (clickedLink) {
-                    posthog.capture('search_result_click', {
-                        search_term: searchInput.value.trim(),
-                        clicked_url: clickedLink.href,
-                        clicked_text: clickedLink.innerText.trim()
-                    });
-                }
-            });
-        }
+// Helper function to track search events
+function trackSearchEvent(searchTerm, searchType, resultCount) {
+    posthog.capture('documentation_search', {
+        search_term: searchTerm,
+        search_type: searchType,
+        result_count: resultCount,
+        has_results: resultCount > 0
     });
+    lastSearchTerm = searchTerm;
+    lastSearchTime = Date.now();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchForm = document.querySelector('.md-search__form');
+    const searchInput = document.querySelector('[data-md-component="search-query"]');
+    const searchResults = document.querySelector('.md-search__output');
+    let lastSearchTerm = '';
+    let lastSearchTime = 0;
+    let searchTimeout;
+    const DEBOUNCE_MS = 1000;
+
+    function getResultCount() {
+        return searchResults.querySelectorAll('.md-search-result__item').length;
+    }
+
+    if (searchForm && searchInput && searchResults) {
+        // Track typed searches (debounced)
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const searchTerm = this.value.trim();
+
+            if (searchTerm === lastSearchTerm || searchTerm.length < 3) {
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                // Only track typed search if no recent search has occurred
+                if (Date.now() - lastSearchTime > DEBOUNCE_MS) {
+                    trackSearchEvent(searchTerm, 'typed', getResultCount());
+                }
+            }, DEBOUNCE_MS);
+        });
+
+        // Track submitted searches
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearTimeout(searchTimeout);
+            const searchTerm = searchInput.value.trim();
+
+            // Always track submit events that have a search term
+            if (searchTerm && searchTerm.length >= 3) {
+                trackSearchEvent(searchTerm, 'submitted', getResultCount());
+            }
+        });
+
+        // Track result clicks
+        searchResults.addEventListener('click', function(e) {
+            const clickedLink = e.target.closest('a');
+            if (clickedLink) {
+                posthog.capture('search_result_click', {
+                    search_term: searchInput.value.trim(),
+                    clicked_url: clickedLink.href,
+                    clicked_text: clickedLink.innerText.trim(),
+                    result_count: getResultCount()
+                });
+            }
+        });
+    }
+});
 </script>
 {% include 'mkdocs_run_deps.html' ignore missing %}
 {% endblock %}
