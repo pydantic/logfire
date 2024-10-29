@@ -1993,6 +1993,9 @@ def set_user_attribute(
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
+    if not span.is_recording():
+        return
+
     otlp_attributes = user_attributes(attributes)
     if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
