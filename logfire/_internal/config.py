@@ -208,7 +208,7 @@ class CodeSource:
     revision: str
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
-    root_path: str = field(default='.')
+    root_path: str = ''
     """The root path for the source code in the repository.
 
     Example:
