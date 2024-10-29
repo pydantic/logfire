@@ -212,11 +212,11 @@ class CodeSource:
     """The root path for the source code in the repository.
 
     Example:
-        If the `code.filename` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
+        If the `code.filepath` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
         for the source code will be `src/path/to/project/src/logfire/main.py`.
     """
 
-    work_dir: str = field(default='.')
+    work_dir: str = field(default_factory=os.getcwd)
     """This is the absolute path to the directory where the code is executed.
 
     Example:
