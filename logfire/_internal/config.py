@@ -216,14 +216,6 @@ class CodeSource:
         for the source code will be `src/path/to/project/src/logfire/main.py`.
     """
 
-    work_dir: str = field(default_factory=os.getcwd)
-    """This is the absolute path to the directory where the code is executed.
-
-    Example:
-        If you see the code in `/path/to/project/src/logfire/main.py`, and on your repository the code is in
-        `src/logfire/main.py`, then the `work_dir` should be `/path/to/project`.
-    """
-
 
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
@@ -681,7 +673,7 @@ class LogfireConfig(_LogfireConfigData):
             if self.code_source:
                 otel_resource_attributes.update(
                     {
-                        RESOURCE_ATTRIBUTES_CODE_WORK_DIR: self.code_source.work_dir,
+                        RESOURCE_ATTRIBUTES_CODE_WORK_DIR: os.getcwd(),
                         RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
