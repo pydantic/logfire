@@ -1254,7 +1254,7 @@ class Logfire:
         from .integrations.asgi import instrument_asgi
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asgi(app, **kwargs)
+        return instrument_asgi(self, app, **kwargs)
 
     def instrument_wsgi(self, app: WSGIApplication, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
         """Instrument `app` so that spans are automatically created for each request.
@@ -1266,7 +1266,7 @@ class Logfire:
         from .integrations.wsgi import instrument_wsgi
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_wsgi(app, **kwargs)
+        return instrument_wsgi(self, app, **kwargs)
 
     def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.

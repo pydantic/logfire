@@ -4,14 +4,39 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from opentelemetry.context import Context
+from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from opentelemetry.sdk.trace import Tracer as SDKTracer
 from opentelemetry.trace import NonRecordingSpan, Span, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 
-from logfire._internal.utils import is_asgi_send_receive_span_name
+from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
+    from typing import Any, Awaitable, Callable, Protocol, TypedDict
+
+    from opentelemetry.trace import Span
+    from typing_extensions import Unpack
+
     from logfire import Logfire
+
+    Scope = dict[str, Any]
+    Receive = Callable[[], Awaitable[dict[str, Any]]]
+    Send = Callable[[dict[str, Any]], Awaitable[None]]
+
+    class ASGIApp(Protocol):
+        def __call__(self, scope: Scope, receive: Receive, send: Send) -> Awaitable[None]: ...
+
+    Hook = Callable[[Span, dict[str, Any]], None]
+
+    class ASGIInstrumentKwargs(TypedDict, total=False):
+        excluded_urls: str | None
+        default_span_details: Callable[[Scope], tuple[str, dict[str, Any]]]
+        server_request_hook: Hook | None
+        client_request_hook: Hook | None
+        client_response_hook: Hook | None
+        http_capture_headers_server_request: list[str] | None
+        http_capture_headers_server_response: list[str] | None
+        http_capture_headers_sanitize_fields: list[str] | None
 
 
 def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
@@ -50,39 +75,24 @@ class TweakAsgiSpansTracer(Tracer):
     start_as_current_span = SDKTracer.start_as_current_span
 
 
-from typing import TYPE_CHECKING
-
-from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
-
-if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Protocol, TypedDict
-
-    from opentelemetry.trace import Span
-    from typing_extensions import Unpack
-
-    Scope = dict[str, Any]
-    Receive = Callable[[], Awaitable[dict[str, Any]]]
-    Send = Callable[[dict[str, Any]], Awaitable[None]]
-
-    class ASGIApp(Protocol):
-        def __call__(self, scope: Scope, receive: Receive, send: Send) -> Awaitable[None]: ...
-
-    Hook = Callable[[Span, dict[str, Any]], None]
-
-    class ASGIInstrumentKwargs(TypedDict, total=False):
-        excluded_urls: str | None
-        default_span_details: Callable[[Scope], tuple[str, dict[str, Any]]]
-        server_request_hook: Hook | None
-        client_request_hook: Hook | None
-        client_response_hook: Hook | None
-        http_capture_headers_server_request: list[str] | None
-        http_capture_headers_server_response: list[str] | None
-        http_capture_headers_sanitize_fields: list[str] | None
-
-
-def instrument_asgi(app: ASGIApp, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+def instrument_asgi(
+    logfire_instance: Logfire,
+    app: ASGIApp,
+    *,
+    record_send_receive: bool = False,
+    capture_headers: bool = False,
+    **kwargs: Unpack[ASGIInstrumentKwargs],
+) -> ASGIApp:
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_asgi` method for details.
     """
-    return OpenTelemetryMiddleware(app, **kwargs)
+    maybe_capture_server_headers(capture_headers)
+    return OpenTelemetryMiddleware(
+        app,
+        **{  # type: ignore
+            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        },
+    )

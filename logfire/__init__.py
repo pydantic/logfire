@@ -113,6 +113,8 @@ __all__ = (
     'force_flush',
     'log_slow_async_callbacks',
     'install_auto_tracing',
+    'instrument_asgi',
+    'instrument_wsgi',
     'instrument_pydantic',
     'instrument_fastapi',
     'instrument_openai',
