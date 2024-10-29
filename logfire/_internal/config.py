@@ -218,7 +218,7 @@ class CodeSource:
 
         Then `code.filepath` will be `b/c/main.py` for spans created in that file, and the
         `root_path` should be set to `a` so that the final link is `a/b/c/main.py`.
-        
+
         If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
     """
 
@@ -680,11 +680,12 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes.update(
                     {
                         RESOURCE_ATTRIBUTES_CODE_WORK_DIR: os.getcwd(),
-                        RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
                     }
                 )
+                if self.code_source.root_path:
+                    otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
