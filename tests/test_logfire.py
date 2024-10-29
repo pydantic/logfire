@@ -4,12 +4,12 @@ import inspect
 import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
 from typing import Any, Callable
 
-import inline_snapshot.extra
 import pytest
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
@@ -695,14 +695,45 @@ def test_instrument_other_callable(exporter: TestExporter):
     )
 
 
-def test_instrument_async_gen():
-    async def foo():  # pragma: no cover
+@pytest.mark.anyio
+async def test_instrument_async_generator_warning(exporter: TestExporter):
+    async def foo():
         yield 1
 
     inst = logfire.instrument()
 
-    with inline_snapshot.extra.raises(snapshot('ValueError: You cannot instrument an async generator function')):
-        inst(foo)
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should only be used on generators if they are used as context managers. '
+        'See https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument for more information.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
+
+    assert [value async for value in foo()] == [1]
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async_generator_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_generator_warning(exporter: TestExporter):
@@ -715,9 +746,12 @@ def test_instrument_generator_warning(exporter: TestExporter):
         foo = inst(foo)
 
     assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot('Instrumenting a generator function is not recommended')
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should only be used on generators if they are used as context managers. '
+        'See https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument for more information.'
+    )
     assert warnings[0].filename.endswith('test_logfire.py')
-    assert warnings[0].lineno == inspect.currentframe().f_lineno - 5  # type: ignore
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
 
     assert list(foo()) == [1]
 
@@ -738,6 +772,121 @@ def test_instrument_generator_warning(exporter: TestExporter):
                     'logfire.span_type': 'span',
                 },
             }
+        ]
+    )
+
+
+def test_instrument_contextmanager_warning(exporter: TestExporter):
+    @contextmanager
+    def foo():
+        yield
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
+
+    with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_contextmanager_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'hello',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_contextmanager_warning',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_asynccontextmanager_warning(exporter: TestExporter):
+    @asynccontextmanager
+    async def foo():
+        yield
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
+
+    async with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'hello',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_asynccontextmanager_warning',
+                    'code.lineno': 123,
+                },
+            },
         ]
     )
 

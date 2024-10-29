@@ -523,6 +523,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         extract_args: bool = True,
+        allow_generator: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -537,16 +538,14 @@ class Logfire:
             logfire.info('new log {a=}', a=a)
         ```
 
-        !!! note
-            - This decorator MUST be applied first, i.e. UNDER any other decorators.
-            - The source code of the function MUST be accessible.
-
         Args:
             msg_template: The template for the span message. If not provided, the module and function name will be used.
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+            allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
+                Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
-        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args)
+        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, allow_generator)
 
     def log(
         self,
