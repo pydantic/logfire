@@ -2069,3 +2069,11 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_sampled_out(client: TestClient, exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+    make_request_hook_spans(record_send_receive=True)
+    make_request_hook_spans(record_send_receive=False)
+
+    assert exporter.exported_spans_as_dict() == []
