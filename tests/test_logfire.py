@@ -891,6 +891,99 @@ async def test_instrument_asynccontextmanager_warning(exporter: TestExporter):
     )
 
 
+def test_instrument_contextmanager_prevent_warning(exporter: TestExporter):
+    @contextmanager
+    @logfire.instrument(allow_generator=True)
+    def foo():
+        yield
+
+    with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_contextmanager_prevent_warning',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'hello',
+                    'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExporter):
+    @asynccontextmanager
+    @logfire.instrument(allow_generator=True)
+    async def foo():
+        yield
+
+    async with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_asynccontextmanager_prevent_warning',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'hello',
+                    'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
 @pytest.mark.anyio
 async def test_instrument_async(exporter: TestExporter):
     @logfire.instrument()

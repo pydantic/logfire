@@ -23,12 +23,12 @@ R = TypeVar('R')
 
 
 @contextmanager
-def _cm():
+def _cm():  # pragma: no cover
     yield
 
 
 @asynccontextmanager
-async def _acm():
+async def _acm():  # pragma: no cover
     yield
 
 
