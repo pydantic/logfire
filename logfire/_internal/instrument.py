@@ -83,6 +83,13 @@ def instrument(
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
                 with open_span(*func_args, **func_kwargs):
+                    # `yield from` is invalid syntax in an async function.
+                    # This loop is not quite equivalent, because `yield from` also handles things like
+                    # sending values to the subgenerator.
+                    # Fixing this would at least mean porting https://peps.python.org/pep-0380/#formal-semantics
+                    # which is quite messy, and it's not clear if that would be correct based on
+                    # https://discuss.python.org/t/yield-from-in-async-functions/47050.
+                    # So instead we have an extra warning in the docs about this.
                     async for x in func(*func_args, **func_kwargs):
                         yield x
 
