@@ -212,8 +212,12 @@ class CodeSource:
     """The root path for the source code in the repository.
 
     Example:
-        If the `code.filepath` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
-        for the source code will be `src/path/to/project/src/logfire/main.py`.
+        Suppose that your repository contains `a/b/c/main.py`, the folder a/b/ is copied
+        into the `/docker/root/` folder of your docker container, and within the container
+        the command `python ./b/c/main.py` is run from within the `/docker/root/a/` directory.
+
+        Then `code.filepath` will be `b/c/main.py` for spans created in that file, and the
+        `root_path` should be set to a so that the final link is `a/b/c/main.py`.
     """
 
 
