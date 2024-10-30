@@ -1608,6 +1608,45 @@ def test_additional_metric_readers_combined_with_metrics():
         logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
 
 
+def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs, service_name='1.2.3', environment='production')
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_environment',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': '1.2.3',
+                        'process.pid': 1234,
+                        'service.version': 'cbd040cf0ee5aaa21664970e281566bbde9985c2',
+                        'deployment.environment.name': 'production',
+                    }
+                },
+            }
+        ]
+    )
+
+
 def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
     configure(
         **config_kwargs,
