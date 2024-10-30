@@ -41,7 +41,7 @@ def test_observability(capfire: CaptureLogfire) -> None:
 
     exporter = capfire.exporter
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict() == snapshot(  # (1)!
         [
             {
                 'name': 'a log!',
