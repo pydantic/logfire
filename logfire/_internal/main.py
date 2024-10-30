@@ -1232,7 +1232,7 @@ class Logfire:
         Args:
             app: The Starlette app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
-            record_send_receive: Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+            record_send_receive: Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
 
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
