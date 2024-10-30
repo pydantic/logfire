@@ -65,7 +65,6 @@ from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
-    RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
@@ -211,7 +210,7 @@ class CodeSource:
 
     root_path: str = ''
     """The root path for the source code in the repository.
-    
+
     If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
     Example:
@@ -261,7 +260,10 @@ def configure(  # noqa: D417
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
-        environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the `deployment.environment.name` resource attribute. Useful for filtering within projects in the Logfire UI. Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+        environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the
+            `deployment.environment.name` resource attribute. Useful for filtering within projects in the Logfire UI.
+
+            Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
