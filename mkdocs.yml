@@ -248,6 +248,16 @@ plugins:
         "legal/data_processing_addendum.md": "legal/data-processing-addendum.md"
         "legal/cloud_subprocessors.md": "legal/cloud-subprocessors.md"
         "release_notes.md": "release-notes.md"
+        "examples.md": "reference/examples.md"
+        "reference.md": "reference/examples.md"
+        "api/logfire.md": "reference/api/logfire.md"
+        "api/testing.md": "reference/api/testing.md"
+        "api/propagate.md": "reference/api/propagate.md"
+        "api/integrations/structlog.md": "reference/api/logfire.md#logfire.StructlogProcessor"
+        "api/integrations/pydantic.md": "reference/api/pydantic.md"
+        "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
+        "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
+        "guides/advanced/query_api.md": "guides/advanced/query-api.md"
 
 hooks:
   - docs/plugins/main.py
