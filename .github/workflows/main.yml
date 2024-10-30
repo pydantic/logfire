@@ -10,6 +10,8 @@ on:
 
 env:
   CI: true
+  # https://github.com/samuelcolvin/pytest-pretty#usage-with-github-actions
+  COLUMNS: 180
 
 jobs:
   lint:

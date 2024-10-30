@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v2.0.0] (2024-10-30)
+
+* `@logfire.instrument()` no longer needs source code by @alexmojaki in [#543](https://github.com/pydantic/logfire/pull/543). **BREAKING CHANGES** caused by this:
+  * Functions decorated with `@logfire.instrument()` and functions nested within them can now be auto-traced unlike before. Use `@logfire.no_auto_trace` anywhere on functions you want to exclude, especially the instrumented function.
+  * Decorated async generator functions won't support the `.asend` method properly - the generator will only receive `None`. But `instrument` shouldn't be used on generators anyway unless the generator is being used as a context manager, so new warnings about this have been added. See https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument
+
 ## [v1.3.2] (2024-10-29)
 
 * Handle NonRecordingSpans for fastapi arguments by @alexmojaki in [#551](https://github.com/pydantic/logfire/pull/551)
@@ -379,3 +385,4 @@ First release from new repo!
 [v1.3.0]: https://github.com/pydantic/logfire/compare/v1.2.0...v1.3.0
 [v1.3.1]: https://github.com/pydantic/logfire/compare/v1.3.0...v1.3.1
 [v1.3.2]: https://github.com/pydantic/logfire/compare/v1.3.1...v1.3.2
+[v2.0.0]: https://github.com/pydantic/logfire/compare/v1.3.2...v2.0.0

@@ -212,3 +212,35 @@ def main():
 
 main()
 ```
+
+## Using `@logfire.instrument`
+
+Since `@logfire.instrument` wraps the function body in a span, the problems and solutions explained above also apply. Therefore it should only be used on a generator function if the `@contextlib.contextmanager` or `@contextlib.asynccontextmanager` decorator is applied afterwards, i.e. above in the list of decorators. Then you can pass `allow_generator=True` to prevent a warning. For example:
+
+```python
+from contextlib import contextmanager
+
+import logfire
+
+logfire.configure()
+
+
+@contextmanager  # note the order
+@logfire.instrument('Context manager span', allow_generator=True)
+def my_context():
+    yield
+
+
+try:
+    with my_context():
+        logfire.info('Inside context manager')
+        raise ValueError()
+except Exception:
+    logfire.exception('Error!')
+logfire.info('After context manager')
+```
+
+If you want to instrument a generator that's used for iteration rather than a context manager, see the sections above.
+
+!!! warning
+    In addition to the problems described at the start of this page, using `@logfire.instrument` on an *async* generator function means that values cannot be sent into the generator.
