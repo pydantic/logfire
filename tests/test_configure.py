@@ -1691,7 +1691,7 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
-                        'logfire.code.work_dir': '/Users/marcelotryle/dev/pydantic/logfire',
+                        'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
                         'service.version': '1.2.3',
