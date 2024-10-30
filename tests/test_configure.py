@@ -1355,9 +1355,11 @@ def test_initialize_credentials_from_token_invalid_token():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=401)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
+        )
 
-        with pytest.warns(match='Invalid Logfire token.'):
+        with pytest.warns(match='Logfire API returned status code 401. Detail: Invalid token'):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 
@@ -1368,7 +1370,7 @@ def test_initialize_credentials_from_token_unhealthy():
         request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
-            UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
+            UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 

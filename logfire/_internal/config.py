@@ -1059,14 +1059,17 @@ class LogfireCredentials:
             warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
             return None
 
-        if response.status_code == 401:
-            warnings.warn('Invalid Logfire token.')
-            return None
-        elif response.status_code != 200:
-            # any other status code is considered unhealthy
-            warnings.warn(
-                f'Logfire API is unhealthy, you may have trouble sending data. Status code: {response.status_code}'
-            )
+        if response.status_code != 200:
+            try:
+                detail = response.json()['detail']
+            except Exception:
+                warnings.warn(
+                    f'Logfire API returned status code {response.status_code}, you may have trouble sending data.',
+                )
+            else:
+                warnings.warn(
+                    f'Logfire API returned status code {response.status_code}. Detail: {detail}',
+                )
             return None
 
         data = response.json()
