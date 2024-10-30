@@ -1,6 +1,6 @@
 # WSGI
 
-If the [WSGI][wsgi] framework doesn't have a dedicated OpenTelemetry package, you can use the
+If the [WSGI][wsgi] web framework you're using doesn't have a dedicated integration, you can use the
 [`logfire.instrument_wsgi()`][logfire.Logfire.instrument_wsgi] method to instrument it.
 
 ## Installation
