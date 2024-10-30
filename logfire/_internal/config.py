@@ -816,21 +816,19 @@ class LogfireConfig(_LogfireConfigData):
                         credentials.write_creds_file(self.data_dir)
                     self.token = credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-                    if show_project_link:  # pragma: no branch
-                        credentials.print_token_summary()
                 else:
 
                     def check_token():
                         nonlocal credentials
 
                         assert self.token is not None
-                        if credentials is None:
-                            credentials = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and credentials is not None:  # pragma: no branch
-                            credentials.print_token_summary()
+                        credentials = credentials or self._initialize_credentials_from_token(self.token)
 
                     thread = Thread(target=check_token, name='check_logfire_token')
                     thread.start()
+
+                if show_project_link and credentials is not None:  # pragma: no branch
+                    credentials.print_token_summary()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)

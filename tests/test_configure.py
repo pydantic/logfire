@@ -1304,20 +1304,19 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         {
             "token": "foobar",
             "project_name": "myproject",
-            "project_url": "fake_project_url",
-            "logfire_api_url": "https://logfire-api.pydantic.dev"
+            "project_url": "http://dash.localhost:8000/",
+            "logfire_api_url": "http://dash.localhost:8000/"
         }
         """
     )
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+            json={'project_name': 'myproject', 'project_url': 'http://dash.localhost:8000/'},
         )
-        configure(send_to_logfire='if-token-present')
-        wait_for_check_token_thread()
+        configure(send_to_logfire='if-token-present', data_dir=tmp_path)
         assert len(request_mocker.request_history) == 1
-        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+        assert capsys.readouterr().err == 'Logfire project URL: http://dash.localhost:8000/\n'
 
 
 def test_load_creds_file_invalid_json_content(tmp_path: Path):
