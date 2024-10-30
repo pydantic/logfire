@@ -126,6 +126,10 @@ ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
 """Key in OTEL attributes that collects the JSON schema."""
 
 ATTRIBUTES_LOGGING_ARGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logging_args'
+"""Key in OTEL attributes that collects the arguments from standard library logging."""
+
+ATTRIBUTES_LOGGING_NAME = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.logger_name'
+"""Key in OTEL attributes that collects the standard library logger name."""
 
 ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 """The key within OTEL attributes where logfire puts validation errors."""
@@ -145,6 +149,9 @@ LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
+RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME = 'deployment.environment.name'
+"""The name of the deployment environment e.g. production, staging, etc."""
+
 RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION = 'vcs.repository.ref.revision'
 """The revision of the VCS repository e.g. git commit hash, branch name, tag name, etc.
 
@@ -159,6 +166,9 @@ Check https://opentelemetry.io/docs/specs/semconv/attributes-registry/vcs/ for m
 
 RESOURCE_ATTRIBUTES_CODE_ROOT_PATH = 'logfire.code.root_path'
 """The root path of the current repository."""
+
+RESOURCE_ATTRIBUTES_CODE_WORK_DIR = 'logfire.code.work_dir'
+"""The working directory of the application."""
 
 OTLP_MAX_INT_SIZE = 2**63 - 1
 """OTLP only supports signed 64-bit integers, larger integers get sent as strings."""

@@ -53,7 +53,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
@@ -73,7 +73,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling async_gen via @instrument (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -81,15 +81,16 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
-                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'code.function': 'async_gen.<locals>.inner',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'pending_span',
-                    'logfire.msg': 'Calling async_gen via @instrument',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                     'logfire.pending_parent_id': '0000000000000001',
                 },
             },
             {
-                'name': 'Calling async_gen via @instrument',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -97,10 +98,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
-                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'code.function': 'async_gen.<locals>.inner',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Calling async_gen via @instrument',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 },
             },
             {
@@ -163,8 +165,10 @@ def test_check_already_imported() -> None:
 
 
 # language=Python
-nested_sample = """
+nested_sample = '''
 def func():
+    """A docstring"""
+
     x = 1
 
     class Class:
@@ -191,7 +195,7 @@ class Class3:
     def method4(self):
         b = 7
         return b
-"""
+'''
 
 
 def test_rewrite_ast():
@@ -205,8 +209,9 @@ def test_rewrite_ast():
         context_factories,
         min_duration=0,
     )
-    result = """
+    result = '''
 def func():
+    """A docstring"""
     with logfire_span[3]():
         x = 1
 
@@ -238,7 +243,7 @@ class Class3:
         with logfire_span[4]():
             b = 7
             return b
-"""
+'''
 
     if sys.version_info >= (3, 9):  # pragma: no branch
         assert ast.unparse(tree).strip() == result.strip()
@@ -256,7 +261,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 8,
+                    'code.lineno': 10,
                     'code.function': 'func.<locals>.Class.method',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method',
                 },
@@ -265,7 +270,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 16,
+                    'code.lineno': 18,
                     'code.function': 'func.<locals>.Class.method2.<locals>.Class2.method3',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2.<locals>.Class2.method3',
                 },
@@ -274,7 +279,7 @@ class Class3:
                 'Calling module.name.func.<locals>.Class.method2',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 12,
+                    'code.lineno': 14,
                     'code.function': 'func.<locals>.Class.method2',
                     'logfire.msg_template': 'Calling module.name.func.<locals>.Class.method2',
                 },
@@ -292,7 +297,7 @@ class Class3:
                 'Calling module.name.Class3.method4',
                 {
                     'code.filepath': 'foo.py',
-                    'code.lineno': 26,
+                    'code.lineno': 28,
                     'code.function': 'Class3.method4',
                     'logfire.msg_template': 'Calling module.name.Class3.method4',
                 },

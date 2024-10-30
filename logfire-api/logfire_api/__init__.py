@@ -94,6 +94,12 @@ except ImportError:
 
                 return decorator
 
+            def instrument_asgi(self, app, *args, **kwargs):
+                return app
+
+            def instrument_wsgi(self, app, *args, **kwargs):
+                return app
+
             def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
@@ -148,6 +154,8 @@ except ImportError:
         log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
         install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
         instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
+        instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
+        instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai

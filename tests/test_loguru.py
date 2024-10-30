@@ -43,8 +43,9 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.filepath': 'test_loguru.py',
                     'code.function': 'test_loguru',
                     'code.lineno': 20,
+                    'logfire.logger_name': 'tests.test_loguru',
                     'logfire.logging_args': '["positional"]',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
                 },
             },
             {
@@ -61,8 +62,9 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.filepath': 'test_loguru.py',
                     'code.function': 'test_loguru',
                     'code.lineno': 21,
+                    'logfire.logger_name': 'tests.test_loguru',
                     'name': 'named',
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"name":{}}}',
                 },
             },
             {
@@ -79,8 +81,9 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.filepath': 'test_loguru.py',
                     'code.function': 'test_loguru',
                     'code.lineno': 26,
+                    'logfire.logger_name': 'tests.test_loguru',
                     'foo': 'bar',
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"foo":{}}}',
                 },
                 'events': [
                     {
@@ -109,6 +112,8 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.filepath': 'test_loguru.py',
                     'code.function': 'test_loguru',
                     'code.lineno': 28,
+                    'logfire.logger_name': 'tests.test_loguru',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
                 },
             },
         ]

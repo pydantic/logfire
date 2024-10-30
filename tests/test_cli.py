@@ -71,7 +71,9 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
 
         logfire_credentials.write_creds_file(tmp_dir_cwd)
 
-        with pytest.warns(UserWarning, match='unhealthy'):  # because of the 500 above
+        with pytest.warns(
+            UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
+        ):
             main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
 
         assert len(request_mocker.request_history) == 1

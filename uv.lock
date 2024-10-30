@@ -442,7 +442,7 @@ name = "cffi"
 version = "1.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser" },
+    { name = "pycparser", marker = "platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/97/c783634659c2920c3fc70419e3af40972dbaf758daa229a7d6ea6135c90d/cffi-1.17.1.tar.gz", hash = "sha256:1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824", size = 516621 }
 wheels = [
@@ -1403,7 +1403,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "1.2.0"
+version = "2.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -1419,6 +1419,9 @@ dependencies = [
 [package.optional-dependencies]
 aiohttp = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
+]
+asgi = [
+    { name = "opentelemetry-instrumentation-asgi" },
 ]
 asyncpg = [
     { name = "opentelemetry-instrumentation-asyncpg" },
@@ -1466,6 +1469,9 @@ starlette = [
 ]
 system-metrics = [
     { name = "opentelemetry-instrumentation-system-metrics" },
+]
+wsgi = [
+    { name = "opentelemetry-instrumentation-wsgi" },
 ]
 
 [package.dev-dependencies]
@@ -1549,6 +1555,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'asgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", marker = "extra == 'celery'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", marker = "extra == 'django'", specifier = ">=0.42b0" },
@@ -1564,6 +1571,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-sqlalchemy", marker = "extra == 'sqlalchemy'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.21.0" },
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
@@ -1650,7 +1658,7 @@ dev = [
 
 [[package]]
 name = "logfire-api"
-version = "1.2.0"
+version = "2.1.0"
 source = { editable = "logfire-api" }
 
 [[package]]

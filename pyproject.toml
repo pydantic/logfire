@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "1.2.0"
+version = "2.1.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -53,6 +53,8 @@ dependencies = [
 
 [project.optional-dependencies]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
+asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
+wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
 aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0"]
