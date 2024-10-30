@@ -167,6 +167,9 @@ Check https://opentelemetry.io/docs/specs/semconv/attributes-registry/vcs/ for m
 RESOURCE_ATTRIBUTES_CODE_ROOT_PATH = 'logfire.code.root_path'
 """The root path of the current repository."""
 
+RESOURCE_ATTRIBUTES_CODE_WORK_DIR = 'logfire.code.work_dir'
+"""The working directory of the application."""
+
 OTLP_MAX_INT_SIZE = 2**63 - 1
 """OTLP only supports signed 64-bit integers, larger integers get sent as strings."""
 

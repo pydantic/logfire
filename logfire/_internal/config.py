@@ -65,6 +65,7 @@ from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
+    RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
@@ -208,12 +209,18 @@ class CodeSource:
     revision: str
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
-    root_path: str
+    root_path: str = ''
     """The root path for the source code in the repository.
+    
+    If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
     Example:
-        If the `code.filename` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
-        for the source code will be `src/path/to/project/src/logfire/main.py`.
+        Suppose that your repository contains `a/b/c/main.py`, the folder `a/b/` is copied
+        into the `/docker/root/` folder of your docker container, and within the container
+        the command `python ./b/c/main.py` is run from within the `/docker/root/a/` directory.
+
+        Then `code.filepath` will be `b/c/main.py` for spans created in that file, and the
+        `root_path` should be set to `a` so that the final link is `a/b/c/main.py`.
     """
 
 
@@ -685,11 +692,13 @@ class LogfireConfig(_LogfireConfigData):
             if self.code_source:
                 otel_resource_attributes.update(
                     {
-                        RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
+                        RESOURCE_ATTRIBUTES_CODE_WORK_DIR: os.getcwd(),
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
                     }
                 )
+                if self.code_source.root_path:
+                    otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
             if self.environment:
