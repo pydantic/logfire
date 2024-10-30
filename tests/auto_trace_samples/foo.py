@@ -1,7 +1,5 @@
 from typing import Iterator
 
-import logfire
-
 
 async def bar():
     lst = [x async for x in async_gen()]
@@ -12,13 +10,11 @@ def gen() -> Iterator[int]:
     yield from range(3)
 
 
-# @instrument overrides auto-tracing
-@logfire.instrument('Calling async_gen via @instrument')
 async def async_gen():
     def inner():
         return 1
 
-    inner()  # This is not traced
+    inner()
 
     for x in gen():  # pragma: no branch
         yield x

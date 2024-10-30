@@ -26,7 +26,6 @@ class LogfireArgs:
     sample_rate: float | None
     msg_template: str | None = None
     span_name: str | None = None
-    extract_args: bool = True  # only used by @instrument decorator
 
 
 @dataclass

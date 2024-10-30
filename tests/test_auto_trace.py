@@ -53,7 +53,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
@@ -73,7 +73,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling async_gen via @instrument (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner (pending)',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -81,15 +81,16 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
-                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'code.function': 'async_gen.<locals>.inner',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'pending_span',
-                    'logfire.msg': 'Calling async_gen via @instrument',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                     'logfire.pending_parent_id': '0000000000000001',
                 },
             },
             {
-                'name': 'Calling async_gen via @instrument',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -97,10 +98,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'foo.py',
                     'code.lineno': 123,
-                    'code.function': 'async_gen',
-                    'logfire.msg_template': 'Calling async_gen via @instrument',
+                    'code.function': 'async_gen.<locals>.inner',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
+                    'logfire.tags': ('testing', 'auto-tracing'),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Calling async_gen via @instrument',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 },
             },
             {
