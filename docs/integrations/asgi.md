@@ -1,6 +1,6 @@
 # ASGI
 
-If the [ASGI][asgi] framework doesn't have a dedicated OpenTelemetry package, you can use the
+If the [ASGI][asgi] web framework you're using doesn't have a dedicated integration, you can use the
 [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi] method to instrument it.
 
 ## Installation
