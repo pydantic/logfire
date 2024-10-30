@@ -98,25 +98,32 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
             Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
             If `if-token-present` is provided, logs will only be sent if a token is present.
+
         token: The project token.
 
             Defaults to the `LOGFIRE_TOKEN` environment variable.
+
         service_name: Name of this service.
 
             Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
+
         service_version: Version of this service.
 
             Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the current git commit hash if available.
+
         environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the
             [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)
             resource attribute. Useful for filtering within projects in the Logfire UI.
 
             Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
+
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
+
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         metrics: Set to `False` to disable sending all metrics,
@@ -127,6 +134,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
+
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
             !!! Warning
