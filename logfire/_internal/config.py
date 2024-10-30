@@ -261,7 +261,7 @@ def configure(  # noqa: D417
         service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
         service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
             current git commit hash if available.
-        environment: The environment this service is running in. Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+        environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the `deployment.environment.name` resource attribute. Useful for filtering within projects in the Logfire UI. Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
