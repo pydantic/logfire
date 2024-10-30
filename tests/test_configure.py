@@ -837,11 +837,7 @@ def test_config_serializable():
         console=logfire.ConsoleOptions(verbose=True),
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
-        code_source=logfire.CodeSource(
-            repository='https://github.com/pydantic/logfire',
-            revision='main',
-            root_path='.',
-        ),
+        code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -1648,6 +1644,54 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.pid': 1234,
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
+                        'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
+                        'vcs.repository.ref.revision': 'main',
+                        'service.version': '1.2.3',
+                    }
+                },
+            }
+        ]
+    )
+
+
+def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(
+        **config_kwargs,
+        service_version='1.2.3',
+        code_source=CodeSource(
+            repository='https://github.com/pydantic/logfire',
+            revision='main',
+        ),
+    )
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_code_source_without_root_path',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'logfire.code.work_dir': '/Users/marcelotryle/dev/pydantic/logfire',
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
                         'service.version': '1.2.3',
