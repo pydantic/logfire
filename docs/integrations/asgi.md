@@ -49,7 +49,7 @@ of the OpenTelemetry ASGI Instrumentation package.
 - [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
 
 !!! note
-    `OpenTelemetryMiddleware` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
+    `instrument_asgi` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
     unlike other instrumentations.
 
 ## Capturing request and response headers
