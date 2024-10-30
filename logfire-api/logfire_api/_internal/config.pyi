@@ -84,7 +84,7 @@ class CodeSource:
     """
     repository: str
     revision: str
-    root_path: str
+    root_path: str = ...
 
 class DeprecatedKwargs(TypedDict): ...
 
@@ -94,14 +94,24 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
     Args:
         local: If `True`, configures and returns a `Logfire` instance that is not the default global instance.
             Use this to create multiple separate configurations, e.g. to send to different projects.
-        send_to_logfire: Whether to send logs to logfire.dev. Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment
-            variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
-            a token is present.
-        token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
-        service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
-        service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
-            current git commit hash if available.
-        environment: The environment this service is running in. Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+        send_to_logfire: Whether to send logs to logfire.dev.
+
+            Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
+            If `if-token-present` is provided, logs will only be sent if a token is present.
+        token: The project token.
+
+            Defaults to the `LOGFIRE_TOKEN` environment variable.
+        service_name: Name of this service.
+
+            Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
+        service_version: Version of this service.
+
+            Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the current git commit hash if available.
+        environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the
+            [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)
+            resource attribute. Useful for filtering within projects in the Logfire UI.
+
+            Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
@@ -115,6 +125,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
         inspect_arguments: Whether to enable
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
+
             Defaults to `True` if and only if the Python version is at least 3.11.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
