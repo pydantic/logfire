@@ -149,6 +149,9 @@ LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
+RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME = 'deployment.environment.name'
+"""The name of the deployment environment e.g. production, staging, etc."""
+
 RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION = 'vcs.repository.ref.revision'
 """The revision of the VCS repository e.g. git commit hash, branch name, tag name, etc.
 
