@@ -65,6 +65,8 @@ from .constants import (
     DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
+    RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
+    RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
     LevelName,
@@ -207,12 +209,18 @@ class CodeSource:
     revision: str
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
-    root_path: str
+    root_path: str = ''
     """The root path for the source code in the repository.
 
+    If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
+
     Example:
-        If the `code.filename` is `/path/to/project/src/logfire/main.py` and the `root_path` is `src/`, the URL
-        for the source code will be `src/path/to/project/src/logfire/main.py`.
+        Suppose that your repository contains `a/b/c/main.py`, the folder `a/b/` is copied
+        into the `/docker/root/` folder of your docker container, and within the container
+        the command `python ./b/c/main.py` is run from within the `/docker/root/a/` directory.
+
+        Then `code.filepath` will be `b/c/main.py` for spans created in that file, and the
+        `root_path` should be set to `a` so that the final link is `a/b/c/main.py`.
     """
 
 
@@ -228,6 +236,7 @@ def configure(  # noqa: D417
     token: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
+    environment: str | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
@@ -245,18 +254,36 @@ def configure(  # noqa: D417
     Args:
         local: If `True`, configures and returns a `Logfire` instance that is not the default global instance.
             Use this to create multiple separate configurations, e.g. to send to different projects.
-        send_to_logfire: Whether to send logs to logfire.dev. Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment
-            variable if set, otherwise defaults to `True`. If `if-token-present` is provided, logs will only be sent if
-            a token is present.
-        token: The project token. Defaults to the `LOGFIRE_TOKEN` environment variable.
-        service_name: Name of this service. Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
-        service_version: Version of this service. Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the
-            current git commit hash if available.
+        send_to_logfire: Whether to send logs to logfire.dev.
+
+            Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
+            If `if-token-present` is provided, logs will only be sent if a token is present.
+
+        token: The project token.
+
+            Defaults to the `LOGFIRE_TOKEN` environment variable.
+
+        service_name: Name of this service.
+
+            Defaults to the `LOGFIRE_SERVICE_NAME` environment variable.
+
+        service_version: Version of this service.
+
+            Defaults to the `LOGFIRE_SERVICE_VERSION` environment variable, or the current git commit hash if available.
+
+        environment: The environment this service is running in, e.g. `'staging'` or `'prod'`. Sets the
+            [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)
+            resource attribute. Useful for filtering within projects in the Logfire UI.
+
+            Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
+
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
             `LOGFIRE_CONFIG_DIR` environment variable, otherwise defaults to the current working directory.
+
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
         metrics: Set to `False` to disable sending all metrics,
@@ -265,7 +292,9 @@ def configure(  # noqa: D417
         inspect_arguments: Whether to enable
             [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
+
             Defaults to `True` if and only if the Python version is at least 3.11.
+
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
             !!! Warning
@@ -390,6 +419,7 @@ def configure(  # noqa: D417
         token=token,
         service_name=service_name,
         service_version=service_version,
+        environment=environment,
         console=console,
         metrics=metrics,
         config_dir=Path(config_dir) if config_dir else None,
@@ -428,37 +458,40 @@ class _LogfireConfigData:
     """
 
     send_to_logfire: bool | Literal['if-token-present']
-    """Whether to send logs and spans to Logfire"""
+    """Whether to send logs and spans to Logfire."""
 
     token: str | None
-    """The Logfire API token to use"""
+    """The Logfire API token to use."""
 
     service_name: str
-    """The name of this service"""
+    """The name of this service."""
 
     service_version: str | None
-    """The version of this service"""
+    """The version of this service."""
+
+    environment: str | None
+    """The environment this service is running in."""
 
     console: ConsoleOptions | Literal[False] | None
-    """Options for controlling console output"""
+    """Options for controlling console output."""
 
     data_dir: Path
-    """The directory to store Logfire data in"""
+    """The directory to store Logfire data in."""
 
     additional_span_processors: Sequence[SpanProcessor] | None
-    """Additional span processors"""
+    """Additional span processors."""
 
     scrubbing: ScrubbingOptions | Literal[False]
     """Options for redacting sensitive data, or False to disable."""
 
     inspect_arguments: bool
-    """Whether to enable f-string magic"""
+    """Whether to enable f-string magic."""
 
     sampling: SamplingOptions
-    """Sampling options"""
+    """Sampling options."""
 
     code_source: CodeSource | None
-    """Settings for the source code of the project"""
+    """Settings for the source code of the project."""
 
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
@@ -472,6 +505,7 @@ class _LogfireConfigData:
         token: str | None,
         service_name: str | None,
         service_version: str | None,
+        environment: str | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -490,6 +524,7 @@ class _LogfireConfigData:
         self.token = param_manager.load_param('token', token)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
+        self.environment = param_manager.load_param('environment', environment)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
@@ -569,6 +604,7 @@ class LogfireConfig(_LogfireConfigData):
         token: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
+        environment: str | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
@@ -593,6 +629,7 @@ class LogfireConfig(_LogfireConfigData):
             token=token,
             service_name=service_name,
             service_version=service_version,
+            environment=environment,
             console=console,
             config_dir=config_dir,
             data_dir=data_dir,
@@ -621,6 +658,7 @@ class LogfireConfig(_LogfireConfigData):
         token: str | None,
         service_name: str | None,
         service_version: str | None,
+        environment: str | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -639,6 +677,7 @@ class LogfireConfig(_LogfireConfigData):
                 token,
                 service_name,
                 service_version,
+                environment,
                 console,
                 config_dir,
                 data_dir,
@@ -672,13 +711,17 @@ class LogfireConfig(_LogfireConfigData):
             if self.code_source:
                 otel_resource_attributes.update(
                     {
-                        RESOURCE_ATTRIBUTES_CODE_ROOT_PATH: self.code_source.root_path,
+                        RESOURCE_ATTRIBUTES_CODE_WORK_DIR: os.getcwd(),
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
                     }
                 )
+                if self.code_source.root_path:
+                    otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
                 otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+            if self.environment:
+                otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if otel_resource_attributes_from_env:
                 for _field in otel_resource_attributes_from_env.split(','):

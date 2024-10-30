@@ -6,7 +6,7 @@ from structlog.types import EventDict, WrappedLogger
 RESERVED_ATTRS: Incomplete
 
 class LogfireProcessor:
-    """Logfire processor for structlog."""
+    """Logfire processor for [structlog](../../integrations/structlog.md)."""
     console_log: Incomplete
     logfire_instance: Incomplete
     def __init__(self, *, console_log: bool = False, logfire_instance: Logfire | None = None) -> None: ...

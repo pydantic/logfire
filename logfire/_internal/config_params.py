@@ -61,6 +61,8 @@ SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME],
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
 """Version number of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
+ENVIRONMENT = ConfigParam(env_vars=['LOGFIRE_ENVIRONMENT'], allow_file_config=True)
+"""Environment in which the service is running. For further details, please refer to the [Deployment section](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
@@ -104,6 +106,7 @@ CONFIG_PARAMS = {
     'token': TOKEN,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
+    'environment': ENVIRONMENT,
     'trace_sample_rate': TRACE_SAMPLE_RATE,
     'data_dir': CREDENTIALS_DIR,
     'console': CONSOLE,
