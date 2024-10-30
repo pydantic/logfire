@@ -127,6 +127,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     func()
     logfire__all__.remove('instrument')
 
+    assert hasattr(logfire_api, 'instrument_asgi'), 'instrument_asgi'
+    assert getattr(logfire_api, 'instrument_asgi')(app=MagicMock()) is not None
+    logfire__all__.remove('instrument_asgi')
+
+    assert hasattr(logfire_api, 'instrument_wsgi'), 'instrument_wsgi'
+    assert getattr(logfire_api, 'instrument_wsgi')(app=MagicMock()) is not None
+    logfire__all__.remove('instrument_wsgi')
+
     for member in [m for m in ('instrument_flask', 'instrument_fastapi', 'instrument_starlette')]:
         assert hasattr(logfire_api, member), member
         getattr(logfire_api, member)(app=MagicMock())
