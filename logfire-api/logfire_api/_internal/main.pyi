@@ -8,7 +8,7 @@ from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConf
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
-from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
+from .instrument import instrument as instrument
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
@@ -218,7 +218,7 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -232,14 +232,12 @@ class Logfire:
             logfire.info('new log {a=}', a=a)
         ```
 
-        !!! note
-            - This decorator MUST be applied first, i.e. UNDER any other decorators.
-            - The source code of the function MUST be accessible.
-
         Args:
             msg_template: The template for the span message. If not provided, the module and function name will be used.
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+            allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
+                Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
     def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None) -> None:
         """Log a message.
