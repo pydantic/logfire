@@ -902,7 +902,8 @@ class Logfire:
                 matches any of the regexes. This applies to both the Logfire and OpenTelemetry instrumentation.
                 If not provided, the environment variables
                 `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` and `OTEL_PYTHON_EXCLUDED_URLS` will be checked.
-            record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
+
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
@@ -1232,7 +1233,7 @@ class Logfire:
         Args:
             app: The Starlette app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
-            record_send_receive: Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
 
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
@@ -1268,7 +1269,8 @@ class Logfire:
         Args:
             app: The ASGI application to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
-            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
+
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
