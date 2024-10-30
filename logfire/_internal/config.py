@@ -801,11 +801,14 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
-            if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
+            credentials = LogfireCredentials.load_creds_file(self.data_dir)  # pragma: no branch
+            token_present = (self.token is not None) or (credentials is not None)
+
+            if (self.send_to_logfire == 'if-token-present' and token_present) or self.send_to_logfire is True:
                 show_project_link = self.console and self.console.show_project_link
 
                 if self.token is None:
-                    if (credentials := LogfireCredentials.load_creds_file(self.data_dir)) is None:  # pragma: no branch
+                    if credentials is None:
                         credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.advanced.base_url,
                             session=requests.Session(),
@@ -818,10 +821,13 @@ class LogfireConfig(_LogfireConfigData):
                 else:
 
                     def check_token():
+                        nonlocal credentials
+
                         assert self.token is not None
-                        creds = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and creds is not None:  # pragma: no branch
-                            creds.print_token_summary()
+                        if credentials is None:
+                            credentials = self._initialize_credentials_from_token(self.token)
+                        if show_project_link and credentials is not None:  # pragma: no branch
+                            credentials.print_token_summary()
 
                     thread = Thread(target=check_token, name='check_logfire_token')
                     thread.start()
