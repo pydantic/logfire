@@ -19,6 +19,8 @@ from wsgiref.simple_server import make_server
 import logfire
 
 
+logfire.configure()
+
 def app(env, start_response):
     start_response('200 OK', [('Content-Type','text/html')])
     return [b"Hello World"]

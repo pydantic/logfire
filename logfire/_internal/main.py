@@ -1201,11 +1201,14 @@ class Logfire:
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Set `capture_headers` to `True` to capture all request and response headers.
-
         Uses the
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
         library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+
+        Args:
+            app: The Flask app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
         from .integrations.flask import instrument_flask
 
@@ -1222,16 +1225,19 @@ class Logfire:
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Set `capture_headers` to `True` to capture all request and response headers.
-
-        Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
-        These are disabled by default to reduce overhead and the number of spans created,
-        since many can be created for a single request, and they are not often useful.
-        If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
-
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
         library, specifically `StarletteInstrumentor.instrument_app()`, to which it passes `**kwargs`.
+
+        Args:
+            app: The Starlette app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry Starlette instrumentation.
         """
         from .integrations.starlette import instrument_starlette
 
@@ -1244,29 +1250,70 @@ class Logfire:
             **kwargs,
         )
 
-    def instrument_asgi(self, app: ASGIApp, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+    def instrument_asgi(
+        self,
+        app: ASGIApp,
+        capture_headers: bool = False,
+        record_send_receive: bool = False,
+        **kwargs: Unpack[ASGIInstrumentKwargs],
+    ) -> ASGIApp:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Uses the
-        [OpenTelemetry ASGI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html)
-        library, specifically `ASGIInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+        Uses the ASGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.asgi.OpenTelemetryMiddleware] under
+        the hood, to which it passes `**kwargs`.
+
+        Warning:
+            Instead of modifying the app in place, this method returns the instrumented ASGI application.
+
+        Args:
+            app: The ASGI application to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry ASGI middleware.
+
+        Returns:
+            The instrumented ASGI application.
         """
         from .integrations.asgi import instrument_asgi
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asgi(self, app, **kwargs)
+        return instrument_asgi(
+            self,
+            app,
+            record_send_receive=record_send_receive,
+            capture_headers=capture_headers,
+            **kwargs,
+        )
 
-    def instrument_wsgi(self, app: WSGIApplication, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
+    def instrument_wsgi(
+        self,
+        app: WSGIApplication,
+        capture_headers: bool = False,
+        **kwargs: Unpack[WSGIInstrumentKwargs],
+    ) -> WSGIApplication:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Uses the
-        [OpenTelemetry WSGI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html)
-        library, specifically `WSGIInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+        Uses the WSGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.wsgi.OpenTelemetryMiddleware] under
+        the hood, to which it passes `**kwargs`.
+
+        Warning:
+            Instead of modifying the app in place, this method returns the instrumented WSGI application.
+
+        Args:
+            app: The WSGI application to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry WSGI middleware.
+
+        Returns:
+            The instrumented WSGI application.
         """
         from .integrations.wsgi import instrument_wsgi
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_wsgi(self, app, **kwargs)
+        return instrument_wsgi(self, app, capture_headers=capture_headers, **kwargs)
 
     def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
