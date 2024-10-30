@@ -221,7 +221,7 @@ pytest --inline-snapshot=fix
     Always review the changes to your snapshots before committing them.
 
 
-See the [inline-snapshot][inline-snapshot] for more information.
+See the [inline-snapshot documentation][inline-snapshot] for more information.
 
 [in-memory-metric-reader]: https://opentelemetry-python.readthedocs.io/en/latest/sdk/metrics.export.html#opentelemetry.sdk.metrics.export.InMemoryMetricReader
 [inline-snapshot]: https://15r10nk.github.io/inline-snapshot/
