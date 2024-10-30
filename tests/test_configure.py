@@ -1609,7 +1609,7 @@ def test_additional_metric_readers_combined_with_metrics():
 
 
 def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
-    configure(**config_kwargs, service_name='1.2.3', environment='production')
+    configure(**config_kwargs, service_version='1.2.3', environment='production')
 
     logfire.info('test1')
 
@@ -1636,9 +1636,9 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
-                        'service.name': '1.2.3',
+                        'service.name': 'unknown_service',
                         'process.pid': 1234,
-                        'service.version': 'cbd040cf0ee5aaa21664970e281566bbde9985c2',
+                        'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
                 },
