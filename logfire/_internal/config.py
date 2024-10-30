@@ -210,6 +210,8 @@ class CodeSource:
 
     root_path: str = ''
     """The root path for the source code in the repository.
+    
+    If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
     Example:
         Suppose that your repository contains `a/b/c/main.py`, the folder `a/b/` is copied
@@ -218,8 +220,6 @@ class CodeSource:
 
         Then `code.filepath` will be `b/c/main.py` for spans created in that file, and the
         `root_path` should be set to `a` so that the final link is `a/b/c/main.py`.
-
-        If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
     """
 
 
