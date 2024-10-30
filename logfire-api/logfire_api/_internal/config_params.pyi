@@ -33,6 +33,7 @@ SEND_TO_LOGFIRE: Incomplete
 TOKEN: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
+ENVIRONMENT: Incomplete
 CREDENTIALS_DIR: Incomplete
 CONSOLE: Incomplete
 CONSOLE_COLORS: Incomplete
