@@ -954,7 +954,7 @@ class LogfireSpan(ReadableSpan):
             key: The key of the attribute.
             value: The value of the attribute.
         """
-    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
         """Records an exception as a span event.

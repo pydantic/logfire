@@ -1777,7 +1777,7 @@ class LogfireSpan(ReadableSpan):
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
-    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
         for key, value in attributes.items():
             self.set_attribute(key, value)
@@ -1993,6 +1993,9 @@ def set_user_attribute(
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
+    if not span.is_recording():
+        return
+
     otlp_attributes = user_attributes(attributes)
     if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
