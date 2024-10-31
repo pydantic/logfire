@@ -801,7 +801,7 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
-            credentials = LogfireCredentials.load_creds_file(self.data_dir)  # pragma: no branch
+            credentials = LogfireCredentials.load_creds_file(self.data_dir)
             token_present = (self.token is not None) or (credentials is not None)
 
             if (self.send_to_logfire == 'if-token-present' and token_present) or self.send_to_logfire is True:
