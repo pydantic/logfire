@@ -801,7 +801,7 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
-            creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)  # pragma: no branch
+            creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)
             if creds_from_file:
                 self.token = creds_from_file.token
                 self.advanced.base_url = self.advanced.base_url or creds_from_file.logfire_api_url
