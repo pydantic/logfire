@@ -711,7 +711,6 @@ class LogfireConfig(_LogfireConfigData):
             if self.code_source:
                 otel_resource_attributes.update(
                     {
-                        RESOURCE_ATTRIBUTES_CODE_WORK_DIR: os.getcwd(),
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL: self.code_source.repository,
                         RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION: self.code_source.revision,
                     }
@@ -727,6 +726,11 @@ class LogfireConfig(_LogfireConfigData):
                 for _field in otel_resource_attributes_from_env.split(','):
                     key, value = _field.split('=', maxsplit=1)
                     otel_resource_attributes[key.strip()] = value.strip()
+            if (
+                RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL in otel_resource_attributes
+                and RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION in otel_resource_attributes
+            ):
+                otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
             resource = Resource.create(otel_resource_attributes)
 
