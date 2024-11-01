@@ -801,35 +801,38 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
-            creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)
-            # token from creds file takes the lowest priority
-            if not self.token and creds_from_file is not None:
-                self.token = creds_from_file.token
-                self.advanced.base_url = self.advanced.base_url or creds_from_file.logfire_api_url
+            if self.send_to_logfire:
+                creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)
+                # token from creds file takes the lowest priority
+                if not self.token and creds_from_file is not None:
+                    self.token = creds_from_file.token
+                    self.advanced.base_url = self.advanced.base_url or creds_from_file.logfire_api_url
 
-            if (self.send_to_logfire == 'if-token-present' and self.token is not None) or self.send_to_logfire is True:
-                show_project_link = self.console and self.console.show_project_link
+                if (
+                    self.send_to_logfire == 'if-token-present' and self.token is not None
+                ) or self.send_to_logfire is True:
+                    show_project_link = self.console and self.console.show_project_link
 
-                if self.token is None:
-                    credentials = LogfireCredentials.initialize_project(
-                        logfire_api_url=self.advanced.base_url,
-                        session=requests.Session(),
-                    )
-                    credentials.write_creds_file(self.data_dir)
-                    self.token = credentials.token
-                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-                    if show_project_link:  # pragma: no branch
-                        credentials.print_token_summary()
-                else:
+                    if self.token is None:
+                        credentials = LogfireCredentials.initialize_project(
+                            logfire_api_url=self.advanced.base_url,
+                            session=requests.Session(),
+                        )
+                        credentials.write_creds_file(self.data_dir)
+                        self.token = credentials.token
+                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                        if show_project_link:  # pragma: no branch
+                            credentials.print_token_summary()
+                    else:
 
-                    def check_token():
-                        assert self.token is not None
-                        creds = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and creds is not None:  # pragma: no branch
-                            creds.print_token_summary()
+                        def check_token():
+                            assert self.token is not None
+                            creds = self._initialize_credentials_from_token(self.token)
+                            if show_project_link and creds is not None:  # pragma: no branch
+                                creds.print_token_summary()
 
-                    thread = Thread(target=check_token, name='check_logfire_token')
-                    thread.start()
+                        thread = Thread(target=check_token, name='check_logfire_token')
+                        thread.start()
 
                 headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                 session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
