@@ -712,6 +712,7 @@ async def test_instrument_async_generator_warning(exporter: TestExporter):
     )
     assert warnings[0].filename.endswith('test_logfire.py')
     assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
+    assert foo.__name__ == 'foo'
 
     assert [value async for value in foo()] == [1]
 
@@ -752,6 +753,7 @@ def test_instrument_generator_warning(exporter: TestExporter):
     )
     assert warnings[0].filename.endswith('test_logfire.py')
     assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
+    assert foo.__name__ == 'foo'
 
     assert list(foo()) == [1]
 
@@ -897,6 +899,8 @@ def test_instrument_contextmanager_prevent_warning(exporter: TestExporter):
     def foo():
         yield
 
+    assert foo.__name__ == 'foo'
+
     with foo():
         logfire.info('hello')
 
@@ -944,6 +948,8 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
     async def foo():
         yield
 
+    assert foo.__name__ == 'foo'
+
     async with foo():
         logfire.info('hello')
 
@@ -990,6 +996,7 @@ async def test_instrument_async(exporter: TestExporter):
     async def foo():
         return 456
 
+    assert foo.__name__ == 'foo'
     assert await foo() == 456
 
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -1017,6 +1024,8 @@ def test_instrument_extract_false(exporter: TestExporter):
     @logfire.instrument('hello {a}!', extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
+
+    assert hello_world.__name__ == 'hello_world'
 
     assert hello_world(123) == 'hello 123'
 

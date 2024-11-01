@@ -1,5 +1,18 @@
 # Release Notes
 
+## [v2.1.1] (2024-10-31)
+
+* Use `functools.wraps` in `@logfire.instrument` by @alexmojaki in [#562](https://github.com/pydantic/logfire/pull/562)
+* Set `logfire.code.work_dir` resource attribute whenever other code source attributes are present by @alexmojaki in [#563](https://github.com/pydantic/logfire/pull/563)
+* Don't scrub `logfire.logger_name` by @alexmojaki in [#564](https://github.com/pydantic/logfire/pull/564)
+
+## [v2.1.0] (2024-10-30)
+
+* Add ASGI & WSGI instrument methods by @Kludex in [#324](https://github.com/pydantic/logfire/pull/324)
+* Add `logfire.work_dir` resource attribute by @Kludex in [#532](https://github.com/pydantic/logfire/pull/532)
+* Add `logfire.configure(environment=...)` by @Kludex in [#557](https://github.com/pydantic/logfire/pull/557)
+* Show message from API backend when checking token fails by @alexmojaki in [#559](https://github.com/pydantic/logfire/pull/559)
+
 ## [v2.0.0] (2024-10-30)
 
 * `@logfire.instrument()` no longer needs source code by @alexmojaki in [#543](https://github.com/pydantic/logfire/pull/543). **BREAKING CHANGES** caused by this:
@@ -386,3 +399,5 @@ First release from new repo!
 [v1.3.1]: https://github.com/pydantic/logfire/compare/v1.3.0...v1.3.1
 [v1.3.2]: https://github.com/pydantic/logfire/compare/v1.3.1...v1.3.2
 [v2.0.0]: https://github.com/pydantic/logfire/compare/v1.3.2...v2.0.0
+[v2.1.0]: https://github.com/pydantic/logfire/compare/v2.0.0...v2.1.0
+[v2.1.1]: https://github.com/pydantic/logfire/compare/v2.1.0...v2.1.1

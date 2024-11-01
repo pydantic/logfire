@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import inspect
 import warnings
 from collections.abc import Sequence
@@ -105,7 +106,8 @@ def instrument(
                 with open_span(*func_args, **func_kwargs):
                     return func(*func_args, **func_kwargs)
 
-        return wrapper  # type: ignore
+        wrapper = functools.wraps(func)(wrapper)  # type: ignore
+        return wrapper
 
     return decorator
 

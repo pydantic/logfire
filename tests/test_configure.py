@@ -1351,9 +1351,11 @@ def test_initialize_credentials_from_token_invalid_token():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=401)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
+        )
 
-        with pytest.warns(match='Invalid Logfire token.'):
+        with pytest.warns(match='Logfire API returned status code 401. Detail: Invalid token'):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 
@@ -1364,7 +1366,7 @@ def test_initialize_credentials_from_token_unhealthy():
         request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
-            UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
+            UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
@@ -1602,6 +1604,45 @@ def test_additional_metric_readers_combined_with_metrics():
         )
     ):
         logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
+
+
+def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs, service_version='1.2.3', environment='production')
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_environment',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'service.version': '1.2.3',
+                        'deployment.environment.name': 'production',
+                    }
+                },
+            }
+        ]
+    )
 
 
 def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
