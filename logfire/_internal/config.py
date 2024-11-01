@@ -803,7 +803,7 @@ class LogfireConfig(_LogfireConfigData):
 
             creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)
             # token from creds file takes the lowest priority
-            if self.token is None and creds_from_file is not None:
+            if not self.token and creds_from_file is not None:
                 self.token = creds_from_file.token
                 self.advanced.base_url = self.advanced.base_url or creds_from_file.logfire_api_url
 
