@@ -6,7 +6,7 @@ from typing import Any, cast
 import pytest
 import requests
 from dirty_equals._numeric import IsInt
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
@@ -49,10 +49,10 @@ def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
                             'attributes': {},
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
-                            'value': 300 + 4000,
+                            'value': Is(300 + 4000),
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
@@ -95,16 +95,16 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
                             'time_unix_nano': IsInt(),
                             'count': 2,
                             'sum': 4300,
-                            'scale': scale,
+                            'scale': Is(scale),
                             'zero_count': 0,
-                            'positive': {'offset': offset, 'bucket_counts': bucket_counts},
+                            'positive': {'offset': Is(offset), 'bucket_counts': Is(bucket_counts)},
                             'negative': {'offset': 0, 'bucket_counts': [0]},
                             'flags': 0,
                             'min': 300,
                             'max': 4000,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                 },
             }
         ]
@@ -192,7 +192,7 @@ def test_create_metric_up_down_counter(metrics_reader: InMemoryMetricReader) -> 
                             'value': 4321,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.CUMULATIVE,
+                    'aggregation_temporality': Is(AggregationTemporality.CUMULATIVE),
                     'is_monotonic': False,
                 },
             }
@@ -227,7 +227,7 @@ def test_create_metric_counter_callback(metrics_reader: InMemoryMetricReader) ->
                             'value': 4300,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
@@ -294,7 +294,7 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
                             'value': 4321,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.CUMULATIVE,
+                    'aggregation_temporality': Is(AggregationTemporality.CUMULATIVE),
                     'is_monotonic': False,
                 },
             }

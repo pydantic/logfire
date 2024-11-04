@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 import pytest
 from dirty_equals import IsJson, IsStr
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -1810,7 +1810,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': Is(f'log {GLOBAL_VAR} {local_var}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1831,7 +1831,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.msg_template': 'span2 {local_var}',
-                    'logfire.msg': f'span2 {local_var}',
+                    'logfire.msg': Is(f'span2 {local_var}'),
                     'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
                     'logfire.span_type': 'span',
                 },
@@ -1846,7 +1846,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
                     'GLOBAL_VAR': 1,
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': Is(f'span {GLOBAL_VAR} {local_var}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1883,7 +1883,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'log3 {GLOBAL_VAR}',
-                    'logfire.msg': f'log3 {GLOBAL_VAR}',
+                    'logfire.msg': Is(f'log3 {GLOBAL_VAR}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1901,7 +1901,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'log4 {GLOBAL_VAR}',
-                    'logfire.msg': f'log4 {GLOBAL_VAR}',
+                    'logfire.msg': Is(f'log4 {GLOBAL_VAR}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1919,7 +1919,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log5 local_var = {local_var}',
-                    'logfire.msg': f'log5 {local_var = }',
+                    'logfire.msg': Is(f'log5 {local_var = }'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1937,7 +1937,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log6 {x}',
-                    'logfire.msg': f'log6 {x:.{local_var}f}',
+                    'logfire.msg': Is(f'log6 {x:.{local_var}f}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -1955,7 +1955,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log7 {str(local_var)}',
-                    'logfire.msg': f'log7 {str(local_var)!r}',
+                    'logfire.msg': Is(f'log7 {str(local_var)!r}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -2203,7 +2203,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': Is(f'log {GLOBAL_VAR} {local_var}'),
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'foo',
                     'code.lineno': 123,
@@ -2225,7 +2225,7 @@ def test_executing_failure_old_python(exporter: TestExporter):
                     'GLOBAL_VAR': 1,
                     'local_var': 2,
                     'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': Is(f'span {GLOBAL_VAR} {local_var}'),
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
                     'logfire.span_type': 'span',
                 },

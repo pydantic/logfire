@@ -4,7 +4,7 @@ import sys
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 
 import logfire
 from logfire._internal.formatter import InspectArgumentsFailedWarning
@@ -88,7 +88,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.lineno': 21,
-                    'code.function': code_function,
+                    'code.function': Is(code_function),
                     'logfire.msg_template': 'from method',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'from method',
@@ -207,7 +207,7 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.lineno': 29,
-                    'code.function': code_function,
+                    'code.function': Is(code_function),
                     'logfire.msg_template': 'hi!',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'hi!',

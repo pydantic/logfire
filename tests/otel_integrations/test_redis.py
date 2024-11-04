@@ -2,7 +2,7 @@ import sys
 from typing import Any, Iterator
 
 import pytest
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.trace import Span
 from redis import Connection, Redis
@@ -60,7 +60,7 @@ def test_instrument_redis(redis: Redis, redis_port: str, exporter: TestExporter)
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': redis_port,
+                    'net.peer.port': Is(redis_port),
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                 },
@@ -89,7 +89,7 @@ def test_instrument_redis_with_capture_statement(redis: Redis, redis_port: str, 
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': redis_port,
+                    'net.peer.port': Is(redis_port),
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                 },
@@ -116,7 +116,7 @@ def test_instrument_redis_with_big_capture_statement(redis: Redis, redis_port: s
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': redis_port,
+                    'net.peer.port': Is(redis_port),
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                     'db.statement': 'SET kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
@@ -150,7 +150,7 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
                     'net.peer.name': 'localhost',
-                    'net.peer.port': redis_port,
+                    'net.peer.port': Is(redis_port),
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
                     'potato': 'tomato',

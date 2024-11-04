@@ -8,7 +8,7 @@ from unittest.mock import patch
 import cloudpickle
 import pytest
 from dirty_equals import IsInt
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
@@ -214,7 +214,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                             'value': 1,
                         },
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
@@ -266,7 +266,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                             'value': 2,
                         },
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
@@ -327,7 +327,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'value': 1,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
@@ -412,7 +412,7 @@ def test_pydantic_plugin_python_error_record_failure(
                             'value': 2,
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': Is(AggregationTemporality.DELTA),
                     'is_monotonic': True,
                 },
             }
