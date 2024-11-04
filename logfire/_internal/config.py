@@ -811,7 +811,7 @@ class LogfireConfig(_LogfireConfigData):
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
                     # if we still don't have a token, try initializing a new project and writing a new creds file
-                    # note, we only do this if `send_to_logfire` is explicitly `True`
+                    # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
                         credentials = LogfireCredentials.initialize_project(
                             logfire_api_url=self.advanced.base_url,
