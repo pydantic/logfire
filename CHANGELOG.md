@@ -4,9 +4,6 @@
 
 * Check `.logfire` for creds to respect `'if-token-present'` setting by @sydney-runkle in [#561](https://github.com/pydantic/logfire/pull/561)
 
-## New Contributors
-* @jules-ch made their first contribution in [#566](https://github.com/pydantic/logfire/pull/566)
-
 ## [v2.1.1] (2024-10-31)
 
 * Use `functools.wraps` in `@logfire.instrument` by @alexmojaki in [#562](https://github.com/pydantic/logfire/pull/562)
