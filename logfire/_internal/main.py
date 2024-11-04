@@ -227,7 +227,7 @@ class Logfire:
         try:
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
-            if json_schema_properties := attributes_json_schema_properties(function_args):
+            if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(user_attributes(function_args))
             return self._fast_span(name, attributes)
