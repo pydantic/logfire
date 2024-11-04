@@ -6,7 +6,7 @@ import inspect
 import warnings
 from collections.abc import Sequence
 from contextlib import asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, TypeVar
 
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
@@ -56,6 +56,7 @@ def instrument(
                 '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.',
                 stacklevel=2,
             )
+
         attributes = get_attributes(func, msg_template, tags)
         open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
 
@@ -105,11 +106,13 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
-):
+) -> Callable[P, ContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        return logfire._fast_span(final_span_name, attributes)  # type: ignore
+        return logfire._fast_span(  # type: ignore
+            final_span_name, attributes
+        )
 
     if extract_args is True:
         sig = inspect.signature(func)
