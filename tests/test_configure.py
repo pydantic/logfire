@@ -1142,6 +1142,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             assert request.headers['Authorization'] == 'fake_user_token'
 
         # we check that fake_token is valid now when we configure the project
+        wait_for_check_token_thread()
         assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
