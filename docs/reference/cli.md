@@ -118,5 +118,5 @@ logfire projects new <project-name>
 
 Follow the instructions, and you'll have a new project created in no time! :partying_face:
 
-[terms-of-service]: ../legal/terms-of-service.md
-[privacy_policy]: ../legal/privacy.md
+[terms-of-service]: https://pydantic.dev/legal/terms-of-service
+[privacy_policy]: https://pydantic.dev/legal/privacy-policy

@@ -2,7 +2,7 @@
 
 **Logfire** has a built-in [structlog][structlog] processor that can be used to emit Logfire logs for every structlog event.
 
-```py title="main.py" hl_lines="5 14"
+```py title="main.py" hl_lines="6 15"
 from dataclasses import dataclass
 
 import structlog
