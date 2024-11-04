@@ -144,15 +144,15 @@ def test_instrument_extract_args_list(exporter: TestExporter) -> None:
 
 
 def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning) as warnings:
+    def foo():
+        return 4
 
-        @logfire.instrument(extract_args='bar')
-        def foo():
-            return 4
+    with pytest.warns(UserWarning) as warnings:
+        foo = logfire.instrument(extract_args='bar')(foo)
 
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: bar')
-    assert warnings[0].lineno == inspect.currentframe().f_lineno - 6  # type: ignore
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     assert foo() == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -177,15 +177,15 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
 
 
 def test_instrument_missing_some_extract_args(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning) as warnings:
+    def foo(a: int, d: int, e: int):
+        return a + d + e
 
-        @logfire.instrument(extract_args=['a', 'b', 'c'])
-        def foo(a: int, d: int, e: int):
-            return a + d + e
+    with pytest.warns(UserWarning) as warnings:
+        foo = logfire.instrument(extract_args=['a', 'b', 'c'])(foo)
 
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: b, c')
-    assert warnings[0].lineno == inspect.currentframe().f_lineno - 6  # type: ignore
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     assert foo(1, 2, 3) == 6
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
