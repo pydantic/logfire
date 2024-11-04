@@ -810,29 +810,26 @@ class LogfireConfig(_LogfireConfigData):
                 if self.token is None:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
-                # if we still don't have a token, try initializing a new project and writing a new creds file
-                # note, we only do this if `send_to_logfire` is explicitly `True`
-                if self.send_to_logfire is True and self.token is None:
-                    credentials = LogfireCredentials.initialize_project(
-                        logfire_api_url=self.advanced.base_url,
-                        session=requests.Session(),
-                    )
-                    credentials.write_creds_file(self.data_dir)
+                    # if we still don't have a token, try initializing a new project and writing a new creds file
+                    # note, we only do this if `send_to_logfire` is explicitly `True`
+                    if self.send_to_logfire is True and credentials is None:
+                        credentials = LogfireCredentials.initialize_project(
+                            logfire_api_url=self.advanced.base_url,
+                            session=requests.Session(),
+                        )
+                        credentials.write_creds_file(self.data_dir)
 
-                if credentials is not None and self.token is None:
-                    self.token = credentials.token
-                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-
-                if show_project_link and credentials is not None:
-                    credentials.print_token_summary()
+                    if credentials is not None:
+                        self.token = credentials.token
+                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token is not None:
 
                     def check_token():
                         assert self.token is not None
-                        creds = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and creds is not None:
-                            creds.print_token_summary()
+                        validated_credentials = self._initialize_credentials_from_token(self.token)
+                        if show_project_link and validated_credentials is not None:
+                            validated_credentials.print_token_summary()
 
                     thread = Thread(target=check_token, name='check_logfire_token')
                     thread.start()
