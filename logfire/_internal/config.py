@@ -802,72 +802,75 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers = list(self.metrics.additional_readers)
 
             if self.send_to_logfire:
-                creds_from_file = LogfireCredentials.load_creds_file(self.data_dir)
-                # token from creds file takes the lowest priority
-                if not self.token and creds_from_file is not None:
-                    self.token = creds_from_file.token
-                    self.advanced.base_url = self.advanced.base_url or creds_from_file.logfire_api_url
+                credentials: LogfireCredentials | None = None
+                show_project_link: bool = self.console and self.console.show_project_link or False
 
-                if (
-                    self.send_to_logfire == 'if-token-present' and self.token is not None
-                ) or self.send_to_logfire is True:
-                    show_project_link = self.console and self.console.show_project_link
+                # try loading credentials (and thus token) from file if a token is not already available
+                # this takes the lowest priority, behind the token passed to `configure` and the environment variable
+                if self.token is None:
+                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
-                    if self.token is None:
-                        credentials = LogfireCredentials.initialize_project(
-                            logfire_api_url=self.advanced.base_url,
-                            session=requests.Session(),
-                        )
-                        credentials.write_creds_file(self.data_dir)
-                        self.token = credentials.token
-                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-                        if show_project_link:  # pragma: no branch
-                            credentials.print_token_summary()
-                    else:
+                # if we still don't have a token, try initializing a new project and writing a new creds file
+                # note, we only do this if `send_to_logfire` is explicitly `True`
+                if self.send_to_logfire is True and self.token is None:
+                    credentials = LogfireCredentials.initialize_project(
+                        logfire_api_url=self.advanced.base_url,
+                        session=requests.Session(),
+                    )
+                    credentials.write_creds_file(self.data_dir)
 
-                        def check_token():
-                            assert self.token is not None
-                            creds = self._initialize_credentials_from_token(self.token)
-                            if show_project_link and creds is not None:  # pragma: no branch
-                                creds.print_token_summary()
+                if credentials is not None and self.token is None:
+                    self.token = credentials.token
+                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
-                        thread = Thread(target=check_token, name='check_logfire_token')
-                        thread.start()
+                if show_project_link and credentials is not None:
+                    credentials.print_token_summary()
 
-                headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
-                session.headers.update(headers)
-                span_exporter = OTLPSpanExporter(
-                    endpoint=urljoin(self.advanced.base_url, '/v1/traces'),
-                    session=session,
-                    compression=Compression.Gzip,
-                )
-                span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                span_exporter = FallbackSpanExporter(
-                    span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
-                )
-                span_exporter = RemovePendingSpansExporter(span_exporter)
-                schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
-                add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
+                if self.token is not None:
 
-                if metric_readers is not None:
-                    metric_readers += [
-                        PeriodicExportingMetricReader(
-                            QuietMetricExporter(
-                                OTLPMetricExporter(
-                                    endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
-                                    headers=headers,
-                                    session=session,
-                                    compression=Compression.Gzip,
-                                    # I'm pretty sure that this line here is redundant,
-                                    # and that passing it to the QuietMetricExporter is what matters
-                                    # because the PeriodicExportingMetricReader will read it from there.
+                    def check_token():
+                        assert self.token is not None
+                        creds = self._initialize_credentials_from_token(self.token)
+                        if show_project_link and creds is not None:
+                            creds.print_token_summary()
+
+                    thread = Thread(target=check_token, name='check_logfire_token')
+                    thread.start()
+
+                    headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
+                    session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
+                    session.headers.update(headers)
+                    span_exporter = OTLPSpanExporter(
+                        endpoint=urljoin(self.advanced.base_url, '/v1/traces'),
+                        session=session,
+                        compression=Compression.Gzip,
+                    )
+                    span_exporter = RetryFewerSpansSpanExporter(span_exporter)
+                    span_exporter = FallbackSpanExporter(
+                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
+                    )
+                    span_exporter = RemovePendingSpansExporter(span_exporter)
+                    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
+                    add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
+
+                    if metric_readers is not None:
+                        metric_readers += [
+                            PeriodicExportingMetricReader(
+                                QuietMetricExporter(
+                                    OTLPMetricExporter(
+                                        endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
+                                        headers=headers,
+                                        session=session,
+                                        compression=Compression.Gzip,
+                                        # I'm pretty sure that this line here is redundant,
+                                        # and that passing it to the QuietMetricExporter is what matters
+                                        # because the PeriodicExportingMetricReader will read it from there.
+                                        preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                    ),
                                     preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                ),
-                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                )
                             )
-                        )
-                    ]
+                        ]
 
             if processors_with_pending_spans:
                 tracer_provider.add_span_processor(
