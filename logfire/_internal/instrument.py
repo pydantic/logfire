@@ -109,6 +109,7 @@ def get_open_span(
 ) -> Callable[P, ContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
+    # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
         return logfire._fast_span(  # type: ignore
             final_span_name, attributes
@@ -116,7 +117,7 @@ def get_open_span(
 
     if extract_args is True:
         sig = inspect.signature(func)
-        if sig.parameters:
+        if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
                 args_dict = sig.bind(*func_args, **func_kwargs).arguments
@@ -126,7 +127,7 @@ def get_open_span(
 
         return open_span
 
-    if extract_args:
+    if extract_args:  # i.e. extract_args should be an iterable of argument names
         sig = inspect.signature(func)
 
         if isinstance(extract_args, str):
@@ -141,11 +142,14 @@ def get_open_span(
                 stacklevel=3,
             )
 
-        if extract_args_final:
+        if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
                 args_dict = sig.bind(*func_args, **func_kwargs).arguments
+
+                # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
+
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
