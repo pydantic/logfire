@@ -4,6 +4,8 @@
 {{ super() }}
 <script src="/flarelytics/client.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+
     if (!window.__posthogInitialized) {
 
         // Initialize PostHog
@@ -17,9 +19,8 @@
             window.__posthogInitialized = true;
         } catch (error) {
             console.error('PostHog initialization failed:', error);
+            return;
         }}
-
-document.addEventListener('DOMContentLoaded', function() {
 
     // Setup
     const elements = {
@@ -28,15 +29,23 @@ document.addEventListener('DOMContentLoaded', function() {
         results: document.querySelector('.md-search__output')
     };
 
-    if (!elements.form || !elements.input || !elements.results) return;
+    if (!elements.form || !elements.input || !elements.results || !window.__posthogInitialized) return;
+
+    const SEARCH_DEBOUNCE_DELAY = 1000;  // Wait 1s after typing before tracking
+    const RESULTS_WAIT_DELAY = 200;      // Wait 200ms for search results to populate
+    const MIN_TIME_BETWEEN_SEARCHES = 1000;  // Don't track searches more than once per second
+    const MIN_SEARCH_LENGTH = 3;  // Minimum characters before tracking search
 
     let searchTimeout;
     let lastSearch = { term: '', time: 0 };
 
     // Track search with debouncing
     function trackSearch(term, type) {
-        if (term.length < 3 || term === lastSearch.term || Date.now() - lastSearch.time < 1000) return;
+        if (term.length < MIN_SEARCH_LENGTH ||
+            term === lastSearch.term ||
+            Date.now() - lastSearch.time < MIN_TIME_BETWEEN_SEARCHES) return;
 
+        // Wait for search results to populate
         setTimeout(() => {
             const resultCount = elements.results.querySelectorAll('.md-search-result__item').length;
             posthog.capture('documentation_search', {
@@ -48,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             lastSearch = { term, time: Date.now() };
-        }, 100);
+        }, RESULTS_WAIT_DELAY);
     }
 
     // Event listeners
@@ -56,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             trackSearch(elements.input.value.trim(), 'typed');
-        }, 1000);
+        }, SEARCH_DEBOUNCE_DELAY);
     });
 
     elements.form.addEventListener('submit', (e) => {
