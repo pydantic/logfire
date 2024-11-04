@@ -8,7 +8,8 @@ from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConf
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
-from .instrument import LogfireArgs as LogfireArgs, instrument as instrument
+from .instrument import instrument as instrument
+from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
@@ -20,6 +21,7 @@ from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
+from .integrations.wsgi import WSGIInstrumentKwargs as WSGIInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -30,7 +32,7 @@ from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
-from opentelemetry.sdk.trace import ReadableSpan, Span as Span
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import Tracer
 from opentelemetry.util import types as otel_types
 from starlette.applications import Starlette
@@ -38,6 +40,7 @@ from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
 from typing_extensions import LiteralString, ParamSpec, Unpack
+from wsgiref.types import WSGIApplication
 
 ExcInfo = SysExcInfo | BaseException | bool | None
 
@@ -218,7 +221,7 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -232,14 +235,12 @@ class Logfire:
             logfire.info('new log {a=}', a=a)
         ```
 
-        !!! note
-            - This decorator MUST be applied first, i.e. UNDER any other decorators.
-            - The source code of the function MUST be accessible.
-
         Args:
             msg_template: The template for the span message. If not provided, the module and function name will be used.
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+            allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
+                Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
     def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None) -> None:
         """Log a message.
@@ -386,8 +387,11 @@ class Logfire:
             exclude:
                 Exclude specific modules from instrumentation.
         """
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, use_opentelemetry_instrumentation: bool = True, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
+
+        Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
+        under the hood, with some additional features.
 
         Args:
             app: The FastAPI app to instrument.
@@ -411,12 +415,8 @@ class Logfire:
                 matches any of the regexes. This applies to both the Logfire and OpenTelemetry instrumentation.
                 If not provided, the environment variables
                 `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` and `OTEL_PYTHON_EXCLUDED_URLS` will be checked.
-            use_opentelemetry_instrumentation: If True (the default) then
-                [`FastAPIInstrumentor`][opentelemetry.instrumentation.fastapi.FastAPIInstrumentor]
-                will also instrument the app.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
 
-                See [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html).
-            record_send_receive: Set to True to allow the OpenTelemetry ASGI to create send/receive spans.
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
@@ -604,25 +604,70 @@ class Logfire:
     def instrument_flask(self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Set `capture_headers` to `True` to capture all request and response headers.
-
         Uses the
         [OpenTelemetry Flask Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html)
         library, specifically `FlaskInstrumentor().instrument_app()`, to which it passes `**kwargs`.
+
+        Args:
+            app: The Flask app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
     def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
-        Set `capture_headers` to `True` to capture all request and response headers.
-
-        Set `record_send_receive` to `True` to allow the OpenTelemetry ASGI to create send/receive spans.
-        These are disabled by default to reduce overhead and the number of spans created,
-        since many can be created for a single request, and they are not often useful.
-        If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
-
         Uses the
         [OpenTelemetry Starlette Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html)
         library, specifically `StarletteInstrumentor.instrument_app()`, to which it passes `**kwargs`.
+
+        Args:
+            app: The Starlette app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
+
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry Starlette instrumentation.
+        """
+    def instrument_asgi(self, app: ASGIApp, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the ASGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.asgi.OpenTelemetryMiddleware] under
+        the hood, to which it passes `**kwargs`.
+
+        Warning:
+            Instead of modifying the app in place, this method returns the instrumented ASGI application.
+
+        Args:
+            app: The ASGI application to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to allow the OpenTelemetry ASGI middleware to create send/receive spans.
+
+                These are disabled by default to reduce overhead and the number of spans created,
+                since many can be created for a single request, and they are not often useful.
+                If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry ASGI middleware.
+
+        Returns:
+            The instrumented ASGI application.
+        """
+    def instrument_wsgi(self, app: WSGIApplication, capture_headers: bool = False, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
+        """Instrument `app` so that spans are automatically created for each request.
+
+        Uses the WSGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.wsgi.OpenTelemetryMiddleware] under
+        the hood, to which it passes `**kwargs`.
+
+        Warning:
+            Instead of modifying the app in place, this method returns the instrumented WSGI application.
+
+        Args:
+            app: The WSGI application to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry WSGI middleware.
+
+        Returns:
+            The instrumented WSGI application.
         """
     def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
@@ -934,7 +979,8 @@ class LogfireSpan(ReadableSpan):
     @property
     def tags(self) -> tuple[str, ...]: ...
     @tags.setter
-    def tags(self, new_tags: Sequence[str]) -> None: ...
+    def tags(self, new_tags: Sequence[str]) -> None:
+        """Set or add tags to the span."""
     @property
     def message(self) -> str: ...
     @message.setter
@@ -955,7 +1001,7 @@ class LogfireSpan(ReadableSpan):
             key: The key of the attribute.
             value: The value of the attribute.
         """
-    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
         """Records an exception as a span event.
@@ -1008,5 +1054,6 @@ def set_user_attribute(otlp_attributes: dict[str, otel_types.AttributeValue], ke
     Returns the final key and value that was added to the dictionary.
     The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
     """
+def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None: ...
 P = ParamSpec('P')
 R = TypeVar('R')

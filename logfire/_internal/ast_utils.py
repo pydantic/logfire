@@ -26,7 +26,6 @@ class LogfireArgs:
     sample_rate: float | None
     msg_template: str | None = None
     span_name: str | None = None
-    extract_args: bool = True  # only used by @instrument decorator
 
 
 @dataclass
@@ -68,21 +67,36 @@ class BaseTransformer(ast.NodeTransformer):
         # Replace the body of the function with:
         #     with <logfire_method_call_node>:
         #         <original body>
+        body = node.body.copy()
+        new_body: list[ast.stmt] = []
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            # If the first statement is just a string literal, it's a docstring.
+            # Keep it as the first statement in the new body, not wrapped in a span,
+            # so it's still recognized as a docstring.
+            new_body.append(body.pop(0))
+
         span = ast.With(
             items=[
                 ast.withitem(
                     context_expr=self.logfire_method_call_node(node, qualname),
                 )
             ],
-            body=node.body,
+            body=body,
             type_comment=node.type_comment,
         )
+        new_body.append(span)
+
         return ast.fix_missing_locations(
             ast.copy_location(
                 type(node)(
                     name=node.name,
                     args=node.args,
-                    body=[span],
+                    body=new_body,
                     decorator_list=node.decorator_list,
                     returns=node.returns,
                     type_comment=node.type_comment,

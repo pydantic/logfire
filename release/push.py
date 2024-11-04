@@ -46,7 +46,10 @@ def create_github_release_draft(version: str, release_notes: str):
     }
     response = requests.post(url, json=data, headers=headers)
     response.raise_for_status()
-    return response.json()['html_url']
+    release_url = response.json()['html_url']
+    # Publishing happens in the edit page
+    edit_url = release_url.replace('/releases/tag/', '/releases/edit/')
+    return edit_url
 
 
 def commit_and_push_changes(version: str) -> None:
@@ -54,7 +57,7 @@ def commit_and_push_changes(version: str) -> None:
     branch_name = f'release/v{version}'
     run_command('git', 'checkout', '-b', branch_name)
     run_command('git', 'add', '.')
-    run_command('git', 'commit', '-m', f"'Bump version to v{version}'")
+    run_command('git', 'commit', '-m', f'Bump version to v{version}')
     run_command('git', 'push', 'origin', branch_name)
 
 

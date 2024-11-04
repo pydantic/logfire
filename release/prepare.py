@@ -99,6 +99,7 @@ if __name__ == '__main__':
     generate_stubs()
     print('Generated stubs.')
 
+    run_command('git', 'fetch', '--tags')  # so that get_last_tag is accurate
     release_notes = get_notes(version)
     update_history(version, release_notes)
     print('Release notes added to CHANGELOG.md.')

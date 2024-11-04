@@ -19,7 +19,7 @@ from starlette.websockets import WebSocket
 
 from ..main import Logfire, set_user_attributes_on_raw_span
 from ..stack_info import StackInfo, get_code_object_info
-from ..utils import maybe_capture_server_headers
+from ..utils import handle_internal_errors, maybe_capture_server_headers
 from .asgi import tweak_asgi_spans_tracer_provider
 
 try:
@@ -163,40 +163,41 @@ class FastAPIInstrumentation:
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
-        if not root_span:
-            return await original  # pragma: no cover
+        if not (root_span and root_span.is_recording()):
+            return await original
 
         with self.logfire_instance.span('FastAPI arguments') as span:
-            if isinstance(request, Request):  # pragma: no branch
-                span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
-            route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
-            if route:  # pragma: no branch
-                root_span.set_attribute('fastapi.route.name', route.name)
-                span.set_attribute('fastapi.route.name', route.name)
-                span.set_attribute(SpanAttributes.HTTP_ROUTE, route.path)
-                if isinstance(route, APIRoute):  # pragma: no branch
-                    root_span.set_attribute('fastapi.route.operation_id', route.operation_id)
-                    span.set_attribute('fastapi.route.operation_id', route.operation_id)
+            with handle_internal_errors():
+                if isinstance(request, Request):  # pragma: no branch
+                    span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
+                route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
+                if route:  # pragma: no branch
+                    span.set_attribute(SpanAttributes.HTTP_ROUTE, route.path)
+                    fastapi_route_attributes: dict[str, Any] = {'fastapi.route.name': route.name}
+                    if isinstance(route, APIRoute):  # pragma: no branch
+                        fastapi_route_attributes['fastapi.route.operation_id'] = route.operation_id
+                    set_user_attributes_on_raw_span(root_span, fastapi_route_attributes)
+                    span.set_attributes(fastapi_route_attributes)
 
             result: Any = await original
 
-            solved_values: dict[str, Any]
-            solved_errors: list[Any]
+            with handle_internal_errors():
+                solved_values: dict[str, Any]
+                solved_errors: list[Any]
 
-            if isinstance(result, tuple):  # pragma: no cover
-                solved_values = result[0]  # type: ignore
-                solved_errors = result[1]  # type: ignore
+                if isinstance(result, tuple):  # pragma: no cover
+                    solved_values = result[0]  # type: ignore
+                    solved_errors = result[1]  # type: ignore
 
-                def solved_with_new_values(new_values: dict[str, Any]) -> Any:
-                    return new_values, *result[1:]
-            else:
-                solved_values = result.values
-                solved_errors = result.errors
+                    def solved_with_new_values(new_values: dict[str, Any]) -> Any:
+                        return new_values, *result[1:]
+                else:
+                    solved_values = result.values
+                    solved_errors = result.errors
 
-                def solved_with_new_values(new_values: dict[str, Any]) -> Any:
-                    return dataclasses.replace(result, values=new_values)
+                    def solved_with_new_values(new_values: dict[str, Any]) -> Any:
+                        return dataclasses.replace(result, values=new_values)
 
-            try:
                 attributes: dict[str, Any] | None = {
                     # Shallow copy these so that the user can safely modify them, but we don't tell them that.
                     # We do explicitly tell them that the contents should not be modified.
@@ -233,8 +234,6 @@ class FastAPIInstrumentation:
                     if key in attributes:  # pragma: no branch
                         attributes['fastapi.arguments.' + key] = attributes.pop(key)
                 set_user_attributes_on_raw_span(root_span, attributes)
-            except Exception as e:  # pragma: no cover
-                span.record_exception(e)
 
         return result  # type: ignore
 

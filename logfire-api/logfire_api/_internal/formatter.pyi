@@ -8,7 +8,7 @@ from .utils import log_internal_error as log_internal_error, truncate_string as 
 from _typeshed import Incomplete
 from string import Formatter
 from types import CodeType as CodeType
-from typing import Any, Final, Literal
+from typing import Any, Literal
 from typing_extensions import NotRequired, TypedDict
 
 class LiteralChunk(TypedDict):
@@ -21,7 +21,6 @@ class ArgChunk(TypedDict):
     spec: NotRequired[str]
 
 class ChunksFormatter(Formatter):
-    NONE_REPR: Final[str]
     def chunks(self, format_string: str, kwargs: dict[str, Any], *, scrubber: BaseScrubber, fstring_frame: types.FrameType | None = None) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]: ...
 
 chunks_formatter: Incomplete

@@ -1,5 +1,5 @@
 from .. import Logfire as Logfire
-from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY as ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, LOGGING_TO_OTEL_LEVEL_NUMBERS as LOGGING_TO_OTEL_LEVEL_NUMBERS
+from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY as ATTRIBUTES_LOGGING_ARGS_KEY, ATTRIBUTES_LOGGING_NAME as ATTRIBUTES_LOGGING_NAME, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, LOGGING_TO_OTEL_LEVEL_NUMBERS as LOGGING_TO_OTEL_LEVEL_NUMBERS
 from .._internal.utils import is_instrumentation_suppressed as is_instrumentation_suppressed
 from _typeshed import Incomplete
 from logging import Handler as LoggingHandler, LogRecord
@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 RESERVED_ATTRS: frozenset[str]
 
 class LogfireLoggingHandler(LoggingHandler):
-    """A logging handler that sends logs to **Logfire**."""
+    """A [logging](../../integrations/logging.md) handler that sends logs to **Logfire**."""
     custom_scope_suffix: ClassVar[str]
     fallback: Incomplete
     logfire_instance: Incomplete

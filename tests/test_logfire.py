@@ -4,6 +4,7 @@ import inspect
 import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
@@ -608,7 +609,9 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 
 
 def test_instrument(exporter: TestExporter):
-    @logfire.instrument('hello-world {a=}')
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}')
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -627,6 +630,7 @@ def test_instrument(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'test_instrument.<locals>.hello_world',
                     'a': 123,
+                    'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=123',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
@@ -645,6 +649,7 @@ def test_instrument(exporter: TestExporter):
                     'code.lineno': 123,
                     'code.function': 'test_instrument.<locals>.hello_world',
                     'a': 123,
+                    'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
                     'logfire.span_type': 'span',
@@ -655,10 +660,372 @@ def test_instrument(exporter: TestExporter):
     )
 
 
+def test_instrument_other_callable(exporter: TestExporter):
+    class Instrumented:
+        def __call__(self, a: int) -> str:
+            return f'hello {a}'
+
+        def __repr__(self):
+            return '<Instrumented>'
+
+    inst = logfire.instrument()(Instrumented())
+
+    assert inst(456) == 'hello 456'
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_other_callable.<locals>.Instrumented.__call__',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'a': 456,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async_generator_warning(exporter: TestExporter):
+    async def foo():
+        yield 1
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should only be used on generators if they are used as context managers. '
+        'See https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument for more information.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
+    assert foo.__name__ == 'foo'
+
+    assert [value async for value in foo()] == [1]
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async_generator_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async_generator_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_generator_warning(exporter: TestExporter):
+    def foo():
+        yield 1
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should only be used on generators if they are used as context managers. '
+        'See https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument for more information.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 8  # type: ignore
+    assert foo.__name__ == 'foo'
+
+    assert list(foo()) == [1]
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_generator_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_generator_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_contextmanager_warning(exporter: TestExporter):
+    @contextmanager
+    def foo():
+        yield
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
+
+    with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_contextmanager_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_contextmanager_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'hello',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_contextmanager_warning',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_asynccontextmanager_warning(exporter: TestExporter):
+    @asynccontextmanager
+    async def foo():
+        yield
+
+    inst = logfire.instrument()
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = inst(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot(
+        '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.'
+    )
+    assert warnings[0].filename.endswith('test_logfire.py')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 7  # type: ignore
+
+    async with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_warning.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'hello',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_asynccontextmanager_warning',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+def test_instrument_contextmanager_prevent_warning(exporter: TestExporter):
+    @contextmanager
+    @logfire.instrument(allow_generator=True)
+    def foo():
+        yield
+
+    assert foo.__name__ == 'foo'
+
+    with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_contextmanager_prevent_warning',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'hello',
+                    'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_contextmanager_prevent_warning.<locals>.foo',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExporter):
+    @asynccontextmanager
+    @logfire.instrument(allow_generator=True)
+    async def foo():
+        yield
+
+    assert foo.__name__ == 'foo'
+
+    async with foo():
+        logfire.info('hello')
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_asynccontextmanager_prevent_warning',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'hello',
+                    'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_asynccontextmanager_prevent_warning.<locals>.foo',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async(exporter: TestExporter):
+    @logfire.instrument()
+    async def foo():
+        return 456
+
+    assert foo.__name__ == 'foo'
+    assert await foo() == 456
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_extract_false(exporter: TestExporter):
     @logfire.instrument('hello {a}!', extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
+
+    assert hello_world.__name__ == 'hello_world'
 
     assert hello_world(123) == 'hello 123'
 
@@ -2235,125 +2602,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
             pass
 
     assert exporter.exported_spans_as_dict() == expected_spans
-
-
-@pytest.mark.skipif(
-    sys.version_info[:2] > (3, 10) or sys.version_info[:2] < (3, 9),
-    reason='Testing behaviour for Python < 3.11 but > 3.8',
-)
-def test_executing_failure_old_python(exporter: TestExporter):
-    local_var = 2
-
-    # For older versions, the AST modification done by `@instrument` interferes with `executing`.
-    @logfire.instrument()
-    def foo():  # pragma: no cover  (coverage being weird)
-        # For these cases, the simple heuristic still works.
-        with logfire.span(f'span {GLOBAL_VAR} {local_var}'):
-            logfire.info(f'log {GLOBAL_VAR} {local_var}')
-
-        # But here it doesn't, see the previous test.
-        with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.'):
-            str(logfire.info(f'bad log {local_var}'))
-
-    foo()
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'log {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'local_var': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
-                },
-            },
-            {
-                'name': 'span {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'GLOBAL_VAR': 1,
-                    'local_var': 2,
-                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
-                    'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 5000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                    'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node. This may be caused by a combination of using Python < 3.11 and auto-tracing or @logfire.instrument.\
-""",
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                },
-            },
-            {
-                'name': 'bad log 2',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 6000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'bad log 2',
-                    'logfire.msg': 'bad log 2',
-                    'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                },
-            },
-            {
-                'name': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 7000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.lineno': 123,
-                    'code.function': 'test_executing_failure_old_python.<locals>.foo',
-                    'logfire.msg_template': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                    'logfire.msg': 'Calling tests.test_logfire.test_executing_failure_old_python.<locals>.foo',
-                    'logfire.span_type': 'span',
-                },
-            },
-        ]
-    )
 
 
 @pytest.mark.skipif(
