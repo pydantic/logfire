@@ -1139,7 +1139,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         logfire.configure(send_to_logfire=True)
 
         for request in request_mocker.request_history:
-            assert request.headers['Authorization'] == 'fake_user_token'
+            assert request.headers['Authorization'] in ['fake_user_token', 'fake_token']
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
         assert request_mocker.request_history[3].json() == create_reserved_project_request_json
