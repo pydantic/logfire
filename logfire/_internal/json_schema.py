@@ -68,14 +68,10 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
                 pydantic.NameEmail: {'type': 'string', 'x-python-datatype': 'NameEmail'},
                 pydantic.SecretStr: {'type': 'string', 'x-python-datatype': 'SecretStr'},
                 pydantic.SecretBytes: {'type': 'string', 'x-python-datatype': 'SecretBytes'},
+                pydantic.AnyUrl: {'type': 'string', 'x-python-datatype': 'AnyUrl'},
                 pydantic.BaseModel: _pydantic_model_schema,
             }
         )
-
-    with contextlib.suppress(ModuleNotFoundError):
-        import pydantic_core
-
-        lookup.update({pydantic_core.Url: {'type': 'string', 'x-python-datatype': 'Url'}})
 
     with contextlib.suppress(ModuleNotFoundError):
         import numpy
