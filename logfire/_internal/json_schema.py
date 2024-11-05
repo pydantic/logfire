@@ -74,6 +74,11 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         )
 
     with contextlib.suppress(ModuleNotFoundError):
+        import pydantic_core
+
+        lookup.update({pydantic_core.Url: {'type': 'string', 'x-python-datatype': 'Url'}})
+
+    with contextlib.suppress(ModuleNotFoundError):
         import numpy
 
         lookup.update({numpy.ndarray: _numpy_schema})
