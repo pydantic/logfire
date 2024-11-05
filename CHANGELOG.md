@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v2.1.2] (2024-11-04)
+
+* Check `.logfire` for creds to respect `'if-token-present'` setting by @sydney-runkle in [#561](https://github.com/pydantic/logfire/pull/561)
+
 ## [v2.1.1] (2024-10-31)
 
 * Use `functools.wraps` in `@logfire.instrument` by @alexmojaki in [#562](https://github.com/pydantic/logfire/pull/562)
@@ -401,3 +405,4 @@ First release from new repo!
 [v2.0.0]: https://github.com/pydantic/logfire/compare/v1.3.2...v2.0.0
 [v2.1.0]: https://github.com/pydantic/logfire/compare/v2.0.0...v2.1.0
 [v2.1.1]: https://github.com/pydantic/logfire/compare/v2.1.0...v2.1.1
+[v2.1.2]: https://github.com/pydantic/logfire/compare/v2.1.1...v2.1.2
