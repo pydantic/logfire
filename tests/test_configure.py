@@ -969,6 +969,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
             ),
         ]
+        wait_for_check_token_thread()
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
@@ -1027,6 +1028,7 @@ def test_initialize_project_not_using_existing_project(
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
             ),
         ]
+        wait_for_check_token_thread()
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
@@ -1296,6 +1298,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
         side_effect=RuntimeError,
     ), requests_mock.Mocker() as requests_mocker:
         configure(console=False)
+        wait_for_check_token_thread()
     assert len(requests_mocker.request_history) == 0
 
 

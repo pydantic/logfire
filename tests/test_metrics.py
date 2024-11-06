@@ -50,6 +50,7 @@ def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 300 + 4000,
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -102,6 +103,7 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
                             'flags': 0,
                             'min': 300,
                             'max': 4000,
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -127,6 +129,7 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
                             'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 1,
+                            'exemplars': [],
                         }
                     ]
                 },
@@ -150,6 +153,7 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
                             'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 24,
+                            'exemplars': [],
                         }
                     ]
                 },
@@ -190,6 +194,7 @@ def test_create_metric_up_down_counter(metrics_reader: InMemoryMetricReader) -> 
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 4321,
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.CUMULATIVE,
@@ -225,6 +230,15 @@ def test_create_metric_counter_callback(metrics_reader: InMemoryMetricReader) ->
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 4300,
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': None,
+                                    'value': 4321,
+                                    'time_unix_nano': IsInt(),
+                                    'span_id': None,
+                                    'trace_id': None,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -259,6 +273,15 @@ def test_create_metric_gauge_callback(metrics_reader: InMemoryMetricReader) -> N
                             'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 4000,
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': None,
+                                    'value': 300,
+                                    'time_unix_nano': IsInt(),
+                                    'span_id': None,
+                                    'trace_id': None,
+                                }
+                            ],
                         }
                     ]
                 },
@@ -292,6 +315,15 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 4321,
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': None,
+                                    'value': 4321,
+                                    'time_unix_nano': IsInt(),
+                                    'span_id': None,
+                                    'trace_id': None,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.CUMULATIVE,
