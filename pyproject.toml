@@ -80,9 +80,8 @@ logfire-plugin = "logfire.integrations.pydantic:plugin"
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
 
-[tool.uv]
-managed = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "anyio < 4.4.0",
     "httpx >= 0.27.2",
     "aiohttp >= 3.10.9",
@@ -148,16 +147,17 @@ dev-dependencies = [
     "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
-    # Documentation
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.17",
-    "mkdocs-glightbox>=0.3.7",
-    "mkdocstrings-python>=1.8.0",
-    "mkdocs-redirects>=1.2.1",
-    "griffe",
     # Logfire API
     "logfire-api",
     "requests",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.17",
+    "mkdocs-glightbox>=0.4.0",
+    "mkdocstrings-python>=1.8.0",
+    "mkdocs-redirects>=1.2.1",
+    "griffe",
 ]
 
 [tool.uv.sources]

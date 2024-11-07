@@ -60,8 +60,8 @@ all: format lint test
 
 .PHONY: cf-pages-build  # Build the docs for GitHub Pages
 cf-pages-build:
-	curl -LsSf https://astral.sh/uv/0.4.12/install.sh | sh
+	curl -LsSf https://astral.sh/uv/0.4.30/install.sh | sh
 	${HOME}/.cargo/bin/uv python install 3.12
-	${HOME}/.cargo/bin/uv sync --python 3.12 --frozen
+	${HOME}/.cargo/bin/uv sync --python 3.12 --frozen --group docs
 	${HOME}/.cargo/bin/uv pip install --upgrade --extra-index-url $(PPPR_URL) mkdocs-material mkdocstrings-python griffe==0.48.0
 	${HOME}/.cargo/bin/uv run --no-sync mkdocs build
