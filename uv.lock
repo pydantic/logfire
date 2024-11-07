@@ -1475,7 +1475,7 @@ wsgi = [
 ]
 
 [package.dev-dependencies]
-dev = [
+dev-dependencies = [
     { name = "aiohttp" },
     { name = "anthropic" },
     { name = "anyio" },
@@ -1490,16 +1490,10 @@ dev = [
     { name = "eval-type-backport" },
     { name = "fastapi" },
     { name = "flask" },
-    { name = "griffe" },
     { name = "httpx" },
     { name = "inline-snapshot" },
     { name = "logfire-api" },
     { name = "loguru" },
-    { name = "mkdocs" },
-    { name = "mkdocs-glightbox" },
-    { name = "mkdocs-material" },
-    { name = "mkdocs-redirects" },
-    { name = "mkdocstrings-python" },
     { name = "mypy" },
     { name = "mysql-connector-python" },
     { name = "numpy", version = "1.24.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
@@ -1548,6 +1542,14 @@ dev = [
     { name = "testcontainers", version = "4.8.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "uvicorn" },
 ]
+documentation = [
+    { name = "griffe" },
+    { name = "mkdocs" },
+    { name = "mkdocs-glightbox" },
+    { name = "mkdocs-material" },
+    { name = "mkdocs-redirects" },
+    { name = "mkdocstrings-python" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1582,7 +1584,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [
+dev-dependencies = [
     { name = "aiohttp", specifier = ">=3.10.9" },
     { name = "anthropic", specifier = ">=0.27.0" },
     { name = "anyio", specifier = "<4.4.0" },
@@ -1597,16 +1599,10 @@ dev = [
     { name = "eval-type-backport" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "flask", specifier = ">=3.0.3" },
-    { name = "griffe" },
     { name = "httpx", specifier = ">=0.27.2" },
     { name = "inline-snapshot" },
     { name = "logfire-api", editable = "logfire-api" },
     { name = "loguru" },
-    { name = "mkdocs", specifier = ">=1.5.0" },
-    { name = "mkdocs-glightbox", specifier = ">=0.3.7" },
-    { name = "mkdocs-material", specifier = ">=9.5.17" },
-    { name = "mkdocs-redirects", specifier = ">=1.2.1" },
-    { name = "mkdocstrings-python", specifier = ">=1.8.0" },
     { name = "mypy", specifier = ">=1.10.0" },
     { name = "mysql-connector-python", specifier = "~=8.0" },
     { name = "numpy", marker = "python_full_version < '3.9'", specifier = "<1.24.4" },
@@ -1655,11 +1651,24 @@ dev = [
     { name = "testcontainers", marker = "python_full_version >= '3.9'", specifier = ">3.7.1" },
     { name = "uvicorn", specifier = ">=0.30.6" },
 ]
+documentation = [
+    { name = "griffe" },
+    { name = "mkdocs", specifier = ">=1.5.0" },
+    { name = "mkdocs-glightbox", specifier = ">=0.3.7" },
+    { name = "mkdocs-material", specifier = ">=9.5.17" },
+    { name = "mkdocs-redirects", specifier = ">=1.2.1" },
+    { name = "mkdocstrings-python", specifier = ">=1.8.0" },
+]
 
 [[package]]
 name = "logfire-api"
 version = "2.1.2"
 source = { editable = "logfire-api" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = []
 
 [[package]]
 name = "loguru"
