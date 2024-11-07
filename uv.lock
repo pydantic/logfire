@@ -1475,7 +1475,7 @@ wsgi = [
 ]
 
 [package.dev-dependencies]
-dev-dependencies = [
+dev = [
     { name = "aiohttp" },
     { name = "anthropic" },
     { name = "anyio" },
@@ -1542,7 +1542,7 @@ dev-dependencies = [
     { name = "testcontainers", version = "4.8.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "uvicorn" },
 ]
-documentation = [
+docs = [
     { name = "griffe" },
     { name = "mkdocs" },
     { name = "mkdocs-glightbox" },
@@ -1584,7 +1584,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev-dependencies = [
+dev = [
     { name = "aiohttp", specifier = ">=3.10.9" },
     { name = "anthropic", specifier = ">=0.27.0" },
     { name = "anyio", specifier = "<4.4.0" },
@@ -1651,10 +1651,10 @@ dev-dependencies = [
     { name = "testcontainers", marker = "python_full_version >= '3.9'", specifier = ">3.7.1" },
     { name = "uvicorn", specifier = ">=0.30.6" },
 ]
-documentation = [
+docs = [
     { name = "griffe" },
     { name = "mkdocs", specifier = ">=1.5.0" },
-    { name = "mkdocs-glightbox", specifier = ">=0.3.7" },
+    { name = "mkdocs-glightbox", specifier = ">=0.4.0" },
     { name = "mkdocs-material", specifier = ">=9.5.17" },
     { name = "mkdocs-redirects", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.8.0" },
