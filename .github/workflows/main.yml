@@ -25,9 +25,6 @@ jobs:
           version: "0.4.30"
           enable-cache: true
 
-      - name: Set up Python 3.12
-        run: uv python install 3.12
-
       - name: Install dependencies
         run: uv sync --python 3.12 --frozen
 
@@ -44,9 +41,6 @@ jobs:
         with:
           version: "0.4.30"
           enable-cache: true
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
 
       - run: uv sync --python 3.12 --frozen --group docs
       - run: uv pip install --upgrade mkdocs-material mkdocstrings-python griffe==0.48.0
@@ -100,9 +94,6 @@ jobs:
           version: "0.4.30"
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
       - run: uv sync --python ${{ matrix.python-version }}
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
@@ -132,9 +123,6 @@ jobs:
         with:
           version: "0.4.30"
           enable-cache: true
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
 
       - name: Create venv
         run: uv venv --python 3.12
