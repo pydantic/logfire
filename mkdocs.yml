@@ -50,7 +50,7 @@ theme:
     - navigation.top # alternatively, we could do navigation.tabs.sticky
     - toc.follow
   logo: "logo-white.svg"
-  favicon: "favicon.svg"
+  favicon: "favicon.png"
 
 # https://www.mkdocs.org/user-guide/configuration/#validation
 validation:
