@@ -197,16 +197,14 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ),
                     cc_chunk.ChatCompletionChunk(
                         id='2',
-                        choices=[
-                            cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
-                        ],
+                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=' is secret'))],
                         created=1,
                         model='gpt-4',
                         object='chat.completion.chunk',
                     ),
                     cc_chunk.ChatCompletionChunk(
                         id='3',
-                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=None, role='assistant'))],
+                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=None))],
                         created=1,
                         model='gpt-4',
                         object='chat.completion.chunk',
@@ -878,7 +876,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistantassistantassistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
+                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
@@ -939,7 +937,7 @@ async def test_async_chat_completions_stream(
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistantassistantassistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
+                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
