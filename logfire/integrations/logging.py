@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 
 class LogfireLoggingHandler(LoggingHandler):
-    """A logging handler that sends logs to **Logfire**."""
+    """A [logging](../../integrations/logging.md) handler that sends logs to **Logfire**."""
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
 

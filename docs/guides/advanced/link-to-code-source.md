@@ -18,7 +18,7 @@ logfire.configure(
     code_source=logfire.CodeSource(
         repository='https://github.com/pydantic/logfire',  #(1)!
         revision='<hash of commit used on release>',  #(2)!
-        root_path='.',  #(3)!
+        root_path='/root/path',  #(3)!
     )
 )
 ```

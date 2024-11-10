@@ -1,15 +1,13 @@
 # ASGI
 
-If the [ASGI][asgi] framework doesn't have a dedicated OpenTelemetry package, you can use the
-[OpenTelemetry ASGI middleware][opentelemetry-asgi].
+If the [ASGI][asgi] web framework you're using doesn't have a dedicated integration, you can use the
+[`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi] method to instrument it.
 
 ## Installation
 
-You need to install the `opentelemetry-instrumentation-asgi` package:
+Install `logfire` with the `asgi` extra:
 
-```bash
-pip install opentelemetry-instrumentation-asgi
-```
+{{ install_logfire(extras=['asgi']) }}
 
 ## Usage
 
@@ -17,7 +15,6 @@ Below we have a minimal example using [Uvicorn][uvicorn]. You can run it with `p
 
 ```py title="main.py"
 import logfire
-from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 
 
 logfire.configure()
@@ -34,7 +31,7 @@ async def app(scope, receive, send):
     )
     await send({"type": "http.response.body", "body": b"Hello, world!"})
 
-app = OpenTelemetryMiddleware(app)
+app = logfire.instrument_asgi(app)
 
 if __name__ == "__main__":
     import uvicorn
@@ -42,7 +39,9 @@ if __name__ == "__main__":
     uvicorn.run(app)
 ```
 
-You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-asgi].
+The keyword arguments of [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi] are passed to the
+[`OpenTelemetryMiddleware`][opentelemetry.instrumentation.asgi.OpenTelemetryMiddleware] class
+of the OpenTelemetry ASGI Instrumentation package.
 
 ## Excluding URLs from instrumentation
 <!-- note that this section is duplicated for different frameworks but with slightly different links -->
@@ -50,7 +49,7 @@ You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-a
 - [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
 
 !!! note
-    `OpenTelemetryMiddleware` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
+    `instrument_asgi` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
     unlike other instrumentations.
 
 ## Capturing request and response headers
@@ -60,5 +59,4 @@ You can read more about the OpenTelemetry ASGI middleware [here][opentelemetry-a
 - [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html#capture-http-request-and-response-headers)
 
 [asgi]: https://asgi.readthedocs.io/en/latest/
-[opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [uvicorn]: https://www.uvicorn.org/

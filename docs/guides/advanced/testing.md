@@ -29,7 +29,8 @@ numbers with `123` and file paths with just the filename.
 import pytest
 
 import logfire
-from logfire.testing import  CaptureLogfire
+from inline_snapshot import snapshot
+from logfire.testing import CaptureLogfire
 
 
 def test_observability(capfire: CaptureLogfire) -> None:
@@ -40,57 +41,58 @@ def test_observability(capfire: CaptureLogfire) -> None:
 
     exporter = capfire.exporter
 
-    # insert_assert(exporter.exported_spans_as_dict()) (1)
-    assert exporter.exported_spans_as_dict() == [
-        {
-            'name': 'a log!',
-            'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-            'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'start_time': 2000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 9,
-                'logfire.msg_template': 'a log!',
-                'logfire.msg': 'a log!',
-                'code.filepath': 'test.py',
-                'code.lineno': 123,
-                'code.function': 'test_observability',
+    assert exporter.exported_spans_as_dict() == snapshot(  # (1)!
+        [
+            {
+                'name': 'a log!',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'a log!',
+                    'logfire.msg': 'a log!',
+                    'code.filepath': 'test.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_observability',
+                },
             },
-        },
-        {
-            'name': 'a span!',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 4000000000,
-            'attributes': {
-                'code.filepath': 'test.py',
-                'code.lineno': 123,
-                'code.function': 'test_observability',
-                'logfire.msg_template': 'a span!',
-                'logfire.span_type': 'span',
-                'logfire.msg': 'a span!',
+            {
+                'name': 'a span!',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_observability',
+                    'logfire.msg_template': 'a span!',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'a span!',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 3000000000,
+                        'attributes': {
+                            'exception.type': 'Exception',
+                            'exception.message': 'an exception!',
+                            'exception.stacktrace': 'Exception: an exception!',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
             },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 3000000000,
-                    'attributes': {
-                        'exception.type': 'Exception',
-                        'exception.message': 'an exception!',
-                        'exception.stacktrace': 'Exception: an exception!',
-                        'exception.escaped': 'True',
-                    },
-                }
-            ],
-        },
-    ]
+        ]
+    )
 ```
 
-1. `insert_assert` is a utility function provided by [devtools](https://github.com/samuelcolvin/python-devtools).
+1. We use the [`inline_snapshot`][inline-snapshot] package to make it easy to write and update snapshots.
 
-    [See more about it below](#insert_assert).
+    [See more about it below](#inline_snapshot).
 
 You can access exported spans by `exporter.exported_spans`.
 
@@ -199,12 +201,27 @@ Note that we specifically configure:
 - `ns_timestamp_generator=TimeGenerator()` to make the timestamps deterministic
 - `processors=[SimpleSpanProcessor(exporter)]` to use our `TestExporter` to capture spans. We use `SimpleSpanProcessor` to export spans with no delay.
 
-### `insert_assert`
+### `inline_snapshot`
 
-This is a utility function provided by [devtools](https://github.com/samuelcolvin/python-devtools) that will
-automatically insert the output of the code it is called with into the test file when run via pytest.
-That is, if you comment that line out you'll see that the `assert capfire.exported_spans_as_dict() == [...]`
-line is replaced with the current output of `capfire.exported_spans_as_dict()`, which should
-be exactly the same given that our test is deterministic!
+This is a utility that makes it easy to write and update snapshots in your test files.
+
+If you run `pytest` with the `--inline-snapshot=fix` flag, it will update the snapshots in your
+test files to match the current output of the test.
+
+This is very useful for tests that are deterministic but have large outputs that are hard to write by hand.
+
+```sh
+pytest --inline-snapshot=fix
+```
+
+!!! note "Snapshotting"
+    Snapshotting is a powerful tool but it can be dangerous if you're not careful.
+    It's easy to accidentally overwrite a snapshot with the wrong data and not notice until much later.
+
+    Always review the changes to your snapshots before committing them.
+
+
+See the [inline-snapshot documentation][inline-snapshot] for more information.
 
 [in-memory-metric-reader]: https://opentelemetry-python.readthedocs.io/en/latest/sdk/metrics.export.html#opentelemetry.sdk.metrics.export.InMemoryMetricReader
+[inline-snapshot]: https://15r10nk.github.io/inline-snapshot/

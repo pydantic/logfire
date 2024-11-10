@@ -837,11 +837,7 @@ def test_config_serializable():
         console=logfire.ConsoleOptions(verbose=True),
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
-        code_source=logfire.CodeSource(
-            repository='https://github.com/pydantic/logfire',
-            revision='main',
-            root_path='.',
-        ),
+        code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -906,6 +902,10 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
         )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -937,6 +937,10 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
         create_project_response = {
             'json': {
@@ -989,6 +993,10 @@ def test_initialize_project_not_using_existing_project(
         stack.enter_context(request_mocker)
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/projects/',
@@ -1082,6 +1090,10 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
         )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
 
         create_existing_project_request_json = {
             'project_name': 'existingprojectname',
@@ -1126,8 +1138,12 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
         logfire.configure(send_to_logfire=True)
 
-        for request in request_mocker.request_history:
+        for request in request_mocker.request_history[:-1]:
             assert request.headers['Authorization'] == 'fake_user_token'
+
+        # we check that fake_token is valid now when we configure the project
+        wait_for_check_token_thread()
+        assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
         assert request_mocker.request_history[3].json() == create_reserved_project_request_json
@@ -1189,6 +1205,10 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/account/me',
@@ -1301,6 +1321,29 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
         del os.environ['LOGFIRE_TOKEN']
 
 
+def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text(
+        """
+        {
+            "token": "foobar",
+            "project_name": "myproject",
+            "project_url": "http://dash.localhost:8000/",
+            "logfire_api_url": "http://dash.localhost:8000/"
+        }
+        """
+    )
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'http://dash.localhost:8000/'},
+        )
+        configure(send_to_logfire='if-token-present', data_dir=tmp_path)
+        wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: http://dash.localhost:8000/\n'
+
+
 def test_load_creds_file_invalid_json_content(tmp_path: Path):
     creds_file = tmp_path / 'logfire_credentials.json'
     creds_file.write_text('invalid-data')
@@ -1355,9 +1398,11 @@ def test_initialize_credentials_from_token_invalid_token():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=401)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
+        )
 
-        with pytest.warns(match='Invalid Logfire token.'):
+        with pytest.warns(match='Logfire API returned status code 401. Detail: Invalid token'):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 
@@ -1368,7 +1413,7 @@ def test_initialize_credentials_from_token_unhealthy():
         request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
-            UserWarning, match='Logfire API is unhealthy, you may have trouble sending data. Status code: 500'
+            UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
@@ -1608,6 +1653,45 @@ def test_additional_metric_readers_combined_with_metrics():
         logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
 
 
+def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs, service_version='1.2.3', environment='production')
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_environment',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'service.version': '1.2.3',
+                        'deployment.environment.name': 'production',
+                    }
+                },
+            }
+        ]
+    )
+
+
 def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
     configure(
         **config_kwargs,
@@ -1647,6 +1731,55 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'logfire.code.root_path': 'logfire',
+                        'logfire.code.work_dir': os.getcwd(),
+                        'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
+                        'vcs.repository.ref.revision': 'main',
+                        'service.version': '1.2.3',
+                    }
+                },
+            }
+        ]
+    )
+
+
+def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(
+        **config_kwargs,
+        service_version='1.2.3',
+        code_source=CodeSource(
+            repository='https://github.com/pydantic/logfire',
+            revision='main',
+        ),
+    )
+
+    logfire.info('test1')
+
+    assert exporter.exported_spans_as_dict(include_resources=True) == snapshot(
+        [
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_code_source_without_root_path',
+                    'code.lineno': 123,
+                },
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
                         'service.version': '1.2.3',

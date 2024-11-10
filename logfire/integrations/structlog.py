@@ -21,7 +21,7 @@ RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
 
 
 class LogfireProcessor:
-    """Logfire processor for structlog."""
+    """Logfire processor for [structlog](../../integrations/structlog.md)."""
 
     def __init__(
         self,
