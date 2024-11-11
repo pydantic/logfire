@@ -101,7 +101,7 @@ class OpenaiChatCompletionStreamState(StreamState):
         except AssertionError:
             # AssertionError is raised when there is no completion snapshot
             # Return empty content to show an empty Assistant response in the UI
-            return {'combined_chunk_content': ''}
+            return {'combined_chunk_content': '', 'chunk_count': 0}
         return {
             'message': final_completion.choices[0].message if final_completion.choices else None,
             'usage': final_completion.usage,
