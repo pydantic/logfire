@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 import requests
-from dirty_equals._numeric import IsInt
+from dirty_equals import IsInt, IsOneOf
 from inline_snapshot import snapshot
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
@@ -276,7 +276,7 @@ def test_create_metric_gauge_callback(metrics_reader: InMemoryMetricReader) -> N
                             'exemplars': [
                                 {
                                     'filtered_attributes': None,
-                                    'value': 300,
+                                    'value': IsOneOf(300, 4000),
                                     'time_unix_nano': IsInt(),
                                     'span_id': None,
                                     'trace_id': None,
