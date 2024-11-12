@@ -489,26 +489,26 @@ class StrSubclass(str):
         ),
         pytest.param(
             MyModel(x='x', y=10, u=AnyUrl('http://test.com')),
-            "x='x' y=10 u=AnyUrl('http://test.com/')",
+            "x='x' y=10 u=Url('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/"}',
             {
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
-                'properties': {'u': {'type': 'string', 'x-python-datatype': 'AnyUrl'}},
+                'properties': {'u': {'type': 'string', 'x-python-datatype': 'Url'}},
             },
             id='pydantic_model',
         ),
         pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
-            "x='x' y=10 u=AnyUrl('http://test.com/')",
+            "x='x' y=10 u=Url('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/","extra_key":{"t":10}}',
             {
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
                 'properties': {
-                    'u': {'type': 'string', 'x-python-datatype': 'AnyUrl'},
+                    'u': {'type': 'string', 'x-python-datatype': 'Url'},
                     'extra_key': {
                         'type': 'object',
                         'title': 'MyDataclass',
