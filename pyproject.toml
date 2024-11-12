@@ -70,9 +70,6 @@ pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
-dev = [
-    "setuptools>=75.3.0",
-]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -152,6 +149,7 @@ dev = [
     "uvicorn>=0.30.6",
     "logfire-api",
     "requests",
+    "setuptools>=75.3.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
