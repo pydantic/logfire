@@ -3,6 +3,7 @@ name: Daily CI Job
 on:
   schedule:
     - cron: '0 12 * * *' # Daily at midnight UTC
+  pull_request: {} # temporary: run on PRs so we can test this workflow
 
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
