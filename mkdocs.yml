@@ -50,7 +50,7 @@ theme:
     - navigation.top # alternatively, we could do navigation.tabs.sticky
     - toc.follow
   logo: "logo-white.svg"
-  favicon: "favicon.svg"
+  favicon: "favicon.png"
 
 # https://www.mkdocs.org/user-guide/configuration/#validation
 validation:
@@ -252,6 +252,8 @@ plugins:
         "api/logfire.md": "reference/api/logfire.md"
         "api/testing.md": "reference/api/testing.md"
         "api/propagate.md": "reference/api/propagate.md"
+        "api/exceptions.md": "reference/api/exceptions.md"
+        "api/sampling.md": "reference/api/sampling.md"
         "api/integrations/structlog.md": "reference/api/logfire.md#logfire.StructlogProcessor"
         "api/integrations/pydantic.md": "reference/api/pydantic.md"
         "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
