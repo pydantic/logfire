@@ -1085,7 +1085,9 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_asyncpg(self, **kwargs)
 
-    def instrument_httpx(self, client: httpx.Client | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
+    def instrument_httpx(
+        self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]
+    ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
         Optionally, pass an `httpx.Client` instance to instrument only that client.

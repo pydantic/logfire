@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def instrument_httpx(
-    logfire_instance: Logfire, client: httpx.Client | None, **kwargs: Unpack[HTTPXInstrumentKwargs]
+    logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, **kwargs: Unpack[HTTPXInstrumentKwargs]
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
 
@@ -37,7 +37,7 @@ def instrument_httpx(
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **kwargs,
     }
-    del kwargs
+    del kwargs  # make sure only final_kwargs is used
     instrumentor = HTTPXClientInstrumentor()
     if client:
         instrumentor.instrument_client(
