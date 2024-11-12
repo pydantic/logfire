@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "logfire"
 version = "2.1.2"
-description = "The best Python observability tool! 🪵🔥"
+description = "The best Python observability tool!"
 requires-python = ">=3.8"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -70,6 +70,9 @@ pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
+dev = [
+    "setuptools>=75.3.0",
+]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -147,7 +150,6 @@ dev = [
     "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
     "uvicorn>=0.30.6",
-    # Logfire API
     "logfire-api",
     "requests",
 ]

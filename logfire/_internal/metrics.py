@@ -6,6 +6,7 @@ from threading import Lock
 from typing import Any, Generic, Sequence, TypeVar
 from weakref import WeakSet
 
+from opentelemetry.context import Context
 from opentelemetry.metrics import (
     CallbackT,
     Counter,
@@ -254,8 +255,9 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
+        context: Context | None = None,
     ) -> None:
-        self._instrument.add(amount, attributes)
+        self._instrument.add(amount, attributes, context)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(self._name, self._unit, self._description)
@@ -266,8 +268,9 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
+        context: Context | None = None,
     ) -> None:
-        self._instrument.record(amount, attributes)
+        self._instrument.record(amount, attributes, context)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(self._name, self._unit, self._description)
@@ -299,8 +302,9 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
+        context: Context | None = None,
     ) -> None:
-        self._instrument.add(amount, attributes)
+        self._instrument.add(amount, attributes, context)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
         return meter.create_up_down_counter(self._name, self._unit, self._description)
@@ -313,8 +317,9 @@ if Gauge is not None:  # pragma: no branch
             self,
             amount: int | float,
             attributes: Attributes | None = None,
+            context: Context | None = None,
         ) -> None:  # pragma: no cover
-            self._instrument.set(amount, attributes)
+            self._instrument.set(amount, attributes, context)
 
         def _create_real_instrument(self, meter: Meter):  # pragma: no cover
             return meter.create_gauge(self._name, self._unit, self._description)
