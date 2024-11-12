@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
-from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
@@ -83,29 +82,35 @@ class OpenaiCompletionStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
-class OpenaiChatCompletionStreamState(StreamState):
-    def __init__(self):
-        self._stream_state = ChatCompletionStreamState(
-            # We do not need the response to be parsed into Python objects so can skip
-            # providing the `response_format` and `input_tools` arguments.
-            input_tools=openai.NOT_GIVEN,
-            response_format=openai.NOT_GIVEN,
-        )
+try:
+    # ChatCompletionStreamState only exists in openai>=1.40.0
+    from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
-    def record_chunk(self, chunk: ChatCompletionChunk) -> None:
-        self._stream_state.handle_chunk(chunk)
+    class OpenaiChatCompletionStreamState(StreamState):
+        def __init__(self):
+            self._stream_state = ChatCompletionStreamState(
+                # We do not need the response to be parsed into Python objects so can skip
+                # providing the `response_format` and `input_tools` arguments.
+                input_tools=openai.NOT_GIVEN,
+                response_format=openai.NOT_GIVEN,
+            )
 
-    def get_response_data(self) -> Any:
-        try:
-            final_completion = self._stream_state.current_completion_snapshot
-        except AssertionError:
-            # AssertionError is raised when there is no completion snapshot
-            # Return empty content to show an empty Assistant response in the UI
-            return {'combined_chunk_content': '', 'chunk_count': 0}
-        return {
-            'message': final_completion.choices[0].message if final_completion.choices else None,
-            'usage': final_completion.usage,
-        }
+        def record_chunk(self, chunk: ChatCompletionChunk) -> None:
+            self._stream_state.handle_chunk(chunk)
+
+        def get_response_data(self) -> Any:
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                # AssertionError is raised when there is no completion snapshot
+                # Return empty content to show an empty Assistant response in the UI
+                return {'combined_chunk_content': '', 'chunk_count': 0}
+            return {
+                'message': final_completion.choices[0].message if final_completion.choices else None,
+                'usage': final_completion.usage,
+            }
+except ImportError:  # pragma: no cover
+    OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # type: ignore
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
