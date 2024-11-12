@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
@@ -25,15 +25,26 @@ if TYPE_CHECKING:
         skip_dep_check: bool
 
 
-def instrument_httpx(logfire_instance: Logfire, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
+def instrument_httpx(
+    logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, **kwargs: Unpack[HTTPXInstrumentKwargs]
+) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
 
     See the `Logfire.instrument_httpx` method for details.
     """
-    HTTPXClientInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
-        **{
-            'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        }
-    )
+    final_kwargs: dict[str, Any] = {
+        'tracer_provider': logfire_instance.config.get_tracer_provider(),
+        'meter_provider': logfire_instance.config.get_meter_provider(),
+        **kwargs,
+    }
+    del kwargs  # make sure only final_kwargs is used
+    instrumentor = HTTPXClientInstrumentor()
+    if client:
+        instrumentor.instrument_client(
+            client,
+            tracer_provider=final_kwargs['tracer_provider'],
+            request_hook=final_kwargs.get('request_hook'),
+            response_hook=final_kwargs.get('response_hook'),
+        )
+    else:
+        instrumentor.instrument(**final_kwargs)  # type: ignore[reportUnknownMemberType]

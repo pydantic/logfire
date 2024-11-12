@@ -8,15 +8,6 @@ import logfire
 from logfire.testing import TestExporter
 
 
-@pytest.fixture(autouse=True)  # only applies within this module
-def instrument_httpx():
-    logfire.instrument_httpx()
-    try:
-        yield
-    finally:
-        HTTPXClientInstrumentor().uninstrument()  # type: ignore
-
-
 @pytest.mark.anyio
 async def test_httpx_instrumentation(exporter: TestExporter):
     # The purpose of this mock transport is to ensure that the traceparent header is provided
@@ -30,7 +21,11 @@ async def test_httpx_instrumentation(exporter: TestExporter):
         assert span.context
         trace_id = span.context.trace_id
         with httpx.Client(transport=transport) as client:
-            response = client.get('https://example.org/')
+            logfire.instrument_httpx(client)
+            try:
+                response = client.get('https://example.org/')
+            finally:
+                HTTPXClientInstrumentor().uninstrument()  # type: ignore
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]

@@ -44,6 +44,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 0,
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': 2,
@@ -52,7 +53,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
             },
             {
                 'name': 'http.server.duration',
-                'description': 'Duration of HTTP server requests.',
+                'description': 'Measures the duration of inbound HTTP requests.',
                 'unit': 'ms',
                 'data': {
                     'data_points': [
@@ -77,6 +78,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                             'flags': 0,
                             'min': IsNumeric(),
                             'max': IsNumeric(),
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': 1,
@@ -107,6 +109,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                             'flags': 0,
                             'min': IsNumeric(),
                             'max': IsNumeric(),
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': 1,
