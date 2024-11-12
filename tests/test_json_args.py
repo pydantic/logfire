@@ -156,6 +156,9 @@ class StrSubclass(str):
     pass
 
 
+ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
+
+
 @pytest.mark.parametrize(
     'value,value_repr,value_json,json_schema',
     [
@@ -489,26 +492,26 @@ class StrSubclass(str):
         ),
         pytest.param(
             MyModel(x='x', y=10, u=AnyUrl('http://test.com')),
-            "x='x' y=10 u=AnyUrl('http://test.com/')",
+            f"x='x' y=10 u={ANYURL_REPR_CLASSNAME}('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/"}',
             {
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
-                'properties': {'u': {'type': 'string', 'x-python-datatype': 'AnyUrl'}},
+                'properties': {'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME}},
             },
             id='pydantic_model',
         ),
         pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
-            "x='x' y=10 u=AnyUrl('http://test.com/')",
+            f"x='x' y=10 u={ANYURL_REPR_CLASSNAME}('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/","extra_key":{"t":10}}',
             {
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
                 'properties': {
-                    'u': {'type': 'string', 'x-python-datatype': 'AnyUrl'},
+                    'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME},
                     'extra_key': {
                         'type': 'object',
                         'title': 'MyDataclass',
