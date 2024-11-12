@@ -1099,7 +1099,7 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
 
 def test_dont_suppress_httpx(exporter: TestExporter) -> None:
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor.instrument_client(httpx_client)
+        HTTPXClientInstrumentor().instrument_client(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
@@ -1160,7 +1160,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
 
 def test_suppress_httpx(exporter: TestExporter) -> None:
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor.instrument_client(httpx_client)
+        HTTPXClientInstrumentor().instrument_client(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
