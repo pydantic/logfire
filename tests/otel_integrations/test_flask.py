@@ -147,7 +147,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
 
 
 def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_client': None}):
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.flask': None}):
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.flask)
         assert str(exc_info.value) == snapshot("""\

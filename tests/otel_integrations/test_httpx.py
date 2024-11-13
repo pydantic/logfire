@@ -79,7 +79,7 @@ async def test_httpx_instrumentation(exporter: TestExporter):
 
 
 def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_client': None}):
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.httpx': None}):
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.httpx)
         assert str(exc_info.value) == snapshot("""\
