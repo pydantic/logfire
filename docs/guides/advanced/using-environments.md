@@ -19,6 +19,12 @@ main()
 Under the hood, this sets the otel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
 
+#### Setting Environments in Other Languages
+If you are using languages other than Python, you can set the environment like this:
+`OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=prod"`
+
+---
+
 Once set, you will see your environment in the Logfire UI `all envs` dropdown, which appears
 on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and [Explore](../web-ui/explore.md) pages:
 
@@ -44,5 +50,5 @@ environment name.
 ## Should I Use Environments or Projects?
 
 Environments are more lightweight than projects. Projects give you the ability to assign specific
-user groups and permissions levels (see this [organization structure diagram](docs/reference/organization-structure/) for details).
+user groups and permissions levels (see this [organization structure diagram](../../../reference/organization-structure/) for details).
 So if you need to allow different team members to view dev vs. prod traces, then projects would be a better fit.
