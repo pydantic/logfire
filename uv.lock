@@ -1387,7 +1387,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "2.1.2"
+version = "2.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -1648,7 +1648,7 @@ docs = [
 
 [[package]]
 name = "logfire-api"
-version = "2.1.2"
+version = "2.2.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
