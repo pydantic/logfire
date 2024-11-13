@@ -35,7 +35,7 @@ Note that by default there are system generated environments:
 - `all envs`: Searches will include all spans with any environment set
 - `not specified`: Searches will include all spans with no environment specified
 
-Any environments you create via the SDK will appear below the system generated envs. When you select an environment,
+Any environments you create via the SDK will appear below the system generated environments. When you select an environment,
 all subsequent queries (e.g. on live view, dashboards or explore) will filter by that environment.
 
 ## Can I Create an Environment in the UI?
