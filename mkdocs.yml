@@ -137,6 +137,7 @@ nav:
           - Third Party: integrations/third-party/index.md
           - Mirascope: integrations/third-party/mirascope.md
           - LiteLLM: integrations/third-party/litellm.md
+          - Magentic: integrations/third-party/magentic.md
       - Use Cases:
           - Web Frameworks: integrations/use-cases/web-frameworks.md
   - Reference:
