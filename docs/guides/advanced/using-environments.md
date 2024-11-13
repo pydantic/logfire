@@ -11,9 +11,7 @@ import logfire
 
 logfire.configure(environment='dev')
 
-from app.main import main
-
-main()
+logfire.info("Hi there!")
 ```
 
 Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
