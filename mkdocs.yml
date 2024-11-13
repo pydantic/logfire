@@ -103,6 +103,7 @@ nav:
           - Link to Code Source: guides/advanced/link-to-code-source.md
           - Testing: guides/advanced/testing.md
           - Backfill: guides/advanced/backfill.md
+          - Using Environments: guides/advanced/using-environments.md
   - Integrations:
       - Integrations: integrations/index.md
       - OpenTelemetry:
