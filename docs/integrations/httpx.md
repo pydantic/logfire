@@ -61,7 +61,6 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 
     asyncio.run(main())
-
     ```
 
 [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] uses the
