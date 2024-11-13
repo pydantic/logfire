@@ -3,7 +3,14 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING, Any
 
-from opentelemetry.instrumentation.redis import RedisInstrumentor
+try:
+    from opentelemetry.instrumentation.redis import RedisInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_redis()` requires the `opentelemetry-instrumentation-redis` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[redis]'"
+    )
 
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.utils import truncate_string

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+try:
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[httpx]'"
+    )
 
 from logfire import Logfire
 
