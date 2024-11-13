@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "logfire"
 version = "2.2.1"
-description = "The best Python observability tool!"
+description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
