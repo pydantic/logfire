@@ -1,4 +1,5 @@
 import anthropic
+import httpx
 import openai
 import opentelemetry.trace as trace_api
 from . import async_ as async_
@@ -529,8 +530,10 @@ class Logfire:
         """
     def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
-    def instrument_httpx(self, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
+    def instrument_httpx(self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
+
+        Optionally, pass an `httpx.Client` instance to instrument only that client.
 
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)

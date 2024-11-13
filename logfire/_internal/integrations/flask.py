@@ -3,7 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flask.app import Flask
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+try:
+    from opentelemetry.instrumentation.flask import FlaskInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_flask()` requires the `opentelemetry-instrumentation-flask` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[flask]'"
+    )
 
 from logfire import Logfire
 from logfire._internal.utils import maybe_capture_server_headers

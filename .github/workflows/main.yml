@@ -178,19 +178,11 @@ jobs:
         with:
           version_file_path: pyproject.toml
 
-      - run: uv build
+      - name: Build artifacts
+        run: uv build --all
 
-      - name: Publish logfire to PyPI
+      - name: Publish logfire and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-
-      - name: Build logfire-api
-        run: uv build
-        working-directory: logfire-api/
-
-      - name: Publish logfire-api to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: logfire-api/dist
           verbose: true

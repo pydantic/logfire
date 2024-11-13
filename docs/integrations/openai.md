@@ -4,7 +4,7 @@
 
 Logfire supports instrumenting calls to OpenAI with one extra line of code.
 
-```python hl_lines="6"
+```python hl_lines="7"
 import openai
 import logfire
 

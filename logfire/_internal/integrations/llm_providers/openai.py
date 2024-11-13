@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
@@ -10,7 +10,7 @@ from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 
-from .types import EndpointConfig
+from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
@@ -38,31 +38,28 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            content_from_stream=content_from_chat_completions,
+            stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            content_from_stream=content_from_completions,
+            stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            content_from_stream=None,
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
             span_data={'request_data': json_data},
-            content_from_stream=None,
         )
     else:
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
             span_data={'request_data': json_data, 'url': url},
-            content_from_stream=None,
         )
 
 
@@ -72,10 +69,48 @@ def content_from_completions(chunk: Completion | None) -> str | None:
     return None  # pragma: no cover
 
 
-def content_from_chat_completions(chunk: ChatCompletionChunk | None) -> str | None:
-    if chunk and chunk.choices:
-        return chunk.choices[0].delta.content
-    return None
+class OpenaiCompletionStreamState(StreamState):
+    def __init__(self):
+        self._content: list[str] = []
+
+    def record_chunk(self, chunk: Completion) -> None:
+        content = content_from_completions(chunk)
+        if content:
+            self._content.append(content)
+
+    def get_response_data(self) -> Any:
+        return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
+
+
+try:
+    # ChatCompletionStreamState only exists in openai>=1.40.0
+    from openai.lib.streaming.chat._completions import ChatCompletionStreamState
+
+    class OpenaiChatCompletionStreamState(StreamState):
+        def __init__(self):
+            self._stream_state = ChatCompletionStreamState(
+                # We do not need the response to be parsed into Python objects so can skip
+                # providing the `response_format` and `input_tools` arguments.
+                input_tools=openai.NOT_GIVEN,
+                response_format=openai.NOT_GIVEN,
+            )
+
+        def record_chunk(self, chunk: ChatCompletionChunk) -> None:
+            self._stream_state.handle_chunk(chunk)
+
+        def get_response_data(self) -> Any:
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                # AssertionError is raised when there is no completion snapshot
+                # Return empty content to show an empty Assistant response in the UI
+                return {'combined_chunk_content': '', 'chunk_count': 0}
+            return {
+                'message': final_completion.choices[0].message if final_completion.choices else None,
+                'usage': final_completion.usage,
+            }
+except ImportError:  # pragma: no cover
+    OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # type: ignore
 
 
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
