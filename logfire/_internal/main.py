@@ -15,7 +15,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import StatusCode, Tracer
+from opentelemetry.trace import SpanContext, StatusCode, Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -1862,6 +1862,10 @@ class LogfireSpan(ReadableSpan):
         """Sets the given attributes on the span."""
         for key, value in attributes.items():
             self.set_attribute(key, value)
+
+    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
+        if self._span is not None:  # pragma: no branch
+            return self._span.add_link(context, attributes)
 
     # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(
