@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+import importlib
 from typing import Any
+from unittest import mock
 
 import pytest
 import requests
@@ -6,6 +10,7 @@ from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import logfire
+import logfire._internal.integrations.requests
 from logfire.testing import TestExporter
 
 
@@ -77,3 +82,14 @@ async def test_requests_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.requests': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.requests)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_requests()` requires the `opentelemetry-instrumentation-requests` package.
+You can install this with:
+    pip install 'logfire[requests]'\
+""")

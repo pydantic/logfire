@@ -1,6 +1,13 @@
 from typing import Any, Optional
 
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
+try:
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_requests()` requires the `opentelemetry-instrumentation-requests` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[requests]'"
+    )
 
 from logfire import Logfire
 

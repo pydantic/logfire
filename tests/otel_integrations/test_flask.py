@@ -1,10 +1,15 @@
+import importlib
+from unittest import mock
+
 import opentelemetry.instrumentation.flask
+import pytest
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
 import logfire
+import logfire._internal.integrations.flask
 from logfire.testing import TestExporter, TimeGenerator
 
 
@@ -139,3 +144,14 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
             },
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.flask': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.flask)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_flask()` requires the `opentelemetry-instrumentation-flask` package.
+You can install this with:
+    pip install 'logfire[flask]'\
+""")
