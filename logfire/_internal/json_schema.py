@@ -20,6 +20,7 @@ import datetime
 import re
 import uuid
 from collections import deque
+from contextlib import suppress
 from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
@@ -350,9 +351,13 @@ def _properties(properties: dict[str, Any], seen: set[int]) -> JsonDict:
 
 
 def _custom_object_schema(obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int]) -> JsonDict:
+    properties: dict[str, Any] = {}
+    for key in keys:
+        with suppress(Exception):
+            properties[key] = getattr(obj, key)
     return {
         'type': 'object',
         'title': obj.__class__.__name__,
         'x-python-datatype': datatype_name,
-        **_properties({key: getattr(obj, key) for key in keys}, seen),
+        **_properties(properties, seen),
     }
