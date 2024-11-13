@@ -4,7 +4,7 @@ via the `logfire.configure()` function. If you find yourself wanting to distingu
 Instead you can use the environments feature, which is a special kind of resource attribute applied to the whole payload received by Logfire.
 This attribute says which environment the payload comes from.
 
-You can set a Logfire environment via the SDK `logfire.configure` function:
+You can set the environment for your project when calling `logfire.configure`:
 
 ```py title="main.py"
 import logfire
