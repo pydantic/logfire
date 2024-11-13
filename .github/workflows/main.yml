@@ -181,7 +181,7 @@ jobs:
       - name: Build artifacts
         run: uv build --all
 
-      - name: Publish logfire-api to PyPI
+      - name: Publish logfire and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
