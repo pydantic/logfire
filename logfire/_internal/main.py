@@ -154,6 +154,7 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
+        _links: Sequence[trace_api.Link] = (),
     ) -> LogfireSpan:
         try:
             stack_info = get_user_stack_info()
@@ -200,6 +201,7 @@ class Logfire:
                 otlp_attributes,
                 self._spans_tracer,
                 json_schema_properties,
+                links=_links,
             )
         except Exception:
             log_internal_error()
@@ -492,6 +494,7 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
+        _links: Sequence[trace_api.Link] = (),
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -510,6 +513,7 @@ class Logfire:
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
+            _links: An optional sequence of links to include in the span.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -521,6 +525,7 @@ class Logfire:
             _tags=_tags,
             _span_name=_span_name,
             _level=_level,
+            _links=_links,
         )
 
     def instrument(
@@ -1751,11 +1756,13 @@ class LogfireSpan(ReadableSpan):
         otlp_attributes: dict[str, otel_types.AttributeValue],
         tracer: Tracer,
         json_schema_properties: JsonSchemaProperties,
+        links: Sequence[trace_api.Link] = (),
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._json_schema_properties = json_schema_properties
+        self._links = links
 
         self._added_attributes = False
         self._end_on_exit: bool | None = None
@@ -1775,6 +1782,7 @@ class LogfireSpan(ReadableSpan):
                 self._span = self._tracer.start_span(
                     name=self._span_name,
                     attributes=self._otlp_attributes,
+                    links=self._links,
                 )
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
