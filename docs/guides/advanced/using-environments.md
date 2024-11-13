@@ -16,7 +16,7 @@ from app.main import main
 main()
 ```
 
-Under the hood, this sets the otel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
+Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
 
 Once set, you will see your environment in the Logfire UI `all envs` dropdown, which appears
