@@ -222,6 +222,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
+                            'exemplars': [],
                         },
                         {
                             'attributes': {
@@ -232,6 +233,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
+                            'exemplars': [],
                         },
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -274,6 +276,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 3,
+                            'exemplars': [],
                         },
                         {
                             'attributes': {
@@ -284,6 +287,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 2,
+                            'exemplars': [],
                         },
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -345,6 +349,15 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': {},
+                                    'value': 1,
+                                    'time_unix_nano': IsInt(),
+                                    'span_id': 1,
+                                    'trace_id': 1,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -430,6 +443,7 @@ def test_pydantic_plugin_python_error_record_failure(
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 2,
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -1235,6 +1249,7 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
                                 'start_time_unix_nano': IsInt(gt=0),
                                 'time_unix_nano': IsInt(gt=0),
                                 'value': 1,
+                                'exemplars': [],
                             }
                         ],
                         'aggregation_temporality': 1,

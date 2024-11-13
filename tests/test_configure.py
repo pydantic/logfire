@@ -902,6 +902,10 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
         )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -934,6 +938,10 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
             'https://logfire-api.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
         )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -961,6 +969,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
             ),
         ]
+        wait_for_check_token_thread()
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
@@ -985,6 +994,10 @@ def test_initialize_project_not_using_existing_project(
         stack.enter_context(request_mocker)
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/projects/',
@@ -1015,6 +1028,7 @@ def test_initialize_project_not_using_existing_project(
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
             ),
         ]
+        wait_for_check_token_thread()
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
@@ -1078,6 +1092,10 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
         )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
 
         create_existing_project_request_json = {
             'project_name': 'existingprojectname',
@@ -1122,8 +1140,12 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
         logfire.configure(send_to_logfire=True)
 
-        for request in request_mocker.request_history:
+        for request in request_mocker.request_history[:-1]:
             assert request.headers['Authorization'] == 'fake_user_token'
+
+        # we check that fake_token is valid now when we configure the project
+        wait_for_check_token_thread()
+        assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
         assert request_mocker.request_history[3].json() == create_reserved_project_request_json
@@ -1185,6 +1207,10 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/account/me',
@@ -1272,6 +1298,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
         side_effect=RuntimeError,
     ), requests_mock.Mocker() as requests_mocker:
         configure(console=False)
+        wait_for_check_token_thread()
     assert len(requests_mocker.request_history) == 0
 
 
@@ -1295,6 +1322,29 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
             assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
     finally:
         del os.environ['LOGFIRE_TOKEN']
+
+
+def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text(
+        """
+        {
+            "token": "foobar",
+            "project_name": "myproject",
+            "project_url": "http://dash.localhost:8000/",
+            "logfire_api_url": "http://dash.localhost:8000/"
+        }
+        """
+    )
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'http://dash.localhost:8000/'},
+        )
+        configure(send_to_logfire='if-token-present', data_dir=tmp_path)
+        wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: http://dash.localhost:8000/\n'
 
 
 def test_load_creds_file_invalid_json_content(tmp_path: Path):

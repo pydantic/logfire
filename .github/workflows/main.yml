@@ -22,11 +22,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.12"
+          version: "0.4.30"
           enable-cache: true
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
 
       - name: Install dependencies
         run: uv sync --python 3.12 --frozen
@@ -42,13 +39,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.12"
+          version: "0.4.30"
           enable-cache: true
 
-      - name: Set up Python 3.12
-        run: uv python install 3.12
-
-      - run: uv sync --python 3.12 --frozen
+      - run: uv sync --python 3.12 --frozen --group docs
       - run: uv pip install --upgrade mkdocs-material mkdocstrings-python griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
@@ -66,9 +60,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-        # TODO revert to main once pydantic main is fixed, see
-        # https://pydantic.slack.com/archives/C04SY6R5H4Z/p1729778139673149
-        pydantic-version: ['2.9']
+        pydantic-version: ['main']
         include:
             - python-version: '3.12'
               pydantic-version: '2.4'
@@ -80,8 +72,8 @@ jobs:
               pydantic-version: '2.7'
             - python-version: '3.12'
               pydantic-version: '2.8'
-#            - python-version: '3.12'
-#              pydantic-version: '2.9'
+            - python-version: '3.12'
+              pydantic-version: '2.9'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -97,13 +89,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.12"
+          version: "0.4.30"
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
-      - run: uv sync --python ${{ matrix.python-version }} --upgrade
+      - run: uv sync --python ${{ matrix.python-version }}
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
         if: matrix.pydantic-version != 'main'
@@ -130,11 +119,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.12"
+          version: "0.4.30"
           enable-cache: true
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
 
       - name: Create venv
         run: uv venv --python 3.12
@@ -181,7 +167,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.12"
+          version: "0.4.30"
           enable-cache: true
 
       - name: Set up Python 3.12
