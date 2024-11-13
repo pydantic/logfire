@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v2.2.1] (2024-11-13)
+
+* Ignore trivial/empty functions in auto-tracing by @alexmojaki in [#596](https://github.com/pydantic/logfire/pull/596)
+* Handle missing attributes in `_custom_object_schema` by @alexmojaki in [#597](https://github.com/pydantic/logfire/pull/597)
+* Let user know what they should install for integrations by @Kludex in [#593](https://github.com/pydantic/logfire/pull/593)
+
 ## [v2.2.0] (2024-11-13)
 
 * Allow instrumenting a single httpx client by @alexmojaki in [#575](https://github.com/pydantic/logfire/pull/575)
@@ -412,3 +418,4 @@ First release from new repo!
 [v2.1.1]: https://github.com/pydantic/logfire/compare/v2.1.0...v2.1.1
 [v2.1.2]: https://github.com/pydantic/logfire/compare/v2.1.1...v2.1.2
 [v2.2.0]: https://github.com/pydantic/logfire/compare/v2.1.2...v2.2.0
+[v2.2.1]: https://github.com/pydantic/logfire/compare/v2.2.0...v2.2.1
