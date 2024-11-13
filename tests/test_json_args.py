@@ -5,7 +5,7 @@ import re
 import sys
 from collections import deque
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
@@ -69,6 +69,12 @@ class MyComplexDataclass:
 @pydantic_dataclass(config=pydantic_model_config)
 class MyPydanticComplexDataclass:
     t: MyPydanticDataclass
+
+
+@dataclass
+class MyReprDataclass:
+    in_repr: int
+    not_in_repr: int = field(repr=False)
 
 
 class MySQLModel(SQLModel):
@@ -576,6 +582,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 },
             },
             id='pydantic_complex_dataclass',
+        ),
+        pytest.param(
+            MyReprDataclass(in_repr=1, not_in_repr=2),
+            'MyReprDataclass(in_repr=1)',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprDataclass', 'x-python-datatype': 'dataclass'},
+            id='repr_dataclass',
         ),
         pytest.param(
             ValueError('Test value error'),
