@@ -21,6 +21,17 @@ from logfire.testing import TestExporter
 pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Redis testcontainers has problems in 3.8')
 
 
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.celery': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.celery)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_celery()` requires the `opentelemetry-instrumentation-celery` package.
+You can install this with:
+    pip install 'logfire[celery]'\
+""")
+
+
 @pytest.fixture(scope='module', autouse=True)
 def redis_container() -> Generator[RedisContainer, None, None]:
     with RedisContainer('redis:latest') as redis:
@@ -99,14 +110,3 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
             },
         ]
     )
-
-
-def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.celery': None}):
-        with pytest.raises(RuntimeError) as exc_info:
-            importlib.reload(logfire._internal.integrations.celery)
-        assert str(exc_info.value) == snapshot("""\
-`logfire.instrument_celery()` requires the `opentelemetry-instrumentation-celery` package.
-You can install this with:
-    pip install 'logfire[celery]'\
-""")
