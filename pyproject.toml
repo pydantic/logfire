@@ -231,7 +231,8 @@ exclude = [
     "out",
     "logfire-api",
 ]
-venvPath = ".venv"
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
