@@ -4,19 +4,17 @@ via the `logfire.configure()` function. If you find yourself wanting to distingu
 Instead you can use the environments feature, which is a special kind of resource attribute applied to the whole payload received by Logfire.
 This attribute says which environment the payload comes from.
 
-You can set a Logfire environment via the SDK `logfire.configure` function:
+You can set the environment for your project when calling `logfire.configure`:
 
 ```py title="main.py"
 import logfire
 
 logfire.configure(environment='dev')
 
-from app.main import main
-
-main()
+logfire.info("Hi there!")
 ```
 
-Under the hood, this sets the otel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
+Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
 
 #### Setting Environments in Other Languages
@@ -35,7 +33,7 @@ Note that by default there are system generated environments:
 - `all envs`: Searches will include all spans with any environment set
 - `not specified`: Searches will include all spans with no environment specified
 
-Any environments you create via the SDK will appear below the system generated envs. When you select an environment,
+Any environments you create via the SDK will appear below the system generated environments. When you select an environment,
 all subsequent queries (e.g. on live view, dashboards or explore) will filter by that environment.
 
 ## Can I Create an Environment in the UI?
