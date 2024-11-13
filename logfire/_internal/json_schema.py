@@ -170,7 +170,9 @@ EXCLUDE_KEYS = STACK_INFO_KEYS | {ATTRIBUTES_SCRUBBED_KEY}
 def _dataclass_schema(obj: Any, seen: set[int]) -> JsonDict:
     # NOTE: The `x-python-datatype` is "dataclass" for both standard dataclasses and Pydantic dataclasses.
     # We don't need to distinguish between them on the frontend, or to reconstruct the type on the JSON formatter.
-    return _custom_object_schema(obj, 'dataclass', (field.name for field in dataclasses.fields(obj)), seen)
+    return _custom_object_schema(
+        obj, 'dataclass', (field.name for field in dataclasses.fields(obj) if field.repr), seen
+    )
 
 
 def _bytes_schema(obj: bytes, _seen: set[int]) -> JsonDict:

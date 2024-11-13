@@ -74,7 +74,7 @@ class MyPydanticComplexDataclass:
 @dataclass
 class MyReprDataclass:
     in_repr: int
-    not_in_repr: int = field(repr=False)
+    not_in_repr: MyDataclass = field(repr=False)
 
 
 class MySQLModel(SQLModel):
@@ -584,7 +584,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='pydantic_complex_dataclass',
         ),
         pytest.param(
-            MyReprDataclass(in_repr=1, not_in_repr=2),
+            MyReprDataclass(in_repr=1, not_in_repr=MyDataclass(t=2)),
             'MyReprDataclass(in_repr=1)',
             '{"in_repr":1}',
             {'type': 'object', 'title': 'MyReprDataclass', 'x-python-datatype': 'dataclass'},
