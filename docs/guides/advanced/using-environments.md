@@ -34,8 +34,10 @@ on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and
 
 Note that by default there are system generated environments:
 
-- `all envs`: Searches will include all spans with any environment set
-- `not specified`: Searches will include all spans with no environment specified
+- `all envs`: Searches will include everything, including spans that had no environment set.
+- `not specified`: Searches will *only* include spans that had no environment set
+
+So `not specified` is a subset of `all envs`.
 
 Any environments you create via the SDK will appear below the system generated environments.
 When you select an environment, all subsequent queries (e.g. on live view, dashboards or explore)
