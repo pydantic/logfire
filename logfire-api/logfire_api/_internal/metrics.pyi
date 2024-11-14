@@ -5,7 +5,8 @@ from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge
 from opentelemetry.util.types import Attributes
 from threading import Lock
-from typing import Any, Generic, Sequence, TypeVar
+from typing import Any, Generic, Sequence, TypeVar, TypedDict
+from typing_extensions import Unpack
 from weakref import WeakSet
 
 Gauge: Incomplete
@@ -37,6 +38,15 @@ class _ProxyMeter(Meter):
     def create_observable_up_down_counter(self, name: str, callbacks: Sequence[CallbackT] | None = None, unit: str = '', description: str = '') -> ObservableUpDownCounter: ...
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
 
+class MaybeContext(TypedDict, total=False):
+    """Backward-compatible keyword arguments for methods like `Counter.add`.
+
+    Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
+    This is passed to the underlying instrument using `**kwargs` for compatibility with older versions.
+    This is the type hint for those kwargs.
+    """
+    context: Context | None
+
 class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def __init__(self, instrument: InstrumentT, name: str, unit: str, description: str) -> None: ...
     def on_meter_set(self, meter: Meter) -> None:
@@ -46,17 +56,17 @@ class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
     def __init__(self, instrument: InstrumentT, name: str, callbacks: Sequence[CallbackT] | None, unit: str, description: str) -> None: ...
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
-    def add(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None) -> None: ...
+    def add(self, amount: int | float, attributes: Attributes | None = None, **kwargs: Unpack[MaybeContext]) -> None: ...
 
 class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
-    def record(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None) -> None: ...
+    def record(self, amount: int | float, attributes: Attributes | None = None, **kwargs: Unpack[MaybeContext]) -> None: ...
 
 class _ProxyObservableCounter(_ProxyAsynchronousInstrument[ObservableCounter], ObservableCounter): ...
 class _ProxyObservableGauge(_ProxyAsynchronousInstrument[ObservableGauge], ObservableGauge): ...
 class _ProxyObservableUpDownCounter(_ProxyAsynchronousInstrument[ObservableUpDownCounter], ObservableUpDownCounter): ...
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
-    def add(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None) -> None: ...
+    def add(self, amount: int | float, attributes: Attributes | None = None, **kwargs: Unpack[MaybeContext]) -> None: ...
 
 class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
-    def set(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None) -> None: ...
+    def set(self, amount: int | float, attributes: Attributes | None = None, **kwargs: Unpack[MaybeContext]) -> None: ...

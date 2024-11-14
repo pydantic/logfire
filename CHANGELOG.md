@@ -1,5 +1,17 @@
 # Release Notes
 
+## [v2.3.0] (2024-11-14)
+
+* Daily CI with unpinned deps by @sydney-runkle in [#583](https://github.com/pydantic/logfire/pull/583)
+* Add old description back by @Kludex in [#588](https://github.com/pydantic/logfire/pull/588)
+* Respect repr on fields when logging a dataclass by @dmontagu in [#592](https://github.com/pydantic/logfire/pull/592)
+* PYD-1399: Add environments documentation by @ChristopherGS in [#591](https://github.com/pydantic/logfire/pull/591)
+* fix code block indentation by @ChristopherGS in [#601](https://github.com/pydantic/logfire/pull/601)
+* Fix environment docs by @Kludex in [#602](https://github.com/pydantic/logfire/pull/602)
+* Allow `extract_args` to be an iterable of argument names by @alexmojaki in [#570](https://github.com/pydantic/logfire/pull/570)
+* Make metric instrument methods compatible with older OTel versions by @alexmojaki in [#600](https://github.com/pydantic/logfire/pull/600)
+* Add span links by @Kludex in [#587](https://github.com/pydantic/logfire/pull/587)
+
 ## [v2.2.1] (2024-11-13)
 
 * Ignore trivial/empty functions in auto-tracing by @alexmojaki in [#596](https://github.com/pydantic/logfire/pull/596)
@@ -419,3 +431,4 @@ First release from new repo!
 [v2.1.2]: https://github.com/pydantic/logfire/compare/v2.1.1...v2.1.2
 [v2.2.0]: https://github.com/pydantic/logfire/compare/v2.1.2...v2.2.0
 [v2.2.1]: https://github.com/pydantic/logfire/compare/v2.2.0...v2.2.1
+[v2.3.0]: https://github.com/pydantic/logfire/compare/v2.2.1...v2.3.0
