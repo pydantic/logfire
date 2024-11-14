@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+try:
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_sqlalchemy()` requires the `opentelemetry-instrumentation-sqlalchemy` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[sqlalchemy]'"
+    )
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine

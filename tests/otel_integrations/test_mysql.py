@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 import sys
+from unittest import mock
 
 import mysql.connector
 import pytest
@@ -10,6 +12,7 @@ from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from testcontainers.mysql import MySqlContainer
 
 import logfire
+import logfire._internal.integrations.mysql
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='MySQL testcontainers has problems in 3.8')
@@ -116,3 +119,14 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
             cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
 
         assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.mysql': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.mysql)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_mysql()` requires the `opentelemetry-instrumentation-mysql` package.
+You can install this with:
+    pip install 'logfire[mysql]'\
+""")

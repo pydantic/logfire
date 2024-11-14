@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import importlib
 import sys
 from typing import Any, Iterator
+from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
@@ -9,6 +13,7 @@ from redis import Connection, Redis
 from testcontainers.redis import RedisContainer
 
 import logfire
+import logfire._internal.integrations.redis
 from logfire.testing import TestExporter
 
 # TODO find a better solution
@@ -158,3 +163,14 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
             }
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.redis': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.redis)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_redis()` requires the `opentelemetry-instrumentation-redis` package.
+You can install this with:
+    pip install 'logfire[redis]'\
+""")
