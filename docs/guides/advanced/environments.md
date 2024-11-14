@@ -1,14 +1,16 @@
-As a developer, we find ourselves working on different environments for a project: local, production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅
+As a developer, we find ourselves working on different environments for a project: local,
+production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅
 
 With **Logfire** you can distinguish which environment you are sending data to.
-You just need to set the `environment` parameter in [`logfire.configure()`][logfire.configure]
+You just need to set the `environment` parameter in [`logfire.configure()`][logfire.configure(environment)].
 
 ```py title="main.py"
 import logfire
 
-logfire.configure(environment='local')  # (1)
+logfire.configure(environment='local')  # (1)!
 ```
-(1) Usually you would retrieve the environment information from an environment variable.
+
+1. Usually you would retrieve the environment information from an environment variable.
 
 Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
@@ -28,7 +30,7 @@ on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and
 Note that by default there are system generated environments:
 
 - `all envs`: Searches will include everything, including spans that had no environment set.
-- `not specified`: Searches will *only* include spans that had no environment set
+- `not specified`: Searches will *only* include spans that had no environment set.
 
 So `not specified` is a subset of `all envs`.
 
