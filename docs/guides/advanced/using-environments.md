@@ -48,5 +48,5 @@ environment name.
 ## Should I Use Environments or Projects?
 
 Environments are more lightweight than projects. Projects give you the ability to assign specific
-user groups and permissions levels (see this [organization structure diagram](../../../reference/organization-structure/) for details).
+user groups and permissions levels (see this [organization structure diagram](../../reference/organization-structure.md) for details).
 So if you need to allow different team members to view dev vs. prod traces, then projects would be a better fit.
