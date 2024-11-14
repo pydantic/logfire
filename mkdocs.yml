@@ -93,7 +93,7 @@ nav:
           - SQL Explorer: guides/web-ui/explore.md
       - Advanced User Guide:
           - Advanced User Guide: guides/advanced/index.md
-          - Using Environments: guides/advanced/using-environments.md
+          - Environments: guides/advanced/environments.md
           - Alternative Clients: guides/advanced/alternative-clients.md
           - Alternative Backends: guides/advanced/alternative-backends.md
           - Sampling: guides/advanced/sampling.md

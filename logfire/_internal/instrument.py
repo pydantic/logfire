@@ -6,7 +6,7 @@ import inspect
 import warnings
 from collections.abc import Sequence
 from contextlib import asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, TypeVar
 
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
@@ -47,7 +47,7 @@ def instrument(
     tags: Sequence[str],
     msg_template: LiteralString | None,
     span_name: str | None,
-    extract_args: bool,
+    extract_args: bool | Iterable[str],
     allow_generator: bool,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
@@ -58,19 +58,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
-
-        if extract_args:
-            sig = inspect.signature(func)
-
-            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                return logfire._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, sig.bind(*func_args, **func_kwargs).arguments
-                )
-        else:
-
-            def open_span(*_: P.args, **__: P.kwargs):
-                return logfire._fast_span(final_span_name, attributes)  # type: ignore
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -110,6 +98,61 @@ def instrument(
         return wrapper
 
     return decorator
+
+
+def get_open_span(
+    logfire: Logfire,
+    attributes: dict[str, otel_types.AttributeValue],
+    span_name: str | None,
+    extract_args: bool | Iterable[str],
+    func: Callable[P, R],
+) -> Callable[P, ContextManager[Any]]:
+    final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+
+    # This is the fast case for when there are no arguments to extract
+    def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
+        return logfire._fast_span(final_span_name, attributes)  # type: ignore
+
+    if extract_args is True:
+        sig = inspect.signature(func)
+        if sig.parameters:  # only extract args if there are any
+
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                args_dict = sig.bind(*func_args, **func_kwargs).arguments
+                return logfire._instrument_span_with_args(  # type: ignore
+                    final_span_name, attributes, args_dict
+                )
+
+        return open_span
+
+    if extract_args:  # i.e. extract_args should be an iterable of argument names
+        sig = inspect.signature(func)
+
+        if isinstance(extract_args, str):
+            extract_args = [extract_args]
+
+        extract_args_final = uniquify_sequence(list(extract_args))
+        missing = set(extract_args_final) - set(sig.parameters)
+        if missing:
+            extract_args_final = [arg for arg in extract_args_final if arg not in missing]
+            warnings.warn(
+                f'Ignoring missing arguments to extract: {", ".join(sorted(missing))}',
+                stacklevel=3,
+            )
+
+        if extract_args_final:  # check that there are still arguments to extract
+
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                args_dict = sig.bind(*func_args, **func_kwargs).arguments
+
+                # This line is the only difference from the extract_args=True case
+                args_dict = {k: args_dict[k] for k in extract_args_final}
+
+                return logfire._instrument_span_with_args(  # type: ignore
+                    final_span_name, attributes, args_dict
+                )
+
+    return open_span
 
 
 def get_attributes(
