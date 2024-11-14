@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Any, Generic, Sequence, TypeVar
+from typing import Any, Generic, Sequence, TypedDict, TypeVar, Unpack
 from weakref import WeakSet
 
 from opentelemetry.context import Context
@@ -212,6 +212,17 @@ class _ProxyMeter(Meter):
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
 
 
+class MaybeContext(TypedDict, total=False):
+    """Backward-compatible keyword arguments for methods like `Counter.add`.
+
+    Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
+    This is passed to the underlying instrument using `**kwargs` for compatibility with older versions.
+    This is the type hint for those kwargs.
+    """
+
+    context: Context | None
+
+
 class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def __init__(
         self,
@@ -251,26 +262,26 @@ class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
 
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
-    def add(
+    def add(  # type: ignore
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        context: Context | None = None,
+        **kwargs: Unpack[MaybeContext],
     ) -> None:
-        self._instrument.add(amount, attributes, context)
+        self._instrument.add(amount, attributes, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(self._name, self._unit, self._description)
 
 
 class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
-    def record(
+    def record(  # type: ignore
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        context: Context | None = None,
+        **kwargs: Unpack[MaybeContext],
     ) -> None:
-        self._instrument.record(amount, attributes, context)
+        self._instrument.record(amount, attributes, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(self._name, self._unit, self._description)
@@ -298,13 +309,13 @@ class _ProxyObservableUpDownCounter(
 
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
-    def add(
+    def add(  # type: ignore
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        context: Context | None = None,
+        **kwargs: Unpack[MaybeContext],
     ) -> None:
-        self._instrument.add(amount, attributes, context)
+        self._instrument.add(amount, attributes, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
         return meter.create_up_down_counter(self._name, self._unit, self._description)
@@ -313,13 +324,13 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
 if Gauge is not None:  # pragma: no branch
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
-        def set(
+        def set(  # type: ignore
             self,
             amount: int | float,
             attributes: Attributes | None = None,
-            context: Context | None = None,
+            **kwargs: Unpack[MaybeContext],
         ) -> None:  # pragma: no cover
-            self._instrument.set(amount, attributes, context)
+            self._instrument.set(amount, attributes, **kwargs)
 
         def _create_real_instrument(self, meter: Meter):  # pragma: no cover
             return meter.create_gauge(self._name, self._unit, self._description)
