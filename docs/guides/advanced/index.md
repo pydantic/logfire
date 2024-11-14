@@ -4,3 +4,4 @@
 * **[Backfill](backfill.md):** Recover lost data and bulk load historical data into Logfire with the `logfire backfill` command, ensuring data continuity.
 * **[Creating Write Tokens](creating-write-tokens.md):** Generate and manage multiple write tokens for different services.
 * **[Using Read Tokens](query-api.md):** Generate and manage read tokens for programmatic querying of your Logfire data.
+* **[Using Environments](using-environments.md):** Group data between environments (e.g. dev, staging, prod) within a project.
