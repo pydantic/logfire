@@ -111,9 +111,7 @@ def get_open_span(
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        return logfire._fast_span(  # type: ignore
-            final_span_name, attributes
-        )
+        return logfire._fast_span(final_span_name, attributes)  # type: ignore
 
     if extract_args is True:
         sig = inspect.signature(func)
