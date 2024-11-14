@@ -80,6 +80,19 @@ class BaseTransformer(ast.NodeTransformer):
             # so it's still recognized as a docstring.
             new_body.append(body.pop(0))
 
+        # Ignore functions with a trivial/empty body:
+        # - If `body` is empty, that means it originally was just a docstring that got popped above.
+        # - If `body` is just a single `pass` statement
+        # - If `body` is just a constant expression, particularly an ellipsis (`...`)
+        if not body or (
+            len(body) == 1
+            and (
+                isinstance(body[0], ast.Pass)
+                or (isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant))
+            )
+        ):
+            return node
+
         span = ast.With(
             items=[
                 ast.withitem(

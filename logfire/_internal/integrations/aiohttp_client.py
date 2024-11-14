@@ -1,7 +1,13 @@
 from typing import Any
 
-from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
-
+try:
+    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_aiohttp_client()` requires the `opentelemetry-instrumentation-aiohttp-client` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[aiohttp]'"
+    )
 from logfire import Logfire
 
 

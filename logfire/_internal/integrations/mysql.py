@@ -2,8 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from opentelemetry.trace import TracerProvider
+
+try:
+    from opentelemetry.instrumentation.mysql import MySQLInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_mysql()` requires the `opentelemetry-instrumentation-mysql` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[mysql]'"
+    )
 
 if TYPE_CHECKING:
     from mysql.connector.abstracts import MySQLConnectionAbstract
