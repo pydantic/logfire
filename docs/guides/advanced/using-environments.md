@@ -3,11 +3,11 @@ As a developer, we find ourselves working on different environments for a projec
 With **Logfire** you can distinguish which environment you are sending data to.
 You just need to set the `environment` parameter in [`logfire.configure()`][logfire.configure]
 
-    ```py title="main.py"
-    import logfire
+```py title="main.py"
+import logfire
 
-    logfire.configure(environment='local')  # (1)!
-    ```
+logfire.configure(environment='local')  # (1)
+```
 (1) Usually you would retrieve the environment information from an environment variable.
 
 Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
