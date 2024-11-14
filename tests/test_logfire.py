@@ -2198,6 +2198,119 @@ def test_invalid_log_level(exporter: TestExporter):
     )
 
 
+def test_span_links(exporter: TestExporter):
+    with logfire.span('first span') as span:
+        first_context = span.context
+
+    with logfire.span('second span') as span:
+        second_context = span.context
+
+    assert first_context
+    assert second_context
+    with logfire.span('foo', _links=[(first_context, None)]) as span:
+        span.add_link(second_context)
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
+        [
+            {
+                'name': 'foo (pending)',
+                'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_links',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_links',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'links': [
+                    {
+                        'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                        'attributes': {},
+                    },
+                    {
+                        'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                        'attributes': {},
+                    },
+                ],
+            },
+        ]
+    )
+
+
+def test_span_add_link_before_start(exporter: TestExporter):
+    with logfire.span('first span') as span:
+        context = span.context
+
+    assert context
+    span = logfire.span('foo')
+    span.add_link(context)
+
+    with span:
+        pass
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'first span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'first span',
+                    'logfire.msg': 'first span',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'links': [
+                    {
+                        'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                        'attributes': {},
+                    }
+                ],
+            },
+        ]
+    )
+
+
 GLOBAL_VAR = 1
 
 

@@ -88,11 +88,15 @@ class TestExporter(SpanExporter):
                 attributes['telemetry.sdk.version'] = '0.0.0'
             return attributes
 
+        def build_context(context: trace.SpanContext) -> dict[str, Any]:
+            return {'trace_id': context.trace_id, 'span_id': context.span_id, 'is_remote': context.is_remote}
+
+        def build_link(link: trace.Link) -> dict[str, Any]:
+            context = link.context or trace.INVALID_SPAN_CONTEXT
+            return {'context': build_context(context), 'attributes': build_attributes(link.attributes)}
+
         def build_event(event: Event) -> dict[str, Any]:
-            res: dict[str, Any] = {
-                'name': event.name,
-                'timestamp': event.timestamp,
-            }
+            res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
                 if SpanAttributes.EXCEPTION_STACKTRACE in attributes:
@@ -116,23 +120,15 @@ class TestExporter(SpanExporter):
             context = span.context or trace.INVALID_SPAN_CONTEXT
             res: dict[str, Any] = {
                 'name': span.name,
-                'context': {
-                    'trace_id': context.trace_id,
-                    'span_id': context.span_id,
-                    'is_remote': context.is_remote,
-                },
-                'parent': {
-                    'trace_id': span.parent.trace_id,
-                    'span_id': span.parent.span_id,
-                    'is_remote': span.parent.is_remote,
-                }
-                if span.parent
-                else None,
+                'context': build_context(context),
+                'parent': build_context(span.parent) if span.parent else None,
                 'start_time': span.start_time,
                 'end_time': span.end_time,
                 **build_instrumentation_scope(span),
                 'attributes': build_attributes(span.attributes),
             }
+            if span.links:
+                res['links'] = [build_link(link) for link in span.links]
             if span.events:
                 res['events'] = [build_event(event) for event in span.events]
             if include_resources:
