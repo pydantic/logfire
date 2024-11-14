@@ -1,21 +1,14 @@
-If you set up **Logfire** according to the [getting started guide](../../index.md), you already
-have instrumented your applications via the `logfire.configure()` function.
+As a developer, we find ourselves working on differents environments for a project: local, production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅 
 
-If you find yourself wanting to distinguish between data sent in one environment (e.g. `dev` vs. `production`),
-it may be overkill to create a new project for each (more on how to decide this below).
+With **Logfire** you can distinguish which environment you are sending data to.
+You just need to set the the [`environment` parameter on the `logfire.configure`][logfire.configure(environment)].
 
-Instead you can use the environments feature, which is a special kind of resource attribute applied
-to the whole payload received by Logfire. This attribute says which environment the payload comes from.
+    ```py title="main.py"
+    import logfire
 
-You can set the environment for your project when calling `logfire.configure`:
-
-```py title="main.py"
-import logfire
-
-logfire.configure(environment='dev')
-
-logfire.info("Hi there!")
-```
+    logfire.configure(environment='local')  # (1)!
+    ```
+1. Usually you are retriving the environment information from an environment variable. 
 
 Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
