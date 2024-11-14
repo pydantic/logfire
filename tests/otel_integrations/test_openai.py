@@ -49,6 +49,141 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     object='chat.completion.chunk',
                 )
                 return httpx.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
+            elif json_body['messages'][0]['content'] == 'streamed tool call':
+                chunks = [
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    role='assistant',
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0,
+                                            id='1',
+                                            function=cc_chunk.ChoiceDeltaToolCallFunction(
+                                                arguments='', name='get_current_weather'
+                                            ),
+                                            type='function',
+                                        )
+                                    ],
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='{"')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='location')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='":"')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='Boston')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[
+                            cc_chunk.Choice(
+                                delta=cc_chunk.ChoiceDelta(
+                                    tool_calls=[
+                                        cc_chunk.ChoiceDeltaToolCall(
+                                            index=0, function=cc_chunk.ChoiceDeltaToolCallFunction(arguments='"}')
+                                        )
+                                    ]
+                                ),
+                                index=0,
+                            )
+                        ],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[cc_chunk.Choice(delta=cc_chunk.ChoiceDelta(), finish_reason='stop', index=0)],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                    ),
+                    cc_chunk.ChatCompletionChunk(
+                        id='1',
+                        choices=[],
+                        created=1,
+                        model='gpt-4',
+                        object='chat.completion.chunk',
+                        usage=completion_usage.CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
+                    ),
+                ]
+                return httpx.Response(
+                    200, text=''.join(f'data: {chunk.model_dump_json(exclude_unset=True)}\n\n' for chunk in chunks)
+                )
             else:
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
@@ -62,16 +197,14 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ),
                     cc_chunk.ChatCompletionChunk(
                         id='2',
-                        choices=[
-                            cc_chunk.Choice(index=1, delta=cc_chunk.ChoiceDelta(content=' is secret', role='assistant'))
-                        ],
+                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=' is secret'))],
                         created=1,
                         model='gpt-4',
                         object='chat.completion.chunk',
                     ),
                     cc_chunk.ChatCompletionChunk(
                         id='3',
-                        choices=[cc_chunk.Choice(index=2, delta=cc_chunk.ChoiceDelta(content=None, role='assistant'))],
+                        choices=[cc_chunk.Choice(index=0, delta=cc_chunk.ChoiceDelta(content=None))],
                         created=1,
                         model='gpt-4',
                         object='chat.completion.chunk',
@@ -513,8 +646,180 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"","chunk_count":0}',
+                    'response_data': '{"message":null,"usage":null}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                },
+            },
+        ]
+    )
+
+
+def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'system', 'content': 'streamed tool call'}],
+        stream=True,
+        stream_options={'include_usage': True},
+        tool_choice={'type': 'function', 'function': {'name': 'get_current_weather'}},
+        tools=[
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_current_weather',
+                    'description': 'Get the current weather in a given location',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'location': {
+                                'type': 'string',
+                                'description': 'The city and state, e.g. San Francisco, CA',
+                            },
+                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                        },
+                        'required': ['location'],
+                    },
+                },
+            },
+        ],
+    )
+    combined_arguments = ''.join(
+        chunk.choices[0].delta.tool_calls[0].function.arguments
+        for chunk in response
+        if chunk.choices
+        and chunk.choices[0].delta.tool_calls
+        and chunk.choices[0].delta.tool_calls[0].function
+        and chunk.choices[0].delta.tool_calls[0].function.arguments
+    )
+    assert combined_arguments == '{"location":"Boston"}'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_tool_call_stream',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'async': False,
+                    'duration': 1.0,
+                    'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
+                    'logfire.tags': ('LLM',),
+                },
+            },
+        ]
+    )
+
+
+async def test_async_chat_tool_call_stream(
+    instrumented_async_client: openai.AsyncClient, exporter: TestExporter
+) -> None:
+    response = await instrumented_async_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'system', 'content': 'streamed tool call'}],
+        stream=True,
+        stream_options={'include_usage': True},
+        tool_choice={'type': 'function', 'function': {'name': 'get_current_weather'}},
+        tools=[
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_current_weather',
+                    'description': 'Get the current weather in a given location',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'location': {
+                                'type': 'string',
+                                'description': 'The city and state, e.g. San Francisco, CA',
+                            },
+                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                        },
+                        'required': ['location'],
+                    },
+                },
+            },
+        ],
+    )
+    combined_arguments = ''.join(
+        [
+            chunk.choices[0].delta.tool_calls[0].function.arguments
+            async for chunk in response
+            if chunk.choices
+            and chunk.choices[0].delta.tool_calls
+            and chunk.choices[0].delta.tool_calls[0].function
+            and chunk.choices[0].delta.tool_calls[0].function.arguments
+        ]
+    )
+    assert combined_arguments == '{"location":"Boston"}'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_tool_call_stream',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'async': True,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_tool_call_stream',
+                    'code.lineno': 123,
+                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'async': True,
+                    'duration': 1.0,
+                    'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
+                    'logfire.tags': ('LLM',),
                 },
             },
         ]
@@ -571,8 +876,8 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
         ]
@@ -632,8 +937,8 @@ async def test_async_chat_completions_stream(
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
                 },
             },
         ]

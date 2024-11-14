@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "2.1.2"
-description = "The best Python observability tool!"
+version = "2.2.1"
+description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -146,6 +146,7 @@ dev = [
     "numpy>=2.0; python_version >= '3.9' and python_version < '3.12'",
     "numpy<1.24.4; python_version < '3.9'",
     "pytest-recording>=0.13.2",
+    "vcrpy>=6",
     "uvicorn>=0.30.6",
     "logfire-api",
     "requests",
@@ -231,7 +232,8 @@ exclude = [
     "out",
     "logfire-api",
 ]
-venvPath = ".venv"
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true

@@ -1,7 +1,12 @@
+from __future__ import annotations
+
+import importlib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+from unittest import mock
 
+import pytest
 from inline_snapshot import snapshot
 from sqlalchemy.engine import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -9,6 +14,7 @@ from sqlalchemy.sql import text
 from sqlalchemy.types import Integer, String
 
 import logfire
+import logfire._internal.integrations.sqlalchemy
 from logfire.testing import TestExporter
 
 
@@ -199,3 +205,14 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
     )
 
     SQLAlchemyInstrumentor().uninstrument()  # type: ignore[reportUnknownMemberType]
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.sqlalchemy': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.sqlalchemy)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_sqlalchemy()` requires the `opentelemetry-instrumentation-sqlalchemy` package.
+You can install this with:
+    pip install 'logfire[sqlalchemy]'\
+""")

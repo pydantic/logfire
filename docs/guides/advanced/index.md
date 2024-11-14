@@ -1,3 +1,4 @@
+* **[Environments](environments.md):** Group data between environments (e.g. dev, staging, prod) within a project.
 * **[Sampling](sampling.md):** Discard some traces or spans to manage data storage and analysis efficiently, including setting up the `trace_sample_rate`.
 * **[Scrubbing](scrubbing.md):** Automatically redact sensitive information from your logs and spans using customizable patterns and callbacks.
 * **[Testing](testing.md):** Verify your application's logging and span tracking with Logfire's testing utilities, ensuring accurate data capture and observability.

@@ -2,8 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
+
+try:
+    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_starlette()` requires the `opentelemetry-instrumentation-starlette` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[starlette]'"
+    )
 
 from logfire import Logfire
 from logfire._internal.integrations.asgi import tweak_asgi_spans_tracer_provider
