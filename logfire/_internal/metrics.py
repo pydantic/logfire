@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Any, Generic, Sequence, TypedDict, TypeVar, Unpack
+from typing import Any, Generic, Sequence, TypedDict, TypeVar
 from weakref import WeakSet
 
 from opentelemetry.context import Context
@@ -21,6 +21,7 @@ from opentelemetry.metrics import (
 )
 from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.util.types import Attributes
+from typing_extensions import Unpack
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
