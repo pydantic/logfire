@@ -250,7 +250,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         elif is_sqlalchemy(o):
             return _get_sqlalchemy_data(o, seen)
         elif dataclasses.is_dataclass(o):
-            return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o)}
+            return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o) if f.repr}
         elif is_attrs(o):
             return _get_attrs_data(o, seen)
 
