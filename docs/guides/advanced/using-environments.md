@@ -1,6 +1,7 @@
-If you set up Logfire according to the [getting started guide](../../index.md), you already
-have instrumented logfire in your applications via the `logfire.configure()` function. If you
-find yourself wanting to distinguish between data sent in one environment (e.g. `dev` vs. `production`),
+If you set up **Logfire** according to the [getting started guide](../../index.md), you already
+have instrumented your applications via the `logfire.configure()` function.
+
+If you find yourself wanting to distinguish between data sent in one environment (e.g. `dev` vs. `production`),
 it may be overkill to create a new project for each (more on how to decide this below).
 
 Instead you can use the environments feature, which is a special kind of resource attribute applied
@@ -19,7 +20,8 @@ logfire.info("Hi there!")
 Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
 
-#### Setting Environments in Other Languages
+#### Setting environments in other languages
+
 If you are using languages other than Python, you can set the environment like this:
 `OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=prod"`
 
@@ -39,7 +41,7 @@ Any environments you create via the SDK will appear below the system generated e
 When you select an environment, all subsequent queries (e.g. on live view, dashboards or explore)
 will filter by that environment.
 
-## Can I Create an Environment in the UI?
+## Can I create an environment in the UI?
 
 No, you cannot create or delete set environments via the UI, instead use the SDK.
 
@@ -50,7 +52,7 @@ the length of the data retention period while that environment exists in the dat
 You can however add new ones, and change the configuration of which data is assigned to which
 environment name.
 
-## Should I Use Environments or Projects?
+## Should I use environments or projects?
 
 Environments are more lightweight than projects. Projects give you the ability to assign specific
 user groups and permissions levels (see this [organization structure diagram](../../reference/organization-structure.md)
