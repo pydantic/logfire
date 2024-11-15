@@ -68,14 +68,11 @@ jobs:
     if: ${{ failure() }}
 
     steps:
-      - name: Send email
-        uses: dawidd6/action-send-mail@v2
+      - name: Send slack message
+        uses: slackapi/slack-github-action@v2.0.0
         with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.GMAIL_USERNAME }}
-          password: ${{ secrets.GMAIL_PASSWORD }}
-          subject: Logfire daily CI deps test ${{github.repository}} failed!
-          body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
-          to: sydney@pydantic.dev
-          from: Logfire daily CI
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload: |
+            heading: Logfire daily CI deps test ${{github.repository}} failed!
+            body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
