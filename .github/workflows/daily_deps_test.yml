@@ -3,7 +3,6 @@ name: Daily CI Job
 on:
   schedule:
     - cron: '0 12 * * *' # Daily at midnight UTC
-  pull_request: {} # temp: remove - just for testing
 
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
@@ -57,8 +56,6 @@ jobs:
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - run: uv run --no-sync pytest
-
-      - run: exit 1 # temp: remove - just for testing
 
   notify-on-failure:
     name: Notify maintainers on CI failure
