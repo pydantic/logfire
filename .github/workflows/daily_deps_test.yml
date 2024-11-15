@@ -60,15 +60,22 @@ jobs:
 
       - run: exit 1 # temp: remove - just for testing
 
-      - name: Notify on failure
-        if: failure()
+  notify-on-failure:
+    name: Notify maintainers on CI failure
+    runs-on: ubuntu-latest
+    needs: test
+    # only run if the test job failed
+    if: ${{ failure() }}
+
+    steps:
+      - name: Send email
         uses: dawidd6/action-send-mail@v2
         with:
           server_address: smtp.gmail.com
           server_port: 465
-          username: null
-          password: null
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
           subject: Logfire daily CI deps test ${{github.repository}} failed!
           body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
-          to: alex@pydantic.dev,marcelo@pydantic.dev,sydney@pydantic.dev
+          to: sydney@pydantic.dev
           from: Logfire daily CI
