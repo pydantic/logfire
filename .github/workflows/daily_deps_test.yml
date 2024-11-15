@@ -3,6 +3,7 @@ name: Daily CI Job
 on:
   schedule:
     - cron: '0 12 * * *' # Daily at midnight UTC
+  pull_request: {} # temp: remove - just for testing
 
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
@@ -57,6 +58,17 @@ jobs:
 
       - run: uv run --no-sync pytest
 
+      - run: exit 1 # temp: remove - just for testing
+
       - name: Notify on failure
         if: failure()
-        run: echo "Tests failed. TODO - send notification..."
+        uses: dawidd6/action-send-mail@v2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: null
+          password: null
+          subject: Logfire daily CI deps test ${{github.repository}} failed!
+          body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
+          to: alex@pydantic.dev,marcelo@pydantic.dev,sydney@pydantic.dev
+          from: Logfire daily CI
