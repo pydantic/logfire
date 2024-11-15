@@ -1,4 +1,4 @@
-As a developer, we find ourselves working on different environments for a project: local,
+As developers, we find ourselves working on different environments for a project: local,
 production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅
 
 With **Logfire** you can distinguish which environment you are sending data to.
@@ -22,8 +22,8 @@ If you are using languages other than Python, you can set the environment like t
 
 ---
 
-Once set, you will see your environment in the Logfire UI `all envs` dropdown, which appears
-on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and [Explore](../web-ui/explore.md) pages:
+Once set, you will see your environment in the Logfire UI `all envs` dropdown (note, the new environment can take a few minutes to appear),
+which is present on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and [Explore](../web-ui/explore.md) pages:
 
 ![Environments](../../images/guide/environments.png)
 
