@@ -64,16 +64,6 @@ jobs:
         include:
             - python-version: '3.12'
               pydantic-version: '2.4'
-            - python-version: '3.12'
-              pydantic-version: '2.5'
-            - python-version: '3.12'
-              pydantic-version: '2.6'
-            - python-version: '3.12'
-              pydantic-version: '2.7'
-            - python-version: '3.12'
-              pydantic-version: '2.8'
-            - python-version: '3.12'
-              pydantic-version: '2.9'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
