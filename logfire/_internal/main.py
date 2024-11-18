@@ -551,9 +551,9 @@ class Logfire:
     ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
     @overload
-    def instrument(self, msg_template: Callable[P, R]) -> Callable[P, R]: ...
+    def instrument(self, func: Callable[P, R]) -> Callable[P, R]: ...
 
-    def instrument(
+    def instrument(  # type: ignore[reportInconsistentOverload]
         self,
         msg_template: Callable[P, R] | LiteralString | None = None,
         *,
