@@ -8,7 +8,19 @@ import traceback
 import warnings
 from functools import cached_property
 from time import time
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Iterable,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -528,6 +540,7 @@ class Logfire:
             _links=_links,
         )
 
+    @overload
     def instrument(
         self,
         msg_template: LiteralString | None = None,
@@ -535,7 +548,19 @@ class Logfire:
         span_name: str | None = None,
         extract_args: bool | Iterable[str] = True,
         allow_generator: bool = False,
-    ) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+    @overload
+    def instrument(self, msg_template: Callable[P, R]) -> Callable[P, R]: ...
+
+    def instrument(
+        self,
+        msg_template: Callable[P, R] | LiteralString | None = None,
+        *,
+        span_name: str | None = None,
+        extract_args: bool | Iterable[str] = True,
+        allow_generator: bool = False,
+    ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -557,6 +582,8 @@ class Logfire:
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
+        if callable(msg_template):
+            return instrument(self, tuple(self._tags), None, span_name, extract_args, allow_generator)(msg_template)
         return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, allow_generator)
 
     def log(
