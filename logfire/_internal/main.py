@@ -583,7 +583,7 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
         if callable(msg_template):
-            return instrument(self, tuple(self._tags), None, span_name, extract_args, allow_generator)(msg_template)
+            return self.instrument()(msg_template)
         return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, allow_generator)
 
     def log(
