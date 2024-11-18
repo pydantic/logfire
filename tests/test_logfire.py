@@ -86,6 +86,35 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
+    @logfire.instrument
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_with_no_parameters.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                    'x': 2,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
     @logfire.instrument()
     def foo():
