@@ -916,6 +916,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
 
         logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
 
         assert confirm_mock.mock_calls == [
             call('The project will be created in the organization "fake_org". Continue?', default=True),
@@ -1230,6 +1231,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         )
 
         logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
 
         assert prompt_mock.mock_calls == [
             call(
