@@ -39,7 +39,7 @@ def get_filepath_attribute(file: str) -> StackInfo:
 @lru_cache(maxsize=2048)
 def get_code_object_info(code: CodeType) -> StackInfo:
     result = get_filepath_attribute(code.co_filename)
-    if code.co_name != '<module>':
+    if code.co_name != '<module>':  # pragma: no branch
         result['code.function'] = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
     result['code.lineno'] = code.co_firstlineno
     return result
