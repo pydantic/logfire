@@ -1059,6 +1059,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
 
         with pytest.raises(SystemExit):
             logfire.configure(data_dir=tmp_path, send_to_logfire=True)
+        wait_for_check_token_thread()
 
         assert confirm_mock.mock_calls == [
             call('Do you want to use one of your existing projects? ', default=True),
@@ -1264,6 +1265,7 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
         )
         with pytest.raises(RuntimeError, match='^expected$'):
             configure(send_to_logfire=True, console=False, data_dir=data_dir)
+    wait_for_check_token_thread()
 
 
 def test_send_to_logfire_false() -> None:
@@ -1449,6 +1451,7 @@ def test_configure_fstring_python_38():
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo')
+    wait_for_check_token_thread()
 
     [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
@@ -1562,6 +1565,7 @@ def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT': 'otel_metrics_endpoint'}):
         logfire.configure(send_to_logfire=True, token='foo', metrics=False)
+        wait_for_check_token_thread()
 
     assert isinstance(get_meter_provider().provider, NoOpMeterProvider)  # type: ignore
 
