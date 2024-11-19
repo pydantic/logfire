@@ -211,7 +211,7 @@ def only_ellipsis_function():
 def test_rewrite_ast():
     context_factories: list[Callable[[], ContextManager[Any]]] = []
     tree = rewrite_ast(
-        nested_sample,
+        ast.parse(nested_sample),
         'foo.py',
         'logfire_span',
         'module.name',
@@ -396,7 +396,7 @@ class NotTracedClass:
 def get_calling_strings(sample: str):
     context_factories: list[Callable[[], ContextManager[Any]]] = []
     rewrite_ast(
-        sample,
+        ast.parse(sample),
         'foo.py',
         'logfire_span',
         'module.name',
