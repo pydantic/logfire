@@ -4,8 +4,10 @@ from ..main import Logfire as Logfire
 from dataclasses import dataclass
 from typing import Any, Callable, ContextManager, TypeVar
 
-def exec_source(source: str, filename: str, module_name: str, globs: dict[str, Any], logfire_instance: Logfire, min_duration: int) -> None:
-    """Execute a modified AST of the module's source code in the module's namespace.
+def compile_source(tree: ast.AST, filename: str, module_name: str, logfire_instance: Logfire, min_duration: int) -> Callable[[dict[str, Any]], None]:
+    """Compile a modified AST of the module's source code in the module's namespace.
+
+    Returns a function which accepts module globals and executes the compiled code.
 
     The modified AST wraps the body of every function definition in `with context_factories[index]():`.
     `context_factories` is added to the module's namespace as `logfire_<uuid>`.
@@ -19,7 +21,7 @@ def exec_source(source: str, filename: str, module_name: str, globs: dict[str, A
     If `min_duration` is greater than 0, then `context_factories[index]` is initially `MeasureTime`.
     Otherwise, it's initially the `partial` above.
     """
-def rewrite_ast(source: str, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire, context_factories: list[Callable[[], ContextManager[Any]]], min_duration: int) -> ast.AST: ...
+def rewrite_ast(tree: ast.AST, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire, context_factories: list[Callable[[], ContextManager[Any]]], min_duration: int) -> ast.AST: ...
 
 @dataclass
 class AutoTraceTransformer(BaseTransformer):

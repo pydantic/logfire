@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "2.3.0"
+version = "2.4.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -202,6 +202,7 @@ ignore = [
     "D100", # ignore missing docstring in module
     "D104", # ignore missing docstring in public package
     "D105", # ignore missing docstring in magic methods
+    "D418", # allow docstrings on overloads for the sake of logfire-api stubs
     "C901", # ignore too complex functions, doesn't seem to be worth it
 ]
 

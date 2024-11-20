@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v2.4.0] (2024-11-20)
+
+* Support `logfire.instrument` without arguments by @Kludex in [#607](https://github.com/pydantic/logfire/pull/607)
+* Handle internal errors in `create_json_schema` by @alexmojaki in [#613](https://github.com/pydantic/logfire/pull/613)
+* Handle errors in auto-tracing better by @alexmojaki in [#610](https://github.com/pydantic/logfire/pull/610)
+
 ## [v2.3.0] (2024-11-14)
 
 * Respect repr on fields when logging a dataclass by @dmontagu in [#592](https://github.com/pydantic/logfire/pull/592)
@@ -427,3 +433,4 @@ First release from new repo!
 [v2.2.0]: https://github.com/pydantic/logfire/compare/v2.1.2...v2.2.0
 [v2.2.1]: https://github.com/pydantic/logfire/compare/v2.2.0...v2.2.1
 [v2.3.0]: https://github.com/pydantic/logfire/compare/v2.2.1...v2.3.0
+[v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
