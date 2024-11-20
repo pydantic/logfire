@@ -32,7 +32,7 @@ from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
-from .utils import JsonDict, dump_json, safe_repr
+from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -106,41 +106,45 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     """
     if obj is None:
         return {}
-    # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
-    obj_type = obj.__class__
-    if obj_type in {str, int, bool, float}:
-        return {}
 
-    if id(obj) in seen:
-        return {}
-    seen.add(id(obj))
+    try:
+        # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
+        obj_type = obj.__class__
+        if obj_type in {str, int, bool, float}:
+            return {}
 
-    if obj_type in {list, tuple, set, frozenset, deque}:
-        return _array_schema(obj, seen)
-    elif isinstance(obj, Mapping):
-        return _mapping_schema(obj, seen)
-    elif is_sqlalchemy(obj):
-        return _sqlalchemy_schema(obj, seen)
-    elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return _dataclass_schema(obj, seen)
-    elif is_attrs(obj):
-        return _attrs_schema(obj, seen)
+        if id(obj) in seen:
+            return {}
+        seen.add(id(obj))
 
-    global _type_to_schema
-    _type_to_schema = _type_to_schema or type_to_schema()
-    for base in obj_type.__mro__[:-1]:
-        try:
-            schema = _type_to_schema[base]
-        except KeyError:
-            continue
-        else:
-            return schema(obj, seen) if callable(schema) else schema
+        if obj_type in {list, tuple, set, frozenset, deque}:
+            return _array_schema(obj, seen)
+        elif isinstance(obj, Mapping):
+            return _mapping_schema(obj, seen)
+        elif is_sqlalchemy(obj):
+            return _sqlalchemy_schema(obj, seen)
+        elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            return _dataclass_schema(obj, seen)
+        elif is_attrs(obj):
+            return _attrs_schema(obj, seen)
 
-    # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
-    if isinstance(obj, (str, int, float)):
-        return {}
-    elif isinstance(obj, Sequence):
-        return {'type': 'array', 'title': obj_type.__name__, 'x-python-datatype': 'Sequence'}
+        global _type_to_schema
+        _type_to_schema = _type_to_schema or type_to_schema()
+        for base in obj_type.__mro__[:-1]:
+            try:
+                schema = _type_to_schema[base]
+            except KeyError:
+                continue
+            else:
+                return schema(obj, seen) if callable(schema) else schema
+
+        # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+        if isinstance(obj, (str, int, float)):
+            return {}
+        elif isinstance(obj, Sequence):
+            return {'type': 'array', 'title': obj_type.__name__, 'x-python-datatype': 'Sequence'}
+    except Exception:  # pragma: no cover
+        log_internal_error()
 
     return {'type': 'object', 'x-python-datatype': 'unknown'}
 

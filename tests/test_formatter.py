@@ -176,5 +176,5 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
     assert logfire_format('{a}', {'a': 'b'}, BadScrubber([])) == '{a}'
 
     assert len(caplog.records) == 1
-    assert caplog.records[0].message == 'Internal error in Logfire'
+    assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
     assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore

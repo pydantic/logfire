@@ -264,7 +264,12 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception('Internal error in Logfire', exc_info=_internal_error_exc_info())
+        logger.exception(
+            'Caught an internal error in Logfire. '
+            'Your code should still be running fine, just with less telemetry. '
+            'This is just logging the internal error.',
+            exc_info=_internal_error_exc_info(),
+        )
 
 
 def _internal_error_exc_info() -> SysExcInfo:
