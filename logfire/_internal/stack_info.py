@@ -39,7 +39,7 @@ def get_filepath_attribute(file: str) -> StackInfo:
 @lru_cache(maxsize=2048)
 def get_code_object_info(code: CodeType) -> StackInfo:
     result = get_filepath_attribute(code.co_filename)
-    if code.co_name != '<module>':
+    if code.co_name != '<module>':  # pragma: no branch
         result['code.function'] = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
     result['code.lineno'] = code.co_firstlineno
     return result
@@ -89,6 +89,7 @@ def is_user_code(code: CodeType) -> bool:
         - the standard library
         - site-packages (specifically wherever opentelemetry is installed)
         - the logfire package
+        - an unknown location (e.g. a dynamically generated code object) indicated by a filename starting with '<'
     - It is a list/dict/set comprehension.
         These are artificial frames only created before Python 3.12,
         and they are always called directly from the enclosing function so it makes sense to skip them.
@@ -96,6 +97,7 @@ def is_user_code(code: CodeType) -> bool:
     """
     return not (
         str(Path(code.co_filename).absolute()).startswith(NON_USER_CODE_PREFIXES)
+        or code.co_filename.startswith('<')
         or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )
 

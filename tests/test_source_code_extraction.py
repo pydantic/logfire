@@ -111,7 +111,7 @@ with logfire.span('from module'):
         )
 
     assert normalize_filepaths(
-        exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
+        exporter.exported_spans_as_dict(strip_filepaths=False, _strip_function_qualname=False)
     ) == snapshot(
         [
             {
@@ -134,8 +134,9 @@ No source code available. This happens when running in an interactive shell, usi
 Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
 No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
 """,
-                    'code.filepath': '<string>',
-                    'code.lineno': 2,
+                    'code.filepath': 'tests/test_source_code_extraction.py',
+                    'code.function': 'test_source_code_extraction_module',
+                    'code.lineno': 123,
                 },
             },
             {
@@ -145,8 +146,9 @@ No source code available. This happens when running in an interactive shell, usi
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
-                    'code.filepath': '<string>',
-                    'code.lineno': 2,
+                    'code.filepath': 'tests/test_source_code_extraction.py',
+                    'code.function': 'test_source_code_extraction_module',
+                    'code.lineno': 123,
                     'logfire.msg_template': 'from module',
                     'logfire.msg': 'from module',
                     'logfire.span_type': 'span',
@@ -169,7 +171,7 @@ with logfire.span('from module'):
     )
 
     assert normalize_filepaths(
-        exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
+        exporter.exported_spans_as_dict(strip_filepaths=False, _strip_function_qualname=False)
     ) == snapshot(
         [
             {
@@ -179,8 +181,9 @@ with logfire.span('from module'):
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': '<string>',
-                    'code.lineno': 2,
+                    'code.filepath': 'tests/test_source_code_extraction.py',
+                    'code.function': 'test_source_code_extraction_exec_no_inspect_arguments',
+                    'code.lineno': 123,
                     'logfire.msg_template': 'from module',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'from module',
