@@ -224,9 +224,43 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+        """Decorator for instrumenting a function as a span.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+
+        @logfire.instrument('This is a span {a=}')
+        def my_function(a: int):
+            logfire.info('new log {a=}', a=a)
+        ```
+
+        Args:
+            msg_template: The template for the span message. If not provided, the module and function name will be used.
+            span_name: The span name. If not provided, the `msg_template` will be used.
+            extract_args: By default, all function call arguments are logged as span attributes.
+                Set to `False` to disable this, or pass an iterable of argument names to include.
+            allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
+                Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+        """
     @overload
-    def instrument(self, func: Callable[P, R]) -> Callable[P, R]: ...
+    def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
+        """Decorator for instrumenting a function as a span, with default configuration.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+
+        @logfire.instrument
+        def my_function(a: int):
+            logfire.info('new log {a=}', a=a)
+        ```
+        """
     def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None) -> None:
         """Log a message.
 
