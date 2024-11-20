@@ -3118,7 +3118,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
     with logfire.span('foo', _tags=123) as span:  # type: ignore
         # _tags=123 causes an exception (tags should be an iterable)
         assert len(caplog.records) == 1
-        assert caplog.records[0].message == 'Internal error in Logfire'
+        assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
 
         assert isinstance(span, NoopSpan)
 
@@ -3143,7 +3143,7 @@ def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: Test
 
     # _tags=123 causes an exception (tags should be an iterable)
     assert len(caplog.records) == 1
-    assert caplog.records[0].message == 'Internal error in Logfire'
+    assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
 
