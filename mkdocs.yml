@@ -91,6 +91,9 @@ nav:
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
+      - How to Guides:
+          - How to Guides: guides/how-to/index.md
+          - General - How To - Recipes: guides/how-to/general.md
       - Advanced User Guide:
           - Advanced User Guide: guides/advanced/index.md
           - Environments: guides/advanced/environments.md
