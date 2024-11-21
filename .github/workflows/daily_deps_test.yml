@@ -29,6 +29,8 @@ jobs:
             pydantic-version: '2.8'
           - python-version: '3.12'
             pydantic-version: '2.9'
+          - python-version: '3.12'
+            pydantic-version: '2.10'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
