@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v2.4.1] (2024-11-21)
+
+* Allow new context argument of metric instrument methods to be passed positionally by @alexmojaki in [#616](https://github.com/pydantic/logfire/pull/616)
+
 ## [v2.4.0] (2024-11-20)
 
 * Support `logfire.instrument` without arguments by @Kludex in [#607](https://github.com/pydantic/logfire/pull/607)
@@ -434,3 +438,4 @@ First release from new repo!
 [v2.2.1]: https://github.com/pydantic/logfire/compare/v2.2.0...v2.2.1
 [v2.3.0]: https://github.com/pydantic/logfire/compare/v2.2.1...v2.3.0
 [v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
+[v2.4.1]: https://github.com/pydantic/logfire/compare/v2.4.0...v2.4.1
