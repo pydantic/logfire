@@ -3,10 +3,9 @@ from __future__ import annotations
 import dataclasses
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Any, Generic, Sequence, TypedDict, TypeVar
+from typing import Any, Generic, Sequence, TypeVar
 from weakref import WeakSet
 
-from opentelemetry.context import Context
 from opentelemetry.metrics import (
     CallbackT,
     Counter,
@@ -21,7 +20,6 @@ from opentelemetry.metrics import (
 )
 from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.util.types import Attributes
-from typing_extensions import Unpack
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
@@ -213,17 +211,6 @@ class _ProxyMeter(Meter):
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
 
 
-class MaybeContext(TypedDict, total=False):
-    """Backward-compatible keyword arguments for methods like `Counter.add`.
-
-    Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
-    This is passed to the underlying instrument using `**kwargs` for compatibility with older versions.
-    This is the type hint for those kwargs.
-    """
-
-    context: Context | None
-
-
 class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def __init__(
         self,
@@ -263,26 +250,30 @@ class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
 
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
-    def add(  # type: ignore
+    def add(
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        **kwargs: Unpack[MaybeContext],
+        # Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
+        # This is passed to the underlying instrument using `*args, **kwargs` for compatibility with older versions.
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        self._instrument.add(amount, attributes, **kwargs)
+        self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(self._name, self._unit, self._description)
 
 
 class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
-    def record(  # type: ignore
+    def record(
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        **kwargs: Unpack[MaybeContext],
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        self._instrument.record(amount, attributes, **kwargs)
+        self._instrument.record(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(self._name, self._unit, self._description)
@@ -310,13 +301,14 @@ class _ProxyObservableUpDownCounter(
 
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
-    def add(  # type: ignore
+    def add(
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        **kwargs: Unpack[MaybeContext],
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        self._instrument.add(amount, attributes, **kwargs)
+        self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
         return meter.create_up_down_counter(self._name, self._unit, self._description)
@@ -325,13 +317,14 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
 if Gauge is not None:  # pragma: no branch
 
     class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
-        def set(  # type: ignore
+        def set(
             self,
             amount: int | float,
             attributes: Attributes | None = None,
-            **kwargs: Unpack[MaybeContext],
+            *args: Any,
+            **kwargs: Any,
         ) -> None:  # pragma: no cover
-            self._instrument.set(amount, attributes, **kwargs)
+            self._instrument.set(amount, attributes, *args, **kwargs)
 
         def _create_real_instrument(self, meter: Meter):  # pragma: no cover
             return meter.create_gauge(self._name, self._unit, self._description)
