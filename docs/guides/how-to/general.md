@@ -11,7 +11,7 @@ analyze and investigate your system. For details of the data model, see
 our [schema docs](../web-ui/explore.md#records-schema)
 
 ### Disable Logfire During Tests
-Logfire makes it very easy to test the emitted logs and spans. See the [testing with logfire](../../advanced/testing) docs.
+Logfire makes it very easy to test the emitted logs and spans. See the [testing with logfire](../../advanced/testing.md) docs.
 If you encounter difficulties disabling logfire during testing (and are using pytest),
 ensure that in your conftest.py you set:
 
