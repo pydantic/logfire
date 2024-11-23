@@ -20,6 +20,7 @@ import datetime
 import re
 import uuid
 from collections import deque
+from contextlib import suppress
 from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
@@ -31,7 +32,7 @@ from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
-from .utils import JsonDict, dump_json, safe_repr
+from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -105,41 +106,45 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     """
     if obj is None:
         return {}
-    # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
-    obj_type = obj.__class__
-    if obj_type in {str, int, bool, float}:
-        return {}
 
-    if id(obj) in seen:
-        return {}
-    seen.add(id(obj))
+    try:
+        # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
+        obj_type = obj.__class__
+        if obj_type in {str, int, bool, float}:
+            return {}
 
-    if obj_type in {list, tuple, set, frozenset, deque}:
-        return _array_schema(obj, seen)
-    elif isinstance(obj, Mapping):
-        return _mapping_schema(obj, seen)
-    elif is_sqlalchemy(obj):
-        return _sqlalchemy_schema(obj, seen)
-    elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return _dataclass_schema(obj, seen)
-    elif is_attrs(obj):
-        return _attrs_schema(obj, seen)
+        if id(obj) in seen:
+            return {}
+        seen.add(id(obj))
 
-    global _type_to_schema
-    _type_to_schema = _type_to_schema or type_to_schema()
-    for base in obj_type.__mro__[:-1]:
-        try:
-            schema = _type_to_schema[base]
-        except KeyError:
-            continue
-        else:
-            return schema(obj, seen) if callable(schema) else schema
+        if obj_type in {list, tuple, set, frozenset, deque}:
+            return _array_schema(obj, seen)
+        elif isinstance(obj, Mapping):
+            return _mapping_schema(obj, seen)
+        elif is_sqlalchemy(obj):
+            return _sqlalchemy_schema(obj, seen)
+        elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            return _dataclass_schema(obj, seen)
+        elif is_attrs(obj):
+            return _attrs_schema(obj, seen)
 
-    # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
-    if isinstance(obj, (str, int, float)):
-        return {}
-    elif isinstance(obj, Sequence):
-        return {'type': 'array', 'title': obj_type.__name__, 'x-python-datatype': 'Sequence'}
+        global _type_to_schema
+        _type_to_schema = _type_to_schema or type_to_schema()
+        for base in obj_type.__mro__[:-1]:
+            try:
+                schema = _type_to_schema[base]
+            except KeyError:
+                continue
+            else:
+                return schema(obj, seen) if callable(schema) else schema
+
+        # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+        if isinstance(obj, (str, int, float)):
+            return {}
+        elif isinstance(obj, Sequence):
+            return {'type': 'array', 'title': obj_type.__name__, 'x-python-datatype': 'Sequence'}
+    except Exception:  # pragma: no cover
+        log_internal_error()
 
     return {'type': 'object', 'x-python-datatype': 'unknown'}
 
@@ -170,7 +175,9 @@ EXCLUDE_KEYS = STACK_INFO_KEYS | {ATTRIBUTES_SCRUBBED_KEY}
 def _dataclass_schema(obj: Any, seen: set[int]) -> JsonDict:
     # NOTE: The `x-python-datatype` is "dataclass" for both standard dataclasses and Pydantic dataclasses.
     # We don't need to distinguish between them on the frontend, or to reconstruct the type on the JSON formatter.
-    return _custom_object_schema(obj, 'dataclass', (field.name for field in dataclasses.fields(obj)), seen)
+    return _custom_object_schema(
+        obj, 'dataclass', (field.name for field in dataclasses.fields(obj) if field.repr), seen
+    )
 
 
 def _bytes_schema(obj: bytes, _seen: set[int]) -> JsonDict:
@@ -350,9 +357,13 @@ def _properties(properties: dict[str, Any], seen: set[int]) -> JsonDict:
 
 
 def _custom_object_schema(obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int]) -> JsonDict:
+    properties: dict[str, Any] = {}
+    for key in keys:
+        with suppress(Exception):
+            properties[key] = getattr(obj, key)
     return {
         'type': 'object',
         'title': obj.__class__.__name__,
         'x-python-datatype': datatype_name,
-        **_properties({key: getattr(obj, key) for key in keys}, seen),
+        **_properties(properties, seen),
     }

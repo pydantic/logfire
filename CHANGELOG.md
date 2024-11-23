@@ -1,5 +1,33 @@
 # Release Notes
 
+## [v2.4.1] (2024-11-21)
+
+* Allow new context argument of metric instrument methods to be passed positionally by @alexmojaki in [#616](https://github.com/pydantic/logfire/pull/616)
+
+## [v2.4.0] (2024-11-20)
+
+* Support `logfire.instrument` without arguments by @Kludex in [#607](https://github.com/pydantic/logfire/pull/607)
+* Handle internal errors in `create_json_schema` by @alexmojaki in [#613](https://github.com/pydantic/logfire/pull/613)
+* Handle errors in auto-tracing better by @alexmojaki in [#610](https://github.com/pydantic/logfire/pull/610)
+
+## [v2.3.0] (2024-11-14)
+
+* Respect repr on fields when logging a dataclass by @dmontagu in [#592](https://github.com/pydantic/logfire/pull/592)
+* Allow `extract_args` to be an iterable of argument names by @alexmojaki in [#570](https://github.com/pydantic/logfire/pull/570)
+* Make metric instrument methods compatible with older OTel versions by @alexmojaki in [#600](https://github.com/pydantic/logfire/pull/600)
+* Add span links by @Kludex in [#587](https://github.com/pydantic/logfire/pull/587)
+
+## [v2.2.1] (2024-11-13)
+
+* Ignore trivial/empty functions in auto-tracing by @alexmojaki in [#596](https://github.com/pydantic/logfire/pull/596)
+* Handle missing attributes in `_custom_object_schema` by @alexmojaki in [#597](https://github.com/pydantic/logfire/pull/597)
+* Let user know what they should install for integrations by @Kludex in [#593](https://github.com/pydantic/logfire/pull/593)
+
+## [v2.2.0] (2024-11-13)
+
+* Allow instrumenting a single httpx client by @alexmojaki in [#575](https://github.com/pydantic/logfire/pull/575)
+* Log LLM tool call for streamed response by @jackmpcollins in [#545](https://github.com/pydantic/logfire/pull/545)
+
 ## [v2.1.2] (2024-11-04)
 
 * Check `.logfire` for creds to respect `'if-token-present'` setting by @sydney-runkle in [#561](https://github.com/pydantic/logfire/pull/561)
@@ -406,3 +434,8 @@ First release from new repo!
 [v2.1.0]: https://github.com/pydantic/logfire/compare/v2.0.0...v2.1.0
 [v2.1.1]: https://github.com/pydantic/logfire/compare/v2.1.0...v2.1.1
 [v2.1.2]: https://github.com/pydantic/logfire/compare/v2.1.1...v2.1.2
+[v2.2.0]: https://github.com/pydantic/logfire/compare/v2.1.2...v2.2.0
+[v2.2.1]: https://github.com/pydantic/logfire/compare/v2.2.0...v2.2.1
+[v2.3.0]: https://github.com/pydantic/logfire/compare/v2.2.1...v2.3.0
+[v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
+[v2.4.1]: https://github.com/pydantic/logfire/compare/v2.4.0...v2.4.1

@@ -1,3 +1,6 @@
+import importlib
+from unittest import mock
+
 import httpx
 import pytest
 from httpx import Request
@@ -5,6 +8,7 @@ from inline_snapshot import snapshot
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
+import logfire._internal.integrations.httpx
 from logfire.testing import TestExporter
 
 
@@ -72,3 +76,14 @@ async def test_httpx_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.httpx': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.httpx)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.
+You can install this with:
+    pip install 'logfire[httpx]'\
+""")

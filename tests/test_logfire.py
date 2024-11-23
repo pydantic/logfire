@@ -86,19 +86,173 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_without_kwargs():
+def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
+    @logfire.instrument
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_with_no_parameters.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_with_no_parameters.<locals>.foo',
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                    'x': 2,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
+    @logfire.instrument()
+    def foo():
+        return 4
+
+    assert foo() == 4
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_func_with_no_params.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_func_with_no_params.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_func_with_no_params.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_func_with_no_params.<locals>.foo',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_extract_args_list(exporter: TestExporter) -> None:
+    @logfire.instrument(extract_args=['a', 'b'])
+    def foo(a: int, b: int, c: int):
+        return a + b + c
+
+    assert foo(1, 2, 3) == 6
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_extract_args_list.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_extract_args_list.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_extract_args_list.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_extract_args_list.<locals>.foo',
+                    'a': 1,
+                    'b': 2,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
+    def foo():
+        return 4
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = logfire.instrument(extract_args='bar')(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: bar')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
+
+    assert foo() == 4
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_missing_all_extract_args.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_missing_all_extract_args.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_missing_all_extract_args.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_missing_all_extract_args.<locals>.foo',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_missing_some_extract_args(exporter: TestExporter) -> None:
+    def foo(a: int, d: int, e: int):
+        return a + d + e
+
+    with pytest.warns(UserWarning) as warnings:
+        foo = logfire.instrument(extract_args=['a', 'b', 'c'])(foo)
+
+    assert len(warnings) == 1
+    assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: b, c')
+    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
+
+    assert foo(1, 2, 3) == 6
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_missing_some_extract_args.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_missing_some_extract_args.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_missing_some_extract_args.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_missing_some_extract_args.<locals>.foo',
+                    'a': 1,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_missing_template_field():
+    @logfire.instrument('{foo}')
+    def home(bar: str):
+        return bar
+
     with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
-
-        @logfire.instrument('{foo}')
-        def home() -> None: ...
-
-        home()
+        assert home('baz') == 'baz'
 
     warning = warnings.pop()
     assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
 
 
-def test_span_without_kwargs() -> None:
+def test_span_missing_template_field() -> None:
     with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
         with logfire.span('test {foo}'):
             pass  # pragma: no cover
@@ -2198,6 +2352,119 @@ def test_invalid_log_level(exporter: TestExporter):
     )
 
 
+def test_span_links(exporter: TestExporter):
+    with logfire.span('first span') as span:
+        first_context = span.context
+
+    with logfire.span('second span') as span:
+        second_context = span.context
+
+    assert first_context
+    assert second_context
+    with logfire.span('foo', _links=[(first_context, None)]) as span:
+        span.add_link(second_context)
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
+        [
+            {
+                'name': 'foo (pending)',
+                'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_links',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_links',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'links': [
+                    {
+                        'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                        'attributes': {},
+                    },
+                    {
+                        'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                        'attributes': {},
+                    },
+                ],
+            },
+        ]
+    )
+
+
+def test_span_add_link_before_start(exporter: TestExporter):
+    with logfire.span('first span') as span:
+        context = span.context
+
+    assert context
+    span = logfire.span('foo')
+    span.add_link(context)
+
+    with span:
+        pass
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'first span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'first span',
+                    'logfire.msg': 'first span',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_before_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'links': [
+                    {
+                        'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                        'attributes': {},
+                    }
+                ],
+            },
+        ]
+    )
+
+
 GLOBAL_VAR = 1
 
 
@@ -2851,7 +3118,7 @@ def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: Tes
     with logfire.span('foo', _tags=123) as span:  # type: ignore
         # _tags=123 causes an exception (tags should be an iterable)
         assert len(caplog.records) == 1
-        assert caplog.records[0].message == 'Internal error in Logfire'
+        assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
 
         assert isinstance(span, NoopSpan)
 
@@ -2876,7 +3143,7 @@ def test_internal_exception_log(caplog: pytest.LogCaptureFixture, exporter: Test
 
     # _tags=123 causes an exception (tags should be an iterable)
     assert len(caplog.records) == 1
-    assert caplog.records[0].message == 'Internal error in Logfire'
+    assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
 

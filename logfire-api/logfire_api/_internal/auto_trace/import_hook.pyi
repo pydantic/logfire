@@ -1,11 +1,12 @@
 from ..main import Logfire as Logfire
-from .rewrite_ast import exec_source as exec_source
+from ..utils import log_internal_error as log_internal_error
+from .rewrite_ast import compile_source as compile_source
 from .types import AutoTraceModule as AutoTraceModule
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from types import ModuleType
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 @dataclass
 class LogfireFinder(MetaPathFinder):
@@ -25,9 +26,7 @@ class LogfireFinder(MetaPathFinder):
 class LogfireLoader(Loader):
     """An import loader produced by LogfireFinder which executes a modified AST of the module's source code."""
     plain_spec: ModuleSpec
-    source: str
-    logfire: Logfire
-    min_duration: int
+    execute: Callable[[dict[str, Any]], None]
     def exec_module(self, module: ModuleType):
         """Execute a modified AST of the module's source code in the module's namespace.
 

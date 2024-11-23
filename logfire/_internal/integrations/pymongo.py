@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+try:
+    from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_pymongo()` requires the `opentelemetry-instrumentation-pymongo` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[pymongo]'"
+    )
 
 if TYPE_CHECKING:
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent

@@ -1,4 +1,5 @@
 import anthropic
+import httpx
 import openai
 import opentelemetry.trace as trace_api
 from . import async_ as async_
@@ -33,12 +34,12 @@ from fastapi import FastAPI
 from flask.app import Flask
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import Tracer
+from opentelemetry.trace import SpanContext, Tracer
 from opentelemetry.util import types as otel_types
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
-from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar
+from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
 
@@ -201,7 +202,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, **attributes: Any) -> LogfireSpan:
+    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), **attributes: Any) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -218,10 +219,12 @@ class Logfire:
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
+            _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    @overload
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -238,9 +241,25 @@ class Logfire:
         Args:
             msg_template: The template for the span message. If not provided, the module and function name will be used.
             span_name: The span name. If not provided, the `msg_template` will be used.
-            extract_args: Whether to extract arguments from the function signature and log them as span attributes.
+            extract_args: By default, all function call arguments are logged as span attributes.
+                Set to `False` to disable this, or pass an iterable of argument names to include.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+        """
+    @overload
+    def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
+        """Decorator for instrumenting a function as a span, with default configuration.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+
+        @logfire.instrument
+        def my_function(a: int):
+            logfire.info('new log {a=}', a=a)
+        ```
         """
     def log(self, level: LevelName | int, msg_template: str, attributes: dict[str, Any] | None = None, tags: Sequence[str] | None = None, exc_info: ExcInfo = False, console_log: bool | None = None) -> None:
         """Log a message.
@@ -529,8 +548,10 @@ class Logfire:
         """
     def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
-    def instrument_httpx(self, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
+    def instrument_httpx(self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
+
+        Optionally, pass an `httpx.Client` instance to instrument only that client.
 
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
@@ -970,7 +991,7 @@ class FastLogfireSpan:
 
 class LogfireSpan(ReadableSpan):
     end_on_exit: bool
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
@@ -1003,6 +1024,7 @@ class LogfireSpan(ReadableSpan):
         """
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
+    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None: ...
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
         """Records an exception as a span event.
 

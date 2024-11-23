@@ -9,7 +9,7 @@ from ...utils import is_instrumentation_suppressed, suppress_instrumentation
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
-    from .types import EndpointConfig
+    from .types import EndpointConfig, StreamState
 
 
 __all__ = ('instrument_llm_provider',)
@@ -76,13 +76,13 @@ def instrument_llm_provider(
         if is_instrumentation_suppressed():
             return None, None, kwargs
 
-        message_template, span_data, content_from_stream = get_endpoint_config_fn(kwargs['options'])
+        message_template, span_data, stream_state_cls = get_endpoint_config_fn(kwargs['options'])
 
         span_data['async'] = is_async
 
         stream = kwargs['stream']
 
-        if stream and content_from_stream:
+        if stream and stream_state_cls:
             stream_cls = kwargs['stream_cls']
             assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
@@ -90,7 +90,7 @@ def instrument_llm_provider(
 
                 class LogfireInstrumentedAsyncStream(stream_cls):
                     async def __stream__(self) -> AsyncIterator[Any]:
-                        with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
+                        with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
                             async for chunk in super().__stream__():  # type: ignore
                                 record_chunk(chunk)
                                 yield chunk
@@ -100,7 +100,7 @@ def instrument_llm_provider(
 
                 class LogfireInstrumentedStream(stream_cls):
                     def __stream__(self) -> Iterator[Any]:
-                        with record_streaming(logfire_llm, span_data, content_from_stream) as record_chunk:
+                        with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
                             for chunk in super().__stream__():  # type: ignore
                                 record_chunk(chunk)
                                 yield chunk
@@ -174,14 +174,13 @@ def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
 def record_streaming(
     logire_llm: Logfire,
     span_data: dict[str, Any],
-    content_from_stream: Callable[[Any], str | None],
+    stream_state_cls: type[StreamState],
 ):
-    content: list[str] = []
+    stream_state = stream_state_cls()
 
-    def record_chunk(chunk: Any) -> Any:
-        chunk_content = content_from_stream(chunk)
-        if chunk_content:
-            content.append(chunk_content)
+    def record_chunk(chunk: Any) -> None:
+        if chunk:
+            stream_state.record_chunk(chunk)
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # type: ignore
     start = timer()
@@ -193,5 +192,5 @@ def record_streaming(
             'streaming response from {request_data[model]!r} took {duration:.2f}s',
             **span_data,
             duration=duration,
-            response_data={'combined_chunk_content': ''.join(content), 'chunk_count': len(content)},
+            response_data=stream_state.get_response_data(),
         )

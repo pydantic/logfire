@@ -15,10 +15,12 @@ if TYPE_CHECKING:
     from ..main import Logfire
 
 
-def exec_source(
-    source: str, filename: str, module_name: str, globs: dict[str, Any], logfire_instance: Logfire, min_duration: int
-) -> None:
-    """Execute a modified AST of the module's source code in the module's namespace.
+def compile_source(
+    tree: ast.AST, filename: str, module_name: str, logfire_instance: Logfire, min_duration: int
+) -> Callable[[dict[str, Any]], None]:
+    """Compile a modified AST of the module's source code in the module's namespace.
+
+    Returns a function which accepts module globals and executes the compiled code.
 
     The modified AST wraps the body of every function definition in `with context_factories[index]():`.
     `context_factories` is added to the module's namespace as `logfire_<uuid>`.
@@ -34,16 +36,20 @@ def exec_source(
     """
     logfire_name = f'logfire_{uuid.uuid4().hex}'
     context_factories: list[Callable[[], ContextManager[Any]]] = []
-    globs[logfire_name] = context_factories
-    tree = rewrite_ast(source, filename, logfire_name, module_name, logfire_instance, context_factories, min_duration)
+    tree = rewrite_ast(tree, filename, logfire_name, module_name, logfire_instance, context_factories, min_duration)
     assert isinstance(tree, ast.Module)  # for type checking
     # dont_inherit=True is necessary to prevent the module from inheriting the __future__ import from this module.
     code = compile(tree, filename, 'exec', dont_inherit=True)
-    exec(code, globs, globs)
+
+    def execute(globs: dict[str, Any]):
+        globs[logfire_name] = context_factories
+        exec(code, globs, globs)
+
+    return execute
 
 
 def rewrite_ast(
-    source: str,
+    tree: ast.AST,
     filename: str,
     logfire_name: str,
     module_name: str,
@@ -51,7 +57,6 @@ def rewrite_ast(
     context_factories: list[Callable[[], ContextManager[Any]]],
     min_duration: int,
 ) -> ast.AST:
-    tree = ast.parse(source)
     logfire_args = LogfireArgs(logfire_instance._tags, logfire_instance._sample_rate)  # type: ignore
     transformer = AutoTraceTransformer(
         logfire_args, logfire_name, filename, module_name, logfire_instance, context_factories, min_duration

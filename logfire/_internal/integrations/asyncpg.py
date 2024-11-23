@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+try:
+    from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_asyncpg()` requires the `opentelemetry-instrumentation-asyncpg` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[asyncpg]'"
+    )
 
 from logfire import Logfire
 

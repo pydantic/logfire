@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+import importlib
 import os
+from unittest import mock
 
 import pytest
 from dirty_equals import IsJson
@@ -10,6 +14,7 @@ from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
 
 import logfire
+import logfire._internal.integrations.starlette
 from logfire.testing import TestExporter
 
 
@@ -225,3 +230,14 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.starlette': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.starlette)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_starlette()` requires the `opentelemetry-instrumentation-starlette` package.
+You can install this with:
+    pip install 'logfire[starlette]'\
+""")

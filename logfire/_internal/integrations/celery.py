@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from opentelemetry.instrumentation.celery import CeleryInstrumentor
+try:
+    from opentelemetry.instrumentation.celery import CeleryInstrumentor
+except ModuleNotFoundError:
+    raise RuntimeError(
+        '`logfire.instrument_celery()` requires the `opentelemetry-instrumentation-celery` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[celery]'"
+    )
 
 from logfire import Logfire
 

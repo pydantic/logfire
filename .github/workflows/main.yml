@@ -60,20 +60,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-        pydantic-version: ['main']
+        pydantic-version: ['2.10']
         include:
             - python-version: '3.12'
               pydantic-version: '2.4'
-            - python-version: '3.12'
-              pydantic-version: '2.5'
-            - python-version: '3.12'
-              pydantic-version: '2.6'
-            - python-version: '3.12'
-              pydantic-version: '2.7'
-            - python-version: '3.12'
-              pydantic-version: '2.8'
-            - python-version: '3.12'
-              pydantic-version: '2.9'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -95,8 +85,7 @@ jobs:
       - run: uv sync --python ${{ matrix.python-version }}
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
-        if: matrix.pydantic-version != 'main'
-        # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
+        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - run: mkdir coverage
@@ -178,19 +167,11 @@ jobs:
         with:
           version_file_path: pyproject.toml
 
-      - run: uv build
+      - name: Build artifacts
+        run: uv build --all
 
-      - name: Publish logfire to PyPI
+      - name: Publish logfire and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-
-      - name: Build logfire-api
-        run: uv build
-        working-directory: logfire-api/
-
-      - name: Publish logfire-api to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: logfire-api/dist
           verbose: true

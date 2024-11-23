@@ -10,7 +10,7 @@
 
 .PHONY: install  # Install the package, dependencies, and pre-commit for local development
 install: .uv .pre-commit
-	uv sync --frozen
+	uv sync --frozen --group docs
 	uv pip install -e logfire-api
 	pre-commit install --install-hooks
 

@@ -106,6 +106,9 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
     def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
         self.span.set_attribute(key, value)
 
+    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
+        return self.span.add_link(context, attributes)
+
     def add_event(
         self,
         name: str,

@@ -5,8 +5,9 @@ from typing import Any, cast
 
 import pytest
 import requests
-from dirty_equals import IsInt, IsOneOf
+from dirty_equals import IsInt
 from inline_snapshot import snapshot
+from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
@@ -14,6 +15,41 @@ from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMet
 import logfire
 import logfire._internal.metrics
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
+
+meter = metrics.get_meter('global_test_meter')
+
+global_test_counter = meter.create_counter(name='global_test_counter')
+
+
+def test_global_test_counter(metrics_reader: InMemoryMetricReader) -> None:
+    global_test_counter.add(1)
+    global_test_counter.add(20)
+    metrics_reader.collect()
+    global_test_counter.add(300)
+    global_test_counter.add(4000)
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'global_test_counter',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 300 + 4000,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
 
 
 def test_create_metric_counter(metrics_reader: InMemoryMetricReader) -> None:
@@ -230,15 +266,7 @@ def test_create_metric_counter_callback(metrics_reader: InMemoryMetricReader) ->
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 4300,
-                            'exemplars': [
-                                {
-                                    'filtered_attributes': None,
-                                    'value': 4321,
-                                    'time_unix_nano': IsInt(),
-                                    'span_id': None,
-                                    'trace_id': None,
-                                }
-                            ],
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -273,15 +301,7 @@ def test_create_metric_gauge_callback(metrics_reader: InMemoryMetricReader) -> N
                             'start_time_unix_nano': None,
                             'time_unix_nano': IsInt(),
                             'value': 4000,
-                            'exemplars': [
-                                {
-                                    'filtered_attributes': None,
-                                    'value': IsOneOf(300, 4000),
-                                    'time_unix_nano': IsInt(),
-                                    'span_id': None,
-                                    'trace_id': None,
-                                }
-                            ],
+                            'exemplars': [],
                         }
                     ]
                 },
@@ -315,15 +335,7 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 4321,
-                            'exemplars': [
-                                {
-                                    'filtered_attributes': None,
-                                    'value': 4321,
-                                    'time_unix_nano': IsInt(),
-                                    'span_id': None,
-                                    'trace_id': None,
-                                }
-                            ],
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.CUMULATIVE,

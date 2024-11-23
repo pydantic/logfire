@@ -195,13 +195,23 @@ class Class3:
     def method4(self):
         b = 7
         return b
+
+def only_docstring_function():
+    """Empty body"""
+
+def only_pass_function():
+    """Trivial body"""
+    pass
+
+def only_ellipsis_function():
+    ...
 '''
 
 
 def test_rewrite_ast():
     context_factories: list[Callable[[], ContextManager[Any]]] = []
     tree = rewrite_ast(
-        nested_sample,
+        ast.parse(nested_sample),
         'foo.py',
         'logfire_span',
         'module.name',
@@ -243,6 +253,16 @@ class Class3:
         with logfire_span[4]():
             b = 7
             return b
+
+def only_docstring_function():
+    """Empty body"""
+
+def only_pass_function():
+    """Trivial body"""
+    pass
+
+def only_ellipsis_function():
+    ...
 '''
 
     if sys.version_info >= (3, 9):  # pragma: no branch
@@ -336,7 +356,7 @@ from logfire import no_auto_trace
 @str
 def traced_func():
     async def inner():
-        pass
+        return 1
     return inner
 
 
@@ -345,18 +365,18 @@ def traced_func():
 @str
 def not_traced_func():
     async def inner():
-        pass
+        return 1
     return inner
 
 
 @str
 class TracedClass:
     async def traced_method(self):
-        pass
+        return 1
 
     @no_auto_trace
     def not_traced_method(self):
-        pass
+        return 1
 
 
 @no_auto_trace
@@ -364,19 +384,19 @@ class TracedClass:
 class NotTracedClass:
     async def would_be_traced_method(self):
         def inner():
-            pass
+            return 1
         return inner
 
     @no_auto_trace
     def definitely_not_traced_method(self):
-        pass
+        return 1
 """
 
 
 def get_calling_strings(sample: str):
     context_factories: list[Callable[[], ContextManager[Any]]] = []
     rewrite_ast(
-        sample,
+        ast.parse(sample),
         'foo.py',
         'logfire_span',
         'module.name',
