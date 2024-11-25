@@ -17,7 +17,7 @@ try:
         _DEFAULT_CONFIG,  # type: ignore
         SystemMetricsInstrumentor,
     )
-except ModuleNotFoundError as e:  # pragma: no cover
+except ImportError as e:  # pragma: no cover
     raise RuntimeError(
         '`logfire.instrument_system_metrics()` requires the `opentelemetry-instrumentation-system-metrics` package.\n'
         'You can install this with:\n'

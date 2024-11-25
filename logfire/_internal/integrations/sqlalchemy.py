@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 try:
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_sqlalchemy()` requires the `opentelemetry-instrumentation-sqlalchemy` package.\n'
         'You can install this with:\n'

@@ -6,7 +6,7 @@ from opentelemetry.trace import TracerProvider
 
 try:
     from opentelemetry.instrumentation.mysql import MySQLInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_mysql()` requires the `opentelemetry-instrumentation-mysql` package.\n'
         'You can install this with:\n'

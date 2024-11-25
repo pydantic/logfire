@@ -25,7 +25,7 @@ from .asgi import tweak_asgi_spans_tracer_provider
 try:
     from opentelemetry.instrumentation.asgi import ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
         'You can install this with:\n'

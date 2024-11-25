@@ -6,7 +6,7 @@ from starlette.applications import Starlette
 
 try:
     from opentelemetry.instrumentation.starlette import StarletteInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_starlette()` requires the `opentelemetry-instrumentation-starlette` package.\n'
         'You can install this with:\n'

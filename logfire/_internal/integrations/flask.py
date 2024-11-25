@@ -6,7 +6,7 @@ from flask.app import Flask
 
 try:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_flask()` requires the `opentelemetry-instrumentation-flask` package.\n'
         'You can install this with:\n'

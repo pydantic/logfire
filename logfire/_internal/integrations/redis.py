@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from opentelemetry.instrumentation.redis import RedisInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_redis()` requires the `opentelemetry-instrumentation-redis` package.\n'
         'You can install this with:\n'

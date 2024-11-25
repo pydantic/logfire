@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 try:
     from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_asyncpg()` requires the `opentelemetry-instrumentation-asyncpg` package.\n'
         'You can install this with:\n'
