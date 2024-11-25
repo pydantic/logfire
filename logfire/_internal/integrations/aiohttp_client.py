@@ -2,7 +2,7 @@ from typing import Any
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_aiohttp_client()` requires the `opentelemetry-instrumentation-aiohttp-client` package.\n'
         'You can install this with:\n'

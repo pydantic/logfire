@@ -5,7 +5,7 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 try:
     from opentelemetry.instrumentation.django import DjangoInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_django()` requires the `opentelemetry-instrumentation-django` package.\n'
         'You can install this with:\n'

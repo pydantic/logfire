@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_pymongo()` requires the `opentelemetry-instrumentation-pymongo` package.\n'
         'You can install this with:\n'

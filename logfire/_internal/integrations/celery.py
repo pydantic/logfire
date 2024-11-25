@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 try:
     from opentelemetry.instrumentation.celery import CeleryInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_celery()` requires the `opentelemetry-instrumentation-celery` package.\n'
         'You can install this with:\n'
