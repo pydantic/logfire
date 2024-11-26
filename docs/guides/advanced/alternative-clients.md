@@ -112,3 +112,44 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ```
 
 Finally, use `cargo run` to execute.
+
+## Example with Go
+
+Create a file `main.go` containing the following:
+
+```go
+package main
+
+import (
+    "context"
+    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+    "go.opentelemetry.io/otel/sdk/trace"
+)
+
+func main() {
+    ctx := context.Background()
+    traceExporter, _ := otlptracehttp.New(ctx)
+    batchSpanProcessor := trace.NewBatchSpanProcessor(traceExporter)
+    tracerProvider := trace.NewTracerProvider(trace.WithSpanProcessor(batchSpanProcessor))
+    tracer := tracerProvider.Tracer("my_tracer")
+
+    ctx, span := tracer.Start(ctx, "Hello World")
+    span.End()
+
+    tracerProvider.Shutdown(ctx)
+}
+```
+
+Then run these commands:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+
+# Optional, but otherwise you will see the service name set to `unknown_service:otel_example`
+export OTEL_RESOURCE_ATTRIBUTES="service.name=my_service"
+
+go mod init otel_example
+go mod tidy
+go run .
+```
