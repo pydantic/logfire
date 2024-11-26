@@ -1,6 +1,10 @@
-[Magentic](https://github.com/jackmpcollins/magentic) is a lightweight library for working with structured output from LLMs, built around standard python type annotations and Pydantic. It integrates with Logfire to provide observability into prompt-templating, retries, tool/function call execution, and other features.
+[Magentic](https://github.com/jackmpcollins/magentic) is a lightweight library for working with
+structured output from LLMs, built around standard python type annotations and **Pydantic**. It
+integrates with **Logfire** to provide observability into prompt-templating, retries, tool/function
+call execution, and [other features](https://magentic.dev/#features).
 
-Magentic instrumentation requires no additional setup beyond configuring logfire itself. You might also want to enable the [OpenAI](../openai.md) and/or [Anthropic](../anthropic.md) integrations.
+Magentic instrumentation requires no additional setup beyond configuring **Logfire** itself.
+You might also want to enable the [OpenAI](../openai.md) and/or [Anthropic](../anthropic.md) integrations.
 
 ```python hl_lines="3 8 9"
 from typing import Annotated
@@ -37,9 +41,10 @@ def make_superhero(name: str) -> Superhero: ...
 
 hero = make_superhero("The Bark Night")
 print(hero)
+#> Superhero(name='The Bark Night', powers=[], city='New York, NY')
 ```
 
-This creates the following in Logfire
+This creates the following in **Logfire**:
 
 * A span for the call to `make_superhero` showing the input arguments
 * A span showing that retries have been enabled for this query
@@ -51,4 +56,4 @@ This creates the following in Logfire
   <figcaption>Magentic chatprompt-function call span and conversation</figcaption>
 </figure>
 
-To learn more about magentic, check out [magentic.dev](https://magentic.dev).
+To learn more about Magentic, check out [magentic.dev](https://magentic.dev).
