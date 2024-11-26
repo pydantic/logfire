@@ -22,10 +22,13 @@ If you are using languages other than Python, you can set the environment like t
 
 ---
 
-Once set, you will see your environment in the Logfire UI `all envs` dropdown (note, the new environment can take a few minutes to appear),
+Once set, you will see your environment in the Logfire UI `all envs` dropdown,
 which is present on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and [Explore](../web-ui/explore.md) pages:
 
 ![Environments](../../images/guide/environments.png)
+
+!!! info
+    When using an environment for the first time, it may take a **few minutes** for the environment to appear in the UI.
 
 Note that by default there are system generated environments:
 
