@@ -1,6 +1,7 @@
 validator
 [Pp]ydantic
 validators
+[Mm]agentic
 namespace
 Hyperlint
 preprocess
