@@ -41,7 +41,6 @@ def make_superhero(name: str) -> Superhero: ...
 
 hero = make_superhero("The Bark Night")
 print(hero)
-#> Superhero(name='The Bark Night', powers=[], city='New York, NY')
 ```
 
 This creates the following in **Logfire**:
