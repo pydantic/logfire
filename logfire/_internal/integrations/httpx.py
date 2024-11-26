@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.\n'
         'You can install this with:\n'

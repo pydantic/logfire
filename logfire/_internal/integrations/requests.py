@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 try:
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
-except ModuleNotFoundError:
+except ImportError:
     raise RuntimeError(
         '`logfire.instrument_requests()` requires the `opentelemetry-instrumentation-requests` package.\n'
         'You can install this with:\n'
