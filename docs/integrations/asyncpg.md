@@ -18,20 +18,15 @@ demonstrate how to use **Logfire** with asyncpg.
 First, we need to initialize a PostgreSQL database. This can be easily done using Docker with the following command:
 
 ```bash
-docker run --name postgres \  # (1)!
-    -e POSTGRES_USER=user \  # (2)!
-    -e POSTGRES_PASSWORD=secret \  # (3)!
-    -e POSTGRES_DB=database \  # (4)!
-    -p 5432:5432 \  # (5)!
-    -d postgres  # (6)!
+docker run --name postgres \
+    -e POSTGRES_USER=user \
+    -e POSTGRES_PASSWORD=secret \
+    -e POSTGRES_DB=database \
+    -p 5432:5432 \
+    -d postgres
 ```
 
-1. `--name postgres`: This defines the name of the Docker container.
-2. `-e POSTGRES_USER=user`: This sets a user for the PostgreSQL server.
-3. `-e POSTGRES_PASSWORD=secret`: This sets a password for the PostgreSQL server.
-4. `-e POSTGRES_DB=database`: This creates a new database named "database", the same as the one used in your Python script.
-5. `-p 5432:5432`: This makes the PostgreSQL instance available on your local machine under port 5432.
-6. `-d postgres`: This denotes the Docker image to be used, in this case, "postgres", and starts the container in detached mode.
+This command will create a PostgreSQL database, that you can connect with `postgres://user:secret@0.0.0.0:5432/database`.
 
 ### Run the Python script
 
@@ -41,7 +36,6 @@ The following Python script connects to the PostgreSQL database and executes som
 import asyncio
 
 import asyncpg
-
 import logfire
 
 logfire.configure()
