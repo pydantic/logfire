@@ -20,12 +20,10 @@ from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerPro
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
-from functools import cached_property
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.version import VERSION as VERSION
-from opentelemetry.metrics import Meter
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -204,15 +202,7 @@ class LogfireConfig(_LogfireConfigData):
             The meter provider.
         """
     def warn_if_not_initialized(self, message: str): ...
-    @cached_property
-    def meter(self) -> Meter:
-        """Get a meter from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The meter.
-        """
+    def suppress_scopes(self, *scopes: str) -> None: ...
 
 GLOBAL_CONFIG: Incomplete
 
