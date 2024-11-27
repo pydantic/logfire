@@ -40,10 +40,11 @@ documentation.
 
 We have special integration with the Pydantic library and the OpenAI SDK:
 
-| Package                 | Type            |
-|-------------------------|-----------------|
-| [Pydantic](pydantic.md) | Data Validation |
-| [OpenAI](openai.md)     | AI              |
+| Package                   | Type            |
+|---------------------------|-----------------|
+| [Pydantic](pydantic.md)   | Data Validation |
+| [OpenAI](openai.md)       | AI              |
+| [Anthropic](anthropic.md) | AI              |
 
 ## Logging Integrations
 

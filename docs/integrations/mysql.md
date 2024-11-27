@@ -18,22 +18,16 @@ demonstrate how to use **Logfire** with MySQL.
 First, we need to initialize a MySQL database. This can be easily done using Docker with the following command:
 
 ```bash
-docker run --name mysql \  # (1)!
-    -e MYSQL_ROOT_PASSWORD=secret \  # (2)!
-    -e MYSQL_DATABASE=database \  # (3)!
-    -e MYSQL_USER=user \  # (4)!
-    -e MYSQL_PASSWORD=secret \  # (5)!
-    -p 3306:3306 \  # (6)!
-    -d mysql  # (7)!
+docker run --name mysql \
+    -e MYSQL_ROOT_PASSWORD=secret \
+    -e MYSQL_DATABASE=database \
+    -e MYSQL_USER=user \
+    -e MYSQL_PASSWORD=secret \
+    -p 3306:3306 \
+    -d mysql
 ```
 
-1. `--name mysql`: This defines the name of the Docker container.
-2. `-e MYSQL_ROOT_PASSWORD=secret`: This sets a password for the MySQL root user.
-3. `-e MYSQL_DATABASE=database`: This creates a new database named "database", the same as the one used in your Python script.
-4. `-e MYSQL_USER=user`: This sets a user for the MySQL server.
-5. `-e MYSQL_PASSWORD=secret`: This sets a password for the MySQL server.
-6. `-p 3306:3306`: This makes the MySQL instance available on your local machine under port 3306.
-7. `-d mysql`: This denotes the Docker image to be used, in this case, "mysql", and starts the container in detached mode.
+The command above will create a MySQL database, that you can connect with `mysql://user:secret@0.0.0.0:3306/database`.
 
 ### Run the Python script
 
