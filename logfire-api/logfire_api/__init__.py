@@ -75,6 +75,8 @@ except ImportError:
 
             def fatal(self, *args, **kwargs) -> None: ...
 
+            def suppress_scopes(self, *args, **kwargs) -> None: ...
+
             def with_tags(self, *args, **kwargs) -> Logfire:
                 return self
 
@@ -175,6 +177,7 @@ except ImportError:
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
+        suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 
         def loguru_handler() -> dict[str, Any]: ...
 
