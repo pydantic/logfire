@@ -3177,14 +3177,14 @@ def test_instrument_pydantic_on_2_5() -> None:
 
 
 def test_suppress_scopes(exporter: TestExporter):
-    suppressd1 = logfire.with_settings(custom_scope_suffix='suppressd1')
-    suppressd1.info('before suppress')
-    logfire.suppress_scopes('logfire.suppressd1', 'suppressd2')
-    suppressd1.info('after suppress')
-    suppressd2 = get_tracer('suppressd2')
+    suppressed1 = logfire.with_settings(custom_scope_suffix='suppressed1')
+    suppressed1.info('before suppress')
+    logfire.suppress_scopes('logfire.suppressed1', 'suppressed2')
+    suppressed1.info('after suppress')
+    suppressed2 = get_tracer('suppressed2')
     with logfire.span('root'):
-        with suppressd2.start_as_current_span('suppressd child'):
-            logfire.info('in suppressd child')
+        with suppressed2.start_as_current_span('suppressed child'):
+            logfire.info('in suppressed child')
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, include_instrumentation_scope=True) == snapshot(
         [
@@ -3194,7 +3194,7 @@ def test_suppress_scopes(exporter: TestExporter):
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 1000000000,
-                'instrumentation_scope': 'logfire.suppressd1',
+                'instrumentation_scope': 'logfire.suppressed1',
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -3223,7 +3223,7 @@ def test_suppress_scopes(exporter: TestExporter):
                 },
             },
             {
-                'name': 'in suppressd child',
+                'name': 'in suppressed child',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 5000000000,
@@ -3232,8 +3232,8 @@ def test_suppress_scopes(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'in suppressd child',
-                    'logfire.msg': 'in suppressd child',
+                    'logfire.msg_template': 'in suppressed child',
+                    'logfire.msg': 'in suppressed child',
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_suppress_scopes',
                     'code.lineno': 123,
