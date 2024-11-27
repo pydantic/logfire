@@ -1042,6 +1042,11 @@ class LogfireConfig(_LogfireConfigData):
 
                 traceback.print_exception(e)
 
+    def mute_scopes(self, *scopes: str) -> None:
+        self._tracer_provider.mute_scopes(*scopes)
+        # TODO
+        # self._meter_provider.mute_scopes(*scopes)
+
 
 # The global config is the single global object in logfire
 # It also does not initialize anything when it's created (right now)

@@ -17,7 +17,7 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import StatusCode
+from opentelemetry.trace import StatusCode, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -3174,3 +3174,86 @@ def test_force_flush(exporter: TestExporter):
 def test_instrument_pydantic_on_2_5() -> None:
     with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
         logfire.instrument_pydantic()
+
+
+def test_mute_scopes(exporter: TestExporter):
+    muted1 = logfire.with_settings(custom_scope_suffix='muted1')
+    muted1.info('before mute')
+    logfire.mute_scopes('logfire.muted1', 'muted2')
+    muted1.info('after mute')
+    muted2 = get_tracer('muted2')
+    with logfire.span('root'):
+        with muted2.start_as_current_span('muted child'):
+            logfire.info('in muted child')
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'name': 'before mute',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'instrumentation_scope': 'logfire.muted1',
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'before mute',
+                    'logfire.msg': 'before mute',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_mute_scopes',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'root (pending)',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_mute_scopes',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'in muted child',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'in muted child',
+                    'logfire.msg': 'in muted child',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_mute_scopes',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'root',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 7000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_mute_scopes',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )

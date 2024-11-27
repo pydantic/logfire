@@ -51,6 +51,7 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
+mute_scopes = DEFAULT_LOGFIRE_INSTANCE.mute_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
@@ -137,6 +138,7 @@ __all__ = (
     'with_tags',
     'with_settings',
     # 'with_trace_sample_rate',
+    'mute_scopes',
     'shutdown',
     'load_spans_from_file',
     'no_auto_trace',
