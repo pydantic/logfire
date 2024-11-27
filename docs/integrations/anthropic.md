@@ -1,8 +1,7 @@
 # Anthropic
 
-## Introduction
-
-Logfire supports instrumenting calls to Anthropic with one extra line of code.
+**Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python)
+with one extra line of code.
 
 ```python hl_lines="6"
 import anthropic
