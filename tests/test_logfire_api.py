@@ -99,6 +99,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         ...
     logfire__all__.remove('suppress_instrumentation')
 
+    assert hasattr(logfire_api, 'suppress_scopes')
+    logfire_api.suppress_scopes()
+    logfire__all__.remove('suppress_scopes')
+
     assert hasattr(logfire_api, 'ConsoleOptions')
     logfire_api.ConsoleOptions(colors='auto')
     logfire__all__.remove('ConsoleOptions')
