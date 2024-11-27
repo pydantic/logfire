@@ -135,37 +135,34 @@ def install_logfire(markdown: str, page: Page) -> str:
         extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
         package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
         extras_arg = ' '.join(f'-E {extra}' for extra in extras)
-        instructions = f"""
-=== "pip"
-    ```bash
-    pip install {package}
-    ```
+        instructions = [
+            '=== "pip"',
+            '    ```bash',
+            f'    pip install {package}',
+            '    ```',
+            '=== "uv"',
+            '    ```bash',
+            f'    uv add {package}',
+            '    ```',
+            '=== "rye"',
+            '    ```bash',
+            f'    rye add logfire {extras_arg}',
+            '    ```',
+            '=== "poetry"',
+            '    ```bash',
+            f'    poetry add {package}',
+            '    ```',
+        ]
 
-=== "uv"
-    ```bash
-    uv add {package}
-    ```
-
-=== "rye"
-    ```bash
-    rye add logfire {extras_arg}
-    ```
-
-=== "poetry"
-    ```bash
-    poetry add {package}
-    ```
-
-"""
         if not extras:
-            instructions += """
+            instructions.extend(['=== "conda"', '    ```bash', '    conda install -c conda-forge logfire', '    ```'])
+        instructions_str = '\n'.join(instructions)
 
-=== "conda"
-    ```bash
-    conda install -c conda-forge logfire
-    ```
-"""
-        markdown = re.sub(r'{{ *install_logfire\(.*\) *}}', instructions, markdown, count=1)
+        def replace_match(match: re.Match[str]) -> str:
+            indent = match.group('indent')
+            return indent + instructions_str.replace('\n', '\n' + indent)
+
+        markdown = re.sub(r'(?P<indent> *){{ *install_logfire\(.*\) *}}', replace_match, markdown, count=1)
     return markdown
 
 
