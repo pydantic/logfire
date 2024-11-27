@@ -42,7 +42,7 @@ class ProxyTracerProvider(TracerProvider):
     config: LogfireConfig
     tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
     lock: Lock = field(default_factory=Lock)
-    muted_scopes: set[str] = field(default_factory=set)
+    suppressd_scopes: set[str] = field(default_factory=set)
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:
@@ -50,9 +50,9 @@ class ProxyTracerProvider(TracerProvider):
             for tracer, factory in self.tracers.items():
                 tracer.set_tracer(factory())
 
-    def mute_scopes(self, *scopes: str) -> None:
+    def suppress_scopes(self, *scopes: str) -> None:
         with self.lock:
-            self.muted_scopes.update(scopes)
+            self.suppressd_scopes.update(scopes)
             for tracer, factory in self.tracers.items():
                 if tracer.instrumenting_module_name in scopes:
                     tracer.set_tracer(factory())
@@ -67,8 +67,8 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
 
             def make() -> Tracer:
-                if instrumenting_module_name in self.muted_scopes:
-                    return MutedTracer()
+                if instrumenting_module_name in self.suppressd_scopes:
+                    return SuppressdTracer()
                 else:
                     return self.provider.get_tracer(instrumenting_module_name, *args, **kwargs)
 
@@ -221,7 +221,7 @@ class _ProxyTracer(Tracer):
     start_as_current_span = SDKTracer.start_as_current_span
 
 
-class MutedTracer(Tracer):
+class SuppressdTracer(Tracer):
     def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
         # Create a no-op span with the same SpanContext as the current span.
         # This means that any spans created within will have the current span as their parent,

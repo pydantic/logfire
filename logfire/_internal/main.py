@@ -1756,8 +1756,8 @@ class Logfire:
         """
         self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
-    def mute_scopes(self, *scopes: str) -> None:
-        self._config.mute_scopes(*scopes)
+    def suppress_scopes(self, *scopes: str) -> None:
+        self._config.suppress_scopes(*scopes)
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
         """Shut down all tracers and meters.

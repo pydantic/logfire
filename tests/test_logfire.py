@@ -3176,32 +3176,32 @@ def test_instrument_pydantic_on_2_5() -> None:
         logfire.instrument_pydantic()
 
 
-def test_mute_scopes(exporter: TestExporter):
-    muted1 = logfire.with_settings(custom_scope_suffix='muted1')
-    muted1.info('before mute')
-    logfire.mute_scopes('logfire.muted1', 'muted2')
-    muted1.info('after mute')
-    muted2 = get_tracer('muted2')
+def test_suppress_scopes(exporter: TestExporter):
+    suppressd1 = logfire.with_settings(custom_scope_suffix='suppressd1')
+    suppressd1.info('before suppress')
+    logfire.suppress_scopes('logfire.suppressd1', 'suppressd2')
+    suppressd1.info('after suppress')
+    suppressd2 = get_tracer('suppressd2')
     with logfire.span('root'):
-        with muted2.start_as_current_span('muted child'):
-            logfire.info('in muted child')
+        with suppressd2.start_as_current_span('suppressd child'):
+            logfire.info('in suppressd child')
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, include_instrumentation_scope=True) == snapshot(
         [
             {
-                'name': 'before mute',
+                'name': 'before suppress',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 1000000000,
-                'instrumentation_scope': 'logfire.muted1',
+                'instrumentation_scope': 'logfire.suppressd1',
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'before mute',
-                    'logfire.msg': 'before mute',
+                    'logfire.msg_template': 'before suppress',
+                    'logfire.msg': 'before suppress',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_mute_scopes',
+                    'code.function': 'test_suppress_scopes',
                     'code.lineno': 123,
                 },
             },
@@ -3214,7 +3214,7 @@ def test_mute_scopes(exporter: TestExporter):
                 'instrumentation_scope': 'logfire',
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_mute_scopes',
+                    'code.function': 'test_suppress_scopes',
                     'code.lineno': 123,
                     'logfire.msg_template': 'root',
                     'logfire.msg': 'root',
@@ -3223,7 +3223,7 @@ def test_mute_scopes(exporter: TestExporter):
                 },
             },
             {
-                'name': 'in muted child',
+                'name': 'in suppressd child',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 5000000000,
@@ -3232,10 +3232,10 @@ def test_mute_scopes(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'in muted child',
-                    'logfire.msg': 'in muted child',
+                    'logfire.msg_template': 'in suppressd child',
+                    'logfire.msg': 'in suppressd child',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_mute_scopes',
+                    'code.function': 'test_suppress_scopes',
                     'code.lineno': 123,
                 },
             },
@@ -3248,7 +3248,7 @@ def test_mute_scopes(exporter: TestExporter):
                 'instrumentation_scope': 'logfire',
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_mute_scopes',
+                    'code.function': 'test_suppress_scopes',
                     'code.lineno': 123,
                     'logfire.msg_template': 'root',
                     'logfire.msg': 'root',
