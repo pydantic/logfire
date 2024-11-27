@@ -1761,6 +1761,11 @@ class Logfire:
         self._meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
     def suppress_scopes(self, *scopes: str) -> None:
+        """Prevent spans and metrics from being created for the given OpenTelemetry scope names.
+
+        To get the scope name of a span/metric,
+        check the value of the `otel_scope_name` column in the Logfire database.
+        """
         self._config.suppress_scopes(*scopes)
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
