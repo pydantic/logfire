@@ -1,11 +1,12 @@
 # Live View
 
-The live view is the main view of Logfire, where you can see traces in real-time.
+The live view is the main view of **Logfire**, where you can see traces in real-time.
 
-The live view is useful (as the name suggests) for watching what's going on within your application in real-time, but it can also be used to explore historical data.
-
+The live view is useful (as the name suggests) for watching what's going on within your
+application in real-time, but it can also be used to explore historical data.
 
 ## The Live View SQL Box
+
 The live view has a query box at the top. Here you can enter the `WHERE` clause of a SQL query.
 
 ![Logfire Live View SQL query box](../../images/guide/live-view-sql-box.png)

@@ -77,8 +77,6 @@ nav:
   - Get Started:
       - Get Started: index.md
       - Tracing with Spans: get-started/traces.md
-      - Guides:
-          - Guides: guides/index.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -261,5 +259,6 @@ plugins:
         "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
         "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
         "guides/advanced/query_api.md": "guides/advanced/query-api.md"
+        "guides/index.md": "index.md"
 hooks:
   - docs/plugins/main.py
