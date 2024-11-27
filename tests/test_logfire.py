@@ -11,8 +11,9 @@ from logging import getLogger
 from typing import Any, Callable
 
 import pytest
-from dirty_equals import IsJson, IsStr
+from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import snapshot
+from opentelemetry.metrics import get_meter
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -38,6 +39,7 @@ from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from tests.test_metrics import get_collected_metrics
 
 
 @pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
@@ -3176,11 +3178,20 @@ def test_instrument_pydantic_on_2_5() -> None:
         logfire.instrument_pydantic()
 
 
-def test_suppress_scopes(exporter: TestExporter):
+def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricReader):
     suppressed1 = logfire.with_settings(custom_scope_suffix='suppressed1')
+    suppressed1_counter = suppressed1.metric_counter('counter1')
     suppressed1.info('before suppress')
+    suppressed1_counter.add(1)
+
     logfire.suppress_scopes('logfire.suppressed1', 'suppressed2')
+
     suppressed1.info('after suppress')
+    suppressed1_counter.add(10)
+
+    suppressed2_counter = get_meter('suppressed2').create_counter('counter2')
+    suppressed2_counter.add(100)
+
     suppressed2 = get_tracer('suppressed2')
     with logfire.span('root'):
         with suppressed2.start_as_current_span('suppressed child'):
@@ -3255,5 +3266,28 @@ def test_suppress_scopes(exporter: TestExporter):
                     'logfire.span_type': 'span',
                 },
             },
+        ]
+    )
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'counter1',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 1,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': True,
+                },
+            }
         ]
     )

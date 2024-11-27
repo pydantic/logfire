@@ -143,6 +143,10 @@ class Logfire:
         return self._config.get_meter_provider()
 
     @cached_property
+    def _meter(self):
+        return self._meter_provider.get_meter(self._otel_scope, VERSION)
+
+    @cached_property
     def _logs_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=False)
 
@@ -150,9 +154,9 @@ class Logfire:
     def _spans_tracer(self) -> Tracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, is_span_tracer: bool, otel_scope: str | None = None) -> Tracer:  # pragma: no cover
+    def _get_tracer(self, *, is_span_tracer: bool) -> Tracer:  # pragma: no cover
         return self._tracer_provider.get_tracer(
-            self._otel_scope if otel_scope is None else otel_scope,
+            self._otel_scope,
             VERSION,
             is_span_tracer=is_span_tracer,
         )
@@ -1537,7 +1541,7 @@ class Logfire:
         Returns:
             The counter metric.
         """
-        return self._config.meter.create_counter(name, unit, description)
+        return self._meter.create_counter(name, unit, description)
 
     def metric_histogram(self, name: str, *, unit: str = '', description: str = '') -> Histogram:
         """Create a histogram metric.
@@ -1565,7 +1569,7 @@ class Logfire:
         Returns:
             The histogram metric.
         """
-        return self._config.meter.create_histogram(name, unit, description)
+        return self._meter.create_histogram(name, unit, description)
 
     def metric_gauge(self, name: str, *, unit: str = '', description: str = '') -> Gauge:
         """Create a gauge metric.
@@ -1593,7 +1597,7 @@ class Logfire:
         Returns:
             The gauge metric.
         """
-        return self._config.meter.create_gauge(name, unit, description)
+        return self._meter.create_gauge(name, unit, description)
 
     def metric_up_down_counter(self, name: str, *, unit: str = '', description: str = '') -> UpDownCounter:
         """Create an up-down counter metric.
@@ -1627,7 +1631,7 @@ class Logfire:
         Returns:
             The up-down counter metric.
         """
-        return self._config.meter.create_up_down_counter(name, unit, description)
+        return self._meter.create_up_down_counter(name, unit, description)
 
     def metric_counter_callback(
         self,
@@ -1674,7 +1678,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        self._config.meter.create_observable_counter(name, callbacks, unit, description)
+        self._meter.create_observable_counter(name, callbacks, unit, description)
 
     def metric_gauge_callback(
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
@@ -1714,7 +1718,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        self._config.meter.create_observable_gauge(name, callbacks, unit, description)
+        self._meter.create_observable_gauge(name, callbacks, unit, description)
 
     def metric_up_down_counter_callback(
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
@@ -1754,7 +1758,7 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
-        self._config.meter.create_observable_up_down_counter(name, callbacks, unit, description)
+        self._meter.create_observable_up_down_counter(name, callbacks, unit, description)
 
     def suppress_scopes(self, *scopes: str) -> None:
         self._config.suppress_scopes(*scopes)

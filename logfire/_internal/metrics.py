@@ -13,6 +13,7 @@ from opentelemetry.metrics import (
     Instrument,
     Meter,
     MeterProvider,
+    NoOpMeterProvider,
     ObservableCounter,
     ObservableGauge,
     ObservableUpDownCounter,
@@ -36,6 +37,7 @@ class ProxyMeterProvider(MeterProvider):
     provider: MeterProvider
     meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet)
     lock: Lock = dataclasses.field(default_factory=Lock)
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)
 
     def get_meter(
         self,
@@ -46,14 +48,25 @@ class ProxyMeterProvider(MeterProvider):
         **kwargs: Any,
     ) -> Meter:
         with self.lock:
+            if name in self.suppressed_scopes:
+                provider = NoOpMeterProvider()
+            else:
+                provider = self.provider
             meter = _ProxyMeter(
-                self.provider.get_meter(name, version=version, schema_url=schema_url, *args, **kwargs),
+                provider.get_meter(name, version=version, schema_url=schema_url, *args, **kwargs),
                 name,
                 version,
                 schema_url,
             )
             self.meters.add(meter)
             return meter
+
+    def suppress_scopes(self, *scopes: str) -> None:
+        with self.lock:
+            self.suppressed_scopes.update(scopes)
+            for meter in self.meters:
+                if meter.name in scopes:
+                    meter.set_meter(NoOpMeterProvider())
 
     def set_meter_provider(self, meter_provider: MeterProvider) -> None:
         with self.lock:

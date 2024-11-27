@@ -11,7 +11,6 @@ import time
 import warnings
 from contextlib import suppress
 from dataclasses import dataclass, field
-from functools import cached_property
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
@@ -25,7 +24,7 @@ from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRAC
 from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.metrics import Meter, NoOpMeterProvider, set_meter_provider
+from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -976,17 +975,6 @@ class LogfireConfig(_LogfireConfigData):
                 category=LogfireNotConfiguredWarning,
             )
 
-    @cached_property
-    def meter(self) -> Meter:
-        """Get a meter from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The meter.
-        """
-        return self.get_meter_provider().get_meter('logfire', VERSION)
-
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.advanced.base_url)
 
@@ -1044,8 +1032,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def suppress_scopes(self, *scopes: str) -> None:
         self._tracer_provider.suppress_scopes(*scopes)
-        # TODO
-        # self._meter_provider.suppress_scopes(*scopes)
+        self._meter_provider.suppress_scopes(*scopes)
 
 
 # The global config is the single global object in logfire
