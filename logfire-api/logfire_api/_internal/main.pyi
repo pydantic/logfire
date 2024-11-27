@@ -970,6 +970,12 @@ class Logfire:
             unit: The unit of the metric.
             description: The description of the metric.
         """
+    def suppress_scopes(self, *scopes: str) -> None:
+        """Prevent spans and metrics from being created for the given OpenTelemetry scope names.
+
+        To get the scope name of a span/metric,
+        check the value of the `otel_scope_name` column in the Logfire database.
+        """
     def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
         """Shut down all tracers and meters.
 

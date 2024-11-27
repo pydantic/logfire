@@ -17,7 +17,8 @@ from opentelemetry.sdk.trace import (
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.semconv.resource import ResourceAttributes
-from opentelemetry.trace import Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
+from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanContext, SpanKind, Tracer, TracerProvider
+from opentelemetry.trace.propagation import get_current_span
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 
@@ -41,6 +42,7 @@ class ProxyTracerProvider(TracerProvider):
     config: LogfireConfig
     tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
     lock: Lock = field(default_factory=Lock)
+    suppressed_scopes: set[str] = field(default_factory=set)
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:
@@ -48,8 +50,16 @@ class ProxyTracerProvider(TracerProvider):
             for tracer, factory in self.tracers.items():
                 tracer.set_tracer(factory())
 
+    def suppress_scopes(self, *scopes: str) -> None:
+        with self.lock:
+            self.suppressed_scopes.update(scopes)
+            for tracer, factory in self.tracers.items():
+                if tracer.instrumenting_module_name in scopes:
+                    tracer.set_tracer(factory())
+
     def get_tracer(
         self,
+        instrumenting_module_name: str,
         *args: Any,
         is_span_tracer: bool = True,
         **kwargs: Any,
@@ -57,9 +67,12 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
 
             def make() -> Tracer:
-                return self.provider.get_tracer(*args, **kwargs)
+                if instrumenting_module_name in self.suppressed_scopes:
+                    return SuppressedTracer()
+                else:
+                    return self.provider.get_tracer(instrumenting_module_name, *args, **kwargs)
 
-            tracer = _ProxyTracer(make(), self, is_span_tracer)
+            tracer = _ProxyTracer(instrumenting_module_name, make(), self, is_span_tracer)
             self.tracers[tracer] = make
             return tracer
 
@@ -150,6 +163,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
 class _ProxyTracer(Tracer):
     """A tracer that wraps another internal tracer allowing it to be re-assigned."""
 
+    instrumenting_module_name: str
     tracer: Tracer
     provider: ProxyTracerProvider
     is_span_tracer: bool
@@ -201,6 +215,18 @@ class _ProxyTracer(Tracer):
             span,
             ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
         )
+
+    # This means that `with start_as_current_span(...):`
+    # is roughly equivalent to `with use_span(start_span(...)):`
+    start_as_current_span = SDKTracer.start_as_current_span
+
+
+class SuppressedTracer(Tracer):
+    def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
+        # Create a no-op span with the same SpanContext as the current span.
+        # This means that any spans created within will have the current span as their parent,
+        # as if this span didn't exist at all.
+        return NonRecordingSpan(get_current_span(context).get_span_context())
 
     # This means that `with start_as_current_span(...):`
     # is roughly equivalent to `with use_span(start_span(...)):`

@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v2.5.0] (2024-11-27)
+
+* Add `logfire.suppress_scopes` method by @alexmojaki in [#628](https://github.com/pydantic/logfire/pull/628)
+* Replace `ModuleNotFoundError` by `ImportError` by @Kludex in [#622](https://github.com/pydantic/logfire/pull/622)
+
 ## [v2.4.1] (2024-11-21)
 
 * Allow new context argument of metric instrument methods to be passed positionally by @alexmojaki in [#616](https://github.com/pydantic/logfire/pull/616)
@@ -439,3 +444,4 @@ First release from new repo!
 [v2.3.0]: https://github.com/pydantic/logfire/compare/v2.2.1...v2.3.0
 [v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
 [v2.4.1]: https://github.com/pydantic/logfire/compare/v2.4.0...v2.4.1
+[v2.5.0]: https://github.com/pydantic/logfire/compare/v2.4.1...v2.5.0

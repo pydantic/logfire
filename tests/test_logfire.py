@@ -11,13 +11,14 @@ from logging import getLogger
 from typing import Any, Callable
 
 import pytest
-from dirty_equals import IsJson, IsStr
+from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import snapshot
+from opentelemetry.metrics import get_meter
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import StatusCode
+from opentelemetry.trace import StatusCode, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -38,6 +39,7 @@ from logfire._internal.main import NoopSpan
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from tests.test_metrics import get_collected_metrics
 
 
 @pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
@@ -3174,3 +3176,118 @@ def test_force_flush(exporter: TestExporter):
 def test_instrument_pydantic_on_2_5() -> None:
     with pytest.raises(RuntimeError, match='The Pydantic plugin requires Pydantic 2.5.0 or newer.'):
         logfire.instrument_pydantic()
+
+
+def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricReader):
+    suppressed1 = logfire.with_settings(custom_scope_suffix='suppressed1')
+    suppressed1_counter = suppressed1.metric_counter('counter1')
+    suppressed1.info('before suppress')
+    suppressed1_counter.add(1)
+
+    logfire.suppress_scopes('logfire.suppressed1', 'suppressed2')
+
+    suppressed1.info('after suppress')
+    suppressed1_counter.add(10)
+
+    suppressed2_counter = get_meter('suppressed2').create_counter('counter2')
+    suppressed2_counter.add(100)
+
+    suppressed2 = get_tracer('suppressed2')
+    with logfire.span('root'):
+        with suppressed2.start_as_current_span('suppressed child'):
+            logfire.info('in suppressed child')
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'name': 'before suppress',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'instrumentation_scope': 'logfire.suppressed1',
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'before suppress',
+                    'logfire.msg': 'before suppress',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_scopes',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'root (pending)',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_scopes',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'in suppressed child',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'in suppressed child',
+                    'logfire.msg': 'in suppressed child',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_scopes',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'root',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 7000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_suppress_scopes',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'counter1',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 1,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
