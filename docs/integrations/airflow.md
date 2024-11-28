@@ -13,6 +13,9 @@ Unfortunately, it's not possible to send data to Logfire directly, yet... But we
     We need the ability to set the authorization header to send data to **Logfire**.
     See our [Alternative clients section](../guides/advanced/alternative-clients.md).
 
+    In the next Airflow release (current version is 2.10.3) it will be possible to send data to **Logfire**
+    directly.
+
 ## Setup
 
 To enable the OpenTelemetry integration in Airflow, you'll need to have an [OpenTelemetry Collector] running, and then
@@ -47,8 +50,6 @@ exporters:  # (2)!
   otlphttp:
     endpoint: https://logfire-api.pydantic.dev/
     compression: gzip
-    tls:
-      insecure: true
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"  # (4)!
 
