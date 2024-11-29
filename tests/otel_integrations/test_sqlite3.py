@@ -94,7 +94,7 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
 
 
 def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.mysql': None}):
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.sqlite3': None}):
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.sqlite3)
         assert str(exc_info.value) == snapshot("""\
