@@ -1,4 +1,6 @@
+import importlib
 import sqlite3
+from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
@@ -6,6 +8,7 @@ from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 
 import logfire
 import logfire._internal.integrations.httpx
+import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
@@ -88,3 +91,14 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
         cur = conn.cursor()  # type: ignore
         cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
         assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.mysql': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.sqlite3)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_sqlite3()` requires the `opentelemetry-instrumentation-sqlite3` package.
+You can install this with:
+    pip install 'logfire[sqlite3]'\
+""")
