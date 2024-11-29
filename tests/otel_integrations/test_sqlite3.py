@@ -1,0 +1,90 @@
+import sqlite3
+
+import pytest
+from inline_snapshot import snapshot
+from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+
+import logfire
+import logfire._internal.integrations.httpx
+from logfire.testing import TestExporter
+
+pytestmark = pytest.mark.anyio
+
+
+async def test_sqlite3_instrumentation(exporter: TestExporter):
+    logfire.instrument_sqlite3()
+
+    with sqlite3.connect(':memory:') as conn:
+        cur = conn.cursor()
+        cur.execute('DROP TABLE IF EXISTS test')
+        cur.execute('CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))')
+
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'DROP',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 2000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'DROP TABLE IF EXISTS test',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'DROP TABLE IF EXISTS test',
+                    },
+                },
+                {
+                    'name': 'CREATE',
+                    'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 3000000000,
+                    'end_time': 4000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
+                    },
+                },
+            ]
+        )
+
+    SQLite3Instrumentor().uninstrument()  # type: ignore
+
+
+def test_instrument_sqlite3_connection(exporter: TestExporter):
+    with sqlite3.connect(':memory:') as conn:
+        cur = conn.cursor()
+        cur.execute('DROP TABLE IF EXISTS test')
+        cur.execute('CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))')
+
+        conn = logfire.instrument_sqlite3(conn)
+        cur = conn.cursor()
+        cur.execute('INSERT INTO test (id, name) VALUES (1, "test")')
+
+        assert exporter.exported_spans_as_dict() == snapshot(
+            [
+                {
+                    'name': 'INSERT',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 2000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'INSERT INTO test (id, name) VALUES (1, "test")',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
+                    },
+                }
+            ]
+        )
+
+        conn: sqlite3.Connection = SQLite3Instrumentor().uninstrument_connection(conn)  # type: ignore
+        cur = conn.cursor()  # type: ignore
+        cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
+        assert len(exporter.exported_spans_as_dict()) == 1

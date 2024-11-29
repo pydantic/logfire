@@ -111,6 +111,8 @@ except ImportError:
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
 
+            def instrument_sqlite3(self, *args, **kwargs) -> None: ...
+
             def instrument_redis(self, *args, **kwargs) -> None: ...
 
             def instrument_flask(self, *args, **kwargs) -> None: ...
@@ -172,6 +174,7 @@ except ImportError:
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
+        instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql

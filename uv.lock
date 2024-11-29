@@ -1448,6 +1448,9 @@ requests = [
 sqlalchemy = [
     { name = "opentelemetry-instrumentation-sqlalchemy" },
 ]
+sqlite3 = [
+    { name = "opentelemetry-instrumentation-sqlite3" },
+]
 starlette = [
     { name = "opentelemetry-instrumentation-starlette" },
 ]
@@ -1498,6 +1501,7 @@ dev = [
     { name = "opentelemetry-instrumentation-redis" },
     { name = "opentelemetry-instrumentation-requests" },
     { name = "opentelemetry-instrumentation-sqlalchemy" },
+    { name = "opentelemetry-instrumentation-sqlite3" },
     { name = "opentelemetry-instrumentation-starlette" },
     { name = "opentelemetry-instrumentation-system-metrics" },
     { name = "opentelemetry-instrumentation-wsgi" },
@@ -1557,6 +1561,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-redis", marker = "extra == 'redis'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-requests", marker = "extra == 'requests'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-sqlalchemy", marker = "extra == 'sqlalchemy'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-sqlite3", marker = "extra == 'sqlite3'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
@@ -1609,6 +1614,7 @@ dev = [
     { name = "opentelemetry-instrumentation-redis" },
     { name = "opentelemetry-instrumentation-requests" },
     { name = "opentelemetry-instrumentation-sqlalchemy" },
+    { name = "opentelemetry-instrumentation-sqlite3" },
     { name = "opentelemetry-instrumentation-starlette" },
     { name = "opentelemetry-instrumentation-system-metrics" },
     { name = "opentelemetry-instrumentation-wsgi" },
@@ -2527,6 +2533,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/78/30/86176f01cd10f023c791e0f0e0eb59f969ec803b94b406f13909be934c44/opentelemetry_instrumentation_sqlalchemy-0.49b1.tar.gz", hash = "sha256:9eda72458f6388bf57a3f5e0945cca90d7726a53a0d443f609caac59afd86a1e", size = 13242 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/32/eb0732c52e78dddfba6200e251ecf21bdc4755c33d5c4c698815fd6c4aab/opentelemetry_instrumentation_sqlalchemy-0.49b1-py3-none-any.whl", hash = "sha256:52cf0894eab8b4d3a356825f173c46a958e36a6e3aa4444fc54b27592d2f8bd5", size = 13382 },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-sqlite3"
+version = "0.49b1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-instrumentation-dbapi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/00/db/3364ca3eb16e46a845da8c31711829c142d41b690f4f7a15ba9a8e09ed1d/opentelemetry_instrumentation_sqlite3-0.49b1.tar.gz", hash = "sha256:7e359dec019bd06cdf0aef3a87689301a961ae04b5bff0f7a4e3eb30b6d184f6", size = 7529 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/d1/3e8d06a3a5eaeff053087d2e9321d2137eb77182e3f823ac7d645b35a731/opentelemetry_instrumentation_sqlite3-0.49b1-py3-none-any.whl", hash = "sha256:635338d78bb83c542e44e8c0a7d0eb5a0f23f047eccd443b14914f2440b181d8", size = 8718 },
 ]
 
 [[package]]

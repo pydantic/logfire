@@ -119,6 +119,7 @@ nav:
           - Psycopg: integrations/psycopg.md
           - PyMongo: integrations/pymongo.md
           - MySQL: integrations/mysql.md
+          - SQLite3: integrations/sqlite3.md
           - Redis: integrations/redis.md
           - BigQuery: integrations/bigquery.md
           - Celery: integrations/celery.md
