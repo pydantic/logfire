@@ -26,6 +26,7 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [Psycopg](psycopg.md)               | Databases               |
 | [PyMongo](pymongo.md)               | Databases               |
 | [MySQL](mysql.md)                   | Databases               |
+| [SQLite3](sqlite3.md)               | Databases               |
 | [Redis](redis.md)                   | Databases               |
 | [BigQuery](bigquery.md)             | Databases               |
 | [Celery](celery.md)                 | Task Queue              |

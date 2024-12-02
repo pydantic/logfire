@@ -74,6 +74,7 @@ pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
+sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -123,6 +124,7 @@ dev = [
     "opentelemetry-instrumentation-pymongo",
     "opentelemetry-instrumentation-celery",
     "opentelemetry-instrumentation-mysql",
+    "opentelemetry-instrumentation-sqlite3",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
