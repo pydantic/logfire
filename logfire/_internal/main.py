@@ -1443,7 +1443,13 @@ class Logfire:
         from .integrations.sqlite3 import instrument_sqlite3
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_sqlite3(conn=conn, tracer_provider=self._config.get_tracer_provider(), **kwargs)
+        return instrument_sqlite3(
+            conn=conn,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
