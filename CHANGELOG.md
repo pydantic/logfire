@@ -2,9 +2,6 @@
 
 ## [v2.6.0] (2024-12-02)
 
-* Add note about Django ASGI into the documentation by @Kludex in [#630](https://github.com/pydantic/logfire/pull/630)
-* Add note about `suppress_scopes` to BigQuery by @Kludex in [#631](https://github.com/pydantic/logfire/pull/631)
-* Add OpenTelemetry classifiers by @Kludex in [#637](https://github.com/pydantic/logfire/pull/637)
 * Add `instrument_sqlite3` by @Kludex in [#634](https://github.com/pydantic/logfire/pull/634)
 
 ## [v2.5.0] (2024-11-27)
