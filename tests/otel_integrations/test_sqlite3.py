@@ -11,16 +11,17 @@ import logfire._internal.integrations.httpx
 import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
 
-pytestmark = pytest.mark.anyio
 
-
-async def test_sqlite3_instrumentation(exporter: TestExporter):
+def test_sqlite3_instrumentation(exporter: TestExporter):
     logfire.instrument_sqlite3()
 
     with sqlite3.connect(':memory:') as conn:
         cur = conn.cursor()
         cur.execute('DROP TABLE IF EXISTS test')
         cur.execute('CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))')
+        cur.execute('INSERT INTO test (id, name) VALUES (1, "test")')
+        values = cur.execute('SELECT * FROM test').fetchall()
+        assert values == [(1, 'test')]
 
         assert exporter.exported_spans_as_dict() == snapshot(
             [
@@ -52,6 +53,34 @@ async def test_sqlite3_instrumentation(exporter: TestExporter):
                         'db.statement': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
                     },
                 },
+                {
+                    'name': 'INSERT',
+                    'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 5000000000,
+                    'end_time': 6000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'INSERT INTO test (id, name) VALUES (1, "test")',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
+                    },
+                },
+                {
+                    'name': 'SELECT',
+                    'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 7000000000,
+                    'end_time': 8000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'SELECT * FROM test',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'SELECT * FROM test',
+                    },
+                },
             ]
         )
 
@@ -67,6 +96,8 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
         conn = logfire.instrument_sqlite3(conn)
         cur = conn.cursor()
         cur.execute('INSERT INTO test (id, name) VALUES (1, "test")')
+        values = cur.execute('SELECT * FROM test').fetchall()
+        assert values == [(1, 'test')]
 
         assert exporter.exported_spans_as_dict() == snapshot(
             [
@@ -83,14 +114,30 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
                         'db.name': '',
                         'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
                     },
-                }
+                },
+                {
+                    'name': 'SELECT',
+                    'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 3000000000,
+                    'end_time': 4000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'SELECT * FROM test',
+                        'db.system': 'sqlite',
+                        'db.name': '',
+                        'db.statement': 'SELECT * FROM test',
+                    },
+                },
             ]
         )
-
+        spans_before_uninstrument = len(exporter.exported_spans_as_dict())
         conn: sqlite3.Connection = SQLite3Instrumentor().uninstrument_connection(conn)  # type: ignore
         cur = conn.cursor()  # type: ignore
         cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
-        assert len(exporter.exported_spans_as_dict()) == 1
+        assert len(exporter.exported_spans_as_dict()) == spans_before_uninstrument
+        values = cur.execute('SELECT * FROM test').fetchall()  # type: ignore
+        assert values == [(1, 'test'), (2, 'test-2')]
 
 
 def test_missing_opentelemetry_dependency() -> None:

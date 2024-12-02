@@ -1,7 +1,7 @@
 # SQLite3
 
 The [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] method can be used to instrument the
-[SQLite3][sqlite3] standard library module. This will automatically create spans for each SQL query executed.
+[`sqlite3`][sqlite3] standard library module. This will automatically create spans for each SQL query executed.
 
 ## Installation
 
@@ -11,7 +11,7 @@ Install `logfire` with the `sqlite3` extra:
 
 ## Usage
 
-We can use the sqlite in memory database to demonstrate the usage of the
+We can use the sqlite in-memory database to demonstrate the usage of the
 [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] method.
 
 === "Instrument the package"
