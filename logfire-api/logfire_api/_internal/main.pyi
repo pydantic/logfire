@@ -20,6 +20,7 @@ from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKw
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
+from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection, SQLite3InstrumentKwargs as SQLite3InstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
 from .integrations.wsgi import WSGIInstrumentKwargs as WSGIInstrumentKwargs
@@ -704,6 +705,20 @@ class Logfire:
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
+    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]) -> SQLite3Connection:
+        """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry SQLite3 Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html)
+        library.
+
+        Args:
+            conn: The `sqlite3` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
+        """
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
@@ -735,7 +750,6 @@ class Logfire:
 
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
-
         """
     def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
         """Collect system metrics.
