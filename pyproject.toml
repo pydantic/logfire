@@ -39,6 +39,10 @@ classifiers = [
     'Environment :: MacOS X',
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Internet',
+    'Framework :: OpenTelemetry',
+    'Framework :: OpenTelemetry :: Distros',
+    'Framework :: OpenTelemetry :: Exporters',
+    'Framework :: OpenTelemetry :: Instrumentations',
 ]
 dependencies = [
     "opentelemetry-sdk >= 1.21.0",
