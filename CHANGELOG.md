@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v2.6.0] (2024-12-02)
+
+* Add `instrument_sqlite3` by @Kludex in [#634](https://github.com/pydantic/logfire/pull/634)
+
 ## [v2.5.0] (2024-11-27)
 
 * Add `logfire.suppress_scopes` method by @alexmojaki in [#628](https://github.com/pydantic/logfire/pull/628)
@@ -445,3 +449,4 @@ First release from new repo!
 [v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
 [v2.4.1]: https://github.com/pydantic/logfire/compare/v2.4.0...v2.4.1
 [v2.5.0]: https://github.com/pydantic/logfire/compare/v2.4.1...v2.5.0
+[v2.6.0]: https://github.com/pydantic/logfire/compare/v2.5.0...v2.6.0
