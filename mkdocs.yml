@@ -122,6 +122,7 @@ nav:
           - SQLite3: integrations/sqlite3.md
           - Redis: integrations/redis.md
           - BigQuery: integrations/bigquery.md
+          - Airflow: integrations/airflow.md
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
           - System Metrics: integrations/system-metrics.md
