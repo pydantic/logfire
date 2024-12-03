@@ -1,25 +1,56 @@
 # Airflow
 
-Airflow has a native OpenTelemetry integration for [traces] and [metrics].
+**Airflow** has a native OpenTelemetry integration for [traces] and [metrics], which involves creating
+an exporter internally that sends data to the configured backend.
 
-Airflow creates an exporter internally, which sends data to the configured backend.
+To configure **Airflow** to send data to **Logfire**, you'll need to:
 
-Unfortunately, it's not possible to send data to Logfire directly, yet... But we are working on it. :wink:
+- Set the `OTEL_EXPORTER_OTLP_HEADERS` environment variable.
+- Configure the `otel_*` settings in the `airflow.cfg` file.
 
-??? question "Why it's not possible to send data directly?"
-    The Airflow implementation doesn't allow to override the headers used by the exporter.
-    See [apache/airflow#44346](https://github.com/apache/airflow/pull/44346) for more details.
+!!! warning
+    If your `apache-airflow` is older than 2.10.4, this section will not work for you.
 
-    We need the ability to set the authorization header to send data to **Logfire**.
-    See our [Alternative clients section](../guides/advanced/alternative-clients.md).
+    In that case, go to the [Airflow with OpenTelemetry Collector] section.
 
-    In the next Airflow release (current version is 2.10.3) it will be possible to send data to **Logfire**
-    directly.
+```bash
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=${LOGFIRE_TOKEN}"
+```
 
-## Setup
+Where `${LOGFIRE_TOKEN}` is your [**Logfire** write token][write-token].
 
-To enable the OpenTelemetry integration in Airflow, you'll need to have an [OpenTelemetry Collector] running, and then
-configure Airflow to send data to it.
+
+```ini title="airflow.cfg"
+[metrics]
+otel_on = True
+otel_host = logfire-api.pydantic.dev
+otel_port = 443
+otel_prefix = airflow
+otel_interval_milliseconds = 30000  # The interval between exports, defaults to 60000
+otel_ssl_active = True
+
+[traces]
+otel_on = True
+otel_host = logfire-api.pydantic.dev
+otel_port = 443
+otel_prefix = airflow
+otel_ssl_active = True
+otel_task_log_event = True
+```
+
+For more details, check airflow [traces] and [metrics] documentation.
+
+## Airflow with OpenTelemetry Collector
+
+If your `apache-airflow` is older than 2.10.4, it means that you'll not be able to set the `OTEL_EXPORTER_OTLP_HEADERS`
+environment variable. :sob:
+
+??? question "Why can't I set the `OTEL_EXPORTER_OTLP_HEADERS` environment variable? :thinking:"
+    This was a bug that was fixed in the 2.10.4 version of `apache-airflow`.
+
+    The **Logfire** team fixed it in [apache/airflow#44346](https://github.com/apache/airflow/pull/44346).
+
+In that case, you'll need to set up an [OpenTelemetry Collector] to send data to **Logfire**.
 
 ### OpenTelemetry Collector
 
@@ -95,7 +126,7 @@ service:  # (5)!
 
     The `traces` pipeline is used to send trace data, and the `metrics` pipeline is used to send metrics data.
 
-## Airflow configuration
+### Airflow configuration
 
 To configure Airflow to send data to the OpenTelemetry Collector, we'll need the following settings:
 
@@ -123,7 +154,8 @@ otel_task_log_event = True
 ```
 
 [traces]: https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/traces.html
-[metrics]: https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/metrics.html
+[metrics]: https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/metrics.html#setup-opentelemetry
 [OpenTelemetry Collector]: https://opentelemetry.io/docs/collector/
 [OpenTelemetry Collector installation]: https://opentelemetry.io/docs/collector/installation/
 [OpenTelemetry Collector Receiver]: https://opentelemetry.io/docs/collector/configuration/#receivers
+[write-token]: ../guides/advanced/creating-write-tokens.md
