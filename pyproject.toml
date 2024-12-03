@@ -96,7 +96,7 @@ dev = [
     "Flask >= 3.0.3",
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
-    "pytest >= 8.3.3",
+    "pytest == 8.3.3",
     "pytest-django",
     "pytest-pretty",
     "pydantic @ git+https://github.com/pydantic/pydantic",
