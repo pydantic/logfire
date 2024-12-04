@@ -33,6 +33,11 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
     logger.info('This is now being logged: %s', 123)
     logger.error(456)
 
+    try:
+        str(1 / 0)
+    except ZeroDivisionError:
+        logger.exception('error')
+
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
         [
             {
@@ -68,6 +73,35 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                     'code.lineno': 34,
                     'logfire.disable_console_log': True,
                 },
+            },
+            {
+                'name': 'error',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'error',
+                    'logfire.msg': 'error',
+                    'code.filepath': 'test_structlog.py',
+                    'code.function': 'test_structlog',
+                    'code.lineno': 39,
+                    'logfire.disable_console_log': True,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 4000000000,
+                        'attributes': {
+                            'exception.type': 'ZeroDivisionError',
+                            'exception.message': 'division by zero',
+                            'exception.stacktrace': 'ZeroDivisionError: division by zero',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
             },
         ]
     )
