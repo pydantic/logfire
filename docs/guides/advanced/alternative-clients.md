@@ -51,16 +51,7 @@ exporter = OTLPSpanExporter(
 
 ## Example with NodeJS
 
-Create these files:
-
-```json title="package.json"
-{
-  "type": "module",
-  "dependencies": {
-    "@opentelemetry/sdk-node": "*"
-  }
-}
-```
+Create a `main.js` file containing the following:
 
 ```js title="main.js"
 import {NodeSDK} from "@opentelemetry/sdk-node";
@@ -88,7 +79,8 @@ Then run these commands:
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
-npm install
+npm init es6 -y # creates package.json with type module
+npm install @opentelemetry/sdk-node
 node main.js
 ```
 
