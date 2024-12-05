@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v2.6.2] (2024-12-05)
+
+* Update the `process.pid` resource attribute after `os.fork()` by @alexmojaki in [#647](https://github.com/pydantic/logfire/pull/647)
+* Check for `os.register_at_fork` before calling by @alexmojaki in [#648](https://github.com/pydantic/logfire/pull/648)
+
 ## [v2.6.1] (2024-12-05)
 
 * Use `exc_info` in structlog processor by @alexmojaki in [#641](https://github.com/pydantic/logfire/pull/641)
@@ -456,3 +461,4 @@ First release from new repo!
 [v2.5.0]: https://github.com/pydantic/logfire/compare/v2.4.1...v2.5.0
 [v2.6.0]: https://github.com/pydantic/logfire/compare/v2.5.0...v2.6.0
 [v2.6.1]: https://github.com/pydantic/logfire/compare/v2.6.0...v2.6.1
+[v2.6.2]: https://github.com/pydantic/logfire/compare/v2.6.1...v2.6.2
