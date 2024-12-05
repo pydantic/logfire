@@ -2470,51 +2470,44 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 11), reason='f-string magic clashes with @logfire.instrument() in Python < 3.11'
-)
+@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
 
-    # Test that `executing` still works in instrumented functions for Python 3.11+.
-    @logfire.instrument()
-    def foo():
-        # Test some cases that require `executing` (i.e. the simple fallback heuristics can't handle)
-        # particularly two `span` calls in one line.
-        with logfire.span(f'span {GLOBAL_VAR} {local_var}'), logfire.span(f'span2 {local_var}'):
-            str(logfire.info(f'log {GLOBAL_VAR} {local_var}'))
+    # Test some cases that require `executing` (i.e. the simple fallback heuristics can't handle)
+    # particularly two `span` calls in one line.
+    with logfire.span(f'span {GLOBAL_VAR} {local_var}'), logfire.span(f'span2 {local_var}'):
+        str(logfire.info(f'log {GLOBAL_VAR} {local_var}'))
 
-        # Test that an attribute overrides a local variable
-        logfire.info(f'log2 {local_var}', local_var=3, x=x)
+    # Test that an attribute overrides a local variable
+    logfire.info(f'log2 {local_var}', local_var=3, x=x)
 
-        # Test the .log method which has the argument in a different place from the other methods.
-        logfire.log('error', f'log3 {GLOBAL_VAR}')
-        logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
+    # Test the .log method which has the argument in a different place from the other methods.
+    logfire.log('error', f'log3 {GLOBAL_VAR}')
+    logfire.log(level='error', msg_template=f'log4 {GLOBAL_VAR}')
 
-        # Test putting exotic things inside braces.
-        # Note that the span name / message template differ slightly from the f-string in these cases.
-        logfire.info(f'log5 {local_var = }')
-        logfire.info(f'log6 {x:.{local_var}f}')
-        logfire.info(f'log7 {str(local_var)!r}')
-
-    foo()
+    # Test putting exotic things inside braces.
+    # Note that the span name / message template differ slightly from the f-string in these cases.
+    logfire.info(f'log5 {local_var = }')
+    logfire.info(f'log6 {x:.{local_var}f}')
+    logfire.info(f'log7 {str(local_var)!r}')
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
                 'name': 'log {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'start_time': 4000000000,
-                'end_time': 4000000000,
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
                     'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'local_var': 2,
@@ -2523,13 +2516,13 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'span2 {local_var}',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 5000000000,
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.msg_template': 'span2 {local_var}',
@@ -2540,54 +2533,54 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'span {GLOBAL_VAR} {local_var}',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 6000000000,
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 5000000000,
                 'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
-                    'GLOBAL_VAR': 1,
-                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
+                    'GLOBAL_VAR': 1,
                     'local_var': 2,
+                    'logfire.msg_template': 'span {GLOBAL_VAR} {local_var}',
+                    'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
+                    'logfire.span_type': 'span',
                 },
             },
             {
                 'name': 'log2 {local_var}',
-                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 7000000000,
-                'end_time': 7000000000,
+                'context': {'trace_id': 2, 'span_id': 6, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': 'test_logfire.py',
+                    'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'code.function': 'foo',
-                    'code.lineno': 123,
-                    'local_var': 3,
                     'logfire.msg_template': 'log2 {local_var}',
                     'logfire.msg': 'log2 3',
-                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{},"x":{}}}',
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_inspect_arguments',
+                    'code.lineno': 123,
+                    'local_var': 3,
                     'x': 1.2345,
-                    'logfire.span_type': 'log',
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{},"x":{}}}',
                 },
             },
             {
                 'name': 'log3 {GLOBAL_VAR}',
-                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 8000000000,
-                'end_time': 8000000000,
+                'context': {'trace_id': 3, 'span_id': 7, 'is_remote': False},
+                'parent': None,
+                'start_time': 7000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'log3 {GLOBAL_VAR}',
                     'logfire.msg': f'log3 {GLOBAL_VAR}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
@@ -2595,17 +2588,17 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'log4 {GLOBAL_VAR}',
-                'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 9000000000,
-                'end_time': 9000000000,
+                'context': {'trace_id': 4, 'span_id': 8, 'is_remote': False},
+                'parent': None,
+                'start_time': 8000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'log4 {GLOBAL_VAR}',
                     'logfire.msg': f'log4 {GLOBAL_VAR}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
@@ -2613,17 +2606,17 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'log5 local_var = {local_var}',
-                'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 10000000000,
+                'context': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log5 local_var = {local_var}',
                     'logfire.msg': f'log5 {local_var = }',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
@@ -2631,17 +2624,17 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'log6 {x}',
-                'context': {'trace_id': 1, 'span_id': 12, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 11000000000,
+                'context': {'trace_id': 6, 'span_id': 10, 'is_remote': False},
+                'parent': None,
+                'start_time': 10000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log6 {x}',
                     'logfire.msg': f'log6 {x:.{local_var}f}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'x': 1.2345,
                     'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
@@ -2649,35 +2642,20 @@ def test_inspect_arguments(exporter: TestExporter):
             },
             {
                 'name': 'log7 {str(local_var)}',
-                'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 12000000000,
-                'end_time': 12000000000,
+                'context': {'trace_id': 7, 'span_id': 11, 'is_remote': False},
+                'parent': None,
+                'start_time': 11000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'log7 {str(local_var)}',
                     'logfire.msg': f'log7 {str(local_var)!r}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments',
                     'code.lineno': 123,
                     'str(local_var)': '2',
                     'logfire.json_schema': '{"type":"object","properties":{"str(local_var)":{}}}',
-                },
-            },
-            {
-                'name': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 13000000000,
-                'attributes': {
-                    'code.filepath': 'test_logfire.py',
-                    'code.lineno': 123,
-                    'code.function': 'foo',
-                    'logfire.msg_template': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
-                    'logfire.msg': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
-                    'logfire.span_type': 'span',
                 },
             },
         ]
