@@ -93,7 +93,7 @@ class ChunksFormatter(Formatter):
                 return None
 
             msg = '`executing` failed to find a node.'
-            if sys.version_info[:2] < (3, 11):
+            if sys.version_info[:2] < (3, 11):  # pragma: no cover
                 # inspect_arguments is only on by default for 3.11+ for this reason.
                 # The AST modifications made by auto-tracing
                 # mean that the bytecode doesn't match the source code seen by `executing`.
