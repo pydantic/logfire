@@ -2470,14 +2470,11 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 11), reason='f-string magic clashes with @logfire.instrument() in Python < 3.11'
-)
+@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
 
-    # Test that `executing` still works in instrumented functions for Python 3.11+.
     @logfire.instrument()
     def foo():
         # Test some cases that require `executing` (i.e. the simple fallback heuristics can't handle)
@@ -2500,7 +2497,7 @@ def test_inspect_arguments(exporter: TestExporter):
 
     foo()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'log {GLOBAL_VAR} {local_var}',
@@ -2514,7 +2511,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log {GLOBAL_VAR} {local_var}',
                     'logfire.msg': f'log {GLOBAL_VAR} {local_var}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'local_var': 2,
@@ -2529,7 +2526,7 @@ def test_inspect_arguments(exporter: TestExporter):
                 'end_time': 5000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.msg_template': 'span2 {local_var}',
@@ -2550,7 +2547,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'GLOBAL_VAR': 1,
                     'logfire.msg': f'span {GLOBAL_VAR} {local_var}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{},"local_var":{}}}',
@@ -2565,7 +2562,7 @@ def test_inspect_arguments(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'logfire.level_num': 9,
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'local_var': 3,
                     'logfire.msg_template': 'log2 {local_var}',
@@ -2587,7 +2584,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log3 {GLOBAL_VAR}',
                     'logfire.msg': f'log3 {GLOBAL_VAR}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
@@ -2605,7 +2602,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log4 {GLOBAL_VAR}',
                     'logfire.msg': f'log4 {GLOBAL_VAR}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'GLOBAL_VAR': 1,
                     'logfire.json_schema': '{"type":"object","properties":{"GLOBAL_VAR":{}}}',
@@ -2623,7 +2620,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log5 local_var = {local_var}',
                     'logfire.msg': f'log5 {local_var = }',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'local_var': 2,
                     'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
@@ -2641,7 +2638,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log6 {x}',
                     'logfire.msg': f'log6 {x:.{local_var}f}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'x': 1.2345,
                     'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
@@ -2659,7 +2656,7 @@ def test_inspect_arguments(exporter: TestExporter):
                     'logfire.msg_template': 'log7 {str(local_var)}',
                     'logfire.msg': f'log7 {str(local_var)!r}',
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'code.lineno': 123,
                     'str(local_var)': '2',
                     'logfire.json_schema': '{"type":"object","properties":{"str(local_var)":{}}}',
@@ -2674,7 +2671,7 @@ def test_inspect_arguments(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'foo',
+                    'code.function': 'test_inspect_arguments.<locals>.foo',
                     'logfire.msg_template': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                     'logfire.msg': 'Calling tests.test_logfire.test_inspect_arguments.<locals>.foo',
                     'logfire.span_type': 'span',

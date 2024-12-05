@@ -94,14 +94,11 @@ class ChunksFormatter(Formatter):
 
             msg = '`executing` failed to find a node.'
             if sys.version_info[:2] < (3, 11):
-                # inspect_arguments is only on be default for 3.11+ for this reason.
-                # The AST modifications made by auto-tracing and @instrument
+                # inspect_arguments is only on by default for 3.11+ for this reason.
+                # The AST modifications made by auto-tracing
                 # mean that the bytecode doesn't match the source code seen by `executing`.
                 # In 3.11+, a different algorithm is used by `executing` which can deal with this.
-                msg += (
-                    ' This may be caused by a combination of using Python < 3.11 '
-                    'and auto-tracing or @logfire.instrument.'
-                )
+                msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
 
             # Try a simple fallback heuristic to find the node which should work in most cases.
             main_nodes: list[ast.AST] = []
