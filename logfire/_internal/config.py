@@ -908,13 +908,15 @@ class LogfireConfig(_LogfireConfigData):
             else:
                 meter_provider = NoOpMeterProvider()
 
-            def fix_pid():  # pragma: no cover
-                with handle_internal_errors():
-                    new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
-                    tracer_provider._resource = new_resource  # type: ignore
-                    meter_provider._resource = new_resource  # type: ignore
+            if hasattr(os, 'register_at_fork'):  # pragma: no branch
 
-            os.register_at_fork(after_in_child=fix_pid)
+                def fix_pid():  # pragma: no cover
+                    with handle_internal_errors():
+                        new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
+                        tracer_provider._resource = new_resource  # type: ignore
+                        meter_provider._resource = new_resource  # type: ignore
+
+                os.register_at_fork(after_in_child=fix_pid)
 
             # we need to shut down any existing providers to avoid leaking resources (like threads)
             # but if this takes longer than 100ms you should call `logfire.shutdown` before reconfiguring
