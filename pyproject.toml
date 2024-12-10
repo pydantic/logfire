@@ -162,7 +162,7 @@ dev = [
 ]
 docs = [
     "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.17",
+    "mkdocs-material>=9.5.48",
     "mkdocs-glightbox>=0.4.0",
     "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
