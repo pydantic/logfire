@@ -12,6 +12,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
+from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
@@ -719,12 +720,19 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
         """
+    def instrument_aws_lambda(self, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+        """Instrument AWS Lambda so that spans are automatically created for each invocation.
+
+        Uses the
+        [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
+        library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
-            library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
     def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
