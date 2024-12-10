@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, Sam
 import logfire
 from logfire._internal.constants import LEVEL_NUMBERS
 from logfire.sampling import SpanLevel, TailSamplingSpanInfo
-from logfire.testing import SeededRandomIdGenerator, TestExporter
+from logfire.testing import SeededRandomIdGenerator, TestExporter, TimeGenerator
 
 
 def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -200,7 +200,11 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
     )
 
 
-def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
+def test_duration_threshold(
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+    time_generator: TimeGenerator,
+):
     # Set level to None to not include spans merely based on a high level.
     logfire.configure(
         **config_kwargs, sampling=logfire.SamplingOptions.level_or_duration(level_threshold=None, duration_threshold=3)
@@ -219,6 +223,14 @@ def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporte
     with logfire.span('span4'):
         with logfire.span('span5'):
             logfire.info('long1')
+
+    # This reaches the duration threshold when span7 ends but before span6 ends.
+    # This means that a pending span is created for span6 but not for span7,
+    # because PendingSpanProcessor doesn't create pending spans for spans that have finished.
+    with logfire.span('span6'):
+        time_generator()
+        with logfire.span('span7'):
+            time_generator()
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
@@ -265,6 +277,52 @@ def test_duration_threshold(config_kwargs: dict[str, Any], exporter: TestExporte
                     'code.lineno': 123,
                     'logfire.msg_template': 'span4',
                     'logfire.msg': 'span4',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'span6 (pending)',
+                'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
+                'start_time': 14000000000,
+                'end_time': 14000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_threshold',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span6',
+                    'logfire.msg': 'span6',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'span7',
+                'context': {'trace_id': 5, 'span_id': 10, 'is_remote': False},
+                'parent': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
+                'start_time': 16000000000,
+                'end_time': 18000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_threshold',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span7',
+                    'logfire.msg': 'span7',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'span6',
+                'context': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 14000000000,
+                'end_time': 19000000000,
+                'attributes': {
+                    'code.filepath': 'test_tail_sampling.py',
+                    'code.function': 'test_duration_threshold',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span6',
+                    'logfire.msg': 'span6',
                     'logfire.span_type': 'span',
                 },
             },

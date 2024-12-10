@@ -253,7 +253,7 @@ class PendingSpanProcessor(SpanProcessor):
     ) -> None:
         assert isinstance(span, ReadableSpan) and isinstance(span, Span)
         if not span.is_recording():  # pragma: no cover
-            # Span was sampled out
+            # Span was sampled out, or has finished already (happens with tail sampling)
             return
 
         attributes = span.attributes
