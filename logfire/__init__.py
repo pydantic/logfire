@@ -79,7 +79,7 @@ metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
 
 
-def loguru_handler() -> dict[str, Any]:
+def loguru_handler() -> Any:
     """Create a **Logfire** handler for Loguru.
 
     Returns:
