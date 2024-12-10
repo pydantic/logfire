@@ -67,6 +67,9 @@ with sqlite3.connect(':memory:') as connection:
 
     You should use the [`execute`][sqlite3.Cursor.execute] method from the [`Cursor`][sqlite3.Cursor] object instead.
 
+    See [opentelemetry-python-contrib#3082](https://github.com/open-telemetry/opentelemetry-python-contrib/issues/3082)
+    for more information.
+
 [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] uses the
 **OpenTelemetry SQLite3 Instrumentation** package,
 which you can find more information about [here][opentelemetry-sqlite3].
