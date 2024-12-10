@@ -10,6 +10,7 @@ from inline_snapshot import snapshot
 from opentelemetry.instrumentation.aws_lambda import _HANDLER  # type: ignore[import]
 
 import logfire
+import logfire._internal.integrations.aws_lambda
 import logfire._internal.integrations.pymongo
 from logfire.testing import TestExporter
 
@@ -26,10 +27,9 @@ class MockLambdaContext:
     invoked_function_arn: str
 
 
-# TODO real test
 def test_instrument_aws_lambda(exporter: TestExporter) -> None:
     with mock.patch.dict('os.environ', {_HANDLER: 'tests.otel_integrations.test_aws_lambda.lambda_handler'}):
-        logfire.instrument_aws_lambda()
+        logfire.instrument_aws_lambda(lambda_handler)
 
         context = MockLambdaContext(
             aws_request_id='mock_aws_request_id',
@@ -60,7 +60,7 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aws_lambda': None}):
         with pytest.raises(RuntimeError) as exc_info:
-            importlib.reload(logfire._internal.integrations.pymongo)
+            importlib.reload(logfire._internal.integrations.aws_lambda)
         assert str(exc_info.value) == snapshot("""\
 `logfire.instrument_aws_lambda()` requires the `opentelemetry-instrumentation-aws-lambda` package.
 You can install this with:

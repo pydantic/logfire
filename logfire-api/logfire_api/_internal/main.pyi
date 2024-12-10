@@ -720,7 +720,7 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
         """
-    def instrument_aws_lambda(self, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(self, lambda_function: Any, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the

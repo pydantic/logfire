@@ -11,7 +11,7 @@ except ImportError:
     raise RuntimeError(
         '`logfire.instrument_aws_lambda()` requires the `opentelemetry-instrumentation-aws-lambda` package.\n'
         'You can install this with:\n'
-        "    pip install 'logfire[aws_lambda]'"
+        "    pip install 'logfire[aws-lambda]'"
     )
 
 if TYPE_CHECKING:
@@ -25,7 +25,11 @@ if TYPE_CHECKING:
 
 
 def instrument_aws_lambda(
-    *, tracer_provider: TracerProvider, meter_provider: MeterProvider, **kwargs: Unpack[AwsLambdaInstrumentKwargs]
+    lambda_function: Any,
+    *,
+    tracer_provider: TracerProvider,
+    meter_provider: MeterProvider,
+    **kwargs: Unpack[AwsLambdaInstrumentKwargs],
 ) -> None:
     """Instrument the AWS Lambda runtime so that spans are automatically created for each invocation.
 

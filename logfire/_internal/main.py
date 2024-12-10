@@ -1452,7 +1452,7 @@ class Logfire:
             },
         )
 
-    def instrument_aws_lambda(self, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(self, lambda_function: Any, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
@@ -1463,11 +1463,12 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aws_lambda(
+            lambda_function=lambda_function,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
-            }
+            },
         )
 
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
