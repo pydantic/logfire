@@ -1411,6 +1411,9 @@ asgi = [
 asyncpg = [
     { name = "opentelemetry-instrumentation-asyncpg" },
 ]
+aws-lambda = [
+    { name = "opentelemetry-instrumentation-aws-lambda" },
+]
 celery = [
     { name = "opentelemetry-instrumentation-celery" },
 ]
@@ -1490,6 +1493,7 @@ dev = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
+    { name = "opentelemetry-instrumentation-aws-lambda" },
     { name = "opentelemetry-instrumentation-celery" },
     { name = "opentelemetry-instrumentation-django" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -1550,6 +1554,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'asgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aws-lambda", marker = "extra == 'aws-lambda'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", marker = "extra == 'celery'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", marker = "extra == 'fastapi'", specifier = ">=0.42b0" },
@@ -1600,25 +1605,26 @@ dev = [
     { name = "numpy", marker = "python_full_version < '3.9'", specifier = "<1.24.4" },
     { name = "numpy", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai" },
-    { name = "opentelemetry-instrumentation-aiohttp-client" },
-    { name = "opentelemetry-instrumentation-asgi" },
-    { name = "opentelemetry-instrumentation-asyncpg" },
-    { name = "opentelemetry-instrumentation-celery" },
-    { name = "opentelemetry-instrumentation-django" },
-    { name = "opentelemetry-instrumentation-fastapi" },
-    { name = "opentelemetry-instrumentation-flask" },
-    { name = "opentelemetry-instrumentation-httpx" },
-    { name = "opentelemetry-instrumentation-mysql" },
-    { name = "opentelemetry-instrumentation-psycopg" },
-    { name = "opentelemetry-instrumentation-psycopg2" },
-    { name = "opentelemetry-instrumentation-pymongo" },
-    { name = "opentelemetry-instrumentation-redis" },
-    { name = "opentelemetry-instrumentation-requests" },
-    { name = "opentelemetry-instrumentation-sqlalchemy" },
-    { name = "opentelemetry-instrumentation-sqlite3" },
-    { name = "opentelemetry-instrumentation-starlette" },
-    { name = "opentelemetry-instrumentation-system-metrics" },
-    { name = "opentelemetry-instrumentation-wsgi" },
+    { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-flask", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-mysql", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-psycopg", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-psycopg2", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-pymongo", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-redis", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-requests", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-sqlalchemy", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
     { name = "pandas", marker = "python_full_version < '3.9'" },
     { name = "pandas", marker = "python_full_version >= '3.9'", specifier = ">=2.1.2" },
     { name = "pre-commit", specifier = ">=3.5.0" },
@@ -2341,6 +2347,20 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-instrumentation-aws-lambda"
+version = "0.49b2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/02/45dcd6e3f0e96cc4b93377119d77e3c03812357619c6c3b973a45a2b0c8c/opentelemetry_instrumentation_aws_lambda-0.49b2.tar.gz", hash = "sha256:4ce32d36d7c74c64d4e504e3c11cbb5f21ad47c2f7cd77cec54d451615bf5aa8", size = 17675 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/9a/84c3c10c1eba206a56276a52826ebea69f488f6f4700cf2c344f1b452ffd/opentelemetry_instrumentation_aws_lambda-0.49b2-py3-none-any.whl", hash = "sha256:9c31327b5d81721f1193c2bbd29141afeac20390893915affe157d7b5971d8ef", size = 12385 },
+]
+
+[[package]]
 name = "opentelemetry-instrumentation-celery"
 version = "0.49b2"
 source = { registry = "https://pypi.org/simple" }
@@ -2593,6 +2613,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/99/30/b9df5bdc50073002b093e630bcde1385e3df6c6114f338291f9922f92f01/opentelemetry_instrumentation_wsgi-0.49b2.tar.gz", hash = "sha256:0bd88510fa45fa6ba70bd444060c0a1ee12e45e02bb4bcba19bc4f955269b872", size = 17719 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/41/dab117b19836ffe1a863f25f64ec72eb7fb1fa86507273e9e0089e4ecb73/opentelemetry_instrumentation_wsgi-0.49b2-py3-none-any.whl", hash = "sha256:95ff5133cc15e5fed102ac725ad210be82a4b93a3bc740ddae4b5bbdb771b21d", size = 13678 },
+]
+
+[[package]]
+name = "opentelemetry-propagator-aws-xray"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f4/31/40004e9e55b1e5694ef3a7526f0b7637df44196fc68a8b7d248a3684680f/opentelemetry_propagator_aws_xray-1.0.2.tar.gz", hash = "sha256:6b2cee5479d2ef0172307b66ed2ed151f598a0fd29b3c01133ac87ca06326260", size = 10994 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/89/849a0847871fd9745315896ad9e23d6479db84d90b8b36c4c26dc46e92b8/opentelemetry_propagator_aws_xray-1.0.2-py3-none-any.whl", hash = "sha256:1c99181ee228e99bddb638a0c911a297fa21f1c3a0af951f841e79919b5f1934", size = 10856 },
 ]
 
 [[package]]
