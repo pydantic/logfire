@@ -132,7 +132,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument')
 
     assert hasattr(logfire_api, 'instrument_aws_lambda'), 'instrument_aws_lambda'
-    assert getattr(logfire_api, 'instrument_aws_lambda')(lambda_function=MagicMock())
+    logfire_api.instrument_aws_lambda(lambda_function=MagicMock())
     logfire__all__.remove('instrument_aws_lambda')
 
     assert hasattr(logfire_api, 'instrument_asgi'), 'instrument_asgi'
