@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 from opentelemetry import context
@@ -49,11 +50,11 @@ class WrapperMetricExporter(MetricExporter):
         self.wrapped_exporter.shutdown(timeout_millis, **kwargs)  # type: ignore
 
 
+@dataclass
 class WrapperSpanProcessor(SpanProcessor):
     """A base class for SpanProcessors that wrap another processor."""
 
-    def __init__(self, processor: SpanProcessor) -> None:
-        self.processor = processor
+    processor: SpanProcessor
 
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         self.processor.on_start(span, parent_context)

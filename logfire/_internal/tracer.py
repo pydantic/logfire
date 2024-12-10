@@ -237,11 +237,14 @@ class SuppressedTracer(Tracer):
 class PendingSpanProcessor(SpanProcessor):
     """Span processor that emits an extra pending span for each span as it starts.
 
-    The pending span is emitted by calling `on_end` on all other processors.
+    The pending span is emitted by calling `on_end` on the inner `processor`.
+    This is intentionally not a `WrapperSpanProcessor` to avoid the default implementations of `on_end`
+    and `shutdown`. This processor is expected to contain processors which are already included
+    elsewhere in the pipeline where `on_end` and `shutdown` are called normally.
     """
 
     id_generator: IdGenerator
-    other_processors: tuple[SpanProcessor, ...]
+    processor: SpanProcessor
 
     def on_start(
         self,
@@ -250,7 +253,7 @@ class PendingSpanProcessor(SpanProcessor):
     ) -> None:
         assert isinstance(span, ReadableSpan) and isinstance(span, Span)
         if not span.is_recording():  # pragma: no cover
-            # Span was sampled out
+            # Span was sampled out, or has finished already (happens with tail sampling)
             return
 
         attributes = span.attributes
@@ -295,8 +298,7 @@ class PendingSpanProcessor(SpanProcessor):
             end_time=start_and_end_time,
             instrumentation_scope=span.instrumentation_scope,
         )
-        for processor in self.other_processors:
-            processor.on_end(pending_span)
+        self.processor.on_end(pending_span)
 
 
 def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:

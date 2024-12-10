@@ -21,7 +21,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
@@ -46,7 +46,10 @@ from logfire._internal.config import (
 from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.fallback import FallbackSpanExporter
 from logfire._internal.exporters.file import WritingFallbackWarning
-from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper
+from logfire._internal.exporters.processor_wrapper import (
+    CheckSuppressInstrumentationProcessorWrapper,
+    MainSpanProcessorWrapper,
+)
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
@@ -570,11 +573,9 @@ def test_configure_fallback_path(tmp_path: str) -> None:
         )
         wait_for_check_token_thread()
 
-    send_to_logfire_processor, *_ = get_span_processors()
+    batch_span_processor, *_ = get_span_processors()
     # It's OK if these processor/exporter types change.
     # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
-    assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
-    batch_span_processor = send_to_logfire_processor.processor
     assert isinstance(batch_span_processor, BatchSpanProcessor)
     exporter = batch_span_processor.span_exporter
     assert isinstance(exporter, WrapperSpanExporter)
@@ -622,9 +623,7 @@ def test_configure_export_delay() -> None:
             )
             wait_for_check_token_thread()
 
-        send_to_logfire_processor, *_ = get_span_processors()
-        assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
-        batch_span_processor = send_to_logfire_processor.processor
+        batch_span_processor, *_ = get_span_processors()
         assert isinstance(batch_span_processor, BatchSpanProcessor)
 
         batch_span_processor.span_exporter = TrackingExporter()
@@ -1279,6 +1278,7 @@ def test_send_to_logfire_false() -> None:
 def test_send_to_logfire_if_token_present() -> None:
     with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire='if-token-present', console=False)
+        wait_for_check_token_thread()
 
 
 def test_send_to_logfire_if_token_present_empty() -> None:
@@ -1288,6 +1288,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
             stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
             requests_mocker = stack.enter_context(requests_mock.Mocker())
             configure(send_to_logfire='if-token-present', console=False)
+            wait_for_check_token_thread()
             assert len(requests_mocker.request_history) == 0
     finally:
         del os.environ['LOGFIRE_TOKEN']
@@ -1455,16 +1456,19 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
-    assert isinstance(console_processor, MainSpanProcessorWrapper)
-    assert isinstance(console_processor.processor, SimpleSpanProcessor)
-    assert isinstance(console_processor.processor.span_exporter, ShowParentsConsoleSpanExporter)
+    assert isinstance(console_processor, SimpleSpanProcessor)
+    assert isinstance(console_processor.span_exporter, ShowParentsConsoleSpanExporter)
 
-    assert isinstance(send_to_logfire_processor, MainSpanProcessorWrapper)
-    assert isinstance(send_to_logfire_processor.processor, BatchSpanProcessor)
-    assert isinstance(send_to_logfire_processor.processor.span_exporter, RemovePendingSpansExporter)
+    assert isinstance(send_to_logfire_processor, BatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
-    assert pending_span_processor.other_processors == (console_processor, send_to_logfire_processor)
+    assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
+    assert isinstance(pending_span_processor.processor.processor, SynchronousMultiSpanProcessor)
+    assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
+        console_processor,
+        send_to_logfire_processor,
+    )
 
     [logfire_metric_reader] = get_metric_readers()
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
@@ -1482,9 +1486,8 @@ def test_custom_exporters():
         metrics=logfire.MetricsOptions(additional_readers=[custom_metric_reader]),
     )
 
-    [custom_processor_wrapper] = get_span_processors()
-    assert isinstance(custom_processor_wrapper, MainSpanProcessorWrapper)
-    assert custom_processor_wrapper.processor is custom_span_processor
+    [custom_span_processor2] = get_span_processors()
+    assert custom_span_processor2 is custom_span_processor
 
     [custom_metric_reader2] = get_metric_readers()
     assert custom_metric_reader2 is custom_metric_reader
@@ -1496,10 +1499,9 @@ def test_otel_exporter_otlp_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, MainSpanProcessorWrapper)
-    assert isinstance(otel_processor.processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
+    assert isinstance(otel_processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
 
     [otel_metric_reader] = get_metric_readers()
     assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
@@ -1526,10 +1528,9 @@ def test_otel_metrics_exporter_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, MainSpanProcessorWrapper)
-    assert isinstance(otel_processor.processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.processor.span_exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
+    assert isinstance(otel_processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.span_exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
 
     assert len(list(get_metric_readers())) == 0
 
@@ -1540,10 +1541,9 @@ def test_otel_exporter_otlp_traces_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, MainSpanProcessorWrapper)
-    assert isinstance(otel_processor.processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.processor.span_exporter._endpoint == 'otel_traces_endpoint'  # type: ignore
+    assert isinstance(otel_processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.span_exporter._endpoint == 'otel_traces_endpoint'  # type: ignore
 
     assert len(list(get_metric_readers())) == 0
 
@@ -1571,7 +1571,12 @@ def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
 
 
 def get_span_processors() -> Iterable[SpanProcessor]:
-    return get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    [first, *rest] = get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    assert isinstance(first, CheckSuppressInstrumentationProcessorWrapper)
+    assert isinstance(first.processor, MainSpanProcessorWrapper)
+    assert isinstance(first.processor.processor, SynchronousMultiSpanProcessor)
+
+    return [*first.processor.processor._span_processors, *rest]  # type: ignore
 
 
 def get_metric_readers() -> Iterable[SpanProcessor]:
