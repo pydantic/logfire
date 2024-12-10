@@ -44,7 +44,7 @@ from opentelemetry.sdk.metrics import (
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
@@ -79,7 +79,7 @@ from .exporters.console import (
 from .exporters.fallback import FallbackSpanExporter
 from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import MainSpanProcessorWrapper
+from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
@@ -762,19 +762,23 @@ class LogfireConfig(_LogfireConfigData):
 
             processors_with_pending_spans: list[SpanProcessor] = []
 
+            root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
+
+            if self.sampling.tail:
+                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
+            tracer_provider.add_span_processor(
+                CheckSuppressInstrumentationProcessorWrapper(
+                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                )
+            )
+
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                # Some span processors added to the tracer provider should also be recorded in
-                # `processors_with_pending_spans` so that they can be used by the final pending span processor.
-                # This means that `tracer_provider.add_span_processor` should only appear in two places.
+                main_multiprocessor.add_span_processor(span_processor)
+
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
-
-                if self.sampling.tail:
-                    span_processor = TailSamplingProcessor(span_processor, self.sampling.tail)
-                span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
-                tracer_provider.add_span_processor(span_processor)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
 
@@ -874,8 +878,14 @@ class LogfireConfig(_LogfireConfigData):
                         ]
 
             if processors_with_pending_spans:
-                tracer_provider.add_span_processor(
-                    PendingSpanProcessor(self.advanced.id_generator, tuple(processors_with_pending_spans))
+                pending_multiprocessor = SynchronousMultiSpanProcessor()
+                for processor in processors_with_pending_spans:
+                    pending_multiprocessor.add_span_processor(processor)
+
+                main_multiprocessor.add_span_processor(
+                    PendingSpanProcessor(
+                        self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
+                    )
                 )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)

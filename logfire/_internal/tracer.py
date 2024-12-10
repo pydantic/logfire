@@ -237,11 +237,11 @@ class SuppressedTracer(Tracer):
 class PendingSpanProcessor(SpanProcessor):
     """Span processor that emits an extra pending span for each span as it starts.
 
-    The pending span is emitted by calling `on_end` on all other processors.
+    The pending span is emitted by calling `on_end` on the inner `processor`.
     """
 
     id_generator: IdGenerator
-    other_processors: tuple[SpanProcessor, ...]
+    processor: SpanProcessor
 
     def on_start(
         self,
@@ -295,8 +295,7 @@ class PendingSpanProcessor(SpanProcessor):
             end_time=start_and_end_time,
             instrumentation_scope=span.instrumentation_scope,
         )
-        for processor in self.other_processors:
-            processor.on_end(pending_span)
+        self.processor.on_end(pending_span)
 
 
 def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:
