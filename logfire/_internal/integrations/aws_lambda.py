@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
     LambdaEvent = Any
 
-    class AwsLambdaInstrumentKwargs(TypedDict):
+    class AwsLambdaInstrumentKwargs(TypedDict, total=False):
         skip_dep_check: bool
         event_context_extractor: Callable[[LambdaEvent], Context]
 
