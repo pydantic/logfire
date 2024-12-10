@@ -14,47 +14,58 @@ Install `logfire` with the `sqlite3` extra:
 We can use the sqlite in-memory database to demonstrate the usage of the
 [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] method.
 
-=== "Instrument the package"
+You can either instrument the `sqlite3` module or instrument a specific connection.
 
-    ```py title="main.py"
-    import sqlite3
+### Instrument the module
 
-    import logfire
+Here's an example of instrumenting the [`sqlite3`][sqlite3] module:
 
-    logfire.configure()
-    logfire.instrument_sqlite3()
+```py title="main.py" hl_lines="6"
+import sqlite3
 
-    with sqlite3.connect(':memory:') as connection:
-        cursor = connection.cursor()
+import logfire
 
-        cursor.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)')
-        cursor.execute("INSERT INTO users (name) VALUES ('Alice')")
+logfire.configure()
+logfire.instrument_sqlite3()
 
-        cursor.execute('SELECT * FROM users')
-        print(cursor.fetchall())
-        # > [(1, 'Alice')]
-    ```
+with sqlite3.connect(':memory:') as connection:
+    cursor = connection.cursor()
 
-=== "Instrument the connection"
+    cursor.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)')
+    cursor.execute("INSERT INTO users (name) VALUES ('Alice')")
 
-    ```py title="main.py"
-    import sqlite3
+    cursor.execute('SELECT * FROM users')
+    print(cursor.fetchall())
+    # > [(1, 'Alice')]
+```
 
-    import logfire
+### Instrument a connection
 
-    logfire.configure()
+As mentioned, you can also instrument a specific connection. Here's an example:
 
-    with sqlite3.connect(':memory:') as connection:
-        connection = logfire.instrument_sqlite3(connection)
-        cursor = connection.cursor()
+```py title="main.py" hl_lines="8"
+import sqlite3
 
-        cursor.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)')
-        cursor.execute("INSERT INTO users (name) VALUES ('Alice')")
+import logfire
 
-        cursor.execute('SELECT * FROM users')
-        print(cursor.fetchall())
-        # > [(1, 'Alice')]
-    ```
+logfire.configure()
+
+with sqlite3.connect(':memory:') as connection:
+    connection = logfire.instrument_sqlite3(connection)
+    cursor = connection.cursor()
+
+    cursor.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)')
+    cursor.execute("INSERT INTO users (name) VALUES ('Alice')")
+
+    cursor.execute('SELECT * FROM users')
+    print(cursor.fetchall())
+    # > [(1, 'Alice')]
+```
+
+!!! warning "Avoid using `execute` from `sqlite3.Connection`"
+    The [`execute`][sqlite3.Connection.execute] method from [`Connection`][sqlite3.Connection] is not instrumented!
+
+    You should use the [`execute`][sqlite3.Cursor.execute] method from the [`Cursor`][sqlite3.Cursor] object instead.
 
 [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] uses the
 **OpenTelemetry SQLite3 Instrumentation** package,
