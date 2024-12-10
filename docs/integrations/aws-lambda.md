@@ -23,12 +23,10 @@ logfire.configure()  # (1)!
 def handler(event, context):
     return 'Hello from Lambda'
 
-logfire.instrument_aws_lambda()  # (2)!
+logfire.instrument_aws_lambda(handler)
 ```
 
 1. Remember to set the `LOGFIRE_TOKEN` environment variable on your Lambda function configuration.
-2. The `logfire.instrument_aws_lambda` function must be called after defining the handler function.
-    Otherwise, the handler function will not be instrumented.
 
 [`logfire.instrument_aws_lambda`][logfire.Logfire.instrument_aws_lambda] uses the **OpenTelemetry AWS Lambda Instrumentation** package,
 which you can find more information about [here][opentelemetry-aws-lambda].
