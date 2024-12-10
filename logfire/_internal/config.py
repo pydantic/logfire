@@ -761,9 +761,7 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors_with_pending_spans: list[SpanProcessor] = []
-
             root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
-
             if self.sampling.tail:
                 root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
             tracer_provider.add_span_processor(

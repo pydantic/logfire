@@ -33,11 +33,12 @@ from .wrapper import WrapperSpanProcessor
 
 
 class CheckSuppressInstrumentationProcessorWrapper(WrapperSpanProcessor):
-    def on_start(
-        self,
-        span: Span,
-        parent_context: context.Context | None = None,
-    ) -> None:
+    """Checks if instrumentation is suppressed, then suppresses instrumentation itself.
+
+    Placed at the root of the tree of processors.
+    """
+
+    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         if is_instrumentation_suppressed():
             return
         with logfire.suppress_instrumentation():
