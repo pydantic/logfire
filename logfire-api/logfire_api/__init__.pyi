@@ -56,7 +56,7 @@ error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 exception = DEFAULT_LOGFIRE_INSTANCE.exception
 
-def loguru_handler() -> dict[str, Any]:
+def loguru_handler() -> Any:
     """Create a **Logfire** handler for Loguru.
 
     Returns:

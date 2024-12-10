@@ -12,7 +12,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
-from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs
+from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaFunction as LambdaFunction
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
@@ -720,7 +720,7 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
         """
-    def instrument_aws_lambda(self, lambda_function: Any, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(self, lambda_function: LambdaFunction, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
