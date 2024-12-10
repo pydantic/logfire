@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable, TypedDict, Unpack
 
     LambdaEvent = Any
-    LambdaFunction = Callable[[LambdaEvent, Any], Any]
+    LambdaHandler = Callable[[LambdaEvent, Any], Any]
 
     class AwsLambdaInstrumentKwargs(TypedDict, total=False):
         skip_dep_check: bool
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def instrument_aws_lambda(
-    lambda_function: LambdaFunction,
+    lambda_handler: LambdaHandler,
     *,
     tracer_provider: TracerProvider,
     meter_provider: MeterProvider,

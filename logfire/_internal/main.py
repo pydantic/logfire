@@ -83,7 +83,7 @@ if TYPE_CHECKING:
 
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.asyncpg import AsyncPGInstrumentKwargs
-    from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaFunction
+    from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import HTTPXInstrumentKwargs
@@ -1452,9 +1452,7 @@ class Logfire:
             },
         )
 
-    def instrument_aws_lambda(
-        self, lambda_function: LambdaFunction, **kwargs: Unpack[AwsLambdaInstrumentKwargs]
-    ) -> None:
+    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
@@ -1465,7 +1463,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aws_lambda(
-            lambda_function=lambda_function,
+            lambda_handler=lambda_handler,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
