@@ -49,6 +49,40 @@ exporter = OTLPSpanExporter(
 )
 ```
 
+## Example with NodeJS
+
+Create a `main.js` file containing the following:
+
+```js title="main.js"
+import {NodeSDK} from "@opentelemetry/sdk-node";
+import {OTLPTraceExporter} from "@opentelemetry/exporter-trace-otlp-proto";
+import {BatchSpanProcessor} from "@opentelemetry/sdk-trace-node";
+import {trace} from "@opentelemetry/api";
+import {Resource} from "@opentelemetry/resources";
+import {ATTR_SERVICE_NAME} from "@opentelemetry/semantic-conventions";
+
+const traceExporter = new OTLPTraceExporter();
+const spanProcessor = new BatchSpanProcessor(traceExporter);
+const resource = new Resource({[ATTR_SERVICE_NAME]: "my_service"});
+const sdk = new NodeSDK({spanProcessor, resource});
+sdk.start();
+
+const tracer = trace.getTracer("my_tracer");
+tracer.startSpan("Hello World").end();
+
+sdk.shutdown().catch(console.error);
+```
+
+Then run these commands:
+
+```sh
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+
+npm init es6 -y # creates package.json with type module
+npm install @opentelemetry/sdk-node
+node main.js
+```
 
 ## Example with Rust
 
