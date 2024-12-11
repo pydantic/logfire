@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v2.7.0] (2024-12-11)
+
+* Add `logfire.instrument_aws_lambda` by @Kludex in [#657](https://github.com/pydantic/logfire/pull/657)
+
 ## [v2.6.2] (2024-12-05)
 
 * Update the `process.pid` resource attribute after `os.fork()` by @alexmojaki in [#647](https://github.com/pydantic/logfire/pull/647)
@@ -462,3 +466,4 @@ First release from new repo!
 [v2.6.0]: https://github.com/pydantic/logfire/compare/v2.5.0...v2.6.0
 [v2.6.1]: https://github.com/pydantic/logfire/compare/v2.6.0...v2.6.1
 [v2.6.2]: https://github.com/pydantic/logfire/compare/v2.6.1...v2.6.2
+[v2.7.0]: https://github.com/pydantic/logfire/compare/v2.6.2...v2.7.0
