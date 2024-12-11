@@ -23,7 +23,7 @@
     "@opentelemetry/semantic-conventions": "^1.27.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.1",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4"
   },
