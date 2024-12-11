@@ -374,6 +374,8 @@ class SeededRandomIdGenerator(IdGenerator):
 
     def __post_init__(self) -> None:
         self.random = random.Random(self.seed)
+        if self.seed is None and hasattr(os, 'register_at_fork'):
+            os.register_at_fork(after_in_child=self.random.seed)
 
     def generate_span_id(self) -> int:
         span_id = self.random.getrandbits(64)

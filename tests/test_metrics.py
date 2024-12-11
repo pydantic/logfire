@@ -6,7 +6,7 @@ from typing import Any, cast
 import pytest
 import requests
 from dirty_equals import IsInt
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
@@ -134,7 +134,7 @@ def test_create_metric_histogram(metrics_reader: InMemoryMetricReader) -> None:
                             'sum': 4300,
                             'scale': scale,
                             'zero_count': 0,
-                            'positive': {'offset': offset, 'bucket_counts': bucket_counts},
+                            'positive': {'offset': offset, 'bucket_counts': Is(bucket_counts)},
                             'negative': {'offset': 0, 'bucket_counts': [0]},
                             'flags': 0,
                             'min': 300,
