@@ -34,7 +34,7 @@ def redis(redis_container: RedisContainer):
 
 @pytest.fixture
 def redis_port(redis_container: RedisContainer) -> str:
-    return redis_container.get_exposed_port(6379)
+    return redis_container.get_exposed_port(6379)  # pyright: ignore[reportReturnType]
 
 
 @pytest.fixture(autouse=True)
