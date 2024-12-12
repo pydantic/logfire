@@ -1200,3 +1200,37 @@ def test_recursive_objects(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_repeated_objects(exporter: TestExporter) -> None:
+    @dataclass
+    class Model:
+        x: Any
+
+    x = Model(x=1)
+    m = Model(x=[x, x])
+
+    logfire.info('hi', m=m)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_repeated_objects',
+                    'code.lineno': 123,
+                    'm': '{"x":[{"x":1},{"x":1}]}',
+                    'logfire.json_schema': '{"type":"object","properties":{"m":{"type":"object","title":"Model","x-python-datatype":"dataclass","properties":{"x":{"type":"array","items":{"type":"object","title":"Model","x-python-datatype":"dataclass"}}}}}}',
+                },
+            }
+        ]
+    )
