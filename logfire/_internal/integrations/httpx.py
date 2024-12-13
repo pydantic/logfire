@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+
+import httpx
 
 try:
     from opentelemetry.instrumentation.httpx import (
@@ -23,9 +25,8 @@ except ImportError:
 from logfire import Logfire
 
 if TYPE_CHECKING:
-    from typing import TypedDict, TypeVar, Unpack
+    from typing import ParamSpec, TypedDict, TypeVar, Unpack
 
-    import httpx
     from opentelemetry.trace import Span
 
     class HTTPXInstrumentKwargs(TypedDict, total=False):
@@ -35,7 +36,10 @@ if TYPE_CHECKING:
         async_response_hook: AsyncResponseHook
         skip_dep_check: bool
 
-    Info = TypeVar('Info', RequestInfo, ResponseInfo)
+    Hook = TypeVar('Hook', RequestHook, ResponseHook)
+    AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
+
+    P = ParamSpec('P')
 
 
 def instrument_httpx(
@@ -54,55 +58,85 @@ def instrument_httpx(
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **kwargs,
     }
-    capture_headers = dict(request=capture_request_headers, response=capture_response_headers)
-    for request_or_response, capture in capture_headers.items():
-        if capture:
-            for kwarg_name in [f'{request_or_response}_hook', f'async_{request_or_response}_hook']:
-                kwarg = final_kwargs.get(kwarg_name)
-                is_async = kwarg_name.startswith('async_') or inspect.iscoroutinefunction(kwarg)
-                maker = make_capture_headers_async_hook if is_async else make_capture_headers_hook
-                final_kwargs[kwarg_name] = maker(kwarg, request_or_response)
+
+    if capture_request_headers:
+        final_kwargs['request_hook'] = make_capture_request_headers_hook(final_kwargs.get('request_hook'))
+        final_kwargs['async_request_hook'] = make_capture_async_request_headers_hook(final_kwargs.get('async_request_hook'))  # fmt: skip
+
+    if capture_response_headers:
+        final_kwargs['response_hook'] = make_capture_response_headers_hook(final_kwargs.get('response_hook'))
+        final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(final_kwargs.get('async_response_hook'))  # fmt: skip
 
     del kwargs  # make sure only final_kwargs is used
     instrumentor = HTTPXClientInstrumentor()
     if client:
+        hook_prefix = 'async_' if isinstance(client, httpx.AsyncClient) else ''
+        request_hook = final_kwargs.get(f'{hook_prefix}request_hook')
+        response_hook = final_kwargs.get(f'{hook_prefix}response_hook')
+
         instrumentor.instrument_client(
             client,
             tracer_provider=final_kwargs['tracer_provider'],
-            request_hook=final_kwargs.get('request_hook'),
-            response_hook=final_kwargs.get('response_hook'),
+            request_hook=request_hook,
+            response_hook=response_hook,
         )
     else:
         instrumentor.instrument(**final_kwargs)
 
 
-def make_capture_headers_hook(
-    hook: Callable[[Span, Info], None] | None,
-    request_or_response: str,
-) -> Callable[[Span, Info], None]:
-    def capture_headers_hook(span: Span, info: Info) -> None:
-        capture_headers(span, info.headers, request_or_response)
-        if hook:
-            hook(span, info)
+def make_capture_response_headers_hook(hook: ResponseHook | None) -> ResponseHook:
+    def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+        capture_response_headers(span, request, response)
+        run_hook(hook, span, request, response)
 
-    return capture_headers_hook
+    return capture_response_headers_hook
 
 
-def make_capture_headers_async_hook(
-    hook: Callable[[Span, Info], Awaitable[None]] | None,
-    request_or_response: str,
-) -> Callable[[Span, Info], Awaitable[None]]:
-    async def capture_headers_hook(span: Span, info: Info) -> None:
-        capture_headers(span, info.headers, request_or_response)
-        if hook:
-            result = hook(span, info)
-            while inspect.isawaitable(result):
-                result = await result
+def make_capture_async_response_headers_hook(hook: AsyncResponseHook | None) -> AsyncResponseHook:
+    async def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+        capture_response_headers(span, request, response)
+        await run_async_hook(hook, span, request, response)
 
-    return capture_headers_hook
+    return capture_response_headers_hook
 
 
-def capture_headers(span: Span, headers: Any, request_or_response: str) -> None:
+def make_capture_request_headers_hook(hook: RequestHook | None) -> RequestHook:
+    def capture_request_headers_hook(span: Span, request: RequestInfo) -> None:
+        capture_request_headers(span, request)
+        run_hook(hook, span, request)
+
+    return capture_request_headers_hook
+
+
+def make_capture_async_request_headers_hook(hook: AsyncRequestHook | None) -> AsyncRequestHook:
+    async def capture_request_headers_hook(span: Span, request: RequestInfo) -> None:
+        capture_request_headers(span, request)
+        await run_async_hook(hook, span, request)
+
+    return capture_request_headers_hook
+
+
+async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
+    if hook:
+        result = hook(*args, **kwargs)
+        while inspect.isawaitable(result):
+            result = await result
+
+
+def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
+    if hook:
+        hook(*args, **kwargs)
+
+
+def capture_response_headers(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+    capture_headers(span, cast('httpx.Headers', response.headers), 'response')
+
+
+def capture_request_headers(span: Span, request: RequestInfo) -> None:
+    capture_headers(span, cast('httpx.Headers', request.headers), 'request')
+
+
+def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']) -> None:
     span.set_attributes(
         {
             f'http.{request_or_response}.header.{header_name}': headers.get_list(header_name)
