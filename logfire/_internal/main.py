@@ -1159,7 +1159,11 @@ class Logfire:
         return instrument_asyncpg(self, **kwargs)
 
     def instrument_httpx(
-        self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]
+        self,
+        client: httpx.Client | httpx.AsyncClient | None = None,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
@@ -1172,7 +1176,7 @@ class Logfire:
         from .integrations.httpx import instrument_httpx
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_httpx(self, client, **kwargs)
+        return instrument_httpx(self, client, capture_request_headers, capture_response_headers, **kwargs)
 
     def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
