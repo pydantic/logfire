@@ -21,6 +21,7 @@ from ._internal.exporters.file import load_file as load_spans_from_file
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.utils import suppress_instrumentation
+from .current_span import current_logfire_span, current_span
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION
@@ -101,6 +102,8 @@ __all__ = (
     'ConsoleOptions',
     'CodeSource',
     'PydanticPlugin',
+    'current_span',
+    'current_logfire_span',
     'configure',
     'span',
     'instrument',

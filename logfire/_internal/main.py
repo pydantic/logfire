@@ -34,7 +34,7 @@ from typing_extensions import LiteralString, ParamSpec
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
-from .config import GLOBAL_CONFIG, OPEN_SPANS, LogfireConfig
+from .config import GLOBAL_CONFIG, OPEN_LOGFIRE_SPANS_BY_ID, OPEN_SPANS, LogfireConfig
 from .config_params import PydanticPluginRecordValues
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -1908,6 +1908,8 @@ class LogfireSpan(ReadableSpan):
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
+            span_context = self._span.get_span_context()
+            OPEN_LOGFIRE_SPANS_BY_ID[(span_context.trace_id, span_context.span_id)] = self
             OPEN_SPANS.add(self)
 
         return self
@@ -1917,6 +1919,9 @@ class LogfireSpan(ReadableSpan):
         if self._token is None:  # pragma: no cover
             return
 
+        if self._span is not None:
+            span_context = self._span.get_span_context()
+            del OPEN_LOGFIRE_SPANS_BY_ID[(span_context.trace_id, span_context.span_id)]
         OPEN_SPANS.remove(self)
 
         context_api.detach(self._token)

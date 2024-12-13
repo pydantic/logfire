@@ -30,9 +30,10 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, TypedDict
 from typing_extensions import Self, Unpack
-from weakref import WeakSet
+from weakref import WeakSet, WeakValueDictionary
 
 OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan]
+OPEN_SPANS_BY_ID: WeakValueDictionary[tuple[int, int], LogfireSpan | FastLogfireSpan]
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
