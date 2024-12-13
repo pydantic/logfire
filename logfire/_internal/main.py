@@ -1921,7 +1921,7 @@ class LogfireSpan(ReadableSpan):
 
         if self._span is not None:
             span_context = self._span.get_span_context()
-            del OPEN_LOGFIRE_SPANS_BY_ID[(span_context.trace_id, span_context.span_id)]
+            OPEN_LOGFIRE_SPANS_BY_ID.pop((span_context.trace_id, span_context.span_id), None)
         OPEN_SPANS.remove(self)
 
         context_api.detach(self._token)
