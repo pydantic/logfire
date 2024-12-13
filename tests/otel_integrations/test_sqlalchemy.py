@@ -33,7 +33,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
         # Need to  ensure this import happens _after_ importing sqlalchemy
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
-        logfire.instrument_sqlalchemy(engine=engine, enable_commenter=True, commenter_options={})
+        logfire.instrument_sqlalchemy(engine=engine)
 
         class Base(DeclarativeBase):
             pass
@@ -204,7 +204,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
         ]
     )
 
-    SQLAlchemyInstrumentor().uninstrument()  # type: ignore[reportUnknownMemberType]
+    SQLAlchemyInstrumentor().uninstrument()
 
 
 def test_missing_opentelemetry_dependency() -> None:
