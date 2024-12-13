@@ -51,7 +51,7 @@ def celery_app(redis_container: RedisContainer) -> Iterator[Celery]:
     try:
         yield app
     finally:
-        CeleryInstrumentor().uninstrument()  # type: ignore
+        CeleryInstrumentor().uninstrument()
 
 
 @pytest.fixture(autouse=True)

@@ -16,7 +16,7 @@ def instrument_aiohttp_client(logfire_instance: Logfire, **kwargs: Any):
 
     See the `Logfire.instrument_aiohttp_client` method for details.
     """
-    AioHttpClientInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+    AioHttpClientInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),

@@ -42,7 +42,7 @@ def uninstrument_redis():
     try:
         yield
     finally:
-        RedisInstrumentor().uninstrument()  # type: ignore
+        RedisInstrumentor().uninstrument()
 
 
 def test_instrument_redis(redis: Redis, redis_port: str, exporter: TestExporter):

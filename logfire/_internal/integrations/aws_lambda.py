@@ -36,6 +36,4 @@ def instrument_aws_lambda(
 
     See the `Logfire.instrument_aws_lambda` method for details.
     """
-    return AwsLambdaInstrumentor().instrument(  # type: ignore[no-any-return]
-        tracer_provider=tracer_provider, meter_provider=meter_provider, **kwargs
-    )
+    return AwsLambdaInstrumentor().instrument(tracer_provider=tracer_provider, meter_provider=meter_provider, **kwargs)

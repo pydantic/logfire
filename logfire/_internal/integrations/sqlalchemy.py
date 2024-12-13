@@ -32,4 +32,4 @@ def instrument_sqlalchemy(**kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
 
     See the `Logfire.instrument_sqlalchemy` method for details.
     """
-    SQLAlchemyInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    SQLAlchemyInstrumentor().instrument(**kwargs)
