@@ -1,16 +1,12 @@
 from __future__ import annotations as _annotations
 
 import warnings
-from typing import TYPE_CHECKING
 
 from opentelemetry.trace import get_current_span
 from opentelemetry.trace.span import Span
 
 from logfire._internal.config import OPEN_LOGFIRE_SPANS_BY_ID
-from logfire._internal.main import NoopSpan
-
-if TYPE_CHECKING:
-    from logfire import LogfireSpan
+from logfire._internal.main import LogfireSpan, NoopSpan
 
 __all__ = ('current_span', 'current_logfire_span')
 

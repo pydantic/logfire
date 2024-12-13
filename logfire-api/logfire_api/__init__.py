@@ -18,6 +18,12 @@ except ImportError:
 
         def configure(*args, **kwargs): ...
 
+        def current_span(*args, **kwargs):
+            return MagicMock()
+
+        def current_logfire_span(*args, **kwargs):
+            return MagicMock()
+
         class LogfireSpan:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
