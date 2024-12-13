@@ -54,4 +54,4 @@ def instrument_httpx(
             response_hook=final_kwargs.get('response_hook'),
         )
     else:
-        instrumentor.instrument(**final_kwargs)  # type: ignore[reportUnknownMemberType]
+        instrumentor.instrument(**final_kwargs)

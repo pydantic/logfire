@@ -29,7 +29,7 @@ def instrument_requests(monkeypatch: pytest.MonkeyPatch):
     logfire.instrument_requests()
     yield
     instrumentor = RequestsInstrumentor()
-    instrumentor.uninstrument()  # type: ignore
+    instrumentor.uninstrument()
 
 
 @pytest.mark.anyio
