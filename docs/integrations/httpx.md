@@ -65,7 +65,7 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 ## Hooks
 
-The `logfire.instrument_httpx()` also accepts the following hooks:
+The `logfire.instrument_httpx()` method also accepts the following hooks:
 
 - `request_hook`: called before sending a request.
 - `response_hook`: called after receiving a response.
