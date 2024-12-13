@@ -125,13 +125,7 @@ async def main():
 asyncio.run(main())
 ```
 
-`RequestInfo` is a [`NamedTuple`][typing.NamedTuple] with the following fields:
-
-- `method`: The HTTP method of the request.
-- `url`: The URL of the request.
-- `headers`: The headers of the request.
-- `stream`: The stream of the request.
-- `extensions`: The extensions of the request.
+`RequestInfo` is a [`NamedTuple`][typing.NamedTuple] with the following attributes: `method`, `url`, `headers`, `stream`, and `extensions`.
 
 !!! warning "Don't consume the stream"
     The `stream` is available, but you shouldn't use it.
