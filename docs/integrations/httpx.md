@@ -188,12 +188,7 @@ async def main():
 asyncio.run(main())
 ```
 
-`ResponseInfo` is a [`NamedTuple`][typing.NamedTuple] with the following fields:
-
-- `status_code`: The status code of the response.
-- `headers`: The headers of the response.
-- `stream`: The stream of the response.
-- `extensions`: The extensions of the response.
+`ResponseInfo` is a [`NamedTuple`][typing.NamedTuple] with the following attributes: `status_code`, `headers`, `stream`, and `extensions`.
 
 !!! warning "Don't consume the stream"
     The `stream` is available, but you shouldn't use it.
