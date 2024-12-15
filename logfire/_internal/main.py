@@ -1896,7 +1896,7 @@ class LogfireSpan(ReadableSpan):
 
     def __enter__(self) -> LogfireSpan:
         with handle_internal_errors():
-            if self._span is None:
+            if self._span is None:  # pragma: no branch
                 self._span = self._tracer.start_span(
                     name=self._span_name,
                     attributes=self._otlp_attributes,
