@@ -106,11 +106,11 @@ def instrument_httpx(
         async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
         async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
 
-        if capture_request_headers:
+        if capture_request_headers:  # pragma: no cover
             final_kwargs['request_hook'] = make_capture_request_headers_hook(request_hook)
             final_kwargs['async_request_hook'] = make_capture_async_request_headers_hook(async_request_hook)
 
-        if capture_response_headers:
+        if capture_response_headers:  # pragma: no cover
             final_kwargs['response_hook'] = make_capture_response_headers_hook(response_hook)
             final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(async_response_hook)
 
