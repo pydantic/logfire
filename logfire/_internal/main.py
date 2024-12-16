@@ -86,7 +86,7 @@ if TYPE_CHECKING:
     from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
-    from .integrations.httpx import HTTPXInstrumentKwargs
+    from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
@@ -1158,12 +1158,39 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_asyncpg(self, **kwargs)
 
+    @overload
+    def instrument_httpx(
+        self,
+        client: httpx.Client,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        **kwargs: Unpack[ClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        self,
+        client: httpx.AsyncClient,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        **kwargs: Unpack[AsyncClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        self,
+        client: None,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        **kwargs: Unpack[HTTPXInstrumentKwargs],
+    ) -> None: ...
+
     def instrument_httpx(
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
-        **kwargs: Unpack[HTTPXInstrumentKwargs],
+        **kwargs: Any,
     ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 

@@ -399,6 +399,7 @@ async def test_async_httpx_client_instrumentation_with_capture_request_headers(e
                     'http.request.header.accept-encoding': ('gzip, deflate',),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'potato': 'potato',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -611,7 +612,7 @@ async def test_async_httpx_client_instrumentation_with_capture_response_headers(
         ]
     )
 
-    def response_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+    async def response_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         span.set_attribute('potato', 'potato')
 
     with logfire.span('test span') as span:

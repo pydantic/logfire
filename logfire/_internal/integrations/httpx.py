@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
 
@@ -29,6 +29,16 @@ if TYPE_CHECKING:
 
     from opentelemetry.trace import Span
 
+    class AsyncClientKwargs(TypedDict, total=False):
+        request_hook: RequestHook | AsyncRequestHook
+        response_hook: ResponseHook | AsyncResponseHook
+        skip_dep_check: bool
+
+    class ClientKwargs(TypedDict, total=False):
+        request_hook: RequestHook
+        response_hook: ResponseHook
+        skip_dep_check: bool
+
     class HTTPXInstrumentKwargs(TypedDict, total=False):
         request_hook: RequestHook
         response_hook: ResponseHook
@@ -36,10 +46,39 @@ if TYPE_CHECKING:
         async_response_hook: AsyncResponseHook
         skip_dep_check: bool
 
+    AnyRequestHook = TypeVar('AnyRequestHook', RequestHook, AsyncRequestHook)
+    AnyResponseHook = TypeVar('AnyResponseHook', ResponseHook, AsyncResponseHook)
     Hook = TypeVar('Hook', RequestHook, ResponseHook)
     AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
 
     P = ParamSpec('P')
+
+    @overload
+    def instrument_httpx(
+        logfire_instance: Logfire,
+        client: httpx.Client,
+        capture_request_headers: bool,
+        capture_response_headers: bool,
+        **kwargs: Unpack[ClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        logfire_instance: Logfire,
+        client: httpx.AsyncClient,
+        capture_request_headers: bool,
+        capture_response_headers: bool,
+        **kwargs: Unpack[AsyncClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        logfire_instance: Logfire,
+        client: None,
+        capture_request_headers: bool,
+        capture_response_headers: bool,
+        **kwargs: Unpack[HTTPXInstrumentKwargs],
+    ) -> None: ...
 
 
 def instrument_httpx(
@@ -47,7 +86,7 @@ def instrument_httpx(
     client: httpx.Client | httpx.AsyncClient | None,
     capture_request_headers: bool,
     capture_response_headers: bool,
-    **kwargs: Unpack[HTTPXInstrumentKwargs],
+    **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
 
@@ -59,29 +98,46 @@ def instrument_httpx(
         **kwargs,
     }
 
-    if capture_request_headers:
-        final_kwargs['request_hook'] = make_capture_request_headers_hook(final_kwargs.get('request_hook'))
-        final_kwargs['async_request_hook'] = make_capture_async_request_headers_hook(final_kwargs.get('async_request_hook'))  # fmt: skip
-
-    if capture_response_headers:
-        final_kwargs['response_hook'] = make_capture_response_headers_hook(final_kwargs.get('response_hook'))
-        final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(final_kwargs.get('async_response_hook'))  # fmt: skip
-
-    del kwargs  # make sure only final_kwargs is used
     instrumentor = HTTPXClientInstrumentor()
-    if client:
-        hook_prefix = 'async_' if isinstance(client, httpx.AsyncClient) else ''
-        request_hook = final_kwargs.get(f'{hook_prefix}request_hook')
-        response_hook = final_kwargs.get(f'{hook_prefix}response_hook')
 
-        instrumentor.instrument_client(
-            client,
-            tracer_provider=final_kwargs['tracer_provider'],
-            request_hook=request_hook,
-            response_hook=response_hook,
-        )
-    else:
+    if client is None:
+        request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
+        response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
+        async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
+        async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
+
+        if capture_request_headers:
+            final_kwargs['request_hook'] = make_capture_request_headers_hook(request_hook)
+            final_kwargs['async_request_hook'] = make_capture_async_request_headers_hook(async_request_hook)
+
+        if capture_response_headers:
+            final_kwargs['response_hook'] = make_capture_response_headers_hook(response_hook)
+            final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(async_response_hook)
+
+        del kwargs  # make sure only final_kwargs is used
         instrumentor.instrument(**final_kwargs)
+    else:
+        request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
+        response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
+
+        if capture_request_headers:
+            if isinstance(client, httpx.AsyncClient):
+                request_hook = cast('AsyncRequestHook | None', request_hook)
+                request_hook = make_capture_async_request_headers_hook(request_hook)
+            else:
+                request_hook = cast('RequestHook | None', request_hook)
+                request_hook = make_capture_request_headers_hook(request_hook)
+
+        if capture_response_headers:
+            if isinstance(client, httpx.AsyncClient):
+                response_hook = cast('AsyncResponseHook | None', response_hook)
+                response_hook = make_capture_async_response_headers_hook(response_hook)
+            else:
+                response_hook = cast('ResponseHook | None', response_hook)
+                response_hook = make_capture_response_headers_hook(response_hook)
+
+        tracer_provider = final_kwargs['tracer_provider']
+        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
 
 
 def make_capture_response_headers_hook(hook: ResponseHook | None) -> ResponseHook:
