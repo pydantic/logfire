@@ -382,6 +382,66 @@ async def test_async_httpx_client_instrumentation_with_capture_request_headers(e
         ]
     )
 
+    async def async_request_hook(span: Span, request: RequestInfo) -> None:
+        span.set_attribute('potato', 'potato')
+
+    with logfire.span('test span') as span:
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_headers=True, request_hook=async_request_hook)
+            try:
+                response = await client.get('https://example.org/')
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict()[4:] == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 3, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 9, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /',
+                    'http.request.header.host': ('example.org',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.connection': ('keep-alive',),
+                    'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'potato': 'potato',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 3, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 12000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_async_httpx_client_instrumentation_with_capture_request_headers',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
 
 def test_httpx_client_instrumentation_with_capture_response_headers(exporter: TestExporter):
     with logfire.span('test span') as span:
@@ -569,7 +629,7 @@ async def test_async_httpx_client_instrumentation_with_capture_response_headers(
         ]
     )
 
-    async def response_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+    def response_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         span.set_attribute('potato', 'potato')
 
     with logfire.span('test span') as span:
@@ -618,6 +678,67 @@ async def test_async_httpx_client_instrumentation_with_capture_response_headers(
                 'parent': None,
                 'start_time': 5000000000,
                 'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_async_httpx_client_instrumentation_with_capture_response_headers',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+    async def async_response_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+        span.set_attribute('potato', 'potato')
+
+    with logfire.span('test span') as span:
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_response_headers=True, response_hook=async_response_hook)
+            try:
+                response = await client.get('https://example.org/')
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict()[4:] == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 3, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 9, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.response.header.host': ('example.org',),
+                    'http.response.header.accept': ('*/*',),
+                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.connection': ('keep-alive',),
+                    'http.response.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.response.header.traceparent': ('00-00000000000000000000000000000003-000000000000000b-01',),
+                    'potato': 'potato',
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 3, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'code.filepath': 'test_httpx.py',
                     'code.function': 'test_async_httpx_client_instrumentation_with_capture_response_headers',
