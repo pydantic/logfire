@@ -26,7 +26,7 @@ except ImportError:
 from logfire import Logfire
 
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypedDict, TypeGuard, TypeVar, Unpack
+    from typing import ParamSpec, TypedDict, TypeVar, Unpack
 
     from opentelemetry.trace import Span
 
@@ -206,7 +206,3 @@ def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Lit
             for header_name in headers.keys()
         }
     )
-
-
-def is_coroutine_function(func: AsyncHook | Hook) -> TypeGuard[AsyncHook]:
-    return inspect.iscoroutinefunction(func)
