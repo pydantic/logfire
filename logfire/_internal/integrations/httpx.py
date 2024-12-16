@@ -97,6 +97,7 @@ def instrument_httpx(
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **kwargs,
     }
+    del kwargs  # make sure only final_kwargs is used
 
     instrumentor = HTTPXClientInstrumentor()
 
@@ -114,7 +115,6 @@ def instrument_httpx(
             final_kwargs['response_hook'] = make_capture_response_headers_hook(response_hook)
             final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(async_response_hook)
 
-        del kwargs  # make sure only final_kwargs is used
         instrumentor.instrument(**final_kwargs)
     else:
         request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
@@ -142,7 +142,7 @@ def instrument_httpx(
 
 def make_capture_response_headers_hook(hook: ResponseHook | None) -> ResponseHook:
     def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        capture_response_headers(span, request, response)
+        capture_response_headers(span, response)
         run_hook(hook, span, request, response)
 
     return capture_response_headers_hook
@@ -150,7 +150,7 @@ def make_capture_response_headers_hook(hook: ResponseHook | None) -> ResponseHoo
 
 def make_capture_async_response_headers_hook(hook: AsyncResponseHook | None) -> AsyncResponseHook:
     async def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        capture_response_headers(span, request, response)
+        capture_response_headers(span, response)
         await run_async_hook(hook, span, request, response)
 
     return capture_response_headers_hook
@@ -184,7 +184,7 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
         hook(*args, **kwargs)
 
 
-def capture_response_headers(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+def capture_response_headers(span: Span, response: ResponseInfo) -> None:
     capture_headers(span, cast('httpx.Headers', response.headers), 'response')
 
 
