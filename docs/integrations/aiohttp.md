@@ -40,7 +40,7 @@ if __name__ == "__main__":
 The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the `AioHttpClientInstrumentor().instrument()` method of the OpenTelemetry aiohttp client Instrumentation package, read more about it [here][opentelemetry-aiohttp].
 
 ## Masking URL in AIOHTTP span
-To mask a URL for sensitive data you create add a AIOHTTP opentelemetry request hook.
+To mask a URL for sensitive data you create add a AIOHTTP OpenTelemetry request hook.
 
 ```python
 import aiohttp
