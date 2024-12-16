@@ -30,6 +30,7 @@ Below you can see more details on how to use Logfire with some of the most popul
 | [Redis](redis.md)                   | Databases               |
 | [BigQuery](bigquery.md)             | Databases               |
 | [Airflow](airflow.md)               | Task Scheduler          |
+| [FastStream](faststream.md)         | Task Queue               |
 | [Celery](celery.md)                 | Task Queue              |
 | [Stripe](stripe.md)                 | Payment Gateway         |
 | [System Metrics](system-metrics.md) | System Metrics          |
