@@ -1917,10 +1917,8 @@ class LogfireSpan(ReadableSpan):
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
 
         self._added_attributes = False
-        self._end_on_exit: bool | None = None
         self._token: None | object = None
         self._span: None | trace_api.Span = None
-        self.end_on_exit = True
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -1929,8 +1927,7 @@ class LogfireSpan(ReadableSpan):
 
     def __enter__(self) -> LogfireSpan:
         with handle_internal_errors():
-            self.end_on_exit = True
-            if self._span is None:
+            if self._span is None:  # pragma: no branch
                 self._span = self._tracer.start_span(
                     name=self._span_name,
                     attributes=self._otlp_attributes,
@@ -1956,9 +1953,7 @@ class LogfireSpan(ReadableSpan):
         assert self._span is not None
         _exit_span(self._span, exc_value)
 
-        end_on_exit_ = self.end_on_exit
-        if end_on_exit_:
-            self.end()
+        self.end()
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover

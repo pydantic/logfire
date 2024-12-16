@@ -80,7 +80,7 @@ You can use this query in a Time Series chart in a dashboard:
 
 ![Requests duration per percentile as Time Series chart](../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles.png)
 
-See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions_new.html#approx-percentile-cont) for more information on the `approx_percentile_cont` function.
+See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions.html#approx-percentile-cont) for more information on the `approx_percentile_cont` function.
 
 ## Excluding URLs from instrumentation
 
