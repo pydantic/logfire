@@ -47,8 +47,9 @@ from yarl import URL
 
 
 def mask_url(url: URL) -> str:
-    ...
-
+    sensitive_keys = {"username", "password", "token", "api_key", "api_secret", "apikey"}
+    masked_query = {key: "*****" if key in sensitive_keys else value for key, value in url.query.items()}
+    return str(url.with_query(masked_query))
 ```
 
 Now configure logfire to use this URL filter
