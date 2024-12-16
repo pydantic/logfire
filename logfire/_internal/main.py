@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     import anthropic
     import httpx
     import openai
+    import requests
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -84,7 +85,6 @@ if TYPE_CHECKING:
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.asyncpg import AsyncPGInstrumentKwargs
     from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
-    from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
@@ -1224,17 +1224,26 @@ class Logfire:
             **kwargs,
         )
 
-    def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+    def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
         Uses the
         [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
         library.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
         from .integrations.celery import instrument_celery
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_celery(self, **kwargs)
+        return instrument_celery(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_django(
         self,
@@ -1288,18 +1297,34 @@ class Logfire:
             **kwargs,
         )
 
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_requests(
+        self,
+        excluded_urls: str | None = None,
+        request_hook: Callable[[Span, requests.PreparedRequest], None] | None = None,
+        response_hook: Callable[[Span, requests.PreparedRequest, requests.Response], None] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `request_hook` and `response_hook`.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
         from .integrations.requests import instrument_requests
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_requests(self, excluded_urls=excluded_urls, **kwargs)
+        return instrument_requests(
+            excluded_urls=excluded_urls,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
