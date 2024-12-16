@@ -43,8 +43,6 @@ The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the
 To mask a URL for sensitive data you add an AIOHTTP OpenTelemetry URL filter.
 
 ```python
-import aiohttp
-from opentelemetry.trace import Span
 from yarl import URL
 
 
