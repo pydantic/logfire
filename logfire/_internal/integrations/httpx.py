@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeGuard, cast, overload
 
@@ -129,7 +130,7 @@ def instrument_httpx(
                 request_hook = make_capture_request_headers_hook(request_hook)
         else:
             if isinstance(client, httpx.AsyncClient):
-                request_hook = wrap_async(request_hook)
+                request_hook = functools.partial(run_async_hook, request_hook)
 
         if capture_response_headers:
             if isinstance(client, httpx.AsyncClient):
@@ -140,7 +141,7 @@ def instrument_httpx(
                 response_hook = make_capture_response_headers_hook(response_hook)
         else:
             if isinstance(client, httpx.AsyncClient):
-                response_hook = wrap_async(response_hook)
+                response_hook = functools.partial(run_async_hook, response_hook)
 
         tracer_provider = final_kwargs['tracer_provider']
         instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
@@ -209,16 +210,3 @@ def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Lit
 
 def is_coroutine_function(func: AsyncHook | Hook) -> TypeGuard[AsyncHook]:
     return inspect.iscoroutinefunction(func)
-
-
-def wrap_async(hook: Hook | AsyncHook | None) -> AsyncHook | None:
-    if hook is None:
-        return None
-
-    if is_coroutine_function(hook):
-        return hook
-
-    async def async_hook(*args: Any, **kwargs: Any) -> None:
-        hook(*args, **kwargs)
-
-    return async_hook  # type: ignore
