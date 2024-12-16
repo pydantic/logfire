@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeGuard, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
 
@@ -26,7 +26,7 @@ except ImportError:
 from logfire import Logfire
 
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypedDict, TypeVar, Unpack
+    from typing import ParamSpec, TypedDict, TypeGuard, TypeVar, Unpack
 
     from opentelemetry.trace import Span
 
