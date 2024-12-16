@@ -17,7 +17,7 @@ def instrument_requests(logfire_instance: Logfire, excluded_urls: Optional[str] 
 
     See the `Logfire.instrument_requests` method for details.
     """
-    RequestsInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+    RequestsInstrumentor().instrument(
         excluded_urls=excluded_urls,
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),

@@ -77,7 +77,7 @@ def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlCon
             },
         ]
     )
-    MySQLInstrumentor().uninstrument()  # type: ignore
+    MySQLInstrumentor().uninstrument()
 
 
 def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: MySqlContainer):

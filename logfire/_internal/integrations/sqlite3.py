@@ -31,6 +31,6 @@ def instrument_sqlite3(
     See the `Logfire.instrument_sqlite3` method for details.
     """
     if conn is not None:
-        return SQLite3Instrumentor().instrument_connection(conn, tracer_provider=tracer_provider)  # type: ignore[reportUnknownMemberType]
+        return SQLite3Instrumentor().instrument_connection(conn, tracer_provider=tracer_provider)
     else:
-        return SQLite3Instrumentor().instrument(tracer_provider=tracer_provider, **kwargs)  # type: ignore[reportUnknownMemberType]
+        return SQLite3Instrumentor().instrument(tracer_provider=tracer_provider, **kwargs)  # type: ignore

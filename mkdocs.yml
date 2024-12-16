@@ -126,6 +126,7 @@ nav:
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
           - System Metrics: integrations/system-metrics.md
+          - AWS Lambda: integrations/aws-lambda.md
       - Custom:
           - Pydantic: integrations/pydantic.md
           - OpenAI: integrations/openai.md

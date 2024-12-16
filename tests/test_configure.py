@@ -1277,8 +1277,11 @@ def test_send_to_logfire_false() -> None:
 
 def test_send_to_logfire_if_token_present() -> None:
     with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
-        configure(send_to_logfire='if-token-present', console=False)
-        wait_for_check_token_thread()
+        with requests_mock.Mocker() as request_mocker:
+            configure(send_to_logfire='if-token-present', console=False)
+            wait_for_check_token_thread()
+            assert GLOBAL_CONFIG.token is None
+            assert len(request_mocker.request_history) == 0
 
 
 def test_send_to_logfire_if_token_present_empty() -> None:

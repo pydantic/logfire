@@ -25,7 +25,7 @@ def instrument_celery(logfire_instance: Logfire, **kwargs: Unpack[CeleryInstrume
 
     See the `Logfire.instrument_celery` method for details.
     """
-    return CeleryInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+    return CeleryInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),

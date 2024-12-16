@@ -19,7 +19,7 @@ def instrument_django(logfire_instance: Logfire, *, capture_headers: bool = Fals
     See the `Logfire.instrument_django` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    DjangoInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+    DjangoInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),

@@ -84,7 +84,7 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
             ]
         )
 
-    SQLite3Instrumentor().uninstrument()  # type: ignore
+    SQLite3Instrumentor().uninstrument()
 
 
 def test_instrument_sqlite3_connection(exporter: TestExporter):
@@ -132,11 +132,11 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
             ]
         )
         spans_before_uninstrument = len(exporter.exported_spans_as_dict())
-        conn: sqlite3.Connection = SQLite3Instrumentor().uninstrument_connection(conn)  # type: ignore
-        cur = conn.cursor()  # type: ignore
-        cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
+        conn: sqlite3.Connection = SQLite3Instrumentor().uninstrument_connection(conn)
+        cur = conn.cursor()
+        cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
         assert len(exporter.exported_spans_as_dict()) == spans_before_uninstrument
-        values = cur.execute('SELECT * FROM test').fetchall()  # type: ignore
+        values = cur.execute('SELECT * FROM test').fetchall()
         assert values == [(1, 'test'), (2, 'test-2')]
 
 
