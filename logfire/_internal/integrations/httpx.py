@@ -254,7 +254,7 @@ def capture_request_body(span: Span, request: RequestInfo) -> None:
     if not content_type.startswith('application/json'):
         return
     if not isinstance(request.stream, httpx.ByteStream):
-        return
+        return  # pragma: no cover
 
     body = decode_body(list(request.stream)[0], content_type)
 
