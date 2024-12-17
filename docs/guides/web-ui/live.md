@@ -3,7 +3,7 @@
 The live view is the focal point of **Logfire**, where you can see traces arrive in real-time.
 
 The live view is useful for watching what's going on within your
-application in real-time (as the name suggests), but it can also be used to explore historical data via the *live view search*.
+application in real-time (as the name suggests). You can also explore historical data in the **search pane**.
 
 ## SQL search pane
 
