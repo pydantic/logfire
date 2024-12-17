@@ -579,7 +579,7 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
             id_generator = advanced.id_generator
-            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed']:  # type: ignore
+            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed']:  # type: ignore  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore
         elif advanced is None:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
