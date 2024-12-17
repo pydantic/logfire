@@ -18,7 +18,7 @@ from ._internal.config import (
 )
 from ._internal.constants import LevelName
 from ._internal.exporters.file import load_file as load_spans_from_file
-from ._internal.main import Logfire, LogfireSpan
+from ._internal.main import Logfire, LogfireSpan, LogfireSpanContextManager
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
@@ -96,6 +96,7 @@ __version__ = VERSION
 __all__ = (
     'Logfire',
     'LogfireSpan',
+    'LogfireSpanContextManager',
     'LevelName',
     'AdvancedOptions',
     'ConsoleOptions',

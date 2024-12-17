@@ -18,7 +18,6 @@ from typing import (
     Sequence,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -27,8 +26,8 @@ import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import SpanContext, StatusCode, Tracer
-from opentelemetry.util import types as otel_types
+from opentelemetry.trace import SpanContext, Status, StatusCode, Tracer
+from opentelemetry.util import types, types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
 from ..version import VERSION
@@ -173,7 +172,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
-    ) -> LogfireSpan:
+    ) -> LogfireSpanContextManager:
         try:
             stack_info = get_user_stack_info()
             merged_attributes = {**stack_info, **attributes}
@@ -214,7 +213,7 @@ class Logfire:
             if _level is not None:
                 otlp_attributes.update(log_level_attributes(_level))
 
-            return LogfireSpan(
+            return LogfireSpanContextManager(
                 _span_name or msg_template,
                 otlp_attributes,
                 self._spans_tracer,
@@ -514,7 +513,7 @@ class Logfire:
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
         **attributes: Any,
-    ) -> LogfireSpan:
+    ) -> LogfireSpanContextManager:
         """Context manager for creating a span.
 
         ```py
@@ -1870,59 +1869,100 @@ class FastLogfireSpan:
 
 
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
-class LogfireSpan(ReadableSpan):
+class LogfireSpanContextManager:
     def __init__(
         self,
-        span_name: str,
-        otlp_attributes: dict[str, otel_types.AttributeValue],
         tracer: Tracer,
-        json_schema_properties: JsonSchemaProperties,
+        span_name: str,
+        attributes: dict[str, Any],
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
     ) -> None:
-        self._span_name = span_name
-        self._otlp_attributes = otlp_attributes
         self._tracer = tracer
-        self._json_schema_properties = json_schema_properties
-        self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
+        self._span_name = span_name
+        self._user_attributes = attributes
+        self._links = list(links)
 
-        self._added_attributes = False
+        self._span: None | LogfireSpan = None
         self._token: None | object = None
-        self._span: None | trace_api.Span = None
-
-    if not TYPE_CHECKING:  # pragma: no branch
-
-        def __getattr__(self, name: str) -> Any:
-            return getattr(self._span, name)
 
     def __enter__(self) -> LogfireSpan:
         with handle_internal_errors():
-            if self._span is None:  # pragma: no branch
-                self._span = self._tracer.start_span(
-                    name=self._span_name,
-                    attributes=self._otlp_attributes,
-                    links=self._links,
-                )
-            if self._token is None:  # pragma: no branch
-                self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+            otlp_attributes = ...  # TODO: Need to compute these from the user attributes.
+            links = [trace_api.Link(context=context, attributes=attributes) for context, attributes in self._links]
 
-            OPEN_SPANS.add(self)
+            span = self._tracer.start_span(
+                name=self._span_name,
+                attributes=otlp_attributes,
+                links=links,
+            )
+            self._token = context_api.attach(trace_api.set_span_in_context(span))
 
-        return self
+            # If the tracer is not producing LogfireSpans, wrap the value into a LogfireSpan before returning
+            if not isinstance(span, LogfireSpan):
+                span = LogfireSpan(span, JsonSchemaProperties({}))
+            self._span = span
+            OPEN_SPANS.add(span)
+            return span
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
+            # Calling __exit__ twice will do nothing the second time
             return
-
-        OPEN_SPANS.remove(self)
 
         context_api.detach(self._token)
         self._token = None
 
         assert self._span is not None
+        OPEN_SPANS.remove(self._span)
+
+        # TODO: Move this to the `end` method of `LogfireSpan`.
         _exit_span(self._span, exc_value)
 
-        self.end()
+        self._span.end()
+
+    # The following methods are just for setting/reading attributes on the span that is or will be opened by this
+    # context manager. They are only necessary to make it so that you can manipulate the span that _will be_ opened
+    # _before_ it is opened by calling methods on this (unentered) context manager object.
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
+        """Sets the given attributes on the span."""
+        for key, value in attributes.items():
+            self.set_attribute(key, value)
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        """Set an attribute on the span that is or will be opened by this context manager."""
+        if self._span is None:
+            self._user_attributes[key] = value
+        else:
+            self._span.set_attribute(key, value)
+
+    def _get_attribute(self, key: str, default: Any) -> Any:
+        """Get the value of an attribute on the span that is or will be opened by this context manager."""
+        attributes = getattr(self._span, 'attributes', self._user_attributes)
+        return attributes.get(key, default)
+
+    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
+        if self._span is None:
+            self._links.append((context, attributes))
+        else:
+            self._span.add_link(context, attributes)
+
+    # The remaining methods/properties/setters are just for manipulating logfire-specific attributes.
+    # TODO: Why don't we use `level` as a property with a setter here?
+    @handle_internal_errors()
+    def set_level(self, level: LevelName | int):
+        """Set the log level of the span that is or will be opened by this context manager."""
+        attributes = log_level_attributes(level)
+        for k, v in attributes.items():
+            self.set_attribute(k, v)
+
+    @property
+    def message(self) -> str:
+        return self._get_attribute(ATTRIBUTES_MESSAGE_KEY, self._span_name)
+
+    @message.setter
+    def message(self, message: str):
+        self.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
@@ -1938,17 +1978,27 @@ class LogfireSpan(ReadableSpan):
         """Set or add tags to the span."""
         if isinstance(new_tags, str):
             new_tags = (new_tags,)
-        self._set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
+        self.set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
 
-    @property
-    def message(self) -> str:
-        return self._get_attribute(ATTRIBUTES_MESSAGE_KEY, self._span_name)
 
-    @message.setter
-    def message(self, message: str):
-        self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
+class LogfireSpan(ReadableSpan, trace_api.Span):
+    def __init__(
+        self,
+        span: trace_api.Span,
+        json_schema_properties: JsonSchemaProperties,
+    ) -> None:
+        self._attributes = ...
+        self._span = span
+        self._json_schema_properties = json_schema_properties
+        self._added_attributes = False
 
-    def end(self) -> None:
+    if not TYPE_CHECKING:  # pragma: no branch
+
+        def __getattr__(self, name: str) -> Any:
+            """Ensure that the majority of methods inherited from ReadableSpan correctly proxy the wrapped span."""
+            return getattr(self._span, name)
+
+    def end(self, end_time: int | None = None) -> None:
         """Sets the current time as the span's end time.
 
         The span's end time is the wall time at which the operation finished.
@@ -1957,41 +2007,13 @@ class LogfireSpan(ReadableSpan):
         can call this within the span's context manager to end it before the context manager
         exits.
         """
-        if self._span is None:  # pragma: no cover
-            raise RuntimeError('Span has not been started')
         if self._span.is_recording():
             with handle_internal_errors():
                 if self._added_attributes:
                     self._span.set_attribute(
                         ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
                     )
-
-                self._span.end()
-
-    @handle_internal_errors()
-    def set_attribute(self, key: str, value: Any) -> None:
-        """Sets an attribute on the span.
-
-        Args:
-            key: The key of the attribute.
-            value: The value of the attribute.
-        """
-        self._added_attributes = True
-        self._json_schema_properties[key] = create_json_schema(value, set())
-        key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
-        if self._span is not None:  # pragma: no branch
-            self._span.set_attribute(key, otel_value)
-
-    def set_attributes(self, attributes: dict[str, Any]) -> None:
-        """Sets the given attributes on the span."""
-        for key, value in attributes.items():
-            self.set_attribute(key, value)
-
-    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
-        if self._span is None:
-            self._links += [trace_api.Link(context=context, attributes=attributes)]
-        else:
-            self._span.add_link(context, attributes)
+            self._span.end(end_time)
 
     # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(
@@ -2005,9 +2027,6 @@ class LogfireSpan(ReadableSpan):
 
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.
         """
-        if self._span is None:
-            raise RuntimeError('Span has not been started')
-
         # Check if the span has been sampled out first, since _record_exception is somewhat expensive.
         if not self._span.is_recording():
             return
@@ -2020,28 +2039,78 @@ class LogfireSpan(ReadableSpan):
             escaped=escaped,
         )
 
-    def is_recording(self) -> bool:
-        return self._span is not None and self._span.is_recording()
+    @handle_internal_errors()
+    def set_attribute(self, key: str, value: Any) -> None:
+        """Sets an attribute on the span.
 
+        Args:
+            key: The key of the attribute.
+            value: The value of the attribute.
+        """
+        self._added_attributes = True
+        self._json_schema_properties[key] = create_json_schema(value, set())
+        key, otel_value = get_user_attribute_update(self._otlp_attributes, key, value)
+        self._span.set_attribute(key, otel_value)
+
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
+        """Sets the given attributes on the span."""
+        for key, value in attributes.items():
+            self.set_attribute(key, value)
+
+    def _get_attribute(self, key: str, default: Any) -> Any:
+        # NonRecordingSpan won't have the `attributes` attribute, but it seems that recording spans do have this.
+        # For performance reasons, we use a try-except here because we expect it will be rare to hit this code path
+        # for non-recording spans, and therefore the except: branch should not usually be hit.
+        try:
+            attributes = getattr(self._span, 'attributes')
+        except AttributeError:
+            return default
+        return attributes.get(key, default)
+
+    # Methods/properties/setters for manipulating logfire-specific attributes:
+    # TODO: Why don't we use `level` as a property with a setter here?
     @handle_internal_errors()
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
         attributes = log_level_attributes(level)
-        if self._span is None:
-            self._otlp_attributes.update(attributes)
-        else:
-            self._span.set_attributes(attributes)
+        self._span.set_attributes(attributes)
 
-    def _get_attribute(self, key: str, default: Any) -> Any:
-        attributes = getattr(self._span, 'attributes', self._otlp_attributes)
-        return attributes.get(key, default)
+    @property
+    def message(self) -> str:
+        return self._get_attribute(ATTRIBUTES_MESSAGE_KEY, self._span_name)
 
-    def _set_attribute(self, key: str, value: Any) -> None:
-        """Set an attribute on the span or in the _otlp_attributes if span is not yet created."""
-        if self._span is None:
-            self._otlp_attributes[key] = value
-        else:
-            self._span.set_attribute(key, value)
+    @message.setter
+    def message(self, message: str):
+        self._span.set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
+
+    @property
+    def message_template(self) -> str | None:  # pragma: no cover
+        return self._get_attribute(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, None)
+
+    @property
+    def tags(self) -> tuple[str, ...]:
+        return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
+
+    @tags.setter
+    @handle_internal_errors()
+    def tags(self, new_tags: Sequence[str]) -> None:
+        """Set or add tags to the span."""
+        if isinstance(new_tags, str):
+            new_tags = (new_tags,)
+        self._span.set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
+
+    # Additional methods required by the trace_api.Span ABC:
+    def add_event(self, name: str, attributes: types.Attributes = None, timestamp: int | None = None) -> None:
+        return self._span.add_event(name, attributes, timestamp)
+
+    def update_name(self, name: str) -> None:
+        return self._span.update_name(name)
+
+    def is_recording(self) -> bool:
+        return self._span.is_recording()
+
+    def set_status(self, status: Status | StatusCode, description: str | None = None) -> None:
+        return self._span.set_status(status, description)
 
 
 class NoopSpan:
@@ -2181,9 +2250,21 @@ def set_user_attribute(
     Returns the final key and value that was added to the dictionary.
     The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
     """
+    key, otel_value = get_user_attribute_update(key, value, lambda: otlp_attributes.get(NULL_ARGS_KEY, []))
+    otlp_attributes[key] = otel_value
+    return key, otel_value
+
+
+def get_user_attribute_update(
+    key: str, value: Any, get_null_args: Callable[[], list[str]]
+) -> tuple[str, otel_types.AttributeValue]:
+    """Convert a user attribute to an OpenTelemetry compatible type and return the otel-compatible update.
+
+    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
+    """
     otel_value: otel_types.AttributeValue
     if value is None:
-        otel_value = cast('list[str]', otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
+        otel_value = get_null_args() + [key]
         key = NULL_ARGS_KEY
     elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
@@ -2199,7 +2280,6 @@ def set_user_attribute(
         otel_value = value
     else:
         otel_value = logfire_json_dumps(value)
-    otlp_attributes[key] = otel_value
     return key, otel_value
 
 
