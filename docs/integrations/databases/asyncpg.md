@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # asyncpg
 
 The [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg] function can be used to instrument the [asyncpg][asyncpg] PostgreSQL driver with **Logfire**.

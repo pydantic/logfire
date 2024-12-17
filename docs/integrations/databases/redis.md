@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Redis
 
 The [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] method will create a span for every command executed by your [Redis][redis] clients.

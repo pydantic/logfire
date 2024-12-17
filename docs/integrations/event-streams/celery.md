@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Celery
 
 The [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] method will create a span for every task

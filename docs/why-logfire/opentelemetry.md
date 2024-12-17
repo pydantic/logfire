@@ -34,7 +34,7 @@ async def add_user(user: User):
 1. In addition to [configuring logfire](../reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
 2. The [integrations](../integrations/index.md) page has more information on how to instrument other parts of your app. Run the [inspect](../reference/cli.md#inspect-inspect) command for package suggestions.
 
-We'll need the [FastAPI contrib package](../integrations/fastapi.md), FastAPI itself and uvicorn installed to run this:
+We'll need the [FastAPI contrib package](../integrations/web-frameworks/fastapi.md), FastAPI itself and uvicorn installed to run this:
 
 ```bash
 pip install 'logfire[fastapi]' fastapi uvicorn  # (1)!

@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # PyMongo
 
 The [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo] method will create a span for every operation performed using your [PyMongo][pymongo] clients.

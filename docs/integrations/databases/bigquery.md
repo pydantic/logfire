@@ -1,3 +1,7 @@
+---
+integration: built-in
+---
+
 # BigQuery
 
 The [Google Cloud BigQuery Python client library][bigquery-pypi] is instrumented with OpenTelemetry out of the box,

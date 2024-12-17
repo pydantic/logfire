@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # MySQL
 
 The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] method can be used to instrument the [MySQL Connector/Python][mysql-connector] database driver with **Logfire**, creating a span for every query.

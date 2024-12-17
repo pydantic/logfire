@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # SQLite3
 
 The [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] method can be used to instrument the
