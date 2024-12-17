@@ -9,7 +9,7 @@ import pytest
 from dirty_equals import IsDict
 from httpx import Request
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor, RequestInfo, ResponseInfo
+from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
 from opentelemetry.trace.span import Span
 
 import logfire
@@ -34,10 +34,7 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
         trace_id = span.context.trace_id
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client)
-            try:
-                response = client.get('https://example.org/')
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = client.get('https://example.org/')
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
@@ -92,10 +89,7 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter):
         trace_id = span.context.trace_id
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client)
-            try:
-                response = await client.get('https://example.org/')
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = await client.get('https://example.org/')
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -197,10 +191,7 @@ def test_httpx_client_instrumentation_with_capture_headers(
         trace_id = span.context.trace_id
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
-            try:
-                response = client.get('https://example.org/')
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = client.get('https://example.org/')
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -237,10 +228,7 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
         trace_id = span.context.trace_id
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
-            try:
-                response = await client.get('https://example.org/')
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = await client.get('https://example.org/')
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -276,10 +264,7 @@ def test_httpx_client_instrumentation_with_capture_json_body(
         trace_id = span.context.trace_id
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
-            try:
-                response = client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -296,12 +281,7 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
         trace_id = span.context.trace_id
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
-            try:
-                response = await client.post(
-                    'https://example.org/', headers={'Content-Type': content_type}, content=body
-                )
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = await client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -327,12 +307,9 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
         trace_id = span.context.trace_id
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
-            try:
-                response = client.post(
-                    'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
-                )
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = client.post(
+                'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
+            )
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
@@ -346,12 +323,9 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
         trace_id = span.context.trace_id
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
-            try:
-                response = await client.post(
-                    'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
-                )
-            finally:
-                HTTPXClientInstrumentor().uninstrument()
+            response = await client.post(
+                'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
+            )
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 

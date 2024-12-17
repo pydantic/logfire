@@ -254,12 +254,10 @@ def capture_request_body(span: Span, request: RequestInfo) -> None:
     if not content_type.startswith('application/json'):
         return
     if not isinstance(request.stream, httpx.ByteStream):
-        return  # pragma: no cover
+        return
 
     body = decode_body(list(request.stream)[0], content_type)
 
-    # Alex, does this needs to be `http.request.json_body`? Otherwise I'd prefer to follow the analogous notation to
-    # the headers, e.g. `http.request.header.content-type` -> `http.request.body.json`
     attr_name = 'http.request.body.json'
     set_user_attributes_on_raw_span(span, {attr_name: {}})  # type: ignore
     span.set_attribute(attr_name, body)
