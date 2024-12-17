@@ -1179,7 +1179,7 @@ class Logfire:
     @overload
     def instrument_httpx(
         self,
-        client: None,
+        client: None = None,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
