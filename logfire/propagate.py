@@ -10,10 +10,18 @@ And existing plugins exist to propagate the context with
 [httpx](https://pypi.org/project/opentelemetry-instrumentation-httpx/).
 """  # noqa: D205
 
-from contextlib import contextmanager
-from typing import Any, Iterator, Mapping
+from __future__ import annotations
 
-from opentelemetry import context, propagate
+import warnings
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Iterator, Mapping
+
+from opentelemetry import context as otel_context, propagate
+from opentelemetry.propagators.textmap import TextMapPropagator
+
+if TYPE_CHECKING:
+    from logfire import Logfire
 
 # anything that can be used to carry context, e.g. Headers or a dict
 ContextCarrier = Mapping[str, Any]
@@ -63,10 +71,58 @@ def attach_context(carrier: ContextCarrier) -> Iterator[None]:
     Since `attach_context` is a context manager, it restores the previous context when exiting.
     """
     # capture the current context to restore it later
-    old_context = context.get_current()
-    new_context = propagate.extract(carrier=carrier)
+    old_context = otel_context.get_current()
+    propagator = propagate.get_global_textmap()
+    while isinstance(propagator, WrapperPropagator):
+        propagator = propagator.wrapped
+    new_context = propagator.extract(carrier=carrier)
     try:
-        context.attach(new_context)
+        otel_context.attach(new_context)
         yield
     finally:
-        context.attach(old_context)
+        otel_context.attach(old_context)
+
+
+@dataclass
+class WrapperPropagator(TextMapPropagator):
+    wrapped: TextMapPropagator
+
+    def extract(self, *args: Any, **kwargs: Any) -> otel_context.Context:
+        return self.wrapped.extract(*args, **kwargs)
+
+    def inject(self, *args: Any, **kwargs: Any):
+        return self.wrapped.inject(*args, **kwargs)
+
+    @property
+    def fields(self):
+        return self.wrapped.fields
+
+
+class NoExtractPropagator(WrapperPropagator):
+    def extract(
+        self,
+        carrier: Any,
+        context: otel_context.Context | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> otel_context.Context:
+        return otel_context.get_current() if context is None else context
+
+
+@dataclass
+class WarnOnExtractPropagator(WrapperPropagator):
+    logfire_instance: Logfire
+    warned: bool = False
+
+    def extract(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> otel_context.Context:
+        result = super().extract(*args, **kwargs)
+        if result and not self.warned:
+            self.warned = True
+            message = 'Found propagated context.'  # TODO
+            warnings.warn(message)
+            self.logfire_instance.warn(message)
+        return result
