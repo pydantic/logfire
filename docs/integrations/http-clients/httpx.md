@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # HTTPX
 
 The [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] method can be used to instrument [HTTPX][httpx] with **Logfire**.

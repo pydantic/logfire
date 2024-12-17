@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Psycopg
 
 The [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] function can be used to instrument the [Psycopg][psycopg] PostgreSQL driver with **Logfire**. It works with both the `psycopg2` and `psycopg` (i.e. Psycopg 3) packages.

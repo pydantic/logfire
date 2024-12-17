@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 The [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics] method can be used to collect system metrics with **Logfire**, such as CPU and memory usage.
 
 ## Installation

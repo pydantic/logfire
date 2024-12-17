@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # ASGI
 
 If the [ASGI][asgi] web framework you're using doesn't have a dedicated integration, you can use the
@@ -42,21 +46,6 @@ if __name__ == "__main__":
 The keyword arguments of [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi] are passed to the
 [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.asgi.OpenTelemetryMiddleware] class
 of the OpenTelemetry ASGI Instrumentation package.
-
-## Excluding URLs from instrumentation
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
-
-!!! note
-    `instrument_asgi` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
-    unlike other instrumentations.
-
-## Capturing request and response headers
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#capturing-http-server-request-and-response-headers)
-- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html#capture-http-request-and-response-headers)
 
 [asgi]: https://asgi.readthedocs.io/en/latest/
 [uvicorn]: https://www.uvicorn.org/

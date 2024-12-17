@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 # Pydantic
 
 Logfire has a Pydantic plugin to instrument [Pydantic][pydantic] models.

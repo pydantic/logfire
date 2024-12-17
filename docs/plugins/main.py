@@ -21,8 +21,18 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
     markdown = check_documented_system_metrics(markdown, page)
-    markdown = warning_on_third_party(markdown, page)
+    markdown = integrations_metadata(markdown, page)
+    markdown = footer_web_frameworks(markdown, page)
     return markdown
+
+
+def on_files(files: Files, config: Config) -> None:
+    for file in files:
+        if file.src_path.endswith('.md') and '_' in file.src_uri:
+            raise RuntimeError(
+                f'File {file.src_path} contains an underscore. '
+                'For SEO reasons, the file should not contain underscores.'
+            )
 
 
 def check_documented_system_metrics(markdown: str, page: Page) -> str:
@@ -144,10 +154,6 @@ def install_logfire(markdown: str, page: Page) -> str:
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
-    uri = page.file.src_uri
-    if uri == 'integrations/third-party/index.md' or not uri.startswith('integrations/third-party/'):
-        return markdown
-
     note = """
 !!! note "Third-party integrations"
     Third-party integrations are not officially supported by **Logfire**.
@@ -156,3 +162,60 @@ def warning_on_third_party(markdown: str, page: Page) -> str:
 """
 
     return note + markdown
+
+
+def integrations_metadata(markdown: str, page: Page) -> str:
+    if not page.file.src_uri.startswith('integrations/') or 'index.md' in page.file.src_uri:
+        return markdown
+
+    integration = page.meta.get('integration')
+    if integration is None:
+        raise RuntimeError(f"""
+            The page {page.file.src_uri} is missing the "integration" metadata.
+            Add the metadata to the page like this:
+            ```yaml
+            integration: custom
+            ```
+            The value can be "logfire", "third-party", "built-in" or "otel".
+        """)
+    if integration == 'third-party':
+        markdown = warning_on_third_party(markdown, page)
+    return markdown
+
+
+otel_docs = {
+    'flask': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html',
+    'fastapi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html',
+    'django': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html',
+    'starlette': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
+    'asgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
+    'wsgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
+}
+
+
+def footer_web_frameworks(markdown: str, page: Page) -> str:
+    if not page.file.src_uri.startswith('integrations/web-frameworks/') or page.file.src_path.endswith('index.md'):
+        return markdown
+    exclude_lists = """
+## Excluding URLs from instrumentation
+
+- [Quick guide](../web-frameworks/index.md#excluding-urls-from-instrumentation)
+"""
+    if page.file.name == 'asgi':
+        exclude_lists += """
+
+!!! note
+    `instrument_asgi` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
+    unlike other instrumentations.
+"""
+    elif not page.file.name == 'wsgi':
+        exclude_lists += f"""
+- [OpenTelemetry Documentation]({otel_docs[page.file.name]}#exclude-lists)
+"""
+    capture_headers = f"""
+## Capturing request and response headers
+
+- [Quick guide](../web-frameworks/index.md#capturing-http-server-request-and-response-headers)
+- [OpenTelemetry Documentation]({otel_docs[page.file.name]}#capture-http-request-and-response-headers)
+"""
+    return markdown + exclude_lists + capture_headers

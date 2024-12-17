@@ -15,7 +15,7 @@ from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKw
 from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaHandler as LambdaHandler
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
-from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
+from .integrations.httpx import AsyncClientKwargs as AsyncClientKwargs, ClientKwargs as ClientKwargs, HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
 from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
@@ -550,15 +550,12 @@ class Logfire:
         """
     def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
-    def instrument_httpx(self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
-        """Instrument the `httpx` module so that spans are automatically created for each request.
-
-        Optionally, pass an `httpx.Client` instance to instrument only that client.
-
-        Uses the
-        [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
-        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
-        """
+    @overload
+    def instrument_httpx(self, client: httpx.Client, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
+    @overload
+    def instrument_httpx(self, client: httpx.AsyncClient, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
+    @overload
+    def instrument_httpx(self, client: None = None, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
     def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 

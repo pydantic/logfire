@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 # Loguru
 
 **Logfire** can act as a sink for [Loguru][loguru] by emitting a **Logfire** log for every log record. For example:

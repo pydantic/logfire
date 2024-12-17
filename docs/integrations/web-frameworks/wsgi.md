@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # WSGI
 
 If the [WSGI][wsgi] web framework you're using doesn't have a dedicated integration, you can use the
@@ -38,12 +42,6 @@ The keyword arguments of [`logfire.instrument_wsgi()`][logfire.Logfire.instrumen
 [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.wsgi.OpenTelemetryMiddleware] class of
 the OpenTelemetry WSGI Instrumentation package.
 
-
-## Capturing request and response headers
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#capturing-http-server-request-and-response-headers)
-- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html#capture-http-request-and-response-headers)
 
 [wsgi]: https://wsgi.readthedocs.io/en/latest/
 [wsgiref]: https://docs.python.org/3/library/wsgiref.html
