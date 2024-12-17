@@ -52,6 +52,7 @@ def mask_url(url: URL) -> str:
     return str(url.with_query(masked_query))
 
 logfire.instrument_aiohttp_client(url_filter=mask_url)
+```
 
 [aiohttp]: https://docs.aiohttp.org/en/stable/
 [aiohttp-server]: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/501
