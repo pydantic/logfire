@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
 
-from logfire._internal.utils import handle_internal_errors
-
 try:
     from opentelemetry.instrumentation.httpx import (
         AsyncRequestHook,
@@ -28,6 +26,7 @@ except ImportError:
 
 from logfire import Logfire
 from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
     from typing import ParamSpec, TypedDict, TypeVar, Unpack
@@ -55,7 +54,6 @@ if TYPE_CHECKING:
     AnyResponseHook = TypeVar('AnyResponseHook', ResponseHook, AsyncResponseHook)
     Hook = TypeVar('Hook', RequestHook, ResponseHook)
     AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
-    Client = TypeVar('Client', httpx.Client, httpx.AsyncClient, None)
 
     P = ParamSpec('P')
 
@@ -92,7 +90,7 @@ if TYPE_CHECKING:
 
 def instrument_httpx(
     logfire_instance: Logfire,
-    client: Client,
+    client: httpx.Client | httpx.AsyncClient | None,
     capture_request_headers: bool,
     capture_response_headers: bool,
     capture_request_json_body: bool,
