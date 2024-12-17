@@ -8,7 +8,7 @@ application in real-time (as the name suggests), but it can also be used to expl
 ## The Live View Search
 
 To search the live view, click `Search your spans` (keyboard shortcut `/`), this
-will open the search box:
+opens the search pane:
 
 ![Search box](../../images/guide/live-view-search.png)
 
