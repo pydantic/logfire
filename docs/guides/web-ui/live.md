@@ -5,7 +5,7 @@ The live view is the focal point of **Logfire**, where you can see traces arrive
 The live view is useful for watching what's going on within your
 application in real-time (as the name suggests), but it can also be used to explore historical data via the *live view search*.
 
-## The Live View Search
+## SQL search pane
 
 To search the live view, click `Search your spans` (keyboard shortcut `/`), this
 opens the search pane:
