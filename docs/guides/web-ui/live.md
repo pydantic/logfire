@@ -13,10 +13,10 @@ opens the search pane:
 ![Search box](../../images/guide/live-view-search.png)
 
 ### SQL Search
-Here you can write raw SQL. A good choice if you know what you want and/or love SQL. As the greyed out
-`SELECT * FROM RECORDS WHERE` implies, this is the `WHERE` clause of a SQL query.
-It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or keyboard
-shortcut `cmd+enter` (or `ctrl+enter` on windows/linux).
+For confident SQL users, write your queries directly here. For devs who want a bit of help, try the new [PydanticAI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt. You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
+
+**WHERE clause**
+As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside the `WHERE` clause of a SQL query. It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or keyboard shortcut `cmd+enter` (or `ctrl+enter` on windows/linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
 
