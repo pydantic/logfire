@@ -2,24 +2,22 @@
 
 The live view is the focal point of **Logfire**, where you can see traces arrive in real-time.
 
-The live view is useful for watching what's going on within your
-application in real-time (as the name suggests). You can also explore historical data in the **search pane**.
+The live view is useful for watching what's going on within your application in real-time (as the name suggests). You can also explore historical data in the **search pane**.
 
 ## SQL search pane
 
-To search the live view, click `Search your spans` (keyboard shortcut `/`), this
-opens the search pane:
+To search the live view, click `Search your spans` (keyboard shortcut `/`), this opens the search pane:
 
 ![Search box](../../images/guide/live-view-search.png)
 
 ### SQL Search
+
 For confident SQL users, write your queries directly here. For devs who want a bit of help, try the new [PydanticAI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt. You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
 
-**WHERE clause**
+**WHERE clause**  
 As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside the `WHERE` clause of a SQL query. It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or keyboard shortcut `cmd+enter` (or `ctrl+enter` on windows/linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
-
 
 The schema for the records table is:
 
@@ -54,32 +52,33 @@ CREATE TABLE records AS (
 )
 ```
 
-You can search for any of these in the `Reference` field of the search box:
+You can search for any of these in the `Reference` list:
 
 ![Search box reference](../../images/guide/live-view-reference.png)
 
-If you're not sure where to start, scroll down to the `Start here` section of the search box for some suggestions.
+If you're not sure where to start, scroll down to the `Start here` for beginner-friendly suggestions.
 
 ![Search box start here](../../images/guide/live-view-start-here.png)
 
-### Ask in English -> Get SQL
-Allows you to write your query in English, and will then convert that natural language query to SQL. Great if you're not
-confident with SQL and/or can't quite remember a tricky clause. You have the option to either create a completely
-new query with `Get new SQL` or (if you have some SQL already) modify a work-in-progress query with `Modify existing SQL`.
-You'll note that whenever you click either of these buttons the SQL is updated in the SQL Search box above.
+### Ask in Language -> Get SQL
+
+Write your question in your native language, and the model will convert that question to a SQL query. 
 
 ![Search box natural language](../../images/guide/live-view-natural-language.png)
 
-Under the hood this uses
-an LLM running with [PydanticAI](https://github.com/pydantic/pydantic-ai).
+This is useful if you're not confident with SQL and/or can't quite remember how to format more complicated clauses. You have the option to create a completely new query with `Get new SQL`, or (if you have some SQL already) modify the existing query with `Modify existing SQL`.
 
-### Common Clauses
-Common clauses: A list of pre-populated useful queries. A powerful way to rapidly generate the query you need, whilst
-simultaneously learning more about all the ways you can search your data. Clicking multiple clauses will add them to
-your query with a SQL `AND` statement. If you'd like something other than an `AND` statement you can either modify the
-SQL populated in the SQL search or use the [explore screen](explore.md) for more complex queries.
+Under the hood this feature uses an LLM running with [PydanticAI](https://github.com/pydantic/pydantic-ai).
+
+### Reference
+
+Reference: A list of pre-populated query clauses. Clicking any of the clauses will populate the SQL editor, and (where applicable) you can choose a value from the autopopulated dropdown.
+
+This list gives you a powerful way to rapidly generate the query you need, while simultaneously learning more about all the ways you can search your data. Clicking multiple clauses will add them to your query with a SQL `AND` statement. If you'd like something other than an `AND` statement, you can replace this with alternative SQL operators like `OR`, or `NOT`.  
+
 
 ## Details panel closed
+
 ![Logfire live view collapsed](../../images/guide/live-view-collapsed-annotated.png)
 
 This is what you'll see when you come to the live view of a project with some data.
@@ -92,14 +91,13 @@ This is what you'll see when you come to the live view of a project with some da
 
 4. **Status label:** This should show "Connected" if your query is successful and you are receiving live data. If you have a syntax error in your query or run into other issues, you should see details about the problem here.
 
-5. **Level, Service, scope, and tags visibility filters:** Here you can control whether certain spans are displayed based on their level, service, scope, or tags. Important note:
-this only filters data **currently on the screen**.
+5. **Level, Service, scope, and tags visibility filters:** Here you can control whether certain spans are displayed based on their level, service, scope, or tags. Important note: this only filters data **currently on the screen**.
 
 6. **A collapsed trace:** The `+` symbol to the left of the span message indicates that this span has child spans, and can be expanded to view them by clicking on the `+` button.
 
 7. **Scope label:** This pill contains the `otel_scope_name` of the span. This is the name of the OpenTelemetry scope that produced the span. Generally, OpenTelemetry scopes correspond to instrumentations, so this generally gives you a sense of what library's instrumentation produced the span. This will be logfire when producing spans using the logfire APIs, but will be the name of the OpenTelemetry instrumentation package if the span was produced by another instrumentation. You can hover to see version info.
 
-[//]: # (note we rely on the sane_lists markdown extension to "start" a list from 17!)
+[//]: # 'note we rely on the sane_lists markdown extension to "start" a list from 17!'
 
 ## Details panel open
 
