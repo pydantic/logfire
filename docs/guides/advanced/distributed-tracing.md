@@ -33,29 +33,42 @@ This contains 4 fields:
 - `7dcd821387246e1c` is the `span_id` of the parent span, i.e. the `parent_span_id` of the child log.
 - `01` is the `trace_flags` field and indicates that the trace should be included by sampling.
 
-See the [API reference](../../reference/api/propagate.md) for more details.
+See the [API reference](../../reference/api/propagate.md) for more details about these functions.
 
 ## Integrations
 
+OpenTelemetry instrumentation libraries (which **Logfire** uses for its integrations) handle context propagation automatically, even across different programming languages. For example:
+
+- Instrumented HTTP clients such as [`requests`](../../integrations/requests.md) and [`httpx`](../../integrations/httpx.md) will automatically set the `traceparent` header when making requests.
+- Instrumented web servers such as [`flask`](../../integrations/flask.md) and [`fastapi`](../../integrations/fastapi.md) will automatically extract the `traceparent` header and use it to set the context for server spans.
+- The [`celery` integration](../../integrations/celery.md) will automatically propagate the context to child tasks.
+
+## Thread and Pool executors
+
+**Logfire** automatically patches [`ThreadPoolExecutor`][concurrent.futures.ThreadPoolExecutor] and [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor] to propagate context to child threads and processes. This means that logs and spans created in child threads and processes will be correctly associated with the parent span. Here's an example to demonstrate:
+
+```python
+import logfire
+from concurrent.futures import ThreadPoolExecutor
+
+logfire.configure()
 
 
-Logfire leverages OTEL’s built-in mechanisms to propagate context automatically through HTTP headers, specifically the `traceparent` header. This header carries essential tracing information such as the trace ID and parent span ID, enabling seamless tracing across services.
+@logfire.instrument("Doubling {x}")
+def double(x: int):
+    return x * 2
 
-For example, in a FastAPI application, OTEL instrumentation simplifies tracing by automatically handling the `traceparent` header:
 
-- **Incoming Requests**: The `traceparent` header in HTTP requests is parsed to establish the tracing context.
-- **Outgoing Requests**: When making HTTP calls (e.g., using `requests`), the header is automatically added, ensuring continuity in the trace.
+with logfire.span("Doubling everything") as span:
+    executor = ThreadPoolExecutor()
+    results = list(executor.map(double, range(3)))
+    span.set_attribute("results", results)
+```
 
-### Potential Pitfalls
+## Unintentional Distributed Tracing
 
-#### Unintentional Distributed Tracing
+Because instrumented web servers automatically extract the `traceparent` header by default, your spans can accidentally pick up the wrong context from an externally instrumented client, or from your cloud provider such as Google Cloud Run. This can lead to:
 
-Distributed tracing issues can arise unintentionally:
-
-- **External Trace Roots**: External clients or providers might set a `traceparent` header, changing trace origins.
-- **Missing Parent Spans**: Gaps in the UI appear when upstream services alter the trace context.
-- **Sampling Conflicts**: Providers like Google Cloud Run may override sampling, causing inconsistencies.
-
-### Conclusion
-
-Logfire simplifies the complexities of distributed tracing by abstracting OTEL’s functionality while allowing both automatic and manual propagation of tracing context. By understanding its features and addressing potential pitfalls, you can effectively manage and debug distributed systems with ease.
+- Spans missing their parent.
+- Spans being mysteriously grouped together.
+- Spans missing entirely because the original trace was excluded by sampling.
