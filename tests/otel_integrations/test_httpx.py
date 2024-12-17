@@ -260,6 +260,8 @@ CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[tuple[str, Any, dict[s
         ),
         ('application/json; charset=utf-32', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
         ('application/json; charset=potato', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        ('application/json; charset=ascii', b'\x80\x81\x82', {'http.request.body.json': '���'}),
+        ('application/json; charset=utf8', b'\x80\x81\x82', {'http.request.body.json': '���'}),
         ('text/plain', 'hello world', {}),
     ],
 )
