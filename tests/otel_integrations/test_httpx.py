@@ -301,15 +301,31 @@ CAPTURE_FULL_REQUEST_ATTRIBUTES = {
 }
 
 
+def test_httpx_client_capture_stream_body(exporter: TestExporter):
+    def stream():
+        yield b'Hello, '
+        yield b'world!'
+
+    with logfire.span('test span') as span:
+        assert span.context
+        trace_id = span.context.trace_id
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_json_body=True)
+            response = client.post('https://example.org/', content=stream())
+            traceparent_header = response.headers['traceparent']
+            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert 'http.request.body.json' not in span['attributes']
+
+
 def test_httpx_client_capture_full_request(exporter: TestExporter):
     with logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
-            response = client.post(
-                'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
-            )
+            response = client.post('https://example.org/', json={'hello': 'world'})
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
