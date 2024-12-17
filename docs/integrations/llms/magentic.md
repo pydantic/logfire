@@ -1,10 +1,14 @@
+---
+integration: third-party
+---
+
 [Magentic](https://github.com/jackmpcollins/magentic) is a lightweight library for working with
 structured output from LLMs, built around standard python type annotations and **Pydantic**. It
 integrates with **Logfire** to provide observability into prompt-templating, retries, tool/function
 call execution, and [other features](https://magentic.dev/#features).
 
 Magentic instrumentation requires no additional setup beyond configuring **Logfire** itself.
-You might also want to enable the [OpenAI](../openai.md) and/or [Anthropic](../anthropic.md) integrations.
+You might also want to enable the [OpenAI](../llms/openai.md) and/or [Anthropic](../llms/anthropic.md) integrations.
 
 ```python hl_lines="3 8 9"
 from typing import Annotated

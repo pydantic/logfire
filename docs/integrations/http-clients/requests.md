@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Requests
 
 The [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests] method can be used to

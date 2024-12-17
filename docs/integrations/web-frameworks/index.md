@@ -6,12 +6,12 @@ Here are some tips for instrumenting your web applications.
 
 If you're using one of the following libraries, check out the integration docs:
 
-- [FastAPI](../fastapi.md)
-- [Starlette](../starlette.md)
-- [Django](../django.md)
-- [Flask](../flask.md)
+- [FastAPI](../web-frameworks/fastapi.md)
+- [Starlette](../web-frameworks/starlette.md)
+- [Django](../web-frameworks/django.md)
+- [Flask](../web-frameworks/flask.md)
 
-Otherwise, check if your server uses [WSGI](../wsgi.md) or [ASGI](../asgi.md) and check the corresponding integration.
+Otherwise, check if your server uses [WSGI](../web-frameworks/wsgi.md) or [ASGI](../web-frameworks/asgi.md) and check the corresponding integration.
 
 ## Capturing HTTP server request and response headers
 

@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Flask
 
 The [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask] method
@@ -35,18 +39,6 @@ if __name__ == "__main__":
 
 The keyword arguments of `logfire.instrument_flask()` are passed to the `FlaskInstrumentor().instrument_app()` method
 of the OpenTelemetry Flask Instrumentation package, read more about it [here][opentelemetry-flask].
-
-## Excluding URLs from instrumentation
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#excluding-urls-from-instrumentation)
-- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#exclude-lists)
-
-## Capturing request and response headers
-<!-- note that this section is duplicated for different frameworks but with slightly different links -->
-
-- [Quick guide](use-cases/web-frameworks.md#capturing-http-server-request-and-response-headers)
-- [OpenTelemetry Documentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#capture-http-request-and-response-headers)
 
 [flask]: https://flask.palletsprojects.com/en/2.0.x/
 [opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html

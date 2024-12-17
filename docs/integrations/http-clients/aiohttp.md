@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # AIOHTTP Client
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.

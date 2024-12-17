@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # SQLAlchemy
 
 The [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy] method will create a span for every query executed by a [SQLAlchemy][sqlalchemy] engine.

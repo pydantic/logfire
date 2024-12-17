@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # Stripe
 
 [Stripe] is a popular payment gateway that allows businesses to accept payments online.
@@ -105,5 +109,5 @@ You can change the `level=INFO` to `level=DEBUG` to see even more details, like 
 [Stripe]: https://stripe.com
 [Configuring an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
 [logging-section]: logging.md
-[requests-section]: requests.md
-[httpx-section]: httpx.md
+[requests-section]: http-clients/requests.md
+[httpx-section]: http-clients/httpx.md

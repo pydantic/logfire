@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 # Standard Library Logging
 
 **Logfire** can act as a sink for [standard library logging][logging] by emitting a **Logfire** log for

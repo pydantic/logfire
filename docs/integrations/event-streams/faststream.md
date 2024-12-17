@@ -1,3 +1,7 @@
+---
+integration: built-in
+---
+
 # FastStream
 
 To instrument [FastStream][faststream] with OpenTelemetry, you need to:
