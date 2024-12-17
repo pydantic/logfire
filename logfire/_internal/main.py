@@ -83,6 +83,7 @@ if TYPE_CHECKING:
 
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.asyncpg import AsyncPGInstrumentKwargs
+    from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import HTTPXInstrumentKwargs
@@ -91,6 +92,7 @@ if TYPE_CHECKING:
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
+    from .integrations.sqlite3 import SQLite3Connection, SQLite3InstrumentKwargs
     from .integrations.starlette import StarletteInstrumentKwargs
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .integrations.wsgi import WSGIInstrumentKwargs
@@ -1423,12 +1425,58 @@ class Logfire:
             },
         )
 
+    def instrument_sqlite3(
+        self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]
+    ) -> SQLite3Connection:
+        """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry SQLite3 Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html)
+        library.
+
+        Args:
+            conn: The `sqlite3` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
+        """
+        from .integrations.sqlite3 import instrument_sqlite3
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_sqlite3(
+            conn=conn,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                **kwargs,
+            },
+        )
+
+    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+        """Instrument AWS Lambda so that spans are automatically created for each invocation.
+
+        Uses the
+        [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
+        library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.aws_lambda import instrument_aws_lambda
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_aws_lambda(
+            lambda_handler=lambda_handler,
+            **{  # type: ignore
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
+
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
-            library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
         from .integrations.pymongo import instrument_pymongo
 
@@ -1481,7 +1529,6 @@ class Logfire:
 
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
-
         """
         from .integrations.mysql import instrument_mysql
 
@@ -1839,10 +1886,8 @@ class LogfireSpan(ReadableSpan):
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
 
         self._added_attributes = False
-        self._end_on_exit: bool | None = None
         self._token: None | object = None
         self._span: None | trace_api.Span = None
-        self.end_on_exit = True
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -1851,8 +1896,7 @@ class LogfireSpan(ReadableSpan):
 
     def __enter__(self) -> LogfireSpan:
         with handle_internal_errors():
-            self.end_on_exit = True
-            if self._span is None:
+            if self._span is None:  # pragma: no branch
                 self._span = self._tracer.start_span(
                     name=self._span_name,
                     attributes=self._otlp_attributes,
@@ -1878,9 +1922,7 @@ class LogfireSpan(ReadableSpan):
         assert self._span is not None
         _exit_span(self._span, exc_value)
 
-        end_on_exit_ = self.end_on_exit
-        if end_on_exit_:
-            self.end()
+        self.end()
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover

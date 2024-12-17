@@ -237,6 +237,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         if id(o) in seen:
             return '<circular reference>'
 
+        seen = seen.copy()
         seen.add(id(o))
 
         if isinstance(o, (list, tuple)):

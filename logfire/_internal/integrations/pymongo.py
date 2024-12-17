@@ -37,4 +37,4 @@ def instrument_pymongo(**kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
 
     See the `Logfire.instrument_pymongo` method for details.
     """
-    PymongoInstrumentor().instrument(**kwargs)  # type: ignore[reportUnknownMemberType]
+    PymongoInstrumentor().instrument(**kwargs)

@@ -45,5 +45,6 @@ class LogfireProcessor:
             msg_template=message,
             attributes=attributes,
             console_log=self.console_log,
+            exc_info=event_dict.get('exc_info', False),
         )
         return event_dict

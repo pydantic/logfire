@@ -115,6 +115,8 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         if id(obj) in seen:
             return {}
+
+        seen = seen.copy()
         seen.add(id(obj))
 
         if obj_type in {list, tuple, set, frozenset, deque}:

@@ -12,6 +12,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
+from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaHandler as LambdaHandler
 from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
@@ -20,6 +21,7 @@ from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKw
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
+from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection, SQLite3InstrumentKwargs as SQLite3InstrumentKwargs
 from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
 from .integrations.wsgi import WSGIInstrumentKwargs as WSGIInstrumentKwargs
@@ -704,12 +706,33 @@ class Logfire:
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
+    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]) -> SQLite3Connection:
+        """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry SQLite3 Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlite3/sqlite3.html)
+        library.
+
+        Args:
+            conn: The `sqlite3` connection to instrument, or `None` to instrument all connections.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+
+        Returns:
+            If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
+        """
+    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+        """Instrument AWS Lambda so that spans are automatically created for each invocation.
+
+        Uses the
+        [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
+        library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
-            library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
     def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
@@ -735,7 +758,6 @@ class Logfire:
 
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
-
         """
     def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
         """Collect system metrics.
@@ -996,7 +1018,6 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    end_on_exit: bool
     def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...

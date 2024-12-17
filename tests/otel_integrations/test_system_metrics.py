@@ -21,7 +21,7 @@ def get_collected_metric_names(metrics_reader: InMemoryMetricReader) -> list[str
             }
         )
     finally:
-        SystemMetricsInstrumentor().uninstrument()  # type: ignore
+        SystemMetricsInstrumentor().uninstrument()
 
 
 def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:

@@ -247,14 +247,14 @@ class JsonArgsValueFormatter:
         widths = [len(max(cols, key=len)) for cols in zip(*([columns] + converted_rows))]
 
         # write the header
-        self._stream.write(' | '.join(format(title, '%ds' % width) for width, title in zip(widths, columns)) + '\n')
+        self._stream.write(' | '.join(f'{title:{width}s}' for width, title in zip(widths, columns)) + '\n')
 
         # write the separator
         self._stream.write('-+-'.join('-' * width for width in widths) + '\n')
 
         # write the data
         for row in converted_rows:
-            self._stream.write(' | '.join(format(cdata, '%ds' % width) for width, cdata in zip(widths, row)) + '\n')
+            self._stream.write(' | '.join(f'{cdata:{width}s}' for width, cdata in zip(widths, row)) + '\n')
 
         # write summary
         self._stream.write(f'\n[{real_row_count} rows x {real_column_count} columns]')

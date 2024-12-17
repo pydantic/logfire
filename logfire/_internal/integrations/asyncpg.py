@@ -25,7 +25,7 @@ def instrument_asyncpg(logfire_instance: Logfire, **kwargs: Unpack[AsyncPGInstru
 
     See the `Logfire.instrument_asyncpg` method for details.
     """
-    AsyncPGInstrumentor().instrument(  # type: ignore[reportUnknownMemberType]
+    AsyncPGInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),

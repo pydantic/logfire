@@ -119,11 +119,15 @@ nav:
           - Psycopg: integrations/psycopg.md
           - PyMongo: integrations/pymongo.md
           - MySQL: integrations/mysql.md
+          - SQLite3: integrations/sqlite3.md
           - Redis: integrations/redis.md
           - BigQuery: integrations/bigquery.md
+          - Airflow: integrations/airflow.md
+          - FastStream: integrations/faststream.md
           - Celery: integrations/celery.md
           - Stripe: integrations/stripe.md
           - System Metrics: integrations/system-metrics.md
+          - AWS Lambda: integrations/aws-lambda.md
       - Custom:
           - Pydantic: integrations/pydantic.md
           - OpenAI: integrations/openai.md
@@ -218,6 +222,7 @@ plugins:
             - url: https://requests.readthedocs.io/en/latest/objects.inv
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
+            - url: https://faststream.airt.ai/latest/objects.inv
   - redirects:
       redirect_maps:
         "guides/first_steps/index.md": "index.md"

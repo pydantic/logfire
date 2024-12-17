@@ -1,5 +1,27 @@
 # Release Notes
 
+## [v2.7.1] (2024-12-13)
+
+* Fix erroneous `<circular reference>` when object is repeated in list by @alexmojaki in [#664](https://github.com/pydantic/logfire/pull/664)
+
+## [v2.7.0] (2024-12-11)
+
+* Add `logfire.instrument_aws_lambda` by @Kludex in [#657](https://github.com/pydantic/logfire/pull/657)
+
+## [v2.6.2] (2024-12-05)
+
+* Update the `process.pid` resource attribute after `os.fork()` by @alexmojaki in [#647](https://github.com/pydantic/logfire/pull/647)
+* Check for `os.register_at_fork` before calling by @alexmojaki in [#648](https://github.com/pydantic/logfire/pull/648)
+
+## [v2.6.1] (2024-12-05)
+
+* Use `exc_info` in structlog processor by @alexmojaki in [#641](https://github.com/pydantic/logfire/pull/641)
+* Re-seed random ID generator after `os.fork()` by @alexmojaki in [#644](https://github.com/pydantic/logfire/pull/644)
+
+## [v2.6.0] (2024-12-02)
+
+* Add `instrument_sqlite3` by @Kludex in [#634](https://github.com/pydantic/logfire/pull/634)
+
 ## [v2.5.0] (2024-11-27)
 
 * Add `logfire.suppress_scopes` method by @alexmojaki in [#628](https://github.com/pydantic/logfire/pull/628)
@@ -445,3 +467,8 @@ First release from new repo!
 [v2.4.0]: https://github.com/pydantic/logfire/compare/v2.3.0...v2.4.0
 [v2.4.1]: https://github.com/pydantic/logfire/compare/v2.4.0...v2.4.1
 [v2.5.0]: https://github.com/pydantic/logfire/compare/v2.4.1...v2.5.0
+[v2.6.0]: https://github.com/pydantic/logfire/compare/v2.5.0...v2.6.0
+[v2.6.1]: https://github.com/pydantic/logfire/compare/v2.6.0...v2.6.1
+[v2.6.2]: https://github.com/pydantic/logfire/compare/v2.6.1...v2.6.2
+[v2.7.0]: https://github.com/pydantic/logfire/compare/v2.6.2...v2.7.0
+[v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1

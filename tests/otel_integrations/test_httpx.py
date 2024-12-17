@@ -29,7 +29,7 @@ async def test_httpx_instrumentation(exporter: TestExporter):
             try:
                 response = client.get('https://example.org/')
             finally:
-                HTTPXClientInstrumentor().uninstrument()  # type: ignore
+                HTTPXClientInstrumentor().uninstrument()
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]

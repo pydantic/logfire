@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "2.5.0"
+version = "2.7.1"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -39,6 +39,10 @@ classifiers = [
     'Environment :: MacOS X',
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Internet',
+    'Framework :: OpenTelemetry',
+    'Framework :: OpenTelemetry :: Distros',
+    'Framework :: OpenTelemetry :: Exporters',
+    'Framework :: OpenTelemetry :: Instrumentations',
 ]
 dependencies = [
     "opentelemetry-sdk >= 1.21.0",
@@ -70,6 +74,8 @@ pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
+sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
+aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -91,7 +97,7 @@ dev = [
     "Flask >= 3.0.3",
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
-    "pytest >= 8.3.3",
+    "pytest >= 8.3.4",
     "pytest-django",
     "pytest-pretty",
     "pydantic @ git+https://github.com/pydantic/pydantic",
@@ -101,24 +107,26 @@ dev = [
     "pandas; python_version < '3.9'",
     "attrs",
     "openai",
-    "opentelemetry-instrumentation-aiohttp-client",
-    "opentelemetry-instrumentation-asgi",
-    "opentelemetry-instrumentation-wsgi",
-    "opentelemetry-instrumentation-fastapi",
-    "opentelemetry-instrumentation-starlette",
-    "opentelemetry-instrumentation-flask",
-    "opentelemetry-instrumentation-django",
-    "opentelemetry-instrumentation-httpx",
-    "opentelemetry-instrumentation-requests",
-    "opentelemetry-instrumentation-sqlalchemy",
-    "opentelemetry-instrumentation-system-metrics",
-    "opentelemetry-instrumentation-asyncpg",
-    "opentelemetry-instrumentation-psycopg",
-    "opentelemetry-instrumentation-psycopg2",
-    "opentelemetry-instrumentation-redis",
-    "opentelemetry-instrumentation-pymongo",
-    "opentelemetry-instrumentation-celery",
-    "opentelemetry-instrumentation-mysql",
+    "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
+    "opentelemetry-instrumentation-asgi>=0.42b0",
+    "opentelemetry-instrumentation-wsgi>=0.42b0",
+    "opentelemetry-instrumentation-fastapi>=0.42b0",
+    "opentelemetry-instrumentation-starlette>=0.42b0",
+    "opentelemetry-instrumentation-flask>=0.42b0",
+    "opentelemetry-instrumentation-django>=0.42b0",
+    "opentelemetry-instrumentation-httpx>=0.42b0",
+    "opentelemetry-instrumentation-requests>=0.42b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
+    "opentelemetry-instrumentation-system-metrics>=0.42b0",
+    "opentelemetry-instrumentation-asyncpg>=0.42b0",
+    "opentelemetry-instrumentation-psycopg>=0.42b0",
+    "opentelemetry-instrumentation-psycopg2>=0.42b0",
+    "opentelemetry-instrumentation-redis>=0.42b0",
+    "opentelemetry-instrumentation-pymongo>=0.42b0",
+    "opentelemetry-instrumentation-celery>=0.42b0",
+    "opentelemetry-instrumentation-mysql>=0.42b0",
+    "opentelemetry-instrumentation-sqlite3>=0.42b0",
+    "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport",
     "requests-mock",
     "inline-snapshot",
@@ -154,7 +162,7 @@ dev = [
 ]
 docs = [
     "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.17",
+    "mkdocs-material>=9.5.48",
     "mkdocs-glightbox>=0.4.0",
     "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
@@ -163,6 +171,9 @@ docs = [
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+
+[tool.uv]
+default-groups = ["dev", "docs"]
 
 [tool.uv.workspace]
 members = ["logfire-api"]
