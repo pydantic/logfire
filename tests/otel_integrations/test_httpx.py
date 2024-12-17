@@ -252,7 +252,8 @@ CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[tuple[str, Any, dict[s
         ('application/json; charset=potato', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
         ('application/json; charset=ascii', b'\x80\x81\x82', {'http.request.body.json': '���'}),
         ('application/json; charset=utf8', b'\x80\x81\x82', {'http.request.body.json': '���'}),
-        ('text/plain', 'hello world', {}),
+        ('text/plain', '{"hello": "world"}', {}),
+        ('', '{"hello": "world"}', {}),
     ],
 )
 
@@ -264,7 +265,8 @@ def test_httpx_client_instrumentation_with_capture_json_body(
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
-            response = client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
+            headers = {'Content-Type': content_type} if content_type else {}
+            response = client.post('https://example.org/', headers=headers, content=body)
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -305,10 +307,13 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
-            response = client.post('https://example.org/', content=stream())
+            response = client.post(
+                'https://example.org/', headers={'Content-Type': 'application/json'}, content=stream()
+            )
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
+    # Streaming bodies aren't captured
     assert 'http.request.body.json' not in span['attributes']
 
 
@@ -327,9 +332,7 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
-            response = await client.post(
-                'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
-            )
+            response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
