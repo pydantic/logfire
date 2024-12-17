@@ -6,6 +6,7 @@ from unittest import mock
 
 import httpx
 import pytest
+from dirty_equals import IsDict
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor, RequestInfo, ResponseInfo
@@ -245,6 +246,115 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in expected_attributes)
+
+
+CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[tuple[str, Any, dict[str, Any]]]] = (
+    ('content_type', 'body', 'expected_attributes'),
+    [
+        ('application/json', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        ('application/json; charset=utf-8', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        (
+            'application/json; charset=iso-8859-1',
+            '{"hello": "world"}',
+            {'http.request.body.json': '{"hello": "world"}'},
+        ),
+        ('application/json; charset=utf-32', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        ('application/json; charset=potato', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        ('text/plain', 'hello world', {}),
+    ],
+)
+
+
+@pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
+def test_httpx_client_instrumentation_with_capture_json_body(
+    exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
+):
+    with logfire.span('test span') as span:
+        assert span.context
+        trace_id = span.context.trace_id
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_json_body=True)
+            try:
+                response = client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+            traceparent_header = response.headers['traceparent']
+            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
+
+
+@pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
+async def test_async_httpx_client_instrumentation_with_capture_json_body(
+    exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
+):
+    with logfire.span('test span') as span:
+        assert span.context
+        trace_id = span.context.trace_id
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_json_body=True)
+            try:
+                response = await client.post(
+                    'https://example.org/', headers={'Content-Type': content_type}, content=body
+                )
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+            traceparent_header = response.headers['traceparent']
+            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
+
+
+CAPTURE_FULL_REQUEST_ATTRIBUTES = {
+    'http.request.header.host',
+    'http.request.header.accept',
+    'http.request.header.accept-encoding',
+    'http.request.header.connection',
+    'http.request.header.user-agent',
+    'http.request.header.content-type',
+    'http.request.header.content-length',
+    'http.request.body.json',
+}
+
+
+def test_httpx_client_capture_full_request(exporter: TestExporter):
+    with logfire.span('test span') as span:
+        assert span.context
+        trace_id = span.context.trace_id
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            try:
+                response = client.post(
+                    'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
+                )
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+            traceparent_header = response.headers['traceparent']
+            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
+
+
+async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
+    with logfire.span('test span') as span:
+        assert span.context
+        trace_id = span.context.trace_id
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            try:
+                response = await client.post(
+                    'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
+                )
+            finally:
+                HTTPXClientInstrumentor().uninstrument()
+            traceparent_header = response.headers['traceparent']
+            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
 def test_missing_opentelemetry_dependency() -> None:

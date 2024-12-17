@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import functools
 import inspect
+from contextlib import suppress
+from email.message import Message
 from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
@@ -24,6 +26,7 @@ except ImportError:
     )
 
 from logfire import Logfire
+from logfire._internal.main import set_user_attributes_on_raw_span
 
 if TYPE_CHECKING:
     from typing import ParamSpec, TypedDict, TypeVar, Unpack
@@ -51,6 +54,7 @@ if TYPE_CHECKING:
     AnyResponseHook = TypeVar('AnyResponseHook', ResponseHook, AsyncResponseHook)
     Hook = TypeVar('Hook', RequestHook, ResponseHook)
     AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
+    Client = TypeVar('Client', httpx.Client, httpx.AsyncClient, None)
 
     P = ParamSpec('P')
 
@@ -60,6 +64,7 @@ if TYPE_CHECKING:
         client: httpx.Client,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
 
@@ -69,6 +74,7 @@ if TYPE_CHECKING:
         client: httpx.AsyncClient,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
 
@@ -78,15 +84,17 @@ if TYPE_CHECKING:
         client: None,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
 
 
 def instrument_httpx(
     logfire_instance: Logfire,
-    client: httpx.Client | httpx.AsyncClient | None,
+    client: Client,
     capture_request_headers: bool,
     capture_response_headers: bool,
+    capture_request_json_body: bool,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -116,6 +124,10 @@ def instrument_httpx(
             final_kwargs['response_hook'] = make_capture_response_headers_hook(response_hook)
             final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(async_response_hook)
 
+        if capture_request_json_body:  # pragma: no cover
+            final_kwargs['request_hook'] = make_capture_request_body_hook(request_hook)
+            final_kwargs['async_request_hook'] = make_capture_async_request_body_hook(async_request_hook)
+
         instrumentor.instrument(**final_kwargs)
     else:
         request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
@@ -128,9 +140,6 @@ def instrument_httpx(
             else:
                 request_hook = cast('RequestHook | None', request_hook)
                 request_hook = make_capture_request_headers_hook(request_hook)
-        else:
-            if isinstance(client, httpx.AsyncClient):
-                request_hook = functools.partial(run_async_hook, request_hook)
 
         if capture_response_headers:
             if isinstance(client, httpx.AsyncClient):
@@ -139,8 +148,19 @@ def instrument_httpx(
             else:
                 response_hook = cast('ResponseHook | None', response_hook)
                 response_hook = make_capture_response_headers_hook(response_hook)
-        else:
+
+        if capture_request_json_body:
             if isinstance(client, httpx.AsyncClient):
+                request_hook = cast('AsyncRequestHook | None', request_hook)
+                request_hook = make_capture_async_request_body_hook(request_hook)
+            else:
+                request_hook = cast('RequestHook | None', request_hook)
+                request_hook = make_capture_request_body_hook(request_hook)
+
+        if isinstance(client, httpx.AsyncClient):
+            if not capture_request_headers and not capture_request_json_body:
+                request_hook = functools.partial(run_async_hook, request_hook)
+            if not capture_response_headers:
                 response_hook = functools.partial(run_async_hook, response_hook)
 
         tracer_provider = final_kwargs['tracer_provider']
@@ -179,6 +199,22 @@ def make_capture_async_request_headers_hook(hook: AsyncRequestHook | None) -> As
     return capture_request_headers_hook
 
 
+def make_capture_request_body_hook(hook: RequestHook | None) -> RequestHook:
+    def capture_request_body_hook(span: Span, request: RequestInfo) -> None:
+        capture_request_body(span, request)
+        run_hook(hook, span, request)
+
+    return capture_request_body_hook
+
+
+def make_capture_async_request_body_hook(hook: AsyncRequestHook | None) -> AsyncRequestHook:
+    async def async_capture_request_body_hook(span: Span, request: RequestInfo) -> None:
+        capture_request_body(span, request)
+        await run_async_hook(hook, span, request)
+
+    return async_capture_request_body_hook
+
+
 async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
     if hook:
         result = hook(*args, **kwargs)
@@ -206,3 +242,35 @@ def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Lit
             for header_name in headers.keys()
         }
     )
+
+
+def get_charset(content_type: str) -> str:
+    m = Message()
+    m['content-type'] = content_type
+    return cast(str, m.get_param('charset', 'utf-8'))
+
+
+def decode_body(body: bytes, content_type: str):
+    charset = get_charset(content_type)
+    with suppress(UnicodeDecodeError, LookupError):
+        return body.decode(charset)
+    if charset.lower() not in ('utf-8', 'utf8'):
+        with suppress(UnicodeDecodeError):
+            return body.decode('utf-8')
+    return body.decode(charset, errors='replace')
+
+
+def capture_request_body(span: Span, request: RequestInfo) -> None:
+    content_type = cast('httpx.Headers', request.headers).get('content-type', '').lower()
+    if not content_type.startswith('application/json'):
+        return
+    if not isinstance(request.stream, httpx.ByteStream):
+        return
+
+    body = decode_body(list(request.stream)[0], content_type)
+
+    # Alex, does this needs to be `http.request.json_body`? Otherwise I'd prefer to follow the analogous notation to
+    # the headers, e.g. `http.request.header.content-type` -> `http.request.body.json`
+    attr_name = 'http.request.body.json'
+    set_user_attributes_on_raw_span(span, {attr_name: {}})  # type: ignore
+    span.set_attribute(attr_name, body)
