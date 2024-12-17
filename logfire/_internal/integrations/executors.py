@@ -63,6 +63,7 @@ def serialize_config() -> dict[str, Any]:
 
 
 def deserialize_config(config: dict[str, Any]) -> None:
-    from ..config import configure
+    from ..config import GLOBAL_CONFIG, configure
 
-    configure(**config)
+    if not GLOBAL_CONFIG._initialized:  # type: ignore
+        configure(**config)
