@@ -1,12 +1,7 @@
 import httpx
-from _typeshed import Incomplete
 from logfire import Logfire as Logfire
+from opentelemetry.instrumentation.httpx import AsyncRequestHook, AsyncResponseHook, RequestHook, ResponseHook
 from typing import TypedDict, Unpack
-
-RequestHook: Incomplete
-ResponseHook: Incomplete
-AsyncRequestHook: Incomplete
-AsyncResponseHook: Incomplete
 
 class HTTPXInstrumentKwargs(TypedDict, total=False):
     request_hook: RequestHook

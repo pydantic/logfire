@@ -3,7 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 try:
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.instrumentation.httpx import (
+        AsyncRequestHook,
+        AsyncResponseHook,
+        HTTPXClientInstrumentor,
+        RequestHook,
+        ResponseHook,
+    )
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.\n'
@@ -14,15 +20,9 @@ except ImportError:
 from logfire import Logfire
 
 if TYPE_CHECKING:
-    from typing import Awaitable, Callable, TypedDict, Unpack
+    from typing import TypedDict, Unpack
 
     import httpx
-    from opentelemetry.trace import Span
-
-    RequestHook = Callable[[Span, httpx.Request], None]
-    ResponseHook = Callable[[Span, httpx.Request, httpx.Response], None]
-    AsyncRequestHook = Callable[[Span, httpx.Request], Awaitable[None]]
-    AsyncResponseHook = Callable[[Span, httpx.Request, httpx.Response], Awaitable[None]]
 
     class HTTPXInstrumentKwargs(TypedDict, total=False):
         request_hook: RequestHook
