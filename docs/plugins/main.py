@@ -28,7 +28,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
 
 def on_files(files: Files, config: Config) -> None:
     for file in files:
-        if '_' in file.dest_path:
+        if file.src_path.endswith('.md') and '_' in file.src_uri:
             raise RuntimeError(
                 f'File {file.src_path} contains an underscore. '
                 'For SEO reasons, the file should not contain underscores.'
