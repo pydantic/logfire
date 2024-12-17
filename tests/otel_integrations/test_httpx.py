@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from contextlib import contextmanager
 from typing import Any
 from unittest import mock
 
@@ -28,16 +29,26 @@ def create_transport() -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
-def test_httpx_client_instrumentation(exporter: TestExporter):
+@contextmanager
+def check_traceparent_header():
     with logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
-        with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client)
-            response = client.get('https://example.org/')
+
+        def checker(response: httpx.Response):
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+
+        yield checker
+
+
+def test_httpx_client_instrumentation(exporter: TestExporter):
+    with check_traceparent_header() as checker:
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(client)
+            response = client.get('https://example.org/')
+            checker(response)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -73,7 +84,7 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'code.filepath': 'test_httpx.py',
                     'code.lineno': 123,
-                    'code.function': 'test_httpx_client_instrumentation',
+                    'code.function': 'check_traceparent_header',
                     'logfire.msg_template': 'test span',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'test span',
@@ -84,14 +95,11 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
 
 
 async def test_async_httpx_client_instrumentation(exporter: TestExporter):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client)
             response = await client.get('https://example.org/')
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -126,7 +134,7 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter):
                 'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': 'test_httpx.py',
-                    'code.function': 'test_async_httpx_client_instrumentation',
+                    'code.function': 'check_traceparent_header',
                     'code.lineno': 123,
                     'logfire.msg_template': 'test span',
                     'logfire.msg': 'test span',
@@ -186,14 +194,11 @@ RESPONSE_ATTRIBUTES = {
 def test_httpx_client_instrumentation_with_capture_headers(
     exporter: TestExporter, instrument_kwargs: dict[str, Any], expected_attributes: set[str]
 ):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
             response = client.get('https://example.org/')
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in expected_attributes), list(span['attributes'])
@@ -223,14 +228,11 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
     instrument_kwargs: dict[str, Any],
     expected_attributes: set[str],
 ):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
             response = await client.get('https://example.org/')
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in expected_attributes)
@@ -259,14 +261,11 @@ CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[tuple[str, Any, dict[s
 def test_httpx_client_instrumentation_with_capture_json_body(
     exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
 ):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
             response = client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
@@ -276,14 +275,11 @@ def test_httpx_client_instrumentation_with_capture_json_body(
 async def test_async_httpx_client_instrumentation_with_capture_json_body(
     exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
 ):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
             response = await client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
@@ -303,47 +299,38 @@ CAPTURE_FULL_REQUEST_ATTRIBUTES = {
 
 def test_httpx_client_capture_stream_body(exporter: TestExporter):
     def stream():
-        yield b'Hello, '
-        yield b'world!'
+        yield b'{"hello": '
+        yield b'"world"}'
 
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_json_body=True)
             response = client.post('https://example.org/', content=stream())
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert 'http.request.body.json' not in span['attributes']
 
 
 def test_httpx_client_capture_full_request(exporter: TestExporter):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
             response = client.post('https://example.org/', json={'hello': 'world'})
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
 async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
             response = await client.post(
                 'https://example.org/', headers={'Content-Type': 'application/json'}, json={'hello': 'world'}
             )
-            traceparent_header = response.headers['traceparent']
-            assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
