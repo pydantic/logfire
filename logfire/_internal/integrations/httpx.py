@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import functools
 import inspect
+from contextlib import suppress
+from email.message import Message
 from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
@@ -24,6 +25,8 @@ except ImportError:
     )
 
 from logfire import Logfire
+from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
     from typing import ParamSpec, TypedDict, TypeVar, Unpack
@@ -60,6 +63,7 @@ if TYPE_CHECKING:
         client: httpx.Client,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
 
@@ -69,6 +73,7 @@ if TYPE_CHECKING:
         client: httpx.AsyncClient,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
 
@@ -78,6 +83,7 @@ if TYPE_CHECKING:
         client: None,
         capture_request_headers: bool,
         capture_response_headers: bool,
+        capture_request_json_body: bool,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
 
@@ -87,6 +93,7 @@ def instrument_httpx(
     client: httpx.Client | httpx.AsyncClient | None,
     capture_request_headers: bool,
     capture_response_headers: bool,
+    capture_request_json_body: bool,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -107,76 +114,94 @@ def instrument_httpx(
         response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
         async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
         async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
-
-        if capture_request_headers:  # pragma: no cover
-            final_kwargs['request_hook'] = make_capture_request_headers_hook(request_hook)
-            final_kwargs['async_request_hook'] = make_capture_async_request_headers_hook(async_request_hook)
-
-        if capture_response_headers:  # pragma: no cover
-            final_kwargs['response_hook'] = make_capture_response_headers_hook(response_hook)
-            final_kwargs['async_response_hook'] = make_capture_async_response_headers_hook(async_response_hook)
+        final_kwargs['request_hook'] = make_request_hook(
+            request_hook, capture_request_headers, capture_request_json_body
+        )
+        final_kwargs['response_hook'] = make_response_hook(response_hook, capture_response_headers)
+        final_kwargs['async_request_hook'] = make_async_request_hook(
+            async_request_hook, capture_request_headers, capture_request_json_body
+        )
+        final_kwargs['async_response_hook'] = make_async_response_hook(async_response_hook, capture_response_headers)
 
         instrumentor.instrument(**final_kwargs)
     else:
-        request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
-        response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
+        if isinstance(client, httpx.AsyncClient):
+            request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
+            response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
 
-        if capture_request_headers:
-            if isinstance(client, httpx.AsyncClient):
-                request_hook = cast('AsyncRequestHook | None', request_hook)
-                request_hook = make_capture_async_request_headers_hook(request_hook)
-            else:
-                request_hook = cast('RequestHook | None', request_hook)
-                request_hook = make_capture_request_headers_hook(request_hook)
+            request_hook = make_async_request_hook(request_hook, capture_request_headers, capture_request_json_body)
+            response_hook = make_async_response_hook(response_hook, capture_response_headers)
         else:
-            if isinstance(client, httpx.AsyncClient):
-                request_hook = functools.partial(run_async_hook, request_hook)
+            request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
+            response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
 
-        if capture_response_headers:
-            if isinstance(client, httpx.AsyncClient):
-                response_hook = cast('AsyncResponseHook | None', response_hook)
-                response_hook = make_capture_async_response_headers_hook(response_hook)
-            else:
-                response_hook = cast('ResponseHook | None', response_hook)
-                response_hook = make_capture_response_headers_hook(response_hook)
-        else:
-            if isinstance(client, httpx.AsyncClient):
-                response_hook = functools.partial(run_async_hook, response_hook)
+            request_hook = make_request_hook(request_hook, capture_request_headers, capture_request_json_body)
+            response_hook = make_response_hook(response_hook, capture_response_headers)
 
         tracer_provider = final_kwargs['tracer_provider']
         instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
 
 
-def make_capture_response_headers_hook(hook: ResponseHook | None) -> ResponseHook:
-    def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        capture_response_headers(span, response)
-        run_hook(hook, span, request, response)
+def make_request_hook(
+    hook: RequestHook | None, should_capture_headers: bool, should_capture_json: bool
+) -> RequestHook | None:
+    if not should_capture_headers and not should_capture_json and not hook:
+        return None
 
-    return capture_response_headers_hook
+    def new_hook(span: Span, request: RequestInfo) -> None:
+        with handle_internal_errors():
+            if should_capture_headers:
+                capture_request_headers(span, request)
+            if should_capture_json:
+                capture_request_body(span, request)
+            run_hook(hook, span, request)
 
-
-def make_capture_async_response_headers_hook(hook: AsyncResponseHook | None) -> AsyncResponseHook:
-    async def capture_response_headers_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        capture_response_headers(span, response)
-        await run_async_hook(hook, span, request, response)
-
-    return capture_response_headers_hook
-
-
-def make_capture_request_headers_hook(hook: RequestHook | None) -> RequestHook:
-    def capture_request_headers_hook(span: Span, request: RequestInfo) -> None:
-        capture_request_headers(span, request)
-        run_hook(hook, span, request)
-
-    return capture_request_headers_hook
+    return new_hook
 
 
-def make_capture_async_request_headers_hook(hook: AsyncRequestHook | None) -> AsyncRequestHook:
-    async def capture_request_headers_hook(span: Span, request: RequestInfo) -> None:
-        capture_request_headers(span, request)
-        await run_async_hook(hook, span, request)
+def make_async_request_hook(
+    hook: AsyncRequestHook | RequestHook | None, should_capture_headers: bool, should_capture_json: bool
+) -> AsyncRequestHook | None:
+    if not should_capture_headers and not should_capture_json and not hook:
+        return None
 
-    return capture_request_headers_hook
+    async def new_hook(span: Span, request: RequestInfo) -> None:
+        with handle_internal_errors():
+            if should_capture_headers:
+                capture_request_headers(span, request)
+            if should_capture_json:
+                capture_request_body(span, request)
+            await run_async_hook(hook, span, request)
+
+    return new_hook
+
+
+def make_response_hook(hook: ResponseHook | None, should_capture_headers: bool) -> ResponseHook | None:
+    if not should_capture_headers and not hook:
+        return None
+
+    def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+        with handle_internal_errors():
+            if should_capture_headers:
+                capture_response_headers(span, response)
+            run_hook(hook, span, request, response)
+
+    return new_hook
+
+
+def make_async_response_hook(
+    hook: ResponseHook | AsyncResponseHook | None, should_capture_headers: bool
+) -> AsyncResponseHook | None:
+    if not should_capture_headers and not hook:
+        return None
+
+    async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
+        with handle_internal_errors():
+            if should_capture_headers:
+                capture_response_headers(span, response)
+            await run_async_hook(hook, span, request, response)
+
+    return new_hook
 
 
 async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
@@ -206,3 +231,33 @@ def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Lit
             for header_name in headers.keys()
         }
     )
+
+
+def get_charset(content_type: str) -> str:
+    m = Message()
+    m['content-type'] = content_type
+    return cast(str, m.get_param('charset', 'utf-8'))
+
+
+def decode_body(body: bytes, content_type: str):
+    charset = get_charset(content_type)
+    with suppress(UnicodeDecodeError, LookupError):
+        return body.decode(charset)
+    if charset.lower() not in ('utf-8', 'utf8'):
+        with suppress(UnicodeDecodeError):
+            return body.decode('utf-8')
+    return body.decode(charset, errors='replace')
+
+
+def capture_request_body(span: Span, request: RequestInfo) -> None:
+    content_type = cast('httpx.Headers', request.headers).get('content-type', '').lower()
+    if not isinstance(request.stream, httpx.ByteStream):
+        return
+    if not content_type.startswith('application/json'):
+        return
+
+    body = decode_body(list(request.stream)[0], content_type)
+
+    attr_name = 'http.request.body.json'
+    set_user_attributes_on_raw_span(span, {attr_name: {}})  # type: ignore
+    span.set_attribute(attr_name, body)

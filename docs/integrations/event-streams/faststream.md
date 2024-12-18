@@ -26,8 +26,9 @@ app = FastStream(broker)
 
 
 @broker.subscriber("test-channel")
+@broker.publisher("another-channel")
 async def handle():
-    await broker.publish("Hi!", channel="another-channel")
+    return "Hi!"
 
 
 @broker.subscriber("another-channel")

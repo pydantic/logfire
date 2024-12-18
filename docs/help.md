@@ -28,5 +28,5 @@ The [SDK API documentation](reference/api/logfire.md) give reference docs for th
 
 You can also email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
 
-[slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
+[slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2war8jrjq-w_nWG6ZX7Zm~gnzY7cXSog
 [github-issues]: https://github.com/pydantic/logfire/issues

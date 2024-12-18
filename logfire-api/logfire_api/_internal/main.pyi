@@ -2,6 +2,7 @@ import anthropic
 import httpx
 import openai
 import opentelemetry.trace as trace_api
+import requests
 from . import async_ as async_
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
@@ -13,7 +14,6 @@ from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
 from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaHandler as LambdaHandler
-from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
 from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
 from .integrations.httpx import AsyncClientKwargs as AsyncClientKwargs, ClientKwargs as ClientKwargs, HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
 from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
@@ -551,17 +551,20 @@ class Logfire:
     def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
-    def instrument_httpx(self, client: httpx.Client, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.Client, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
     @overload
-    def instrument_httpx(self, client: None = None, capture_request_headers: bool = False, capture_response_headers: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
-    def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+    def instrument_httpx(self, client: None = None, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
+    def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
         Uses the
         [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
         library.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
     def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[Span, HttpRequest], None] | None = None, response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
@@ -594,13 +597,14 @@ class Logfire:
                 for future compatibility.
 
         """
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_requests(self, excluded_urls: str | None = None, request_hook: Callable[[Span, requests.PreparedRequest], None] | None = None, response_hook: Callable[[Span, requests.PreparedRequest, requests.Response], None] | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `request_hook` and `response_hook`.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
