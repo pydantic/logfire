@@ -1,7 +1,6 @@
 ---
 integration: logfire
 ---
-# Anthropic
 
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python)
 with one extra line of code.
