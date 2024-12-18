@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v2.8.0] (2024-12-18)
+
+* Add `capture_(request|response)_headers` ([#671](https://github.com/pydantic/logfire/pull/671)) and `capture_request_json_body` ([#682](https://github.com/pydantic/logfire/pull/682)) to `instrument_httpx` by @Kludex
+* Fix patching of ProcessPoolExecutor by @alexmojaki in [#690](https://github.com/pydantic/logfire/pull/690)
+* Rearrange span processors to avoid repeating scrubbing and other tweaking by @alexmojaki in [#658](https://github.com/pydantic/logfire/pull/658)
+* Remove end-on-exit stuff by @dmontagu in [#676](https://github.com/pydantic/logfire/pull/676)
+
 ## [v2.7.1] (2024-12-13)
 
 * Fix erroneous `<circular reference>` when object is repeated in list by @alexmojaki in [#664](https://github.com/pydantic/logfire/pull/664)
@@ -472,3 +479,4 @@ First release from new repo!
 [v2.6.2]: https://github.com/pydantic/logfire/compare/v2.6.1...v2.6.2
 [v2.7.0]: https://github.com/pydantic/logfire/compare/v2.6.2...v2.7.0
 [v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1
+[v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0

@@ -70,10 +70,13 @@ class SuppressedTracer(Tracer):
 class PendingSpanProcessor(SpanProcessor):
     """Span processor that emits an extra pending span for each span as it starts.
 
-    The pending span is emitted by calling `on_end` on all other processors.
+    The pending span is emitted by calling `on_end` on the inner `processor`.
+    This is intentionally not a `WrapperSpanProcessor` to avoid the default implementations of `on_end`
+    and `shutdown`. This processor is expected to contain processors which are already included
+    elsewhere in the pipeline where `on_end` and `shutdown` are called normally.
     """
     id_generator: IdGenerator
-    other_processors: tuple[SpanProcessor, ...]
+    processor: SpanProcessor
     def on_start(self, span: Span, parent_context: context_api.Context | None = None) -> None: ...
 
 def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:

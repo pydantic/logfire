@@ -7,7 +7,7 @@ from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, Inden
 from .exporters.fallback import FallbackSpanExporter as FallbackSpanExporter
 from .exporters.file import FileSpanExporter as FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession as OTLPExporterHttpSession, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import MainSpanProcessorWrapper as MainSpanProcessorWrapper
+from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
