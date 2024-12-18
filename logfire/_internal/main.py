@@ -4,7 +4,6 @@ import contextlib
 import inspect
 import json
 import sys
-import traceback
 import warnings
 from functools import cached_property
 from time import time
@@ -26,15 +25,14 @@ import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import SpanContext, StatusCode, Tracer
+from opentelemetry.trace import SpanContext, Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
-from .config import GLOBAL_CONFIG, OPEN_SPANS, LogfireConfig
+from .config import GLOBAL_CONFIG, LogfireConfig
 from .config_params import PydanticPluginRecordValues
 from .constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -44,7 +42,6 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
-    ATTRIBUTES_VALIDATION_ERROR_KEY,
     DISABLE_CONSOLE_KEY,
     LEVEL_NUMBERS,
     NULL_ARGS_KEY,
@@ -63,7 +60,7 @@ from .json_schema import (
 )
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
-from .tracer import ProxyTracerProvider
+from .tracer import ProxyTracerProvider, record_exception, set_exception_status
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
@@ -105,12 +102,6 @@ if TYPE_CHECKING:
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
-
-
-try:
-    from pydantic import ValidationError
-except ImportError:  # pragma: no cover
-    ValidationError = None
 
 
 class Logfire:
@@ -194,7 +185,7 @@ class Logfire:
             merged_attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = msg_template
             merged_attributes[ATTRIBUTES_MESSAGE_KEY] = log_message
 
-            otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = prepare_otlp_attributes(merged_attributes)
 
             if json_schema_properties := attributes_json_schema_properties(attributes):
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
@@ -250,7 +241,7 @@ class Logfire:
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
-            attributes.update(user_attributes(function_args))
+            attributes.update(prepare_otlp_attributes(function_args))
             return self._fast_span(name, attributes)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -687,7 +678,7 @@ class Logfire:
                 msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
                 msg_template = str(msg_template)
 
-            otlp_attributes = user_attributes(merged_attributes)
+            otlp_attributes = prepare_otlp_attributes(merged_attributes)
             otlp_attributes = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',
                 **log_level_attributes(level),
@@ -726,12 +717,12 @@ class Logfire:
                 if isinstance(exc_info, tuple):
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
-                    _record_exception(span, exc_info)
+                    record_exception(span, exc_info)
                     if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
                         # which we only want to do when the log level is error.
-                        _set_exception_status(span, exc_info)
+                        set_exception_status(span, exc_info)
                 elif exc_info is not None:  # pragma: no cover
                     raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
@@ -1925,20 +1916,17 @@ class Logfire:
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
 
-    # __weakref__ is needed for the OPEN_SPANS WeakSet.
-    __slots__ = ('_span', '_token', '__weakref__')
+    __slots__ = ('_span', '_token')
 
     def __init__(self, span: trace_api.Span) -> None:
         self._span = span
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
-        OPEN_SPANS.add(self)
 
     def __enter__(self) -> FastLogfireSpan:
         return self
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        OPEN_SPANS.remove(self)
         context_api.detach(self._token)
         _exit_span(self._span, exc_value)
         self._span.end()
@@ -1980,16 +1968,12 @@ class LogfireSpan(ReadableSpan):
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
-            OPEN_SPANS.add(self)
-
         return self
 
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
-
-        OPEN_SPANS.remove(self)
 
         context_api.detach(self._token)
         self._token = None
@@ -2023,7 +2007,7 @@ class LogfireSpan(ReadableSpan):
     def message(self, message: str):
         self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
-    def end(self) -> None:
+    def end(self, end_time: int | None = None) -> None:
         """Sets the current time as the span's end time.
 
         The span's end time is the wall time at which the operation finished.
@@ -2041,7 +2025,7 @@ class LogfireSpan(ReadableSpan):
                         ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
                     )
 
-                self._span.end()
+            self._span.end(end_time)
 
     @handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:
@@ -2087,7 +2071,7 @@ class LogfireSpan(ReadableSpan):
         if not self._span.is_recording():
             return
 
-        _record_exception(
+        record_exception(
             self._span,
             exception,
             attributes=attributes,
@@ -2181,61 +2165,13 @@ def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
     # record exception if present
     # isinstance is to ignore BaseException
     if isinstance(exception, Exception):
-        _record_exception(span, exception, escaped=True)
-
-
-def _set_exception_status(span: trace_api.Span, exception: BaseException):
-    span.set_status(
-        trace_api.Status(
-            status_code=StatusCode.ERROR,
-            description=f'{exception.__class__.__name__}: {exception}',
-        )
-    )
-
-
-@handle_internal_errors()
-def _record_exception(
-    span: trace_api.Span,
-    exception: BaseException,
-    *,
-    attributes: otel_types.Attributes = None,
-    timestamp: int | None = None,
-    escaped: bool = False,
-) -> None:
-    """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
-    # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
-    # `escaped=True` means that the exception is escaping the scope of the span.
-    # This means we know that the exception hasn't been handled,
-    # so we can set the OTEL status and the log level to error.
-    if escaped:
-        _set_exception_status(span, exception)
-        span.set_attributes(log_level_attributes('error'))
-
-    attributes = {**(attributes or {})}
-    if ValidationError is not None and isinstance(exception, ValidationError):
-        # insert a more detailed breakdown of pydantic errors
-        try:
-            err_json = exception.json(include_url=False)
-        except TypeError:  # pragma: no cover
-            # pydantic v1
-            err_json = exception.json()
-        span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
-        attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
-
-    if exception is not sys.exc_info()[1]:
-        # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
-        # ignoring the passed exception.
-        # So we override the stacktrace attribute with the correct one.
-        stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
-
-    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+        record_exception(span, exception, escaped=True)
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
 
 
-def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
+def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
     """Prepare attributes for sending to OpenTelemetry.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
@@ -2282,7 +2218,7 @@ def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> N
     if not span.is_recording():
         return
 
-    otlp_attributes = user_attributes(attributes)
+    otlp_attributes = prepare_otlp_attributes(attributes)
     if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
