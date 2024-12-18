@@ -82,7 +82,7 @@ See [this GitHub issue][language-support-gh-issue] for more information.
 We are planning to implement an automatic anomaly detection system, which will be able to detect
 anomalies in the logs, and notify you without the need for you to define specific queries.
 
-[slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2b57ljub4-936siSpHANKxoY4dna7qng
+[slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2war8jrjq-w_nWG6ZX7Zm~gnzY7cXSog
 [on-prem-gh-issue]: https://github.com/pydantic/logfire/issues/78
 [gh-code-source-gh-issue]: https://github.com/pydantic/logfire/issues/79
 [alerts-email-gh-issue]: https://github.com/pydantic/logfire/issues/80
