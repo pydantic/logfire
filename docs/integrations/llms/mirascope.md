@@ -1,3 +1,7 @@
+---
+integration: third-party
+---
+
 [Mirascope][mirascope-repo] is a developer tool for building with LLMs. Their library focuses on abstractions that aren't obstructions and integrates with Logfire to make observability and monitoring for LLMs easy and seamless.
 
 You can enable it using their [`@with_logire`][mirascope-logfire] decorator, which will work with all of the [model providers that they support][mirascope-supported-providers] (e.g. OpenAI, Anthropic, Gemini, Mistral, Groq, and more).

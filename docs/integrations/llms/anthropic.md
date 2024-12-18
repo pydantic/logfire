@@ -1,3 +1,6 @@
+---
+integration: logfire
+---
 # Anthropic
 
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python)
@@ -32,12 +35,12 @@ With that you get:
 * details of the response, including the number of tokens used
 
 <figure markdown="span">
-  ![Logfire Anthropic](../images/logfire-screenshot-anthropic.png){ width="500" }
+  ![Logfire Anthropic](../../images/logfire-screenshot-anthropic.png){ width="500" }
   <figcaption>Anthropic span and conversation</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Logfire Anthropic Arguments](../images/logfire-screenshot-anthropic-arguments.png){ width="500" }
+  ![Logfire Anthropic Arguments](../../images/logfire-screenshot-anthropic-arguments.png){ width="500" }
   <figcaption>Span arguments including response details</figcaption>
 </figure>
 
@@ -97,6 +100,6 @@ if __name__ == '__main__':
 Shows up like this in Logfire:
 
 <figure markdown="span">
-  ![Logfire Anthropic Streaming](../images/logfire-screenshot-anthropic-stream.png){ width="500" }
+  ![Logfire Anthropic Streaming](../../images/logfire-screenshot-anthropic-stream.png){ width="500" }
   <figcaption>Anthropic streaming response</figcaption>
 </figure>

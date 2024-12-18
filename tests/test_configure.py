@@ -52,7 +52,7 @@ from logfire._internal.exporters.remove_pending import RemovePendingSpansExporte
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
-from logfire._internal.utils import get_version
+from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.testing import TestExporter
@@ -848,14 +848,13 @@ def test_config_serializable():
         )
 
     serialized = serialize_config()
+    GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
     deserialize_config(serialized)
     serialized2 = serialize_config()
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
-        # This gets deepcopied by dataclasses.asdict, so we can't compare them directly
-        del s['advanced']['id_generator']
         return s
 
     assert normalize(serialized) == normalize(serialized2)
@@ -864,6 +863,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
+    assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
 
 
 def test_config_serializable_console_false():

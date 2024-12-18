@@ -1,4 +1,6 @@
-# OpenAI
+---
+integration: logfire
+---
 
 ## Introduction
 
@@ -34,12 +36,12 @@ With that you get:
 * details of the response, including the number of tokens used
 
 <figure markdown="span">
-  ![Logfire OpenAI](../images/logfire-screenshot-openai.png){ width="500" }
+  ![Logfire OpenAI](../../images/logfire-screenshot-openai.png){ width="500" }
   <figcaption>OpenAI span and conversation</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Logfire OpenAI Arguments](../images/logfire-screenshot-openai-arguments.png){ width="500" }
+  ![Logfire OpenAI Arguments](../../images/logfire-screenshot-openai-arguments.png){ width="500" }
   <figcaption>Span arguments including response details</figcaption>
 </figure>
 
@@ -81,7 +83,7 @@ if __name__ == '__main__':
 Gives:
 
 <figure markdown="span">
-  ![Logfire OpenAI Image Generation](../images/logfire-screenshot-openai-image-gen.png){ width="500" }
+  ![Logfire OpenAI Image Generation](../../images/logfire-screenshot-openai-image-gen.png){ width="500" }
   <figcaption>OpenAI image generation span</figcaption>
 </figure>
 
@@ -129,6 +131,6 @@ if __name__ == '__main__':
 Shows up like this in Logfire:
 
 <figure markdown="span">
-  ![Logfire OpenAI Streaming](../images/logfire-screenshot-openai-stream.png){ width="500" }
+  ![Logfire OpenAI Streaming](../../images/logfire-screenshot-openai-stream.png){ width="500" }
   <figcaption>OpenAI streaming response</figcaption>
 </figure>

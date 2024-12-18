@@ -1,3 +1,7 @@
+---
+integration: otel
+---
+
 # AWS Lambda
 
 The [`logfire.instrument_aws_lambda`][logfire.Logfire.instrument_aws_lambda] function can be used to

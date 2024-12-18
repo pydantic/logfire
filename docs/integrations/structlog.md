@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 # Structlog
 
 **Logfire** has a built-in [structlog][structlog] processor that can be used to emit Logfire logs for every structlog event.

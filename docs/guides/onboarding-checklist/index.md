@@ -31,6 +31,6 @@ introduction to the Logfire Web UI and show you how to interact with the data yo
 !!! note
 
     For a more comprehensive walkthrough of the Logfire Web UI and its features, you may be interested in our
-    [Logfire Web UI Guide](../web-ui/index.md).
+    [Logfire Web UI Guide](../web-ui/live.md).
 
 Let's get started! :rocket:
