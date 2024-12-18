@@ -86,7 +86,7 @@ if TYPE_CHECKING:
     from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
     from .integrations.celery import CeleryInstrumentKwargs
     from .integrations.flask import FlaskInstrumentKwargs
-    from .integrations.httpx import HTTPXInstrumentKwargs
+    from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
@@ -1158,8 +1158,43 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_asyncpg(self, **kwargs)
 
+    @overload
     def instrument_httpx(
-        self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]
+        self,
+        client: httpx.Client,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        capture_request_json_body: bool = False,
+        **kwargs: Unpack[ClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        self,
+        client: httpx.AsyncClient,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        capture_request_json_body: bool = False,
+        **kwargs: Unpack[AsyncClientKwargs],
+    ) -> None: ...
+
+    @overload
+    def instrument_httpx(
+        self,
+        client: None = None,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        capture_request_json_body: bool = False,
+        **kwargs: Unpack[HTTPXInstrumentKwargs],
+    ) -> None: ...
+
+    def instrument_httpx(
+        self,
+        client: httpx.Client | httpx.AsyncClient | None = None,
+        capture_request_headers: bool = False,
+        capture_response_headers: bool = False,
+        capture_request_json_body: bool = False,
+        **kwargs: Any,
     ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
 
@@ -1168,11 +1203,26 @@ class Logfire:
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
         library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
+                If `None`, the default, all clients will be instrumented.
+            capture_request_headers: Set to `True` to capture all request headers.
+            capture_response_headers: Set to `True` to capture all response headers.
+            capture_request_json_body: Set to `True` to capture the request JSON body.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
         from .integrations.httpx import instrument_httpx
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_httpx(self, client, **kwargs)
+        return instrument_httpx(
+            self,
+            client,
+            capture_request_headers,
+            capture_response_headers,
+            capture_request_json_body=capture_request_json_body,
+            **kwargs,
+        )
 
     def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
