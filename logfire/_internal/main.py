@@ -1081,8 +1081,12 @@ class Logfire:
         self,
         anthropic_client: anthropic.Anthropic
         | anthropic.AsyncAnthropic
+        | anthropic.AnthropicBedrock
+        | anthropic.AsyncAnthropicBedrock
         | type[anthropic.Anthropic]
         | type[anthropic.AsyncAnthropic]
+        | type[anthropic.AnthropicBedrock]
+        | type[anthropic.AsyncAnthropicBedrock]
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
@@ -1121,11 +1125,14 @@ class Logfire:
             anthropic_client: The Anthropic client or class to instrument:
 
                 - `None` (the default) to instrument both the
-                    `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
+                    `anthropic.Anthropic`, `anthropic.AsyncAnthropic`,
+                    `anthropic.AnthropicBedrock` and `anthropic.AsyncAnthropicBedrock` classes.
                 - The `anthropic.Anthropic` class or a subclass
                 - The `anthropic.AsyncAnthropic` class or a subclass
                 - An instance of `anthropic.Anthropic`
                 - An instance of `anthropic.AsyncAnthropic`
+                - An instance of `anthropic.AnthropicBedrock`
+                - An instance of `anthropic.AsyncAnthropicBedrock`
 
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
@@ -1143,7 +1150,13 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
-            anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
+            anthropic_client
+            or (
+                anthropic.Anthropic,
+                anthropic.AsyncAnthropic,
+                anthropic.AnthropicBedrock,
+                anthropic.AsyncAnthropicBedrock,
+            ),
             suppress_other_instrumentation,
             'Anthropic',
             get_endpoint_config,
