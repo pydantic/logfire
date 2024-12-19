@@ -37,6 +37,7 @@ instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+instrument_anthropic_bedrock = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic_bedrock
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
 instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
@@ -122,6 +123,7 @@ __all__ = (
     'instrument_fastapi',
     'instrument_openai',
     'instrument_anthropic',
+    'instrument_anthropic_bedrock',
     'instrument_asyncpg',
     'instrument_httpx',
     'instrument_celery',
