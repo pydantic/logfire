@@ -230,7 +230,7 @@ def make_async_response_hook(
 
 def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo, is_async: bool) -> None:
     headers = cast('httpx.Headers', response_info.headers)
-    if not headers.get('content-type', '').startswith('application/json'):
+    if not headers.get('content-type', '').lower().startswith('application/json'):
         return
 
     frame = inspect.currentframe().f_back.f_back  # type: ignore
@@ -245,17 +245,19 @@ def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo
     ctx = get_context()
     attr_name = 'http.response.body.json'
 
-    if is_async:
+    if is_async:  # these two branches should be kept almost identical
         original_aread = response.aread
 
         async def aread(*args: Any, **kwargs: Any):
             try:
+                # Only log the body the first time it's read
                 return response.content
             except httpx.ResponseNotRead:
                 pass
             with attach_context(ctx), logfire_instance.span('Reading response body') as span:
                 content = await original_aread(*args, **kwargs)
-                span.set_attribute(attr_name, {})
+                span.set_attribute(attr_name, {})  # Set the JSON schema
+                # Set the attribute to the raw text so that the backend can parse it
                 span._span.set_attribute(attr_name, response.text)  # type: ignore
             return content
 
@@ -265,12 +267,14 @@ def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo
 
         def read(*args: Any, **kwargs: Any):
             try:
+                # Only log the body the first time it's read
                 return response.content
             except httpx.ResponseNotRead:
                 pass
             with attach_context(ctx), logfire_instance.span('Reading response body') as span:
                 content = original_read(*args, **kwargs)
-                span.set_attribute(attr_name, {})
+                span.set_attribute(attr_name, {})  # Set the JSON schema
+                # Set the attribute to the raw text so that the backend can parse it
                 span._span.set_attribute(attr_name, response.text)  # type: ignore
             return content
 
