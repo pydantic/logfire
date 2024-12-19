@@ -111,6 +111,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.PydanticPlugin()
     logfire__all__.remove('PydanticPlugin')
 
+    assert hasattr(logfire_api, 'current_span')
+    logfire_api.current_span()
+    logfire__all__.remove('current_span')
+
+    assert hasattr(logfire_api, 'current_logfire_span')
+    logfire_api.current_logfire_span()
+    logfire__all__.remove('current_logfire_span')
+
     assert hasattr(logfire_api, 'ScrubMatch')
     logfire_api.ScrubMatch(path='test', value='test', pattern_match='test')
     logfire__all__.remove('ScrubMatch')

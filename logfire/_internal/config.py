@@ -16,7 +16,7 @@ from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
-from weakref import WeakSet
+from weakref import WeakSet, WeakValueDictionary
 
 import requests
 from opentelemetry import trace
@@ -102,6 +102,7 @@ if TYPE_CHECKING:
 
 # NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
 OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
+OPEN_LOGFIRE_SPANS_BY_ID: WeakValueDictionary[tuple[int, int], LogfireSpan] = WeakValueDictionary()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
