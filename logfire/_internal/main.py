@@ -2025,7 +2025,7 @@ class LogfireSpan(ReadableSpan):
                         ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
                     )
 
-            self._span.end(end_time)
+                self._span.end(end_time)
 
     @handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:

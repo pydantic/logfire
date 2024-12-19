@@ -945,7 +945,7 @@ class LogfireConfig(_LogfireConfigData):
                 # Registering this callback here after the OTEL one means that this runs first.
                 # Otherwise OTEL would log an error "Already shutdown, dropping span."
                 for span in list(OPEN_SPANS):
-                    span.__exit__(None, None, None)
+                    span.end()
 
             self._initialized = True
 

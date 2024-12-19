@@ -114,7 +114,7 @@ class ProxyTracerProvider(TracerProvider):
             return True  # pragma: no cover
 
 
-@dataclass
+@dataclass(eq=False)
 class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """Span that overrides end() to use a timestamp generator if one was provided."""
 
@@ -125,7 +125,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         OPEN_SPANS.add(self)
 
     def end(self, end_time: int | None = None) -> None:
-        OPEN_SPANS.remove(self)
+        OPEN_SPANS.discard(self)
         self.span.end(end_time or self.ns_timestamp_generator())
 
     def get_span_context(self) -> SpanContext:
@@ -170,8 +170,6 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     ) -> None:
         timestamp = timestamp or self.ns_timestamp_generator()
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
-
-    __hash__ = object.__hash__  # necessary to be able to add this to OPEN_SPANS
 
     if not TYPE_CHECKING:  # pragma: no branch
         # for ReadableSpan
