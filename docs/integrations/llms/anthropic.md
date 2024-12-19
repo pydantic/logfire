@@ -103,3 +103,17 @@ Shows up like this in Logfire:
   ![Logfire Anthropic Streaming](../../images/logfire-screenshot-anthropic-stream.png){ width="500" }
   <figcaption>Anthropic streaming response</figcaption>
 </figure>
+
+# Amazon Bedrock
+You can also run inference on AWS with Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
+
+```
+import anthropic
+import logfire
+
+client = anthropic.AnthropicBedrock()
+
+logfire.configure()
+logfire.instrument_anthropic_bedrock(client)
+```
+Or if you don't have access to the client instance you can use `logfire.instrument_anthropic_bedrock()`) to instrument both the `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
