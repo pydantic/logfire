@@ -1072,17 +1072,23 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: anthropic.Anthropic
-        | anthropic.AsyncAnthropic
-        | type[anthropic.Anthropic]
-        | type[anthropic.AsyncAnthropic]
-        | None = None,
+        anthropic_client: (
+            anthropic.Anthropic
+            | anthropic.AsyncAnthropic
+            | anthropic.AnthropicBedrock
+            | anthropic.AsyncAnthropicBedrock
+            | type[anthropic.Anthropic]
+            | type[anthropic.AsyncAnthropic]
+            | type[anthropic.AnthropicBedrock]
+            | type[anthropic.AsyncAnthropicBedrock]
+            | None
+        ) = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
-        The following methods are instrumented for both the sync and the async clients:
+        The following methods are instrumented for both the sync and async clients:
 
         - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
         - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
@@ -1096,7 +1102,13 @@ class Logfire:
         import logfire
         import anthropic
 
+        # For regular Anthropic client
         client = anthropic.Anthropic()
+        # Or for Bedrock client
+        client = anthropic.AnthropicBedrock(
+            aws_region='us-east-1', aws_access_key='access-key', aws_secret_key='secret-key'
+        )
+
         logfire.configure()
         logfire.instrument_anthropic(client)
 
@@ -1112,79 +1124,10 @@ class Logfire:
 
         Args:
             anthropic_client: The Anthropic client or class to instrument:
-
-                - `None` (the default) to instrument both `anthropic.Anthropic` and `anthropic.AsyncAnthropic`
-                - The `anthropic.Anthropic` class or a subclass
-                - The `anthropic.AsyncAnthropic` class or a subclass
-                - An instance of `anthropic.Anthropic`
-                - An instance of `anthropic.AsyncAnthropic`
-
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
-
-        Returns:
-            A context manager that will revert the instrumentation when exited.
-                Use of this context manager is optional.
-        """
-        import anthropic
-
-        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
-        from .integrations.llm_providers.llm_provider import instrument_llm_provider
-
-        self._warn_if_not_initialized_for_instrumentation()
-        return instrument_llm_provider(
-            self,
-            anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
-            suppress_other_instrumentation,
-            'Anthropic',
-            get_endpoint_config,
-            on_response,
-            is_async_client,
-        )
-
-    def instrument_anthropic_bedrock(
-        self,
-        anthropic_client: anthropic.AnthropicBedrock
-        | anthropic.AsyncAnthropicBedrock
-        | type[anthropic.AnthropicBedrock]
-        | type[anthropic.AsyncAnthropicBedrock]
-        | None = None,
-        *,
-        suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
-        """Instrument an Anthropic Bedrock client so that spans are automatically created for each request.
-
-        When `stream=True` a second span is created to instrument the streamed response.
-
-        Example usage:
-
-        ```python
-        import logfire
-        import anthropic
-
-        client = anthropic.AnthropicBedrock()
-        logfire.configure()
-        logfire.instrument_anthropic_bedrock(client)
-
-        response = client.messages.create(
-            model='anthropic.claude-3-haiku-20240307-v1:0',
-            system='You are a helpful assistant.',
-            messages=[
-                {'role': 'user', 'content': 'What is four plus five?'},
-            ],
-        )
-        print('answer:', response.content[0].text)
-        ```
-
-        Args:
-            anthropic_client: The Anthropic client or class to instrument:
-
-                - `None` (the default) to instrument both the `anthropic.AnthropicBedrock` and `anthropic.AsyncAnthropicBedrock` classes.
-                - The `anthropic.AnthropicBedrock` class or a subclass
-                - The `anthropic.AsyncAnthropicBedrock` class or a subclass
-                - An instance of `anthropic.AnthropicBedrock`
-                - An instance of `anthropic.AsyncAnthropicBedrock`
+                - `None` (the default) to instrument all Anthropic client types
+                - The `anthropic.Anthropic` or `anthropic.AnthropicBedrock` class or subclass
+                - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
+                - An instance of any of the above classes
 
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
@@ -1204,6 +1147,8 @@ class Logfire:
             self,
             anthropic_client
             or (
+                anthropic.Anthropic,
+                anthropic.AsyncAnthropic,
                 anthropic.AnthropicBedrock,
                 anthropic.AsyncAnthropicBedrock,
             ),
