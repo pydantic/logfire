@@ -12,11 +12,11 @@ from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
 from .integrations.executors import instrument_executors as instrument_executors
-from .main import FastLogfireSpan as FastLogfireSpan, Logfire as Logfire, LogfireSpan as LogfireSpan
+from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
+from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
@@ -30,9 +30,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, TypedDict
 from typing_extensions import Self, Unpack
-from weakref import WeakSet
 
-OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan]
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str

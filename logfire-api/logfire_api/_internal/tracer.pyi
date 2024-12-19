@@ -1,6 +1,7 @@
 import opentelemetry.trace as trace_api
 from .config import LogfireConfig as LogfireConfig
-from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, PENDING_SPAN_NAME_SUFFIX as PENDING_SPAN_NAME_SUFFIX
+from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, PENDING_SPAN_NAME_SUFFIX as PENDING_SPAN_NAME_SUFFIX, log_level_attributes as log_level_attributes
+from .utils import handle_internal_errors as handle_internal_errors
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from opentelemetry import context as context_api
@@ -13,7 +14,9 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 from threading import Lock
 from typing import Any, Callable, Mapping, Sequence
-from weakref import WeakKeyDictionary
+from weakref import WeakKeyDictionary, WeakSet
+
+OPEN_SPANS: WeakSet[_LogfireWrappedSpan]
 
 @dataclass
 class ProxyTracerProvider(TracerProvider):
@@ -33,10 +36,11 @@ class ProxyTracerProvider(TracerProvider):
     def force_flush(self, timeout_millis: int = 30000) -> bool: ...
 
 @dataclass
-class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
+class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """Span that overrides end() to use a timestamp generator if one was provided."""
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    def __post_init__(self) -> None: ...
     def end(self, end_time: int | None = None) -> None: ...
     def get_span_context(self) -> SpanContext: ...
     def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None: ...
@@ -47,6 +51,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
     def is_recording(self) -> bool: ...
     def set_status(self, status: Status | StatusCode, description: str | None = None) -> None: ...
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None: ...
+    __hash__ = ...
     def __getattr__(self, name: str) -> Any: ...
 
 @dataclass
@@ -85,3 +90,6 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
     This is used to sample spans that are not sampled by the OTEL sampler.
     """
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None: ...
+def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
+    """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+def set_exception_status(span: trace_api.Span, exception: BaseException): ...
