@@ -21,11 +21,11 @@ logger.error("Hello %s!", "Fred")
 # 10:05:06.855 Hello Fred!
 ```
 
-## Oh no! Too many logs from... 😱
+## Oh no! Too many logs from...
 
 A common issue with logging is that it can be **too verbose**... Right? :sweat_smile:
 
-Don't worry! We are here to help you. 🤗
+Don't worry! We are here to help you.
 
 In those cases, you can set the log level to a higher value to suppress logs that are less important.
 Let's see an example with the [`apscheduler`](https://apscheduler.readthedocs.io/en/3.x/) logger:
