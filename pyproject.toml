@@ -53,6 +53,7 @@ dependencies = [
     "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
     "executing >= 2.0.1",
+    "boto3>=1.35.84",
 ]
 
 [project.optional-dependencies]
