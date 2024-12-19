@@ -7,7 +7,7 @@ from unittest import mock
 
 import httpx
 import pytest
-from dirty_equals import IsDict
+from dirty_equals import IsDict, IsStr
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.anyio
 # without needing to actually make a network request
 def create_transport() -> httpx.MockTransport:
     def handler(request: Request):
-        return httpx.Response(200, headers=request.headers)
+        return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(b'{"good": "response"}'))
 
     return httpx.MockTransport(handler)
 
@@ -348,3 +348,213 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[httpx]'\
 """)
+
+
+def test_httpx_client_capture_full(exporter: TestExporter):
+    with check_traceparent_header() as checker:
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(
+                client,
+                capture_request_headers=True,
+                capture_request_json_body=True,
+                capture_response_headers=True,
+                capture_response_json_body=True,
+            )
+            response = client.post('https://example.org/', json={'hello': 'world'})
+            checker(response)
+            assert response.json() == {'good': 'response'}
+            assert response.read() == b'{"good": "response"}'
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.request.header.host': ('example.org',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.connection': ('keep-alive',),
+                    'http.request.header.user-agent': (IsStr(),),
+                    'http.request.header.content-length': (IsStr(),),
+                    'http.request.header.content-type': ('application/json',),
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.json":{"type":"object"}}}',
+                    'http.request.body.json': '{"hello":"world"}',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.response.header.host': ('example.org',),
+                    'http.response.header.accept': ('*/*',),
+                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.connection': ('keep-alive',),
+                    'http.response.header.user-agent': (IsStr(),),
+                    'http.response.header.content-length': (IsStr(),),
+                    'http.response.header.content-type': ('application/json',),
+                    'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_httpx_client_capture_full',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.json': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.json":{"type":"object"}}}',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'check_traceparent_header',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+async def test_async_httpx_client_capture_full(exporter: TestExporter):
+    with check_traceparent_header() as checker:
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(
+                client,
+                capture_request_headers=True,
+                capture_request_json_body=True,
+                capture_response_headers=True,
+                capture_response_json_body=True,
+            )
+            response = await client.post('https://example.org/', json={'hello': 'world'})
+            checker(response)
+            assert response.json() == {'good': 'response'}
+            assert await response.aread() == b'{"good": "response"}'
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.request.header.host': ('example.org',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.connection': ('keep-alive',),
+                    'http.request.header.user-agent': (IsStr(),),
+                    'http.request.header.content-length': (IsStr(),),
+                    'http.request.header.content-type': ('application/json',),
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.json":{"type":"object"}}}',
+                    'http.request.body.json': '{"hello":"world"}',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.response.header.host': ('example.org',),
+                    'http.response.header.accept': ('*/*',),
+                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.connection': ('keep-alive',),
+                    'http.response.header.user-agent': (IsStr(),),
+                    'http.response.header.content-length': (IsStr(),),
+                    'http.response.header.content-type': ('application/json',),
+                    'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_async_httpx_client_capture_full',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.json': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.json":{"type":"object"}}}',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'check_traceparent_header',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_httpx_client_capture_json_response_checks_header(exporter: TestExporter):
+    with httpx.Client(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_response_json_body=True)
+        response = client.post('https://example.org/', content=b'hello')
+        assert response.json() == {'good': 'response'}
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    assert spans[0]['name'] == 'POST'
+    assert 'http.response.body.json' not in str(spans)
+
+
+async def test_httpx_async_client_capture_json_response_checks_header(exporter: TestExporter):
+    async with httpx.AsyncClient(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_response_json_body=True)
+        response = await client.post('https://example.org/', content=b'hello')
+        assert response.json() == {'good': 'response'}
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    assert spans[0]['name'] == 'POST'
+    assert 'http.response.body.json' not in str(spans)

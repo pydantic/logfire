@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
 
 import httpx
 
+from logfire.propagate import attach_context, get_context
+
 try:
     from opentelemetry.instrumentation.httpx import (
         AsyncRequestHook,
@@ -64,6 +66,7 @@ if TYPE_CHECKING:
         capture_request_headers: bool,
         capture_response_headers: bool,
         capture_request_json_body: bool,
+        capture_response_json_body: bool,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
 
@@ -74,6 +77,7 @@ if TYPE_CHECKING:
         capture_request_headers: bool,
         capture_response_headers: bool,
         capture_request_json_body: bool,
+        capture_response_json_body: bool,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
 
@@ -84,6 +88,7 @@ if TYPE_CHECKING:
         capture_request_headers: bool,
         capture_response_headers: bool,
         capture_request_json_body: bool,
+        capture_response_json_body: bool,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
 
@@ -94,6 +99,7 @@ def instrument_httpx(
     capture_request_headers: bool,
     capture_response_headers: bool,
     capture_request_json_body: bool,
+    capture_response_json_body: bool,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -108,6 +114,7 @@ def instrument_httpx(
     del kwargs  # make sure only final_kwargs is used
 
     instrumentor = HTTPXClientInstrumentor()
+    logfire_instance = logfire_instance.with_settings(custom_scope_suffix='httpx')
 
     if client is None:
         request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
@@ -117,11 +124,15 @@ def instrument_httpx(
         final_kwargs['request_hook'] = make_request_hook(
             request_hook, capture_request_headers, capture_request_json_body
         )
-        final_kwargs['response_hook'] = make_response_hook(response_hook, capture_response_headers)
+        final_kwargs['response_hook'] = make_response_hook(
+            response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+        )
         final_kwargs['async_request_hook'] = make_async_request_hook(
             async_request_hook, capture_request_headers, capture_request_json_body
         )
-        final_kwargs['async_response_hook'] = make_async_response_hook(async_response_hook, capture_response_headers)
+        final_kwargs['async_response_hook'] = make_async_response_hook(
+            async_response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+        )
 
         instrumentor.instrument(**final_kwargs)
     else:
@@ -130,13 +141,17 @@ def instrument_httpx(
             response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
 
             request_hook = make_async_request_hook(request_hook, capture_request_headers, capture_request_json_body)
-            response_hook = make_async_response_hook(response_hook, capture_response_headers)
+            response_hook = make_async_response_hook(
+                response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+            )
         else:
             request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
             response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
 
             request_hook = make_request_hook(request_hook, capture_request_headers, capture_request_json_body)
-            response_hook = make_response_hook(response_hook, capture_response_headers)
+            response_hook = make_response_hook(
+                response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+            )
 
         tracer_provider = final_kwargs['tracer_provider']
         instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
@@ -176,32 +191,94 @@ def make_async_request_hook(
     return new_hook
 
 
-def make_response_hook(hook: ResponseHook | None, should_capture_headers: bool) -> ResponseHook | None:
-    if not should_capture_headers and not hook:
+def make_response_hook(
+    hook: ResponseHook | None, should_capture_headers: bool, should_capture_json: bool, logfire_instance: Logfire
+) -> ResponseHook | None:
+    if not should_capture_headers and not should_capture_json and not hook:
         return None
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         with handle_internal_errors():
             if should_capture_headers:
                 capture_response_headers(span, response)
+            if should_capture_json:
+                capture_response_json(logfire_instance, response, False)
             run_hook(hook, span, request, response)
 
     return new_hook
 
 
 def make_async_response_hook(
-    hook: ResponseHook | AsyncResponseHook | None, should_capture_headers: bool
+    hook: ResponseHook | AsyncResponseHook | None,
+    should_capture_headers: bool,
+    should_capture_json: bool,
+    logfire_instance: Logfire,
 ) -> AsyncResponseHook | None:
-    if not should_capture_headers and not hook:
+    if not should_capture_headers and not should_capture_json and not hook:
         return None
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         with handle_internal_errors():
             if should_capture_headers:
                 capture_response_headers(span, response)
+            if should_capture_json:
+                capture_response_json(logfire_instance, response, True)
             await run_async_hook(hook, span, request, response)
 
     return new_hook
+
+
+def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo, is_async: bool) -> None:
+    headers = cast('httpx.Headers', response_info.headers)
+    if not headers.get('content-type', '').lower().startswith('application/json'):
+        return
+
+    frame = inspect.currentframe().f_back.f_back  # type: ignore
+    while frame:
+        response = frame.f_locals.get('response')
+        frame = frame.f_back
+        if isinstance(response, httpx.Response):  # pragma: no branch
+            break
+    else:  # pragma: no cover
+        return
+
+    ctx = get_context()
+    attr_name = 'http.response.body.json'
+
+    if is_async:  # these two branches should be kept almost identical
+        original_aread = response.aread
+
+        async def aread(*args: Any, **kwargs: Any):
+            try:
+                # Only log the body the first time it's read
+                return response.content
+            except httpx.ResponseNotRead:
+                pass
+            with attach_context(ctx), logfire_instance.span('Reading response body') as span:
+                content = await original_aread(*args, **kwargs)
+                span.set_attribute(attr_name, {})  # Set the JSON schema
+                # Set the attribute to the raw text so that the backend can parse it
+                span._span.set_attribute(attr_name, response.text)  # type: ignore
+            return content
+
+        response.aread = aread
+    else:
+        original_read = response.read
+
+        def read(*args: Any, **kwargs: Any):
+            try:
+                # Only log the body the first time it's read
+                return response.content
+            except httpx.ResponseNotRead:
+                pass
+            with attach_context(ctx), logfire_instance.span('Reading response body') as span:
+                content = original_read(*args, **kwargs)
+                span.set_attribute(attr_name, {})  # Set the JSON schema
+                # Set the attribute to the raw text so that the backend can parse it
+                span._span.set_attribute(attr_name, response.text)  # type: ignore
+            return content
+
+        response.read = read
 
 
 async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:

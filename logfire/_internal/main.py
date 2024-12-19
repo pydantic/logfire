@@ -1165,6 +1165,7 @@ class Logfire:
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_response_json_body: bool = False,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
 
@@ -1175,6 +1176,7 @@ class Logfire:
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_response_json_body: bool = False,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
 
@@ -1185,6 +1187,7 @@ class Logfire:
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_response_json_body: bool = False,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
 
@@ -1194,6 +1197,7 @@ class Logfire:
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_response_json_body: bool = False,
         **kwargs: Any,
     ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -1210,6 +1214,7 @@ class Logfire:
             capture_request_headers: Set to `True` to capture all request headers.
             capture_response_headers: Set to `True` to capture all response headers.
             capture_request_json_body: Set to `True` to capture the request JSON body.
+            capture_response_json_body: Set to `True` to capture the response JSON body.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
         from .integrations.httpx import instrument_httpx
@@ -1221,6 +1226,7 @@ class Logfire:
             capture_request_headers,
             capture_response_headers,
             capture_request_json_body=capture_request_json_body,
+            capture_response_json_body=capture_response_json_body,
             **kwargs,
         )
 
