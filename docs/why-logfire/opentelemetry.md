@@ -8,6 +8,7 @@ For example, we can instrument a simple FastAPI app with just 2 lines of code:
 
 ```py title="main.py" hl_lines="8 9 10"
 from datetime import date
+
 import logfire
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -38,7 +39,7 @@ We'll need the [FastAPI contrib package](../integrations/web-frameworks/fastapi.
 
 ```bash
 pip install 'logfire[fastapi]' fastapi uvicorn  # (1)!
-uvicorn fastapi_example:app # (2)!
+uvicorn main:app # (2)!
 ```
 
 1. Install the `logfire` package with the `fastapi` extra, FastAPI, and uvicorn.
