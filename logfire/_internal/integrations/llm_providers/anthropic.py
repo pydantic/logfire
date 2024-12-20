@@ -21,7 +21,7 @@ __all__ = (
 
 
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
-    """Returns the endpoint config for Anthropic depending on the url."""
+    """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     url = options.url
     json_data = options.json_data
     if not isinstance(json_data, dict):  # pragma: no cover
@@ -83,9 +83,14 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     return response
 
 
-def is_async_client(client: type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic]):
-    """Returns whether or not the `client` class is async."""
-    if issubclass(client, anthropic.Anthropic):
-        return False
-    assert issubclass(client, anthropic.AsyncAnthropic), f'Expected Anthropic or AsyncAnthropic type, got: {client}'
-    return True
+def is_async_client(client_type: Any) -> bool:
+    """Returns whether the `client` class is async."""
+    if isinstance(client_type, type):
+        if issubclass(client_type, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
+            return False
+        if issubclass(client_type, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)):
+            return True
+        raise TypeError(
+            f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock, or AsyncAnthropicBedrock type, got: {client_type}'
+        )
+    return isinstance(client_type, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock))
