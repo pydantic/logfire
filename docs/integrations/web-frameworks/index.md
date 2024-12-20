@@ -47,7 +47,7 @@ To replace the `Authorization` header value with `[REDACTED]` to avoid leaking u
 OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SANITIZE_FIELDS="Authorization"
 ```
 
-(although usually it's better to rely on **Logfire**'s [scrubbing](../../guides/advanced/scrubbing.md) feature)
+(although usually it's better to rely on **Logfire**'s [scrubbing](../../how-to-guides/scrubbing.md) feature)
 
 ## Query HTTP requests duration per percentile
 
