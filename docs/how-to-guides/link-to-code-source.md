@@ -5,7 +5,7 @@
 
 We support linking to the source code on GitHub, GitLab, and any other VCS provider that uses the same URL format.
 
-![Link to GitHub](../../images/guide/link-to-github.gif)
+![Link to GitHub](../images/guide/link-to-github.gif)
 
 ## Usage
 
@@ -40,5 +40,5 @@ OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.repository.ref.revision
 OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.root.path=.
 ```
 
-[help]: ../../help.md
+[help]: ../help.md
 [otel-resource-attributes]: https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration

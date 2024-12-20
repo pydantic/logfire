@@ -79,18 +79,15 @@ nav:
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
-      - Advanced User Guide:
-          - Environments: guides/advanced/environments.md
-          - Alternative Clients: guides/advanced/alternative-clients.md
-          - Alternative Backends: guides/advanced/alternative-backends.md
-          - Sampling: guides/advanced/sampling.md
-          - Scrubbing: guides/advanced/scrubbing.md
-          - Generators: guides/advanced/generators.md
-          - Creating Write Tokens: guides/advanced/creating-write-tokens.md
-          - Query API: guides/advanced/query-api.md
-          - Link to Code Source: guides/advanced/link-to-code-source.md
-          - Testing: guides/advanced/testing.md
-          - Backfill: guides/advanced/backfill.md
+  - How To - Guides:
+      - Create Write Tokens: how-to-guides/create-write-tokens.md
+      - Use different environments: how-to-guides/environments.md
+      - Link to Code Source: how-to-guides/link-to-code-source.md
+      - Use Alternative Clients: how-to-guides/alternative-clients.md
+      - Use Alternative Backends: how-to-guides/alternative-backends.md
+      - Implement Sampling Strategies: how-to-guides/sampling.md
+      - Export your Logfire Data: how-to-guides/query-api.md
+      - Scrub Sensitive Data: how-to-guides/scrubbing.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -133,6 +130,10 @@ nav:
       - Stripe: integrations/stripe.md
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - Advanced:
+          - Generators: reference/advanced/generators.md
+          - Testing: reference/advanced/testing.md
+          - Backfill: reference/advanced/backfill.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization-structure.md
@@ -225,9 +226,21 @@ plugins:
         "guides/web_ui/dashboards.md": "guides/web-ui/dashboards.md"
         "guides/web_ui/alerts.md": "guides/web-ui/alerts.md"
         "guides/web_ui/explore.md": "guides/web-ui/explore.md"
-        "guides/advanced/alternative_backends.md": "guides/advanced/alternative-backends.md"
-        "guides/advanced/creating_write_tokens.md": "guides/advanced/creating-write-tokens.md"
+        "guides/advanced/generators.md": "reference/advanced/generators.md"
+        "guides/advanced/testing.md": "reference/advanced/testing.md"
+        "guides/advanced/backfill.md": "reference/advanced/backfill.md"
+        "guides/advanced/query_api.md": "how-to-guides/query-api.md"
+        "guides/advanced/query-api.md": "how-to-guides/query-api.md"
+        "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"
+        "guides/advanced/sampling.md": "how-to-guides/sampling.md"
+        "guides/advanced/alternative-clients.md": "how-to-guides/alternative-clients.md"
+        "guides/advanced/link-to-code-source.md": "how-to-guides/link-to-code-source.md"
+        "guides/advanced/alternative_backends.md": "how-to-guides/alternative-backends.md"
+        "guides/advanced/alternative-backends.md": "how-to-guides/alternative-backends.md"
+        "guides/advanced/creating_write_tokens.md": "how-to-guides/create-write-tokens.md"
+        "guides/advanced/creating-write-tokens.md": "how-to-guides/create-write-tokens.md"
         "guides/advanced/index.md": "guides/advanced/environments.md"
+        "guides/advanced/environments.md": "how-to-guides/environments.md"
         "integrations/system_metrics.md": "integrations/system-metrics.md"
         "integrations/third_party/index.md": "integrations/index.md"
         "integrations/third-party/index.md": "integrations/index.md"
@@ -281,7 +294,6 @@ plugins:
         "api/integrations/pydantic.md": "reference/api/pydantic.md"
         "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
         "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
-        "guides/advanced/query_api.md": "guides/advanced/query-api.md"
         "guides/index.md": "index.md"
         "why-logfire/index.md": "why.md"
         "why-logfire/pydantic.md": "why.md"

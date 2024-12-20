@@ -65,7 +65,7 @@ Logfire is built on top of OpenTelemetry, which means that it supports all the l
 Still, we are planning to create custom SDKs for JavaScript, TypeScript, and Rust, and make sure that the
 attributes are displayed in a nice way in the Logfire UI — as they are for Python.
 
-For now, you can check our [Alternative Clients](guides/advanced/alternative-clients.md) section to see how
+For now, you can check our [Alternative Clients](how-to-guides/alternative-clients.md) section to see how
 you can send data to Logfire from other languages.
 
 See [this GitHub issue][language-support-gh-issue] for more information.
