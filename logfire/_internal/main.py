@@ -1153,6 +1153,7 @@ class Logfire:
     def instrument_httpx(
         self,
         client: httpx.Client,
+        *,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
@@ -1164,6 +1165,7 @@ class Logfire:
     def instrument_httpx(
         self,
         client: httpx.AsyncClient,
+        *,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
@@ -1175,6 +1177,7 @@ class Logfire:
     def instrument_httpx(
         self,
         client: None = None,
+        *,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
@@ -1185,6 +1188,7 @@ class Logfire:
     def instrument_httpx(
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
+        *,
         capture_request_headers: bool = False,
         capture_response_headers: bool = False,
         capture_request_json_body: bool = False,
