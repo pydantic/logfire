@@ -1213,8 +1213,17 @@ class Logfire:
             capture_request_headers: Set to `True` to capture all request headers.
             capture_response_headers: Set to `True` to capture all response headers.
             capture_request_json_body: Set to `True` to capture the request JSON body.
+                Specifically captures the raw request body whenever the content type is `application/json`.
+                Doesn't check if the body is actually JSON.
             capture_response_json_body: Set to `True` to capture the response JSON body.
+                Specifically captures the raw response body whenever the content type is `application/json`
+                when the `response.read()` or `.aread()` method is first called,
+                which happens automatically for non-streaming requests.
+                For streaming requests, the body is not captured if it's merely iterated over.
+                Doesn't check if the body is actually JSON.
             capture_request_form_data: Set to `True` to capture the request form data.
+                Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
+                Doesn't inspect or parse the raw request body.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
         from .integrations.httpx import instrument_httpx
