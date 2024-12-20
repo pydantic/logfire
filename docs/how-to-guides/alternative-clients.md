@@ -7,7 +7,7 @@ these [environment variables](https://opentelemetry.io/docs/languages/sdk-config
 - `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev` for both traces and metrics, or:
     - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces` for just traces
     - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics` for just metrics
-- `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Creating Write Tokens](./creating-write-tokens.md)
+- `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Create Write Tokens](./create-write-tokens.md)
   to obtain a write token and replace `your-write-token` with it.
 - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` to export in Protobuf format over HTTP (not gRPC).
   The **Logfire** backend supports both Protobuf and JSON, but only over HTTP for now. Some SDKs (such as Python) already use this value as the default so setting this isn't required, but other SDKs use `grpc` as the default.

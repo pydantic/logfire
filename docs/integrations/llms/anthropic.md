@@ -6,7 +6,7 @@ integration: logfire
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python)
 with one extra line of code.
 
-```python hl_lines="6"
+```python hl_lines="7"
 import anthropic
 import logfire
 

@@ -12,10 +12,14 @@ To search the live view, click `Search your spans` (keyboard shortcut `/`), this
 
 ### SQL Search
 
-For confident SQL users, write your queries directly here. For devs who want a bit of help, try the new [PydanticAI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt. You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
+For confident SQL users, write your queries directly here. For devs who want a bit of help,
+try the new [PydanticAI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt.
+You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
 
-**WHERE clause**  
-As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside the `WHERE` clause of a SQL query. It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or keyboard shortcut `cmd+enter` (or `ctrl+enter` on windows/linux).
+**WHERE clause**
+As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside the `WHERE` clause of a SQL query.
+It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or
+keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
 
@@ -62,7 +66,7 @@ If you're not sure where to start, scroll down to the `Start here` for beginner-
 
 ### Ask in Language -> Get SQL
 
-Write your question in your native language, and the model will convert that question to a SQL query. 
+Write your question in your native language, and the model will convert that question to a SQL query.
 
 ![Search box natural language](../../images/guide/live-view-natural-language.png)
 
@@ -74,8 +78,10 @@ Under the hood this feature uses an LLM running with [PydanticAI](https://github
 
 Reference: A list of pre-populated query clauses. Clicking any of the clauses will populate the SQL editor, and (where applicable) you can choose a value from the autopopulated dropdown.
 
-This list gives you a powerful way to rapidly generate the query you need, while simultaneously learning more about all the ways you can search your data. Clicking multiple clauses will add them to your query with a SQL `AND` statement. If you'd like something other than an `AND` statement, you can replace this with alternative SQL operators like `OR`, or `NOT`.  
-
+This list gives you a powerful way to rapidly generate the query you need, while simultaneously
+learning more about all the ways you can search your data. Clicking multiple clauses will add them
+to your query with a SQL `AND` statement. If you'd like something other than an `AND` statement, you
+can replace this with alternative SQL operators like `OR`, or `NOT`.
 
 ## Details panel closed
 
@@ -83,9 +89,12 @@ This list gives you a powerful way to rapidly generate the query you need, while
 
 This is what you'll see when you come to the live view of a project with some data.
 
-1. **Organization and project labels:** In this example, the organization is `christophergs`, and the project is `docs-app`. You can click the organization name to go to the organization overview page; the project name is a link to this page.
+1. **Organization and project labels:** In this example, the organization is `christophergs`, and
+   the project is `docs-app`. You can click the organization name to go to the organization overview page;
+   the project name is a link to this page.
 
-2. **Environment:** In the above screenshot, this is set to `all envs`. See the [environments docs](../advanced/environments.md) for details.
+2. **Environment:** In the above screenshot, this is set to `all envs`.
+    See the [environments docs](../../how-to-guides/environments.md) for details.
 
 3. **Timeline:** This shows a histogram of the counts of spans matching your query over time. The blue-highlighted section corresponds to the time range currently visible in the scrollable list of traces below. You can click at points on this line to move to viewing logs from that point in time.
 

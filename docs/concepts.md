@@ -29,7 +29,7 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
     logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
 ```
 
-![Counting size of loaded files screenshot](../images/logfire-screenshot-first-steps-load-files.png)
+![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-load-files.png)
 
 ---
 
@@ -55,7 +55,7 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 2. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
 3. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
 
-![Logfire hello world screenshot](../images/index/logfire-screenshot-hello-world-age.png)
+![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
 
 ---
 

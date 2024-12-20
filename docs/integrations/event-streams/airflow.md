@@ -162,4 +162,4 @@ otel_task_log_event = True
 [OpenTelemetry Collector]: https://opentelemetry.io/docs/collector/
 [OpenTelemetry Collector installation]: https://opentelemetry.io/docs/collector/installation/
 [OpenTelemetry Collector Receiver]: https://opentelemetry.io/docs/collector/configuration/#receivers
-[write-token]: ../../guides/advanced/creating-write-tokens.md
+[write-token]: ../../how-to-guides/create-write-tokens.md

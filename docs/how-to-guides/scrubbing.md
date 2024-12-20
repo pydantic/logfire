@@ -85,9 +85,9 @@ User details: User(id=123, password='secret')
 This is necessary so that safe messages such as 'Password is correct' are not redacted completely.
 
 Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `inspect_arguments` is enabled (the default in Python 3.11+) and working correctly.
-[See here](../onboarding-checklist/add-manual-tracing.md#f-strings) for more information.
+[See here](../guides/onboarding-checklist/add-manual-tracing.md#f-strings) for more information.
 
-In short, don't format the message yourself. This is also a good practice in general for [other reasons](../onboarding-checklist/add-manual-tracing.md#messages-and-span-names).
+In short, don't format the message yourself. This is also a good practice in general for [other reasons](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names).
 
 ### Keep sensitive data out of URLs
 

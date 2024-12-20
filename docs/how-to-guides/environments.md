@@ -23,9 +23,10 @@ If you are using languages other than Python, you can set the environment like t
 ---
 
 Once set, you will see your environment in the Logfire UI `all envs` dropdown,
-which is present on the [Live View](../web-ui/live.md), [Dashboards](../web-ui/dashboards.md) and [Explore](../web-ui/explore.md) pages:
+which is present on the [Live View](../guides/web-ui/live.md), [Dashboards](../guides/web-ui/dashboards.md)
+and [Explore](../guides/web-ui/explore.md) pages:
 
-![Environments](../../images/guide/environments.png)
+![Environments](../images/guide/environments.png)
 
 !!! info
     When using an environment for the first time, it may take a **few minutes** for the environment to appear in the UI.
@@ -55,5 +56,5 @@ environment name.
 ## Should I use environments or projects?
 
 Environments are more lightweight than projects. Projects give you the ability to assign specific
-user groups and permissions levels (see this [organization structure diagram](../../reference/organization-structure.md)
+user groups and permissions levels (see this [organization structure diagram](../reference/organization-structure.md)
 for details). So if you need to allow different team members to view dev vs. prod traces, then projects would be a better fit.
