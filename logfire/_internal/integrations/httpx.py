@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import inspect
 from contextlib import suppress
-from email.message import Message
+from email.headerregistry import ContentTypeHeader
+from email.policy import EmailPolicy
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast, overload
 
 import httpx
@@ -250,8 +252,7 @@ def make_async_response_hook(
 
 
 def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo, is_async: bool) -> None:
-    headers = cast('httpx.Headers', response_info.headers)
-    if not headers.get('content-type', '').lower().startswith('application/json'):
+    if not is_json_type(content_type_string_from_info(response_info)):
         return
 
     frame = inspect.currentframe().f_back.f_back  # type: ignore
@@ -331,14 +332,7 @@ def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Lit
     )
 
 
-def get_charset(content_type: str) -> str:
-    m = Message()
-    m['content-type'] = content_type
-    return cast(str, m.get_param('charset', 'utf-8'))
-
-
-def decode_body(body: bytes, content_type: str):
-    charset = get_charset(content_type)
+def decode_body(body: bytes, charset: str):
     with suppress(UnicodeDecodeError, LookupError):
         return body.decode(charset)
     if charset.lower() not in ('utf-8', 'utf8'):
@@ -348,13 +342,16 @@ def decode_body(body: bytes, content_type: str):
 
 
 def capture_request_body(span: Span, request: RequestInfo) -> None:
-    content_type = cast('httpx.Headers', request.headers).get('content-type', '').lower()
     if not isinstance(request.stream, httpx.ByteStream):
         return
-    if not content_type.startswith('application/json'):
+
+    content_type_string = content_type_string_from_info(request)
+    if not is_json_type(content_type_string):
         return
 
-    body = decode_body(list(request.stream)[0], content_type)
+    content_type_header = content_type_header_from_string(content_type_string)
+    charset = content_type_header.params.get('charset', 'utf-8')
+    body = decode_body(list(request.stream)[0], charset)
 
     attr_name = 'http.request.body.json'
     set_user_attributes_on_raw_span(span, {attr_name: {}})  # type: ignore
@@ -390,3 +387,60 @@ def capture_request_form_data(span: Span, request: RequestInfo) -> None:
         return
     span = cast(opentelemetry.sdk.trace.Span, span)
     set_user_attributes_on_raw_span(span, {'http.request.body.form': data})
+
+
+def content_type_string_from_info(info: RequestInfo | ResponseInfo) -> str:
+    return cast('httpx.Headers', info.headers).get('content-type', '')
+
+
+@lru_cache
+def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
+    return EmailPolicy.header_factory('content-type', content_type)
+
+
+def content_type_subtypes(subtype: str) -> set[str]:
+    if subtype.startswith('x-'):
+        subtype = subtype[2:]
+    return set(subtype.split('+'))
+
+
+@lru_cache
+def is_json_type(content_type: str) -> bool:
+    header = content_type_header_from_string(content_type)
+    return header.maintype == 'application' and 'json' in content_type_subtypes(header.subtype)
+
+
+TEXT_SUBTYPES = {
+    'json',
+    'jsonl',
+    'jsonlines',
+    'ndjson',
+    'json5',
+    'xml',
+    'xhtml',
+    'html',
+    'csv',
+    'tsv',
+    'plain',
+    'markdown',
+    'yaml',
+    'yml',
+    'toml',
+    'css',
+    'javascript',
+    'ecmascript',
+    'typescript',
+    'sql',
+    'latex',
+}
+
+
+@lru_cache
+def is_text_type(content_type: str) -> bool:
+    header = content_type_header_from_string(content_type)
+    if header.maintype == 'text':
+        return True
+    if header.maintype != 'application':
+        return False
+
+    return bool(content_type_subtypes(header.subtype) & TEXT_SUBTYPES)
