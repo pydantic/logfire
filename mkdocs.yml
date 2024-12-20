@@ -39,7 +39,7 @@ theme:
     - content.code.select
     - navigation.indexes # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/#section-index-pages
     - navigation.path
-    - navigation.tabs
+    - navigation.sections
     - navigation.instant
     - navigation.instant.preview
     - navigation.instant.prefetch
@@ -64,17 +64,17 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Why Logfire?:
-      - Introducing Logfire: why-logfire/index.md
-      - Simplicity and Power: why-logfire/simplicity.md
-      - Python-centric Insights: why-logfire/python-centric.md
-      - Pydantic Integration: why-logfire/pydantic.md
-      - OpenTelemetry: why-logfire/opentelemetry.md
-      - Structured Data and SQL: why-logfire/sql.md
-
-  - Get Started:
-      - Get Started: index.md
-      - Tracing with Spans: get-started/traces.md
+  # - Why Logfire?:
+  # - Introducing Logfire: why-logfire/index.md
+  # - Simplicity and Power: why-logfire/simplicity.md
+  # - Python-centric Insights: why-logfire/python-centric.md
+  # - Pydantic Integration: why-logfire/pydantic.md
+  # - OpenTelemetry: why-logfire/opentelemetry.md
+  # - Structured Data and SQL: why-logfire/sql.md
+  - Home:
+      - Home: index.md
+      - Why Logfire?: why-logfire.md
+      - Concepts: get-started/traces.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -86,18 +86,14 @@ nav:
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
-      - Advanced User Guide:
-          - Environments: guides/advanced/environments.md
-          - Alternative Clients: guides/advanced/alternative-clients.md
-          - Alternative Backends: guides/advanced/alternative-backends.md
-          - Sampling: guides/advanced/sampling.md
-          - Scrubbing: guides/advanced/scrubbing.md
-          - Generators: guides/advanced/generators.md
-          - Creating Write Tokens: guides/advanced/creating-write-tokens.md
-          - Query API: guides/advanced/query-api.md
-          - Link to Code Source: guides/advanced/link-to-code-source.md
-          - Testing: guides/advanced/testing.md
-          - Backfill: guides/advanced/backfill.md
+  - How To - Guides:
+      - Use different environments: guides/advanced/environments.md
+      - Link to Code Source: guides/advanced/link-to-code-source.md
+      - Use Alternative Clients: guides/advanced/alternative-clients.md
+      - Use Alternative Backends: guides/advanced/alternative-backends.md
+      - Implement sampling strategies: guides/advanced/sampling.md
+      - Export your Logfire Data: guides/advanced/query-api.md
+      - Scrub Sensitive Data: guides/advanced/scrubbing.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -142,6 +138,11 @@ nav:
   - Reference:
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
+      - Advanced:
+          - Generators: guides/advanced/generators.md
+          - Creating Write Tokens: guides/advanced/creating-write-tokens.md
+          - Testing: guides/advanced/testing.md
+          - Backfill: guides/advanced/backfill.md
       - Organization Structure: reference/organization-structure.md
       - SDK CLI: reference/cli.md
       - SDK API:
