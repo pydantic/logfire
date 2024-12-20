@@ -1,10 +1,3 @@
----
-hide:
-- navigation
----
-
-# Roadmap
-
 Here is the roadmap for **Pydantic Logfire**. This is a living document, and it will be updated as we progress.
 
 If you have any questions, or a feature request, **please join our [Slack][slack]**.
