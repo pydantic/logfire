@@ -34,13 +34,6 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             span_data={'request_data': json_data},
             stream_state_cls=AnthropicMessageStreamState,
         )
-    # Handle Amazon Bedrock URLs
-    elif url.startswith('https://bedrock-runtime.'):
-        return EndpointConfig(
-            message_template='Message with {request_data[model]!r}',
-            span_data={'request_data': json_data},
-            stream_state_cls=AnthropicMessageStreamState,
-        )
     else:
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',

@@ -1,8 +1,8 @@
-from typing import AsyncIterator, Iterator
+from typing import Iterator
 
 import httpx
 import pytest
-from anthropic import AnthropicBedrock, AsyncAnthropicBedrock
+from anthropic import AnthropicBedrock
 from anthropic.types import Message, TextBlock, Usage
 from dirty_equals import IsJson
 from httpx._transports.mock import MockTransport
@@ -48,22 +48,7 @@ def mock_client() -> Iterator[AnthropicBedrock]:
             aws_session_token='test-session-token',
             http_client=http_client,
         )
-        with logfire.instrument_anthropic(client):
-            yield client
-
-
-@pytest.fixture
-async def mock_async_client() -> AsyncIterator[AsyncAnthropicBedrock]:
-    """Fixture that provides a mocked Async Anthropic client with AWS credentials"""
-    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as http_client:
-        client = AsyncAnthropicBedrock(
-            aws_region='us-east-1',
-            aws_access_key='test-access-key',
-            aws_secret_key='test-secret-key',
-            aws_session_token='test-session-token',
-            http_client=http_client,
-        )
-        with logfire.instrument_anthropic():  # Test instrumenting EVERYTHING
+        with logfire.instrument_anthropic():
             yield client
 
 
@@ -104,86 +89,6 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                         }
                     ),
                     'async': False,
-                    'logfire.msg_template': 'Message with {request_data[model]!r}',
-                    'logfire.msg': f"Message with '{model_id}'",
-                    'logfire.span_type': 'span',
-                    'logfire.tags': ('LLM',),
-                    'response_data': IsJson(
-                        {
-                            'message': {
-                                'content': 'Nine',
-                                'role': 'assistant',
-                            },
-                            'usage': {
-                                'input_tokens': 2,
-                                'output_tokens': 3,
-                                'cache_creation_input_tokens': None,
-                                'cache_read_input_tokens': None,
-                            },
-                        }
-                    ),
-                    'logfire.json_schema': IsJson(
-                        {
-                            'type': 'object',
-                            'properties': {
-                                'request_data': {'type': 'object'},
-                                'async': {},
-                                'response_data': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'usage': {
-                                            'type': 'object',
-                                            'title': 'Usage',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                },
-                            },
-                        }
-                    ),
-                },
-            }
-        ]
-    )
-
-
-@pytest.mark.filterwarnings('ignore:datetime.datetime.utcnow:DeprecationWarning')
-async def test_async_messages(mock_async_client: AsyncAnthropicBedrock, exporter: TestExporter):
-    """Test basic asynchronous message creation"""
-    model_id = 'anthropic.claude-3-haiku-20240307-v1:0'
-    response = await mock_async_client.messages.create(
-        max_tokens=1000,
-        model=model_id,
-        system='You are a helpful assistant.',
-        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-    )
-
-    # Verify response structure
-    assert isinstance(response.content[0], TextBlock)
-    assert response.content[0].text == 'Nine'
-
-    # Verify exported spans
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'Message with {request_data[model]!r}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'code.filepath': 'test_anthropic_bedrock.py',
-                    'code.function': 'test_async_messages',
-                    'code.lineno': 123,
-                    'request_data': IsJson(
-                        {
-                            'max_tokens': 1000,
-                            'system': 'You are a helpful assistant.',
-                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
-                            'model': model_id,
-                        }
-                    ),
-                    'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
                     'logfire.span_type': 'span',
