@@ -160,7 +160,8 @@ dev = [
     "logfire-api",
     "requests",
     "setuptools>=75.3.0",
-    "boto3-stubs >= 1",
+    "boto3 >= 1.28.57",
+    "botocore >= 1.31.57",
 ]
 docs = [
     "mkdocs>=1.5.0",
