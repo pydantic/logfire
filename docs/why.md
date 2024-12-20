@@ -12,7 +12,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it. Time-to-first-log should be less than 5 minutes.
 
-    [:octicons-arrow-right-24: Read more](simplicity.md)
+    [:octicons-arrow-right-24: Read more](#simplicity-and-power-)
 
 -   :snake:{ .lg .middle } __Python-centric Insights__
 
@@ -20,7 +20,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code &amp; database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
 
-    [:octicons-arrow-right-24: Read more](python-centric.md)
+    [:octicons-arrow-right-24: Read more](#python-centric-insights-material-snake)
 
 -   :simple-pydantic:{ .lg .middle } __Pydantic Integration__
 
@@ -30,7 +30,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
-    [:octicons-arrow-right-24: Read more](pydantic.md)
+    [:octicons-arrow-right-24: Read more](#pydantic-integration)
 
 -   :telescope:{ .lg .middle } __OpenTelemetry__
 
@@ -38,7 +38,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 
-    [:octicons-arrow-right-24: Read more](opentelemetry.md)
+    [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood-)
 
 -   :simple-instructure:{ .lg .middle } __Structured Data__
 
@@ -46,7 +46,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more), and it'll end up as structured data in our platform ready to be queried.
 
-    [:octicons-arrow-right-24: Read more](sql.md)
+    [:octicons-arrow-right-24: Read more](#structured-data-and-sql--sql)
 
 -   :abacus:{ .lg .middle } __SQL__
 
@@ -54,7 +54,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 
-    [:octicons-arrow-right-24: Read more](sql.md)
+    [:octicons-arrow-right-24: Read more](#structured-data-and-sql--sql)
 
 </div>
 
@@ -63,7 +63,7 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
 We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having data; it's about having the *right* data, presented in ways that make sense for Python applications.
 
-![Logfire FastAPI screenshot](../images/index/logfire-screenshot-fastapi-200.png)
+![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
 ## Simplicity and Power :rocket:
 
@@ -73,7 +73,7 @@ and productivity, reimagined for observability.
 
 Within a few minutes you'll have your first logs:
 
-![Logfire hello world screenshot](../images/index/logfire-screenshot-hello-world-age.png)
+![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
 
 
 This might look similar to simple logging, but it's much more powerful — you get:
@@ -83,7 +83,7 @@ This might look similar to simple logging, but it's much more powerful — you g
 - **Custom-built platform** to view your data, with no configuration required
 - **Pretty display** of Python objects
 
-Ready to try Logfire? [Get Started](../index.md)! 🚀
+Ready to try Logfire? [Get Started](index.md)! 🚀
 
 ## Python-centric insights :material-snake:
 
@@ -94,15 +94,15 @@ Python is running than any other observability tool.
 
 ### Rich display of Python objects
 
-![Logfire FastAPI screenshot](../images/logfire-screenshot-fastapi-arguments.png)
+![Logfire FastAPI screenshot](images/logfire-screenshot-fastapi-arguments.png)
 
 In this example, you can see the parameters passed to a FastAPI endpoint formatted as a Python object.
 
 ### Profiling Python code
 
-![Logfire Auto-tracing screenshot](../images/logfire-screenshot-autotracing.png)
+![Logfire Auto-tracing screenshot](images/logfire-screenshot-autotracing.png)
 
-In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](../guides/onboarding-checklist/add-auto-tracing.md).
+In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](guides/onboarding-checklist/add-auto-tracing.md).
 
 ## Pydantic integration
 
@@ -131,7 +131,7 @@ logfire.info('user processed: {user!r}', user=user)  # (1)!
 
 1. This will show `user processed: User(name='Anne', country_code='US', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
 
-![Logfire pydantic manual screenshot](../images/index/logfire-screenshot-pydantic-manual.png)
+![Logfire pydantic manual screenshot](images/index/logfire-screenshot-pydantic-manual.png)
 
 Or we can record information about validations automatically:
 
@@ -154,12 +154,12 @@ User(name='Ben', country_code='USA', dob='2000-02-02')
 User(name='Charlie', country_code='GBR', dob='1990-03-03')
 ```
 
-1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs](../integrations/pydantic.md).
+1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs](integrations/pydantic.md).
 2. Since we've enabled the Pydantic Plugin, all Pydantic validations will be recorded in Logfire.
 
-Learn more about the [Pydantic Plugin here](../integrations/pydantic.md).
+Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
 
-![Logfire pydantic plugin screenshot](../images/index/logfire-screenshot-pydantic-plugin.png)
+![Logfire pydantic plugin screenshot](images/index/logfire-screenshot-pydantic-plugin.png)
 
 ## OpenTelemetry under the hood :telescope:
 
@@ -195,10 +195,10 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-1. In addition to [configuring logfire](../reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
-2. The [integrations](../integrations/index.md) page has more information on how to instrument other parts of your app. Run the [inspect](../reference/cli.md#inspect-inspect) command for package suggestions.
+1. In addition to [configuring logfire](reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
+2. The [integrations](integrations/index.md) page has more information on how to instrument other parts of your app. Run the [inspect](reference/cli.md#inspect-inspect) command for package suggestions.
 
-We'll need the [FastAPI contrib package](../integrations/web-frameworks/fastapi.md), FastAPI itself and uvicorn installed to run this:
+We'll need the [FastAPI contrib package](integrations/web-frameworks/fastapi.md), FastAPI itself and uvicorn installed to run this:
 
 ```bash
 pip install 'logfire[fastapi]' fastapi uvicorn  # (1)!
@@ -210,11 +210,11 @@ uvicorn main:app # (2)!
 
 This will give you information on the HTTP request and details of results from successful input validations:
 
-![Logfire FastAPI 200 response screenshot](../images/index/logfire-screenshot-fastapi-200.png)
+![Logfire FastAPI 200 response screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
 And, importantly, details of failed input validations:
 
-![Logfire FastAPI 422 response screenshot](../images/index/logfire-screenshot-fastapi-422.png)
+![Logfire FastAPI 422 response screenshot](images/index/logfire-screenshot-fastapi-422.png)
 
 In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used out-of-the-box in FastAPI.
 
@@ -249,7 +249,7 @@ FROM records
 WHERE attributes->'result'->>'country_code' = 'USA';
 ```
 
-![Logfire explore query screenshot](../images/index/logfire-screenshot-explore-query.png)
+![Logfire explore query screenshot](images/index/logfire-screenshot-explore-query.png)
 
 You can also filter to show only traces related to users in the USA in the live view with
 
@@ -257,7 +257,7 @@ You can also filter to show only traces related to users in the USA in the live 
 attributes->'result'->>'name' = 'Ben'
 ```
 
-![Logfire search query screenshot](../images/index/logfire-screenshot-search-query.png)
+![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
 
 
 Structured Data and Direct SQL Access means you can use familiar tools like Pandas, SQLAlchemy, or `psql`
