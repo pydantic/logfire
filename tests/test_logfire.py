@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
 from typing import Any, Callable
+from unittest.mock import patch
 
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
@@ -36,6 +37,7 @@ from logfire._internal.constants import (
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
+from logfire._internal.tracer import record_exception
 from logfire._internal.utils import is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
@@ -3171,3 +3173,23 @@ def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricR
             }
         ]
     )
+
+
+def test_logfire_span_records_exceptions_once():
+    # logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[BatchSpanProcessor(exporter)])
+    n_calls_to_record_exception = 0
+
+    def patched_record_exception(*args: Any, **kwargs: Any) -> Any:
+        nonlocal n_calls_to_record_exception
+        n_calls_to_record_exception += 1
+
+        return record_exception(*args, **kwargs)
+
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
+        'logfire._internal.main.record_exception', patched_record_exception
+    ):
+        with pytest.raises(RuntimeError):
+            with logfire.span('foo'):
+                raise RuntimeError('error')
+
+    assert n_calls_to_record_exception == 1
