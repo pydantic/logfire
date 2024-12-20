@@ -1,11 +1,14 @@
 # Pydantic integration
 
-Logfire has an out-of-the-box Pydantic integration that lets you understand the data passing through your Pydantic models and get analytics on validations. For existing Pydantic users, it delivers unparalleled insights into your usage of Pydantic models.
+**Logfire** has an out-of-the-box **Pydantic** integration that lets you understand the data
+passing through your Pydantic models and get analytics on validations. For existing Pydantic users,
+it delivers unparalleled insights into your usage of Pydantic models.
 
 We can record Pydantic models directly:
 
 ```py
 from datetime import date
+
 import logfire
 from pydantic import BaseModel
 
@@ -28,6 +31,7 @@ Or we can record information about validations automatically:
 
 ```py
 from datetime import date
+
 import logfire
 from pydantic import BaseModel
 

@@ -97,8 +97,8 @@ logfire auth
 
     2. Configure your **Logfire** environment
 
-    ```bash title="in the terminal:"
-    LOGFIRE_TOKEN=<your-write-token>
+    ```bash title="In the terminal:"
+    export LOGFIRE_TOKEN=<your-write-token>
     ```
 
     !!! info ""
