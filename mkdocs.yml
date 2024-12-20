@@ -39,7 +39,7 @@ theme:
     - content.code.select
     - navigation.indexes # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/#section-index-pages
     - navigation.path
-    - navigation.tabs
+    - navigation.sections
     - navigation.instant
     - navigation.instant.preview
     - navigation.instant.prefetch
@@ -64,17 +64,10 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Why Logfire?:
-      - Introducing Logfire: why-logfire/index.md
-      - Simplicity and Power: why-logfire/simplicity.md
-      - Python-centric Insights: why-logfire/python-centric.md
-      - Pydantic Integration: why-logfire/pydantic.md
-      - OpenTelemetry: why-logfire/opentelemetry.md
-      - Structured Data and SQL: why-logfire/sql.md
-
-  - Get Started:
-      - Get Started: index.md
-      - Tracing with Spans: get-started/traces.md
+  - Logfire:
+      - Logfire: index.md
+      - Why Logfire?: why.md
+      - Concepts: concepts.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -290,5 +283,12 @@ plugins:
         "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
         "guides/advanced/query_api.md": "guides/advanced/query-api.md"
         "guides/index.md": "index.md"
+        "why-logfire/index.md": "why.md"
+        "why-logfire/pydantic.md": "why.md"
+        "why-logfire/opentelemetry.md": "why.md"
+        "why-logfire/simplicity.md": "why.md"
+        "why-logfire/python-centric.md": "why.md"
+        "why-logfire/sql.md": "why.md"
+        "get-started/traces.md": "concepts.md"
 hooks:
   - docs/plugins/main.py
