@@ -40,7 +40,7 @@ Since Mirascope is built on top of [Pydantic][pydantic], you can use the [Pydant
 
 This can be particularly useful when [extracting structured information][mirascope-extracting-structured-information] using LLMs:
 
-```py hl_lines="3 5 8 17"
+```py hl_lines="3 5 8 18"
 from typing import Literal, Type
 
 import logfire
