@@ -239,7 +239,7 @@ plugins:
         "guides/advanced/alternative-backends.md": "how-to-guides/alternative-backends.md"
         "guides/advanced/creating_write_tokens.md": "how-to-guides/create-write-tokens.md"
         "guides/advanced/creating-write-tokens.md": "how-to-guides/create-write-tokens.md"
-        "guides/advanced/index.md": "guides/advanced/environments.md"
+        "guides/advanced/index.md": "how-to-guides/environments.md"
         "guides/advanced/environments.md": "how-to-guides/environments.md"
         "integrations/system_metrics.md": "integrations/system-metrics.md"
         "integrations/third_party/index.md": "integrations/index.md"
