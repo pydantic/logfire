@@ -24,7 +24,7 @@ from .constants import (
 )
 from .exporters.file import FileSpanExporter
 from .formatter import logfire_format
-from .main import user_attributes
+from .main import prepare_otlp_attributes
 from .scrubbing import Scrubber
 
 try:
@@ -150,7 +150,7 @@ class PrepareBackfill:
                 )
             else:
                 parent_context = None  # pragma: no cover
-            otlp_attributes = user_attributes(data.attributes)
+            otlp_attributes = prepare_otlp_attributes(data.attributes)
 
             if data.formatted_msg is None:  # pragma: no cover
                 formatted_message = logfire_format(data.msg_template, data.attributes, self.scrubber)
@@ -196,7 +196,7 @@ class PrepareBackfill:
             start_timestamp = data.start_timestamp
             if start_timestamp.tzinfo is None:  # pragma: no branch
                 start_timestamp = start_timestamp.replace(tzinfo=timezone.utc)
-            otlp_attributes = user_attributes(data.log_attributes)
+            otlp_attributes = prepare_otlp_attributes(data.log_attributes)
             if data.formatted_msg is None:  # pragma: no branch
                 formatted_message = logfire_format(data.msg_template, data.log_attributes, self.scrubber)
             else:  # pragma: no cover
