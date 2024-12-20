@@ -16,7 +16,6 @@ from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
-from weakref import WeakSet
 
 import requests
 from opentelemetry import trace
@@ -87,7 +86,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor, ProxyTracerProvider
+from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
     UnexpectedResponse,
@@ -98,10 +97,8 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .main import FastLogfireSpan, Logfire, LogfireSpan
+    from .main import Logfire
 
-# NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
-OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -947,8 +944,15 @@ class LogfireConfig(_LogfireConfigData):
                 # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
                 # Registering this callback here after the OTEL one means that this runs first.
                 # Otherwise OTEL would log an error "Already shutdown, dropping span."
+                # The reason that spans may be lingering open is that they're in suspended generator frames.
+                # Apart from here, they will be ended when the generator is garbage collected
+                # as the interpreter shuts down, but that's too late.
                 for span in list(OPEN_SPANS):
-                    span.__exit__(None, None, None)
+                    # TODO maybe we should be recording something about what happened here?
+                    span.end()
+                    # Interpreter shutdown may trigger another call to .end(),
+                    # which would log a warning "Calling end() on an ended span."
+                    span.end = lambda *_, **__: None  # type: ignore
 
             self._initialized = True
 

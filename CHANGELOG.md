@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v2.9.0] (2024-12-20)
+
+* Capture httpx response JSON bodies by @alexmojaki in [#700](https://github.com/pydantic/logfire/pull/700)
+* Use end-at-shutdown and custom `record_exception` logic for all spans by @dmontagu in [#696](https://github.com/pydantic/logfire/pull/696)
+
 ## [v2.8.0] (2024-12-18)
 
 * Add `capture_(request|response)_headers` ([#671](https://github.com/pydantic/logfire/pull/671)) and `capture_request_json_body` ([#682](https://github.com/pydantic/logfire/pull/682)) to `instrument_httpx` by @Kludex
@@ -480,3 +485,4 @@ First release from new repo!
 [v2.7.0]: https://github.com/pydantic/logfire/compare/v2.6.2...v2.7.0
 [v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1
 [v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0
+[v2.9.0]: https://github.com/pydantic/logfire/compare/v2.8.0...v2.9.0
