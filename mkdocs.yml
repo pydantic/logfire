@@ -39,7 +39,7 @@ theme:
     - content.code.select
     - navigation.indexes # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/#section-index-pages
     - navigation.path
-    - navigation.tabs
+    - navigation.sections
     - navigation.instant
     - navigation.instant.preview
     - navigation.instant.prefetch
