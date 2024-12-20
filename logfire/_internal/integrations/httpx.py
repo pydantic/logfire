@@ -174,7 +174,7 @@ def make_request_hook(
 
     def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            capture_request_stuff(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
+            capture_request(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
             run_hook(hook, span, request)
 
     return new_hook
@@ -191,13 +191,13 @@ def make_async_request_hook(
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            capture_request_stuff(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
+            capture_request(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
             await run_async_hook(hook, span, request)
 
     return new_hook
 
 
-def capture_request_stuff(
+def capture_request(
     request: RequestInfo,
     span: Span,
     should_capture_headers: bool,
