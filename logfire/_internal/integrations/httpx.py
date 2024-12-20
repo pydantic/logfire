@@ -3,9 +3,10 @@ from __future__ import annotations
 import inspect
 from contextlib import suppress
 from email.message import Message
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast, overload
 
 import httpx
+import opentelemetry.sdk.trace
 
 from logfire.propagate import attach_context, get_context
 
@@ -67,6 +68,7 @@ if TYPE_CHECKING:
         capture_response_headers: bool,
         capture_request_json_body: bool,
         capture_response_json_body: bool,
+        capture_request_form_data: bool,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
 
@@ -78,6 +80,7 @@ if TYPE_CHECKING:
         capture_response_headers: bool,
         capture_request_json_body: bool,
         capture_response_json_body: bool,
+        capture_request_form_data: bool,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
 
@@ -89,6 +92,7 @@ if TYPE_CHECKING:
         capture_response_headers: bool,
         capture_request_json_body: bool,
         capture_response_json_body: bool,
+        capture_request_form_data: bool,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
 
@@ -100,6 +104,7 @@ def instrument_httpx(
     capture_response_headers: bool,
     capture_request_json_body: bool,
     capture_response_json_body: bool,
+    capture_request_form_data: bool,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -122,13 +127,13 @@ def instrument_httpx(
         async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
         async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook, capture_request_headers, capture_request_json_body
+            request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook, capture_response_headers, capture_response_json_body, logfire_instance
         )
         final_kwargs['async_request_hook'] = make_async_request_hook(
-            async_request_hook, capture_request_headers, capture_request_json_body
+            async_request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
         )
         final_kwargs['async_response_hook'] = make_async_response_hook(
             async_response_hook, capture_response_headers, capture_response_json_body, logfire_instance
@@ -140,7 +145,9 @@ def instrument_httpx(
             request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
             response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
 
-            request_hook = make_async_request_hook(request_hook, capture_request_headers, capture_request_json_body)
+            request_hook = make_async_request_hook(
+                request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+            )
             response_hook = make_async_response_hook(
                 response_hook, capture_response_headers, capture_response_json_body, logfire_instance
             )
@@ -148,7 +155,9 @@ def instrument_httpx(
             request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
             response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
 
-            request_hook = make_request_hook(request_hook, capture_request_headers, capture_request_json_body)
+            request_hook = make_request_hook(
+                request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+            )
             response_hook = make_response_hook(
                 response_hook, capture_response_headers, capture_response_json_body, logfire_instance
             )
@@ -158,37 +167,49 @@ def instrument_httpx(
 
 
 def make_request_hook(
-    hook: RequestHook | None, should_capture_headers: bool, should_capture_json: bool
+    hook: RequestHook | None, should_capture_headers: bool, should_capture_json: bool, should_capture_form_data: bool
 ) -> RequestHook | None:
-    if not should_capture_headers and not should_capture_json and not hook:
+    if not should_capture_headers and not should_capture_json and not should_capture_form_data and not hook:
         return None
 
     def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            if should_capture_headers:
-                capture_request_headers(span, request)
-            if should_capture_json:
-                capture_request_body(span, request)
+            capture_request_stuff(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
             run_hook(hook, span, request)
 
     return new_hook
 
 
 def make_async_request_hook(
-    hook: AsyncRequestHook | RequestHook | None, should_capture_headers: bool, should_capture_json: bool
+    hook: AsyncRequestHook | RequestHook | None,
+    should_capture_headers: bool,
+    should_capture_json: bool,
+    should_capture_form_data: bool,
 ) -> AsyncRequestHook | None:
-    if not should_capture_headers and not should_capture_json and not hook:
+    if not should_capture_headers and not should_capture_json and not should_capture_form_data and not hook:
         return None
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            if should_capture_headers:
-                capture_request_headers(span, request)
-            if should_capture_json:
-                capture_request_body(span, request)
+            capture_request_stuff(request, span, should_capture_headers, should_capture_json, should_capture_form_data)
             await run_async_hook(hook, span, request)
 
     return new_hook
+
+
+def capture_request_stuff(
+    request: RequestInfo,
+    span: Span,
+    should_capture_headers: bool,
+    should_capture_json: bool,
+    should_capture_form_data: bool,
+) -> None:
+    if should_capture_headers:
+        capture_request_headers(span, request)
+    if should_capture_json:
+        capture_request_body(span, request)
+    if should_capture_form_data:
+        capture_request_form_data(span, request)
 
 
 def make_response_hook(
@@ -338,3 +359,34 @@ def capture_request_body(span: Span, request: RequestInfo) -> None:
     attr_name = 'http.request.body.json'
     set_user_attributes_on_raw_span(span, {attr_name: {}})  # type: ignore
     span.set_attribute(attr_name, body)
+
+
+CODES_FOR_METHODS_WITH_DATA_PARAM = [
+    inspect.unwrap(method).__code__
+    for method in [
+        httpx.Client.request,
+        httpx.Client.stream,
+        httpx.AsyncClient.request,
+        httpx.AsyncClient.stream,
+    ]
+]
+
+
+def capture_request_form_data(span: Span, request: RequestInfo) -> None:
+    content_type = cast('httpx.Headers', request.headers).get('content-type', '')
+    if content_type != 'application/x-www-form-urlencoded':
+        return
+
+    frame = inspect.currentframe().f_back.f_back.f_back  # type: ignore
+    while frame:
+        if frame.f_code in CODES_FOR_METHODS_WITH_DATA_PARAM:
+            break
+        frame = frame.f_back
+    else:  # pragma: no cover
+        return
+
+    data = frame.f_locals.get('data')
+    if not (data and isinstance(data, Mapping)):  # pragma: no cover
+        return
+    span = cast(opentelemetry.sdk.trace.Span, span)
+    set_user_attributes_on_raw_span(span, {'http.request.body.form': data})
