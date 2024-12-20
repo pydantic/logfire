@@ -15,6 +15,7 @@ from opentelemetry.trace.span import Span
 
 import logfire
 import logfire._internal.integrations.httpx
+from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
@@ -452,6 +453,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                 capture_request_json_body=True,
                 capture_response_headers=True,
                 capture_response_json_body=True,
+                capture_request_form_data=True,
             )
             response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
@@ -558,3 +560,42 @@ async def test_httpx_async_client_capture_json_response_checks_header(exporter: 
     assert len(spans) == 1
     assert spans[0]['name'] == 'POST'
     assert 'http.response.body.json' not in str(spans)
+
+
+def test_httpx_client_capture_request_form_data(exporter: TestExporter):
+    assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 1
+    assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
+
+    with httpx.Client(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_request_form_data=True)
+        client.post('https://example.org/', data={'form': 'values'})
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.request.body.form': '{"form":"values"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.form":{"type":"object"}}}',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            }
+        ]
+    )
