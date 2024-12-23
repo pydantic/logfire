@@ -566,7 +566,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
 
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_request_form_data=True)
+        logfire.instrument_httpx(client, capture_request_form_data=True, capture_request_text_body=True)
         client.post('https://example.org/', data={'form': 'values'})
 
     assert exporter.exported_spans_as_dict() == snapshot(

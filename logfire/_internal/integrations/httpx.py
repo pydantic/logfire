@@ -188,7 +188,7 @@ class LogfireHttpxRequestInfo(RequestInfo):
         self.set_complex_span_attributes({attr_name: data})
 
     def capture_text_as_json(self, attr_name: str = 'http.request.body.json', text: str | None = None):
-        if text is None:
+        if text is None:  # pragma: no branch
             text = self.text
         self.set_complex_span_attributes({attr_name: {}})  # Set the JSON schema
         self.span.set_attribute(attr_name, text)
