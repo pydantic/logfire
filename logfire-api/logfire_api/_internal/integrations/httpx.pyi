@@ -6,7 +6,7 @@ from logfire._internal.utils import handle_internal_errors as handle_internal_er
 from logfire.integrations.httpx import AsyncRequestHook as AsyncRequestHook, AsyncResponseHook as AsyncResponseHook, RequestHook as RequestHook, RequestInfo as RequestInfo, ResponseHook as ResponseHook, ResponseInfo as ResponseInfo
 from logfire.propagate import attach_context as attach_context, get_context as get_context
 from opentelemetry.trace import Span
-from typing import Any, Callable, Literal, ParamSpec, TypeVar, TypedDict, Unpack, overload
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, TypedDict
 
 class AsyncClientKwargs(TypedDict, total=False):
     request_hook: RequestHook | AsyncRequestHook
@@ -30,12 +30,11 @@ Hook = TypeVar('Hook', RequestHook, ResponseHook)
 AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
 P = ParamSpec('P')
 
-@overload
-def instrument_httpx(logfire_instance: Logfire, client: httpx.Client, capture_headers: bool, capture_request_json_body: bool, capture_response_json_body: bool, capture_request_form_data: bool, **kwargs: Unpack[ClientKwargs]) -> None: ...
-@overload
-def instrument_httpx(logfire_instance: Logfire, client: httpx.AsyncClient, capture_headers: bool, capture_request_json_body: bool, capture_response_json_body: bool, capture_request_form_data: bool, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
-@overload
-def instrument_httpx(logfire_instance: Logfire, client: None, capture_headers: bool, capture_request_json_body: bool, capture_response_json_body: bool, capture_request_form_data: bool, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
+def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_headers: bool, capture_request_json_body: bool, capture_response_json_body: bool, capture_request_form_data: bool, **kwargs: Any) -> None:
+    """Instrument the `httpx` module so that spans are automatically created for each request.
+
+    See the `Logfire.instrument_httpx` method for details.
+    """
 def make_request_hook(hook: RequestHook | None, should_capture_headers: bool, should_capture_json: bool, should_capture_form_data: bool) -> RequestHook | None: ...
 def make_async_request_hook(hook: AsyncRequestHook | RequestHook | None, should_capture_headers: bool, should_capture_json: bool, should_capture_form_data: bool) -> AsyncRequestHook | None: ...
 def capture_request(request: RequestInfo, span: Span, should_capture_headers: bool, should_capture_json: bool, should_capture_form_data: bool) -> None: ...
