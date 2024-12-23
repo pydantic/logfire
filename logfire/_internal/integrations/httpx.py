@@ -412,26 +412,25 @@ def is_json_type(content_type: str) -> bool:
 
 TEXT_SUBTYPES = {
     'json',
+    'jsonp',
+    'json-p',
+    'javascript',
     'jsonl',
+    'json-l',
     'jsonlines',
+    'json-lines',
     'ndjson',
+    'nd-json',
     'json5',
+    'json-5',
     'xml',
     'xhtml',
     'html',
     'csv',
     'tsv',
-    'plain',
-    'markdown',
     'yaml',
     'yml',
     'toml',
-    'css',
-    'javascript',
-    'ecmascript',
-    'typescript',
-    'sql',
-    'latex',
 }
 
 
