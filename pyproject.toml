@@ -160,6 +160,9 @@ dev = [
     "requests",
     "setuptools>=75.3.0",
     "aiosqlite>=0.20.0",
+    "boto3 >= 1.28.57",
+    "botocore >= 1.31.57",
+
 ]
 docs = [
     "mkdocs>=1.5.0",

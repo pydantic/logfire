@@ -1072,17 +1072,23 @@ class Logfire:
 
     def instrument_anthropic(
         self,
-        anthropic_client: anthropic.Anthropic
-        | anthropic.AsyncAnthropic
-        | type[anthropic.Anthropic]
-        | type[anthropic.AsyncAnthropic]
-        | None = None,
+        anthropic_client: (
+            anthropic.Anthropic
+            | anthropic.AsyncAnthropic
+            | anthropic.AnthropicBedrock
+            | anthropic.AsyncAnthropicBedrock
+            | type[anthropic.Anthropic]
+            | type[anthropic.AsyncAnthropic]
+            | type[anthropic.AnthropicBedrock]
+            | type[anthropic.AsyncAnthropicBedrock]
+            | None
+        ) = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> ContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
-        The following methods are instrumented for both the sync and the async clients:
+        The following methods are instrumented for both the sync and async clients:
 
         - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
         - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
@@ -1097,6 +1103,7 @@ class Logfire:
         import anthropic
 
         client = anthropic.Anthropic()
+
         logfire.configure()
         logfire.instrument_anthropic(client)
 
@@ -1112,13 +1119,10 @@ class Logfire:
 
         Args:
             anthropic_client: The Anthropic client or class to instrument:
-
-                - `None` (the default) to instrument both the
-                    `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
-                - The `anthropic.Anthropic` class or a subclass
-                - The `anthropic.AsyncAnthropic` class or a subclass
-                - An instance of `anthropic.Anthropic`
-                - An instance of `anthropic.AsyncAnthropic`
+                - `None` (the default) to instrument all Anthropic client types
+                - The `anthropic.Anthropic` or `anthropic.AnthropicBedrock` class or subclass
+                - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
+                - An instance of any of the above classes
 
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
@@ -1136,7 +1140,13 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
-            anthropic_client or (anthropic.Anthropic, anthropic.AsyncAnthropic),
+            anthropic_client
+            or (
+                anthropic.Anthropic,
+                anthropic.AsyncAnthropic,
+                anthropic.AnthropicBedrock,
+                anthropic.AsyncAnthropicBedrock,
+            ),
             suppress_other_instrumentation,
             'Anthropic',
             get_endpoint_config,
