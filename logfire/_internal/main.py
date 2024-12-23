@@ -1156,8 +1156,7 @@ class Logfire:
         self,
         client: httpx.Client,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1169,8 +1168,7 @@ class Logfire:
         self,
         client: httpx.AsyncClient,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1182,8 +1180,7 @@ class Logfire:
         self,
         client: None = None,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1194,8 +1191,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1212,8 +1208,7 @@ class Logfire:
         Args:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
-            capture_request_headers: Set to `True` to capture all request headers.
-            capture_response_headers: Set to `True` to capture all response headers.
+            capture_headers: Set to `True` to capture all HTTP headers.
             capture_request_json_body: Set to `True` to capture the request JSON body.
                 Specifically captures the raw request body whenever the content type is `application/json`.
                 Doesn't check if the body is actually JSON.
@@ -1234,8 +1229,7 @@ class Logfire:
         return instrument_httpx(
             self,
             client,
-            capture_request_headers=capture_request_headers,
-            capture_response_headers=capture_response_headers,
+            capture_headers=capture_headers,
             capture_request_json_body=capture_request_json_body,
             capture_response_json_body=capture_response_json_body,
             capture_request_form_data=capture_request_form_data,

@@ -71,5 +71,80 @@ Let's see a minimal example below. You can run it with `python main.py`:
 **OpenTelemetry HTTPX Instrumentation** package,
 which you can find more information about [here][opentelemetry-httpx].
 
+## Fine Tuning
+
+The `logfire.instrument_httpx()` method accepts different parameters to fine-tune the instrumentation.
+
+### Capture HTTP Headers
+
+By default, **Logfire** doesn't capture HTTP headers. You can enable it by setting the `capture_headers` parameter to `True`.
+
+```py
+import httpx
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_headers=True)
+
+client = httpx.Client()
+client.get("https://httpbin.org/get")
+```
+
+#### Capture Only Request Headers
+
+Instead of capturing both request and response headers, you can create a request hook to capture only the request headers:
+
+```py
+import httpx
+import logfire
+from logfire.integrations.httpx import RequestInfo
+from opentelemetry.trace import Span
+
+
+def capture_request_headers(span: Span, request: RequestInfo):
+    headers = request.headers
+    span.set_attributes(
+        {
+            f'http.request.header.{header_name}': headers.get_list(header_name)
+            for header_name in headers.keys()
+        }
+    )
+
+
+logfire.configure()
+logfire.instrument_httpx(request_hook=capture_request_headers)
+
+client = httpx.Client()
+client.get("https://httpbin.org/get")
+```
+
+#### Capture Only Response Headers
+
+Similarly, you can create a response hook to capture only the response headers:
+
+```py
+import httpx
+import logfire
+from opentelemetry.trace import Span
+from logfire.integrations.httpx import RequestInfo, ResponseInfo
+
+
+def capture_response_headers(span: Span, request: RequestInfo, response: ResponseInfo):
+    headers = response.headers
+    span.set_attributes(
+        {f'http.response.header.{header_name}': headers.get_list(header_name)
+        for header_name in headers.keys()}
+    )
+
+
+logfire.configure()
+logfire.instrument_httpx(response_hook=capture_response_headers)
+
+client = httpx.Client()
+client.get('https://httpbin.org/get')
+```
+
+You can also use the hooks to filter headers or modify them before capturing them.
+
 [httpx]: https://www.python-httpx.org/
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
