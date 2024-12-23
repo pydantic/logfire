@@ -159,6 +159,7 @@ dev = [
     "logfire-api",
     "requests",
     "setuptools>=75.3.0",
+    "aiosqlite>=0.20.0",
 ]
 docs = [
     "mkdocs>=1.5.0",

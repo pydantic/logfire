@@ -18,6 +18,7 @@ authors = [
 ]
 dependencies = []
 readme = "README.md"
+license = "MIT"
 requires-python = ">= 3.8"
 
 [tool.uv]
