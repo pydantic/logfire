@@ -1157,6 +1157,7 @@ class Logfire:
         client: httpx.Client,
         *,
         capture_headers: bool = False,
+        capture_request_text_body: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1170,6 +1171,7 @@ class Logfire:
         *,
         capture_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Unpack[AsyncClientKwargs],
@@ -1182,6 +1184,7 @@ class Logfire:
         *,
         capture_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
@@ -1193,6 +1196,7 @@ class Logfire:
         *,
         capture_headers: bool = False,
         capture_request_json_body: bool = False,
+        capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Any,
@@ -1212,6 +1216,9 @@ class Logfire:
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
                 [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
+            capture_request_text_body: Set to `True` to capture the request text body
+                if the content type is either `text/*`
+                or `application/` followed by a known human-readable text format, e.g. XML.
             capture_request_json_body: Set to `True` to capture the request JSON body.
                 Specifically captures the raw request body whenever the content type is `application/json`.
                 Doesn't check if the body is actually JSON.
@@ -1234,6 +1241,7 @@ class Logfire:
             client,
             capture_headers=capture_headers,
             capture_request_json_body=capture_request_json_body,
+            capture_request_text_body=capture_request_text_body,
             capture_response_json_body=capture_response_json_body,
             capture_request_form_data=capture_request_form_data,
             **kwargs,
