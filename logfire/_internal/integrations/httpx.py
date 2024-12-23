@@ -224,7 +224,7 @@ class LogfireHttpxRequestInfo(RequestInfo):
 
     @property
     def content(self) -> bytes:
-        if self.body_is_streaming:
+        if self.body_is_streaming:  # pragma: no cover
             raise ValueError('Cannot read content from a streaming body')
         return list(self.stream)[0]  # type: ignore
 
