@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import warnings
 from contextlib import suppress
 from email.message import Message
 from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast
@@ -9,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast
 import httpx
 import opentelemetry.sdk.trace
 
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire.integrations.httpx import (
     AsyncRequestHook,
     AsyncResponseHook,
@@ -79,11 +79,11 @@ def instrument_httpx(
     capture_response_headers = kwargs.get('capture_response_headers')
 
     if capture_request_headers is not None:
-        warnings.warn(
+        warn_at_user_stacklevel(
             'The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
     if capture_response_headers is not None:
-        warnings.warn(
+        warn_at_user_stacklevel(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
 

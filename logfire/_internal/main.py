@@ -1209,6 +1209,9 @@ class Logfire:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
             capture_headers: Set to `True` to capture all HTTP headers.
+
+                If you don't want to capture all headers, you can customize the headers captured. See the
+                [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
             capture_request_json_body: Set to `True` to capture the request JSON body.
                 Specifically captures the raw request body whenever the content type is `application/json`.
                 Doesn't check if the body is actually JSON.
