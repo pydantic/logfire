@@ -9,18 +9,19 @@ import httpx
 import opentelemetry.sdk.trace
 
 from logfire._internal.stack_info import warn_at_user_stacklevel
-from logfire.integrations.httpx import (
-    AsyncRequestHook,
-    AsyncResponseHook,
-    RequestHook,
-    RequestInfo,
-    ResponseHook,
-    ResponseInfo,
-)
 from logfire.propagate import attach_context, get_context
 
 try:
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+    from logfire.integrations.httpx import (
+        AsyncRequestHook,
+        AsyncResponseHook,
+        RequestHook,
+        RequestInfo,
+        ResponseHook,
+        ResponseInfo,
+    )
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.\n'
