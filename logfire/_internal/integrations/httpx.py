@@ -177,7 +177,7 @@ class LogfireHttpxRequestInfo(RequestInfo):
         return not isinstance(self.stream, httpx.ByteStream)
 
     @property
-    def content_type_header(self) -> ContentTypeHeader:
+    def content_type_header_object(self) -> ContentTypeHeader:
         return content_type_header_from_string(self.content_type_header_string)
 
     @property
@@ -194,8 +194,8 @@ class LogfireHttpxRequestInfo(RequestInfo):
         return content_type == 'application/x-www-form-urlencoded'
 
     @property
-    def charset(self):
-        return self.content_type_header.params.get('charset', 'utf-8')
+    def content_type_charset(self):
+        return self.content_type_header_object.params.get('charset', 'utf-8')
 
     @property
     def content(self) -> bytes:
@@ -205,7 +205,7 @@ class LogfireHttpxRequestInfo(RequestInfo):
 
     @property
     def text(self) -> str:
-        return decode_body(self.content, self.charset)
+        return decode_body(self.content, self.content_type_charset)
 
     @property
     def form_data(self) -> Mapping[str, Any] | None:
