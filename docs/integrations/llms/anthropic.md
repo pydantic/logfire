@@ -104,7 +104,8 @@ Shows up like this in Logfire:
   <figcaption>Anthropic streaming response</figcaption>
 </figure>
 
-# Amazon Bedrock
+## Amazon Bedrock
+
 You can also log Anthropic LLM calls to Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
 
 ```python
