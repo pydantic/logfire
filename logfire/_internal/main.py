@@ -74,6 +74,8 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from flask.app import Flask
     from opentelemetry.metrics import _Gauge as Gauge
+    from sqlalchemy import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
@@ -1498,17 +1500,26 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(self, **kwargs)
 
-    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+    def instrument_sqlalchemy(
+        self,
+        engine: AsyncEngine | Engine | None = None,
+        **kwargs: Unpack[SQLAlchemyInstrumentKwargs],
+    ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
         from .integrations.sqlalchemy import instrument_sqlalchemy
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
+            engine=engine,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
