@@ -75,8 +75,8 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
-    capture_request_headers = kwargs.get('capture_request_headers', False)
-    capture_response_headers = kwargs.get('capture_response_headers', False)
+    capture_request_headers = kwargs.get('capture_request_headers')
+    capture_response_headers = kwargs.get('capture_response_headers')
 
     if capture_request_headers is not None:
         warnings.warn(
