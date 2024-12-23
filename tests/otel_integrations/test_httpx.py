@@ -190,6 +190,7 @@ RESPONSE_ATTRIBUTES = {
         ({'capture_response_headers': True}, RESPONSE_ATTRIBUTES),
         ({'capture_response_headers': True, 'response_hook': response_hook}, {*RESPONSE_ATTRIBUTES, 'response_hook'}),
         ({'capture_response_headers': False, 'response_hook': response_hook}, {'response_hook'}),
+        ({'capture_headers': True}, {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES}),
     ],
 )
 def test_httpx_client_instrumentation_with_capture_headers(
@@ -289,11 +290,7 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
 
 
 CAPTURE_FULL_REQUEST_ATTRIBUTES = {
-    'http.request.header.host',
-    'http.request.header.accept',
-    'http.request.header.accept-encoding',
-    'http.request.header.connection',
-    'http.request.header.user-agent',
+    *REQUEST_ATTRIBUTES,
     'http.request.header.content-type',
     'http.request.header.content-length',
     'http.request.body.json',
@@ -321,7 +318,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
 def test_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)  # type: ignore
             response = client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -332,7 +329,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
 async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)  # type: ignore
             response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -354,7 +351,7 @@ You can install this with:
 def test_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(
+            logfire.instrument_httpx(  # type: ignore
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
@@ -447,7 +444,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
 async def test_async_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(
+            logfire.instrument_httpx(  # type: ignore
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,

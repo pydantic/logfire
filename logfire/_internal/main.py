@@ -74,6 +74,8 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from flask.app import Flask
     from opentelemetry.metrics import _Gauge as Gauge
+    from sqlalchemy import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
@@ -1154,8 +1156,7 @@ class Logfire:
         self,
         client: httpx.Client,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1167,8 +1168,7 @@ class Logfire:
         self,
         client: httpx.AsyncClient,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1180,8 +1180,7 @@ class Logfire:
         self,
         client: None = None,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1192,8 +1191,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
-        capture_request_headers: bool = False,
-        capture_response_headers: bool = False,
+        capture_headers: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
         capture_request_form_data: bool = False,
@@ -1210,8 +1208,10 @@ class Logfire:
         Args:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
-            capture_request_headers: Set to `True` to capture all request headers.
-            capture_response_headers: Set to `True` to capture all response headers.
+            capture_headers: Set to `True` to capture all HTTP headers.
+
+                If you don't want to capture all headers, you can customize the headers captured. See the
+                [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
             capture_request_json_body: Set to `True` to capture the request JSON body.
                 Specifically captures the raw request body whenever the content type is `application/json`.
                 Doesn't check if the body is actually JSON.
@@ -1232,8 +1232,7 @@ class Logfire:
         return instrument_httpx(
             self,
             client,
-            capture_request_headers=capture_request_headers,
-            capture_response_headers=capture_response_headers,
+            capture_headers=capture_headers,
             capture_request_json_body=capture_request_json_body,
             capture_response_json_body=capture_response_json_body,
             capture_request_form_data=capture_request_form_data,
@@ -1498,17 +1497,26 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(self, **kwargs)
 
-    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+    def instrument_sqlalchemy(
+        self,
+        engine: AsyncEngine | Engine | None = None,
+        **kwargs: Unpack[SQLAlchemyInstrumentKwargs],
+    ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
         from .integrations.sqlalchemy import instrument_sqlalchemy
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
+            engine=engine,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),

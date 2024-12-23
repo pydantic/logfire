@@ -159,6 +159,7 @@ dev = [
     "logfire-api",
     "requests",
     "setuptools>=75.3.0",
+    "aiosqlite>=0.20.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
@@ -268,8 +269,8 @@ filterwarnings = [
     'ignore:(?s).*aiosqlite/core\.py.*get_loop\(future\).call_soon_threadsafe.*RuntimeError. Event loop is closed:pytest.PytestUnhandledThreadExceptionWarning',
     # This problem is fixed in https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2013, but not the warning.
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
-    # ignore DeprecationWarning from httpx - Marcelo knows why this is happening
-    "ignore:The 'app' shortcut is now deprecated.*:DeprecationWarning:httpx*:",
+    "ignore:The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
+    "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
