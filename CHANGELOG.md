@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v2.11.0] (2024-12-23)
+
+* Add `capture_request_text_body` param to `instrument_httpx` by @alexmojaki in [#722](https://github.com/pydantic/logfire/pull/722)
+* Support for `AnthropicBedrock` client by @stephenhibbert in [#701](https://github.com/pydantic/logfire/pull/701)
+
 ## [v2.10.0] (2024-12-23)
 
 * Add `capture_request_form_data` param to `instrument_httpx` by @alexmojaki in [#711](https://github.com/pydantic/logfire/pull/711)
@@ -493,3 +498,4 @@ First release from new repo!
 [v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0
 [v2.9.0]: https://github.com/pydantic/logfire/compare/v2.8.0...v2.9.0
 [v2.10.0]: https://github.com/pydantic/logfire/compare/v2.9.0...v2.10.0
+[v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
