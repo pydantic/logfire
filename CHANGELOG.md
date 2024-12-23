@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v2.10.0] (2024-12-23)
+
+* Add `capture_request_form_data` param to `instrument_httpx` by @alexmojaki in [#711](https://github.com/pydantic/logfire/pull/711)
+* Replace `capture_(request|response)_headers` with just `capture_headers` in `instrument_httpx` by @Kludex in [#719](https://github.com/pydantic/logfire/pull/719)
+* Support SQLAlchemy `AsyncEngine` by @Kludex in [#717](https://github.com/pydantic/logfire/pull/717)
+
 ## [v2.9.0] (2024-12-20)
 
 * Capture httpx response JSON bodies by @alexmojaki in [#700](https://github.com/pydantic/logfire/pull/700)
@@ -486,3 +492,4 @@ First release from new repo!
 [v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1
 [v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0
 [v2.9.0]: https://github.com/pydantic/logfire/compare/v2.8.0...v2.9.0
+[v2.10.0]: https://github.com/pydantic/logfire/compare/v2.9.0...v2.10.0
