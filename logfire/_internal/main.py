@@ -1102,12 +1102,7 @@ class Logfire:
         import logfire
         import anthropic
 
-        # For regular Anthropic client
         client = anthropic.Anthropic()
-        # Or for Bedrock client
-        client = anthropic.AnthropicBedrock(
-            aws_region='us-east-1', aws_access_key='access-key', aws_secret_key='secret-key'
-        )
 
         logfire.configure()
         logfire.instrument_anthropic(client)

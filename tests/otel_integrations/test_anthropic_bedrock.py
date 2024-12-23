@@ -133,26 +133,15 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
     )
 
 
-def test_is_async_client():
-    """Test is_async_client properly identifies sync and async clients."""
-    # Test class types
+def test_is_async_client() -> None:
+    # Test sync clients
     assert not is_async_client(Anthropic)
     assert not is_async_client(AnthropicBedrock)
+
+    # Test async clients
     assert is_async_client(AsyncAnthropic)
     assert is_async_client(AsyncAnthropicBedrock)
 
-    # Test instances
-    assert not is_async_client(Anthropic(api_key='test'))
-    assert not is_async_client(AnthropicBedrock(aws_region='us-east-1', aws_access_key='test', aws_secret_key='test'))
-    assert is_async_client(AsyncAnthropic(api_key='test'))
-    assert is_async_client(AsyncAnthropicBedrock(aws_region='us-east-1', aws_access_key='test', aws_secret_key='test'))
-
-    # Test invalid types
-    with pytest.raises(
-        TypeError, match='Expected Anthropic, AsyncAnthropic, AnthropicBedrock, or AsyncAnthropicBedrock type'
-    ):
-        is_async_client(str)
-
-    # Test invalid instances
-    assert not is_async_client('not a client')
-    assert not is_async_client(123)
+    # Test invalid input
+    with pytest.raises(AssertionError):
+        is_async_client(str)  # type: ignore

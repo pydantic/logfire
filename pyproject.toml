@@ -76,7 +76,6 @@ requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
-bedrock = ["boto3 >= 1.28.57", "botocore >= 1.31.57"]
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -161,7 +160,9 @@ dev = [
     "requests",
     "setuptools>=75.3.0",
     "aiosqlite>=0.20.0",
-    "boto3-stubs >= 1",
+    "boto3 >= 1.28.57",
+    "botocore >= 1.31.57",
+
 ]
 docs = [
     "mkdocs>=1.5.0",

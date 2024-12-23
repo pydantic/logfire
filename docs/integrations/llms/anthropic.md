@@ -107,18 +107,15 @@ Shows up like this in Logfire:
 # Amazon Bedrock
 You can also log Anthropic LLM calls to Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
 
-To use this integration, you'll need the AWS SDK dependencies:
-- `boto3`
-- `botocore`
-
-You can install them along with other required packages using:
-```pip install -U logfire[bedrock]```
-
 ```
 import anthropic
 import logfire
 
-client = anthropic.AnthropicBedrock()
+client = anthropic.AnthropicBedrock(
+    aws_region='us-east-1',
+    aws_access_key='access-key',
+    aws_secret_key='secret-key',
+)
 
 logfire.configure()
 logfire.instrument_anthropic(client)

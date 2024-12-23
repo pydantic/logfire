@@ -83,14 +83,16 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     return response
 
 
-def is_async_client(client_type: Any) -> bool:
-    """Returns whether the `client` class is async."""
-    if isinstance(client_type, type):
-        if issubclass(client_type, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
-            return False
-        if issubclass(client_type, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)):
-            return True
-        raise TypeError(
-            f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock, or AsyncAnthropicBedrock type, got: {client_type}'
-        )
-    return isinstance(client_type, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock))
+def is_async_client(
+    client: type[anthropic.Anthropic]
+    | type[anthropic.AsyncAnthropic]
+    | type[anthropic.AnthropicBedrock]
+    | type[anthropic.AsyncAnthropicBedrock],
+):
+    """Returns whether or not the `client` class is async."""
+    if issubclass(client, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
+        return False
+    assert issubclass(
+        client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)
+    ), f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
+    return True
