@@ -15,7 +15,7 @@ from opentelemetry.trace.span import Span
 
 import logfire
 import logfire._internal.integrations.httpx
-from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM
+from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM, is_json_type, is_text_type
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
@@ -599,3 +599,29 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_is_json_type():
+    assert is_json_type('application/json')
+    assert is_json_type(' APPLICATION / JSON ')
+    assert is_json_type('application/json; charset=utf-8')
+    assert is_json_type('application/json; charset=potato; foo=bar')
+    assert is_json_type('application/json+ld')
+    assert is_json_type('application/x-json+ld')
+    assert is_json_type('application/ld+xml+json')
+    assert not is_json_type('json')
+    assert not is_json_type('json/application')
+    assert not is_json_type('text/json')
+    assert not is_json_type('other/json')
+    assert not is_json_type('')
+    assert not is_json_type('application/json-x')
+    assert not is_json_type('application//json')
+
+
+def test_is_text_type():
+    assert is_text_type('text/foo')
+    assert is_text_type('application/json')
+    assert is_text_type('application/xml')
+    assert is_text_type('application/foo+xml')
+    assert not is_text_type('application/text')
+    assert not is_text_type('foo/text')
