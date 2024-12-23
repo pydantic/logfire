@@ -355,6 +355,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
+                capture_request_text_body=True,
                 capture_response_headers=True,
                 capture_response_json_body=True,
             )
@@ -448,6 +449,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
+                capture_request_text_body=True,
                 capture_response_headers=True,
                 capture_response_json_body=True,
                 capture_request_form_data=True,
@@ -564,7 +566,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
 
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_request_form_data=True)
+        logfire.instrument_httpx(client, capture_request_form_data=True, capture_request_text_body=True)
         client.post('https://example.org/', data={'form': 'values'})
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -587,6 +589,41 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
                     'logfire.msg': 'POST /',
                     'http.request.body.form': '{"form":"values"}',
                     'logfire.json_schema': '{"type":"object","properties":{"http.request.body.form":{"type":"object"}}}',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            }
+        ]
+    )
+
+
+def test_httpx_client_capture_request_text_body(exporter: TestExporter):
+    with httpx.Client(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_request_text_body=True)
+        client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.request.body.text': 'hello',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
