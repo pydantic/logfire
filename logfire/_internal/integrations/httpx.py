@@ -3,18 +3,20 @@ from __future__ import annotations
 import inspect
 from contextlib import suppress
 from email.message import Message
-from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, cast
 
 import httpx
 import opentelemetry.sdk.trace
 
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire.propagate import attach_context, get_context
 
 try:
-    from opentelemetry.instrumentation.httpx import (
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+    from logfire.integrations.httpx import (
         AsyncRequestHook,
         AsyncResponseHook,
-        HTTPXClientInstrumentor,
         RequestHook,
         RequestInfo,
         ResponseHook,
@@ -32,7 +34,7 @@ from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypedDict, TypeVar, Unpack
+    from typing import ParamSpec, TypedDict, TypeVar
 
     from opentelemetry.trace import Span
 
@@ -60,48 +62,11 @@ if TYPE_CHECKING:
 
     P = ParamSpec('P')
 
-    @overload
-    def instrument_httpx(
-        logfire_instance: Logfire,
-        client: httpx.Client,
-        capture_request_headers: bool,
-        capture_response_headers: bool,
-        capture_request_json_body: bool,
-        capture_response_json_body: bool,
-        capture_request_form_data: bool,
-        **kwargs: Unpack[ClientKwargs],
-    ) -> None: ...
-
-    @overload
-    def instrument_httpx(
-        logfire_instance: Logfire,
-        client: httpx.AsyncClient,
-        capture_request_headers: bool,
-        capture_response_headers: bool,
-        capture_request_json_body: bool,
-        capture_response_json_body: bool,
-        capture_request_form_data: bool,
-        **kwargs: Unpack[AsyncClientKwargs],
-    ) -> None: ...
-
-    @overload
-    def instrument_httpx(
-        logfire_instance: Logfire,
-        client: None,
-        capture_request_headers: bool,
-        capture_response_headers: bool,
-        capture_request_json_body: bool,
-        capture_response_json_body: bool,
-        capture_request_form_data: bool,
-        **kwargs: Unpack[HTTPXInstrumentKwargs],
-    ) -> None: ...
-
 
 def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
-    capture_request_headers: bool,
-    capture_response_headers: bool,
+    capture_headers: bool,
     capture_request_json_body: bool,
     capture_response_json_body: bool,
     capture_request_form_data: bool,
@@ -111,6 +76,21 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
+    capture_request_headers = kwargs.get('capture_request_headers')
+    capture_response_headers = kwargs.get('capture_response_headers')
+
+    if capture_request_headers is not None:
+        warn_at_user_stacklevel(
+            'The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
+        )
+    if capture_response_headers is not None:
+        warn_at_user_stacklevel(
+            'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
+        )
+
+    should_capture_request_headers = capture_request_headers or capture_headers
+    should_capture_response_headers = capture_response_headers or capture_headers
+
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
         'meter_provider': logfire_instance.config.get_meter_provider(),
@@ -127,16 +107,16 @@ def instrument_httpx(
         async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
         async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+            request_hook, should_capture_request_headers, capture_request_json_body, capture_request_form_data
         )
         final_kwargs['response_hook'] = make_response_hook(
-            response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+            response_hook, should_capture_response_headers, capture_response_json_body, logfire_instance
         )
         final_kwargs['async_request_hook'] = make_async_request_hook(
-            async_request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+            async_request_hook, should_capture_request_headers, capture_request_json_body, capture_request_form_data
         )
         final_kwargs['async_response_hook'] = make_async_response_hook(
-            async_response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+            async_response_hook, should_capture_response_headers, capture_response_json_body, logfire_instance
         )
 
         instrumentor.instrument(**final_kwargs)
@@ -146,24 +126,24 @@ def instrument_httpx(
             response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
 
             request_hook = make_async_request_hook(
-                request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+                request_hook, should_capture_request_headers, capture_request_json_body, capture_request_form_data
             )
             response_hook = make_async_response_hook(
-                response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+                response_hook, should_capture_response_headers, capture_response_json_body, logfire_instance
             )
         else:
             request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
             response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
 
             request_hook = make_request_hook(
-                request_hook, capture_request_headers, capture_request_json_body, capture_request_form_data
+                request_hook, should_capture_request_headers, capture_request_json_body, capture_request_form_data
             )
             response_hook = make_response_hook(
-                response_hook, capture_response_headers, capture_response_json_body, logfire_instance
+                response_hook, should_capture_response_headers, capture_response_json_body, logfire_instance
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
+        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
 
 
 def make_request_hook(
@@ -250,7 +230,7 @@ def make_async_response_hook(
 
 
 def capture_response_json(logfire_instance: Logfire, response_info: ResponseInfo, is_async: bool) -> None:
-    headers = cast('httpx.Headers', response_info.headers)
+    headers = response_info.headers
     if not headers.get('content-type', '').lower().startswith('application/json'):
         return
 
@@ -315,11 +295,11 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
 
 
 def capture_response_headers(span: Span, response: ResponseInfo) -> None:
-    capture_headers(span, cast('httpx.Headers', response.headers), 'response')
+    capture_headers(span, response.headers, 'response')
 
 
 def capture_request_headers(span: Span, request: RequestInfo) -> None:
-    capture_headers(span, cast('httpx.Headers', request.headers), 'request')
+    capture_headers(span, request.headers, 'request')
 
 
 def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']) -> None:
@@ -348,7 +328,7 @@ def decode_body(body: bytes, content_type: str):
 
 
 def capture_request_body(span: Span, request: RequestInfo) -> None:
-    content_type = cast('httpx.Headers', request.headers).get('content-type', '').lower()
+    content_type = request.headers.get('content-type', '').lower()
     if not isinstance(request.stream, httpx.ByteStream):
         return
     if not content_type.startswith('application/json'):
@@ -373,7 +353,7 @@ CODES_FOR_METHODS_WITH_DATA_PARAM = [
 
 
 def capture_request_form_data(span: Span, request: RequestInfo) -> None:
-    content_type = cast('httpx.Headers', request.headers).get('content-type', '')
+    content_type = request.headers.get('content-type', '')
     if content_type != 'application/x-www-form-urlencoded':
         return
 

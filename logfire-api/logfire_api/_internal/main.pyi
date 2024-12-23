@@ -38,6 +38,8 @@ from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Up
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
 from opentelemetry.util import types as otel_types
+from sqlalchemy import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
@@ -551,11 +553,11 @@ class Logfire:
     def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
-    def instrument_httpx(self, client: httpx.Client, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
     @overload
-    def instrument_httpx(self, client: None = None, capture_request_headers: bool = False, capture_response_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
+    def instrument_httpx(self, client: None = None, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
@@ -700,12 +702,16 @@ class Logfire:
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
     def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]) -> SQLite3Connection:
         """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
