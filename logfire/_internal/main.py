@@ -25,7 +25,7 @@ import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext, Tracer
+from opentelemetry.trace import Link, SpanContext, Tracer
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -165,7 +165,7 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
-        _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _links: Sequence[Link | SpanContext | tuple[SpanContext, otel_types.Attributes]] = (),
     ) -> LogfireSpan:
         try:
             stack_info = get_user_stack_info()
@@ -505,7 +505,7 @@ class Logfire:
         _tags: Sequence[str] | None = None,
         _span_name: str | None = None,
         _level: LevelName | None = None,
-        _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _links: Sequence[Link | SpanContext | tuple[SpanContext, otel_types.Attributes]] = (),
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -524,7 +524,7 @@ class Logfire:
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
-            _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _links: An optional sequence of links to other spans.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -1991,13 +1991,22 @@ class LogfireSpan(ReadableSpan):
         otlp_attributes: dict[str, otel_types.AttributeValue],
         tracer: Tracer,
         json_schema_properties: JsonSchemaProperties,
-        links: Sequence[tuple[SpanContext, otel_types.Attributes]],
+        links: Sequence[Link | SpanContext | tuple[SpanContext, otel_types.Attributes]],
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._json_schema_properties = json_schema_properties
-        self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
+
+        self._links: list[Link] = []
+        for link in links:
+            if isinstance(link, Link):
+                self._links.append(link)
+            elif isinstance(link, SpanContext):
+                self._links.append(trace_api.Link(context=link))
+            else:
+                context, attributes = link
+                self._links.append(trace_api.Link(context=context, attributes=attributes))
 
         self._added_attributes = False
         self._token: None | object = None
@@ -2099,7 +2108,7 @@ class LogfireSpan(ReadableSpan):
 
     def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
         if self._span is None:
-            self._links += [trace_api.Link(context=context, attributes=attributes)]
+            self._links += [trace_api.Link(context=context)]
         else:
             self._span.add_link(context, attributes)
 
