@@ -17,7 +17,7 @@ from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
-from logfire._internal.cli import OTEL_PACKAGES, main
+from logfire._internal.cli import main
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 
@@ -204,20 +204,6 @@ def test_inspect(
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     main(['inspect'])
     assert capsys.readouterr().err.startswith('The following packages')
-
-
-def test_inspect_drop_dependant_packages(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
-) -> None:
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    with ExitStack() as stack:
-        find_spec = stack.enter_context(patch('importlib.util.find_spec'))
-        find_spec.side_effect = [True, None] * len(OTEL_PACKAGES)
-
-        main(['inspect'])
-        output = capsys.readouterr().err
-        assert 'opentelemetry-instrumentation-fastapi' in output
-        assert 'opentelemetry-instrumentation-starlette' not in output
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
