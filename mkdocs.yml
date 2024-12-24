@@ -89,6 +89,7 @@ nav:
       - Export your Logfire Data: how-to-guides/query-api.md
       - Scrub Sensitive Data: how-to-guides/scrubbing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
+      - Suppress Spans and Metrics: how-to-guides/suppress.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
