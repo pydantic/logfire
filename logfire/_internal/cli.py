@@ -5,13 +5,16 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
+import importlib.metadata
 import importlib.util
 import logging
 import os
 import platform
+import re
 import sys
 import warnings
 import webbrowser
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterator, cast
 from urllib.parse import urljoin, urlparse
@@ -195,6 +198,7 @@ OTEL_PACKAGES: set[str] = {
     'urllib3',
 }
 OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
+STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 
 
 def parse_inspect(args: argparse.Namespace) -> None:
@@ -207,11 +211,23 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
+    packages_to_inspect = OTEL_PACKAGES
+    if args.ignore_standard_library:
+        packages_to_inspect -= STANDARD_LIBRARY_PACKAGES
+    if args.ignore_package:
+        packages_to_inspect -= set(args.ignore_package)
+
+    required_by = _build_required_by()
+
     packages: dict[str, str] = {}
-    for name in OTEL_PACKAGES:
+    for name in packages_to_inspect:
         # Check if the package can be imported (without actually importing it).
         if importlib.util.find_spec(name) is None:
             continue
+        else:
+            # Skip packages that are not required by any other package.
+            if len([req for req in required_by[name] if not req.startswith('opentelemetry')]) == 0:
+                continue
 
         otel_package = OTEL_PACKAGE_LINK.get(name, name)
         otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
@@ -220,14 +236,19 @@ def parse_inspect(args: argparse.Namespace) -> None:
             packages[name] = otel_package
 
     # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):
+    if packages.get('starlette') and len(required_by['starlette'] - {'fastapi'}) == 0:
         del packages['starlette']
+    if packages.get('urllib3') and len(required_by['urllib3'] - {'requests'}) == 0:
+        del packages['urllib3']
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
         import_name = otel_package.replace('-', '_')
         link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
         table.add_row(name, link)
+
+    if not packages:
+        return
 
     console.print(
         'The following packages from your environment have an OpenTelemetry instrumentation that is not installed:'
@@ -243,6 +264,32 @@ def parse_inspect(args: argparse.Namespace) -> None:
         console.print(f'[cyan]{install_command}[/cyan]', soft_wrap=True)
         console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
         console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
+
+    if args.explain:
+        console.print('\n[bold]Explanation:[/]')
+        for name, otel_package in packages.items():
+            required_by_name = required_by[name]
+            if required_by_name:
+                console.print(f'\n[bold]{name}[/] is required by:')
+                for req in required_by_name:
+                    console.print(f'  - {req}')
+
+
+# Package name should only include digits, letters, underscores, and hyphens.
+ONLY_PACKAGE_NAME = re.compile(r'^(?P<name>[a-zA-Z0-9_-]+)')
+
+
+def _build_required_by() -> dict[str, set[str]]:
+    """Build a dictionary of packages and their dependencies."""
+    required_by: defaultdict[str, set[str]] = defaultdict(set)
+    for package in importlib.metadata.distributions():
+        if package.requires is None:
+            continue
+        for requirement in package.requires:
+            match = ONLY_PACKAGE_NAME.match(requirement)
+            assert match is not None
+            required_by[match.group('name')].add(package.metadata['Name'])
+    return required_by
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -438,6 +485,9 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
+    cmd_inspect.add_argument('--ignore-standard-library', action='store_true', help='ignore standard library packages')
+    cmd_inspect.add_argument('--ignore-package', action='append', help='ignore a package')
+    cmd_inspect.add_argument('--explain', action='store_true', help='explain the output')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
