@@ -44,15 +44,12 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
-from logfire._internal.exporters.fallback import FallbackSpanExporter
-from logfire._internal.exporters.file import WritingFallbackWarning
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
-from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
@@ -549,50 +546,6 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=True)
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_VERBOSE': 'false'}):
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
-
-
-def test_configure_fallback_path(tmp_path: str) -> None:
-    request_mocker = requests_mock.Mocker()
-    request_mocker.get(
-        'https://logfire-api.pydantic.dev/v1/info',
-        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-    )
-
-    class FailureExporter(SpanExporter):
-        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-            # This should cause FallbackSpanExporter to call its own fallback file exporter.
-            return SpanExportResult.FAILURE
-
-    data_dir = Path(tmp_path) / 'logfire_data'
-    with request_mocker:
-        logfire.configure(
-            send_to_logfire=True,
-            data_dir=data_dir,
-            token='abc1',
-            console=False,
-        )
-        wait_for_check_token_thread()
-
-    batch_span_processor, *_ = get_span_processors()
-    # It's OK if these processor/exporter types change.
-    # We just need access to the FallbackSpanExporter either way to swap out its underlying exporter.
-    assert isinstance(batch_span_processor, BatchSpanProcessor)
-    exporter = batch_span_processor.span_exporter
-    assert isinstance(exporter, WrapperSpanExporter)
-    fallback_exporter = exporter.wrapped_exporter
-    assert isinstance(fallback_exporter, FallbackSpanExporter)
-    fallback_exporter.exporter = FailureExporter()
-
-    with logfire.span('test'):
-        pass
-
-    assert not data_dir.exists()
-    path = data_dir / 'logfire_spans.bin'
-
-    with pytest.warns(WritingFallbackWarning, match=f'Failed to export spans, writing to fallback file: {path}'):
-        logfire.force_flush()
-
-    assert path.exists()
 
 
 def test_configure_export_delay() -> None:

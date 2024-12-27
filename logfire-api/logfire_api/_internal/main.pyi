@@ -4,6 +4,7 @@ import openai
 import opentelemetry.trace as trace_api
 import requests
 from . import async_ as async_
+from ..integrations.flask import CommenterOptions as CommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
@@ -12,9 +13,7 @@ from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY,
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
-from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
-from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaHandler as LambdaHandler
-from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
+from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
 from .integrations.httpx import AsyncClientKwargs as AsyncClientKwargs, ClientKwargs as ClientKwargs, HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
 from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
@@ -34,6 +33,7 @@ from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
+from opentelemetry.context import Context as Context
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
@@ -548,7 +548,7 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
+    def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
     def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_text_body: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
@@ -566,7 +566,7 @@ class Logfire:
         Args:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
-    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[Span, HttpRequest], None] | None = None, response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None, response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
 
         Uses the
@@ -625,7 +625,7 @@ class Logfire:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
-    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: CommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -635,6 +635,12 @@ class Logfire:
         Args:
             app: The Flask app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
+                See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
+            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
     def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
@@ -725,12 +731,17 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
         """
-    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, event_context_extractor: Callable[[LambdaEvent], Context] | None = None, **kwargs: Any) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
         [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
         library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            lambda_handler: The lambda handler function to instrument.
+            event_context_extractor: A function that returns an OTel Trace Context given the Lambda Event the AWS.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
