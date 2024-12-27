@@ -129,7 +129,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             return sa_schema
         elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             return _dataclass_schema(obj, seen)
-        elif is_attrs(obj):
+        elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
 
         global _type_to_schema
