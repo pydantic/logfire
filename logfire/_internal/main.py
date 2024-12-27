@@ -88,6 +88,10 @@ if TYPE_CHECKING:
         RequestHook as FlaskRequestHook,
         ResponseHook as FlaskResponseHook,
     )
+    from ..integrations.wsgi import (
+        RequestHook as WSGIRequestHook,
+        ResponseHook as WSGIResponseHook,
+    )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
@@ -98,7 +102,6 @@ if TYPE_CHECKING:
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-    from .integrations.wsgi import WSGIInstrumentKwargs
     from .utils import SysExcInfo
 
     # This is the type of the exc_info/_exc_info parameter of the log methods.
@@ -1530,7 +1533,9 @@ class Logfire:
         self,
         app: WSGIApplication,
         capture_headers: bool = False,
-        **kwargs: Unpack[WSGIInstrumentKwargs],
+        request_hook: WSGIRequestHook | None = None,
+        response_hook: WSGIResponseHook | None = None,
+        **kwargs: Any,
     ) -> WSGIApplication:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1543,6 +1548,8 @@ class Logfire:
         Args:
             app: The WSGI application to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry WSGI middleware.
 
         Returns:
@@ -1551,7 +1558,17 @@ class Logfire:
         from .integrations.wsgi import instrument_wsgi
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_wsgi(self, app, capture_headers=capture_headers, **kwargs)
+        return instrument_wsgi(
+            app,
+            capture_headers=capture_headers,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_aiohttp_client(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
