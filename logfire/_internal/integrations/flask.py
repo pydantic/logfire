@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from flask.app import Flask
 
 try:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_flask()` requires the `opentelemetry-instrumentation-flask` package.\n'
@@ -13,31 +14,20 @@ except ImportError:
         "    pip install 'logfire[flask]'"
     )
 
-from logfire import Logfire
 from logfire._internal.utils import maybe_capture_server_headers
-
-if TYPE_CHECKING:
-    from wsgiref.types import WSGIEnvironment
-
-    from opentelemetry.trace import Span
-    from typing_extensions import Protocol, TypedDict, Unpack
-
-    class RequestHook(Protocol):
-        def __call__(self, span: Span, environment: WSGIEnvironment) -> None: ...
-
-    class ResponseHook(Protocol):
-        def __call__(self, span: Span, status: str, response_headers: list[tuple[str, str]]) -> None: ...
-
-    class FlaskInstrumentKwargs(TypedDict, total=False):
-        request_hook: RequestHook | None
-        response_hook: RequestHook | None
-        excluded_urls: str | None
-        enable_commenter: bool | None
-        commenter_options: dict[str, str] | None
+from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHook
 
 
 def instrument_flask(
-    logfire_instance: Logfire, app: Flask, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
+    app: Flask,
+    *,
+    capture_headers: bool,
+    enable_commenter: bool,
+    commenter_options: CommenterOptions | None,
+    exclude_urls: str | None = None,
+    request_hook: RequestHook | None = None,
+    response_hook: ResponseHook | None = None,
+    **kwargs: Any,
 ):
     """Instrument `app` so that spans are automatically created for each request.
 
@@ -46,9 +36,10 @@ def instrument_flask(
     maybe_capture_server_headers(capture_headers)
     FlaskInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
         app,
-        **{  # type: ignore
-            'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        },
+        enable_commenter=enable_commenter,
+        commenter_options=commenter_options,
+        excluded_urls=exclude_urls,
+        request_hook=request_hook,
+        response_hook=response_hook,
+        **kwargs,
     )

@@ -82,9 +82,13 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from ..integrations.flask import (
+        CommenterOptions,
+        RequestHook as FlaskRequestHook,
+        ResponseHook as FlaskResponseHook,
+    )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
-    from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
@@ -1393,7 +1397,16 @@ class Logfire:
         return instrument_psycopg(self, conn_or_module, **kwargs)
 
     def instrument_flask(
-        self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
+        self,
+        app: Flask,
+        *,
+        capture_headers: bool = False,
+        enable_commenter: bool = True,
+        commenter_options: CommenterOptions | None = None,
+        exclude_urls: str | None = None,
+        request_hook: FlaskRequestHook | None = None,
+        response_hook: FlaskResponseHook | None = None,
+        **kwargs: Any,
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1404,12 +1417,31 @@ class Logfire:
         Args:
             app: The Flask app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
+                See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
+            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
         from .integrations.flask import instrument_flask
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_flask(self, app, capture_headers=capture_headers, **kwargs)
+        return instrument_flask(
+            app,
+            capture_headers=capture_headers,
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options,
+            exclude_urls=exclude_urls,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_starlette(
         self,
