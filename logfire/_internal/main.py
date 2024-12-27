@@ -23,6 +23,7 @@ from typing import (
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
+from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
@@ -82,8 +83,7 @@ if TYPE_CHECKING:
     from typing_extensions import Unpack
 
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
-    from .integrations.asyncpg import AsyncPGInstrumentKwargs
-    from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
+    from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.flask import FlaskInstrumentKwargs
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
@@ -1154,12 +1154,18 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
+    def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asyncpg(self, **kwargs)
+        return instrument_asyncpg(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     @overload
     def instrument_httpx(
@@ -1569,18 +1575,29 @@ class Logfire:
             },
         )
 
-    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(
+        self,
+        lambda_handler: LambdaHandler,
+        event_context_extractor: Callable[[LambdaEvent], Context] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
         [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
         library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            lambda_handler: The lambda handler function to instrument.
+            event_context_extractor: A function that returns an OTel Trace Context given the Lambda Event the AWS.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
         from .integrations.aws_lambda import instrument_aws_lambda
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aws_lambda(
             lambda_handler=lambda_handler,
+            event_context_extractor=event_context_extractor,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
