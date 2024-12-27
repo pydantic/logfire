@@ -2108,7 +2108,7 @@ class LogfireSpan(ReadableSpan):
 
     def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
         if self._span is None:
-            self._links += [trace_api.Link(context=context)]
+            self._links += [trace_api.Link(context=context, attributes=attributes)]
         else:
             self._span.add_link(context, attributes)
 
