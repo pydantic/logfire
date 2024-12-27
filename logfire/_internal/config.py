@@ -60,7 +60,6 @@ from logfire.version import VERSION
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
-    DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
@@ -75,8 +74,6 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.fallback import FallbackSpanExporter
-from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -849,9 +846,6 @@ class LogfireConfig(_LogfireConfigData):
                         compression=Compression.Gzip,
                     )
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                    span_exporter = FallbackSpanExporter(
-                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
-                    )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                     add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
