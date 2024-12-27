@@ -30,11 +30,6 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 ![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
 
-## Backfill (`backfill`)
-
-!!! warning "🚧 Work in Progress 🚧"
-    This section is yet to be written, [contact us](../help.md) if you have any questions.
-
 ## Clean (`clean`)
 
 To clean _most_ the files created by **Logfire**, run the following command:

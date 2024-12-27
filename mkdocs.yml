@@ -134,7 +134,6 @@ nav:
       - Advanced:
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
-          - Backfill: reference/advanced/backfill.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization-structure.md
@@ -229,7 +228,6 @@ plugins:
         "guides/web_ui/explore.md": "guides/web-ui/explore.md"
         "guides/advanced/generators.md": "reference/advanced/generators.md"
         "guides/advanced/testing.md": "reference/advanced/testing.md"
-        "guides/advanced/backfill.md": "reference/advanced/backfill.md"
         "guides/advanced/query_api.md": "how-to-guides/query-api.md"
         "guides/advanced/query-api.md": "how-to-guides/query-api.md"
         "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"

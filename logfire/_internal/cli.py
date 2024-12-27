@@ -7,27 +7,23 @@ import functools
 import importlib
 import importlib.util
 import logging
-import os
 import platform
 import sys
 import warnings
 import webbrowser
 from pathlib import Path
-from typing import Any, Iterator, cast
-from urllib.parse import urljoin, urlparse
+from typing import Any, cast
+from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
 from rich.console import Console
-from rich.progress import Progress
 from rich.table import Table
 
-import logfire
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
-from . import config as logfire_config
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from .config import LogfireCredentials
 from .config_params import ParamManager
@@ -107,53 +103,6 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')
-
-
-# TODO(Marcelo): Add tests for this command.
-def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
-    """Bulk upload data to Logfire."""
-    data_dir = Path(args.data_dir)
-    credentials = LogfireCredentials.load_creds_file(data_dir)
-    if credentials is None:
-        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
-        sys.exit(1)
-
-    file = Path(args.file)
-    if not file.exists():
-        sys.stderr.write(f'No backfill file found at {file.resolve()}\n')
-        sys.exit(1)
-
-    logfire_url = cast(str, args.logfire_url)
-    logfire.configure(data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=logfire_url))
-    config = logfire_config.GLOBAL_CONFIG
-    config.initialize()
-    token = config.token
-    assert token is not None  # if no token was available a new project should have been created
-    console = Console(file=sys.stderr)
-    with Progress(console=console) as progress:
-        total = os.path.getsize(file)
-        task = progress.add_task('Backfilling...', total=total)
-        with file.open('rb') as f:
-
-            def reader() -> Iterator[bytes]:
-                while True:
-                    data = f.read(1024 * 1024)
-                    if not data:
-                        return
-                    yield data
-                    progress.update(task, completed=f.tell())
-
-            url = urljoin(config.advanced.base_url, '/v1/backfill/traces')
-            response = requests.post(
-                url, data=reader(), headers={'Authorization': token, 'User-Agent': f'logfire/{VERSION}'}
-            )
-            if response.status_code != 200:
-                try:
-                    data = response.json()
-                except requests.JSONDecodeError:
-                    data = response.text
-                console.print(data)
-                sys.exit(1)
 
 
 # TODO(Marcelo): Automatically check if this list should be updated.
@@ -421,11 +370,6 @@ def _main(args: list[str] | None = None) -> None:
     # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
     cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
     cmd_auth.set_defaults(func=parse_auth)
-
-    cmd_backfill = subparsers.add_parser('backfill', help=parse_backfill.__doc__)
-    cmd_backfill.set_defaults(func=parse_backfill)
-    cmd_backfill.add_argument('--data-dir', default='.logfire')
-    cmd_backfill.add_argument('--file', default='logfire_spans.bin')
 
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
     cmd_clean.set_defaults(func=parse_clean)
