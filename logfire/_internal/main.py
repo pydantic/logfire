@@ -1288,8 +1288,8 @@ class Logfire:
         self,
         capture_headers: bool = False,
         is_sql_commentor_enabled: bool | None = None,
-        request_hook: Callable[[Span, HttpRequest], None] | None = None,
-        response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
+        request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None,
+        response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None,
         excluded_urls: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -1327,13 +1327,16 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_django(
-            self,
             capture_headers=capture_headers,
             is_sql_commentor_enabled=is_sql_commentor_enabled,
             request_hook=request_hook,
             response_hook=response_hook,
             excluded_urls=excluded_urls,
-            **kwargs,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
         )
 
     def instrument_requests(
