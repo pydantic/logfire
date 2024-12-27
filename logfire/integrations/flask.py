@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 RequestHook = Callable[[Span, 'WSGIEnvironment'], None]
 """A hook that is called before a request is processed."""
-ResponseHook = Callable[[Span, str, list[tuple[str, str]]], None]
+ResponseHook = Callable[[Span, str, 'list[tuple[str, str]]'], None]
 """A hook that is called after a response is processed."""
 
 
