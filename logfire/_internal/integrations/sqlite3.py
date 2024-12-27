@@ -15,7 +15,7 @@ except ImportError:
     )
 
 
-SQLite3Connection = TypeVar('SQLite3Connection', bound='sqlite3.Connection | None')
+SQLite3Connection = TypeVar('SQLite3Connection', sqlite3.Connection, None)
 
 
 def instrument_sqlite3(*, conn: SQLite3Connection, tracer_provider: TracerProvider, **kwargs: Any) -> SQLite3Connection:
