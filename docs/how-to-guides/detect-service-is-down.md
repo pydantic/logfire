@@ -1,4 +1,4 @@
-For now, **Logfire** doesn't have a built-in way to detect if a service is down. In the sense that we don't ping
+For now, **Logfire** doesn't have a built-in way to detect if a service is down, in the sense that we don't ping
 services via HTTP or any other protocol to check if they are up or down.
 
 ??? info "For now we don't have it, but..."
