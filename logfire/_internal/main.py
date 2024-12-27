@@ -23,6 +23,7 @@ from typing import (
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
+from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
@@ -81,10 +82,13 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from ..integrations.flask import (
+        CommenterOptions,
+        RequestHook as FlaskRequestHook,
+        ResponseHook as FlaskResponseHook,
+    )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
-    from .integrations.asyncpg import AsyncPGInstrumentKwargs
-    from .integrations.aws_lambda import AwsLambdaInstrumentKwargs, LambdaHandler
-    from .integrations.flask import FlaskInstrumentKwargs
+    from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
     from .integrations.psycopg import PsycopgInstrumentKwargs
@@ -1154,12 +1158,18 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
+    def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_asyncpg(self, **kwargs)
+        return instrument_asyncpg(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     @overload
     def instrument_httpx(
@@ -1282,8 +1292,8 @@ class Logfire:
         self,
         capture_headers: bool = False,
         is_sql_commentor_enabled: bool | None = None,
-        request_hook: Callable[[Span, HttpRequest], None] | None = None,
-        response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None,
+        request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None,
+        response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None,
         excluded_urls: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -1321,13 +1331,16 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_django(
-            self,
             capture_headers=capture_headers,
             is_sql_commentor_enabled=is_sql_commentor_enabled,
             request_hook=request_hook,
             response_hook=response_hook,
             excluded_urls=excluded_urls,
-            **kwargs,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
         )
 
     def instrument_requests(
@@ -1384,7 +1397,16 @@ class Logfire:
         return instrument_psycopg(self, conn_or_module, **kwargs)
 
     def instrument_flask(
-        self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]
+        self,
+        app: Flask,
+        *,
+        capture_headers: bool = False,
+        enable_commenter: bool = True,
+        commenter_options: CommenterOptions | None = None,
+        exclude_urls: str | None = None,
+        request_hook: FlaskRequestHook | None = None,
+        response_hook: FlaskResponseHook | None = None,
+        **kwargs: Any,
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1395,12 +1417,31 @@ class Logfire:
         Args:
             app: The Flask app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
+                See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
+            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
         from .integrations.flask import instrument_flask
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_flask(self, app, capture_headers=capture_headers, **kwargs)
+        return instrument_flask(
+            app,
+            capture_headers=capture_headers,
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options,
+            exclude_urls=exclude_urls,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_starlette(
         self,
@@ -1569,18 +1610,29 @@ class Logfire:
             },
         )
 
-    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(
+        self,
+        lambda_handler: LambdaHandler,
+        event_context_extractor: Callable[[LambdaEvent], Context] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
         [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
         library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            lambda_handler: The lambda handler function to instrument.
+            event_context_extractor: A function that returns an OTel Trace Context given the Lambda Event the AWS.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
         from .integrations.aws_lambda import instrument_aws_lambda
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aws_lambda(
             lambda_handler=lambda_handler,
+            event_context_extractor=event_context_extractor,
             **{  # type: ignore
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),

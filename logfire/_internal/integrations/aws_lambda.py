@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 try:
     from opentelemetry.context import Context
     from opentelemetry.instrumentation.aws_lambda import AwsLambdaInstrumentor
@@ -14,15 +12,10 @@ except ImportError:
         "    pip install 'logfire[aws-lambda]'"
     )
 
-if TYPE_CHECKING:
-    from typing import Any, Callable, TypedDict, Unpack
+from typing import Any, Callable
 
-    LambdaEvent = Any
-    LambdaHandler = Callable[[LambdaEvent, Any], Any]
-
-    class AwsLambdaInstrumentKwargs(TypedDict, total=False):
-        skip_dep_check: bool
-        event_context_extractor: Callable[[LambdaEvent], Context]
+LambdaEvent = Any
+LambdaHandler = Callable[[LambdaEvent, Any], Any]
 
 
 def instrument_aws_lambda(
@@ -30,10 +23,13 @@ def instrument_aws_lambda(
     *,
     tracer_provider: TracerProvider,
     meter_provider: MeterProvider,
-    **kwargs: Unpack[AwsLambdaInstrumentKwargs],
+    event_context_extractor: Callable[[LambdaEvent], Context] | None = None,
+    **kwargs: Any,
 ) -> None:
     """Instrument the AWS Lambda runtime so that spans are automatically created for each invocation.
 
     See the `Logfire.instrument_aws_lambda` method for details.
     """
+    if event_context_extractor is not None:
+        kwargs['event_context_extractor'] = event_context_extractor
     return AwsLambdaInstrumentor().instrument(tracer_provider=tracer_provider, meter_provider=meter_provider, **kwargs)
