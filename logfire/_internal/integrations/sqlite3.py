@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import Any, TypeVar
+
+from opentelemetry.trace import TracerProvider
 
 try:
     from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
@@ -12,20 +14,11 @@ except ImportError:
         "    pip install 'logfire[sqlite3]'"
     )
 
-if TYPE_CHECKING:
-    from typing import TypedDict, TypeVar, Unpack
 
-    from opentelemetry.trace import TracerProvider
-
-    SQLite3Connection = TypeVar('SQLite3Connection', bound=sqlite3.Connection | None)
-
-    class SQLite3InstrumentKwargs(TypedDict, total=False):
-        skip_dep_check: bool
+SQLite3Connection = TypeVar('SQLite3Connection', bound=sqlite3.Connection | None)
 
 
-def instrument_sqlite3(
-    *, conn: SQLite3Connection, tracer_provider: TracerProvider, **kwargs: Unpack[SQLite3InstrumentKwargs]
-) -> SQLite3Connection:
+def instrument_sqlite3(*, conn: SQLite3Connection, tracer_provider: TracerProvider, **kwargs: Any) -> SQLite3Connection:
     """Instrument the `sqlite3` module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_sqlite3` method for details.
