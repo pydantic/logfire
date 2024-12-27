@@ -259,7 +259,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
             return sa_data
         elif dataclasses.is_dataclass(o):
             return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o) if f.repr}
-        elif is_attrs(o):
+        elif is_attrs(o.__class__):
             return _get_attrs_data(o, seen)
 
         # Check the class type and its superclasses for a matching encoder
@@ -304,11 +304,12 @@ def is_sqlalchemy(obj: Any) -> bool:
         return False
 
 
-def is_attrs(obj: Any) -> bool:
+@lru_cache
+def is_attrs(cls: type) -> bool:
     try:
         import attrs
 
-        return attrs.has(obj.__class__)
+        return attrs.has(cls)
     except ModuleNotFoundError:  # pragma: no cover
         return False
 
