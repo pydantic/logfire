@@ -74,6 +74,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
+    from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -100,7 +101,6 @@ if TYPE_CHECKING:
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
-    from .integrations.starlette import StarletteInstrumentKwargs
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
 
@@ -1452,7 +1452,10 @@ class Logfire:
         *,
         capture_headers: bool = False,
         record_send_receive: bool = False,
-        **kwargs: Unpack[StarletteInstrumentKwargs],
+        server_request_hook: ServerRequestHook | None = None,
+        client_request_hook: ClientRequestHook | None = None,
+        client_response_hook: ClientResponseHook | None = None,
+        **kwargs: Any,
     ) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
@@ -1468,6 +1471,9 @@ class Logfire:
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            server_request_hook: A function that receives a server span and the ASGI scope for every incoming request.
+            client_request_hook: A function that receives a span, the ASGI scope and the receive ASGI message for every ASGI receive event.
+            client_response_hook: A function that receives a span, the ASGI scope and the send ASGI message for every ASGI send event.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Starlette instrumentation.
         """
         from .integrations.starlette import instrument_starlette
@@ -1478,6 +1484,9 @@ class Logfire:
             app,
             record_send_receive=record_send_receive,
             capture_headers=capture_headers,
+            server_request_hook=server_request_hook,
+            client_request_hook=client_request_hook,
+            client_response_hook=client_response_hook,
             **kwargs,
         )
 
