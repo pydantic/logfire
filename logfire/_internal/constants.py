@@ -173,9 +173,6 @@ RESOURCE_ATTRIBUTES_CODE_WORK_DIR = 'logfire.code.work_dir'
 OTLP_MAX_INT_SIZE = 2**63 - 1
 """OTLP only supports signed 64-bit integers, larger integers get sent as strings."""
 
-DEFAULT_FALLBACK_FILE_NAME = 'logfire_spans.bin'
-"""The default name of the fallback file, used when the API is unreachable."""
-
 ATTRIBUTES_SAMPLE_RATE_KEY = 'logfire.sample_rate'
 """Key in attributes that indicates the sample rate for this span."""
 

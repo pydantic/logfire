@@ -96,7 +96,7 @@ if TYPE_CHECKING:
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
-    from .integrations.sqlite3 import SQLite3Connection, SQLite3InstrumentKwargs
+    from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .integrations.wsgi import WSGIInstrumentKwargs
     from .utils import SysExcInfo
@@ -1592,9 +1592,7 @@ class Logfire:
             },
         )
 
-    def instrument_sqlite3(
-        self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]
-    ) -> SQLite3Connection:
+    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Any) -> SQLite3Connection:
         """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
 
         Uses the
@@ -1611,13 +1609,7 @@ class Logfire:
         from .integrations.sqlite3 import instrument_sqlite3
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_sqlite3(
-            conn=conn,
-            **{  # type: ignore
-                'tracer_provider': self._config.get_tracer_provider(),
-                **kwargs,
-            },
-        )
+        return instrument_sqlite3(conn=conn, **{'tracer_provider': self._config.get_tracer_provider(), **kwargs})
 
     def instrument_aws_lambda(
         self,

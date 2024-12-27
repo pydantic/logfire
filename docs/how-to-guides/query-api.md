@@ -1,4 +1,4 @@
-Logfire provides a web API for programmatically running arbitrary SQL queries against the data in your Logfire projects.
+**Logfire** provides a web API for programmatically running arbitrary SQL queries against the data in your **Logfire** projects.
 This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to leverage
 your data in a variety of ways.
 
