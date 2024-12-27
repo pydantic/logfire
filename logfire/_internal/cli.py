@@ -361,8 +361,6 @@ def parse_info(_args: argparse.Namespace) -> None:
     """Show versions of logfire, OS and related packages."""
     import importlib.metadata as importlib_metadata
 
-    from rich.syntax import Syntax
-
     # get data about packages that are closely related to logfire
     package_names = {
         # use by otel to send data
@@ -397,16 +395,14 @@ def parse_info(_args: argparse.Namespace) -> None:
         if name.startswith('opentelemetry'):
             related_packages.append((otel_index, name, version))
 
-    toml_lines = (
+    toml_lines: tuple[str, ...] = (
         f'logfire="{VERSION}"',
         f'platform="{platform.platform()}"',
         f'python="{sys.version}"',
         '[related_packages]',
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
-    console = Console(file=sys.stderr)
-    # use background_color='default' to avoid rich's annoying background color that messes up copy-pasting
-    console.print(Syntax('\n'.join(toml_lines), 'toml', background_color='default', word_wrap=True))
+    sys.stderr.writelines('\n'.join(toml_lines) + '\n')
 
 
 def _main(args: list[str] | None = None) -> None:
