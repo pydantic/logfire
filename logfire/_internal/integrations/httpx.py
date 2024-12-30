@@ -296,12 +296,12 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     @cached_property
     def response(self) -> httpx.Response:
         frame = inspect.currentframe().f_back.f_back  # type: ignore
-        while frame:
+        while frame:  # pragma: no branch
             response = frame.f_locals.get('response')
             frame = frame.f_back
             if isinstance(response, httpx.Response):
                 return response
-        raise RuntimeError('Could not find the response object')
+        raise RuntimeError('Could not find the response object')  # pragma: no cover
 
     def on_response_read(self, hook: Callable[[LogfireSpan], None]):
         if self.is_async:
