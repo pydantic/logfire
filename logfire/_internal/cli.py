@@ -359,9 +359,9 @@ def parse_info(_args: argparse.Namespace) -> None:
 
 
 def _pretty_table(header: list[str], rows: list[list[str]]):
-    rows = [header] + rows
+    rows = [[' ' + first, *rest] for first, *rest in [header] + rows]
     widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
-    lines = ['   | '.join(cell.ljust(width) for cell, width in zip(row, widths)).strip() for row in rows]
+    lines = ['   | '.join(cell.ljust(width) for cell, width in zip(row, widths)) for row in rows]
     header_line = '---|-'.join('-' * width for width in widths)
     lines.insert(1, header_line)
     return '\n'.join(lines) + '\n'
