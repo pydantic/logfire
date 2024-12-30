@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 import requests
 from opentelemetry import trace
 from rich.console import Console
-from rich.table import Table
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
@@ -244,18 +243,15 @@ def parse_auth(args: argparse.Namespace) -> None:
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     logfire_url = args.logfire_url
-    console = Console(file=sys.stderr)
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     if projects:
-        table = Table()
-        table.add_column('Organization')
-        table.add_column('Project')
+        sys.stderr.write(f' {"Organization":<18} | Project\n')
+        sys.stderr.write(f'{"-" * 20}|{"-" * 18}\n')
         for project in projects:
-            table.add_row(project['organization_name'], project['project_name'])
-        console.print(table)
+            sys.stderr.write(f' {project["organization_name"]:<18} | {project["project_name"]}\n')
     else:
-        console.print(
-            'No projects found for the current user. You can create a new project with `logfire projects new`'
+        sys.stderr.write(
+            'No projects found for the current user. You can create a new project with `logfire projects new`\n'
         )
 
 
