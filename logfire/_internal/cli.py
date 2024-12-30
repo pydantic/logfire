@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
+import importlib.metadata
 import importlib.util
 import logging
 import platform
@@ -107,7 +108,9 @@ def parse_clean(args: argparse.Namespace) -> None:
 
 # TODO(Marcelo): Automatically check if this list should be updated.
 # NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
+STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 OTEL_PACKAGES: set[str] = {
+    *STANDARD_LIBRARY_PACKAGES,
     'aio_pika',
     'aiohttp',
     'aiopg',
@@ -136,11 +139,9 @@ OTEL_PACKAGES: set[str] = {
     'remoulade',
     'requests',
     'sqlalchemy',
-    'sqlite3',
     'starlette',
     'tornado',
     'tortoise_orm',
-    'urllib',
     'urllib3',
 }
 OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
@@ -148,11 +149,6 @@ OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm',
 
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
-    console = Console(file=sys.stderr)
-    table = Table()
-    table.add_column('Package')
-    table.add_column('OpenTelemetry instrumentation package')
-
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
@@ -171,27 +167,33 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Drop packages that are dependencies of other packages.
     if packages.get('starlette') and packages.get('fastapi'):
         del packages['starlette']
+    if packages.get('urllib3') and packages.get('requests'):
+        del packages['urllib3']
+
+    # fmt: off
+    sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
+    sys.stderr.write('\n')
+    sys.stderr.write(f' {"Package":<18}| OpenTelemetry instrumentation package\n')
+    sys.stderr.write(f' {"-" * 18}|{"-" * 45}\n')
+    # fmt: on
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
-        import_name = otel_package.replace('-', '_')
-        link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
-        table.add_row(name, link)
-
-    console.print(
-        'The following packages from your environment have an OpenTelemetry instrumentation that is not installed:'
-    )
-    console.print(table)
+        otel_package_name = f'opentelemetry-instrumentation-{package_name}'
+        sys.stderr.write(f' {name:<18}| {otel_package_name}\n')
 
     if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
             f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
         )
         install_command = f'pip install {otel_packages_to_install}'
-        console.print('\n[bold green]To install these packages, run:[/bold green]\n')
-        console.print(f'[cyan]{install_command}[/cyan]', soft_wrap=True)
-        console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
-        console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
+        sys.stderr.writelines(
+            (
+                '\nTo install these packages, run:\n',
+                f'\n$ {install_command}\n',
+                f'\nFor further information, visit {INTEGRATIONS_DOCS_URL}\n',
+            )
+        )
 
 
 def parse_auth(args: argparse.Namespace) -> None:
