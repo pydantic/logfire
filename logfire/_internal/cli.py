@@ -173,14 +173,14 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # fmt: off
     sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
     sys.stderr.write('\n')
-    sys.stderr.write(f'{"Package":<18}| OpenTelemetry instrumentation package\n')
-    sys.stderr.write(f'{"-" * 18}|{"-" * 45}\n')
+    sys.stderr.write(f' {"Package":<18}| OpenTelemetry instrumentation package\n')
+    sys.stderr.write(f' {"-" * 18}|{"-" * 45}\n')
     # fmt: on
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
         otel_package_name = f'opentelemetry-instrumentation-{package_name}'
-        sys.stderr.write(f'{name:<18}| {otel_package_name}\n')
+        sys.stderr.write(f' {name:<18}| {otel_package_name}\n')
 
     if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
