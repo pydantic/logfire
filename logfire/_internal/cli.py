@@ -149,11 +149,14 @@ OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm',
 
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
+    packages_to_ignore: set[str] = set(args.ignore) if args.ignore else set()
+    packages_to_inspect = OTEL_PACKAGES - packages_to_ignore
+
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
     packages: dict[str, str] = {}
-    for name in OTEL_PACKAGES:
+    for name in packages_to_inspect:
         # Check if the package can be imported (without actually importing it).
         if importlib.util.find_spec(name) is None:
             continue
@@ -397,6 +400,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
+    cmd_inspect.add_argument('--ignore', action='append', help='ignore a package')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
