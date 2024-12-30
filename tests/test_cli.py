@@ -8,6 +8,7 @@ import shlex
 import sys
 import webbrowser
 from contextlib import ExitStack
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 from unittest.mock import call, patch
 
@@ -19,7 +20,7 @@ from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
-from logfire._internal.cli import OTEL_PACKAGES, main
+from logfire._internal.cli import STANDARD_LIBRARY_PACKAGES, main
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 
@@ -208,18 +209,58 @@ def test_inspect(
     assert capsys.readouterr().err.startswith('The following packages')
 
 
-def test_inspect_drop_dependant_packages(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+def packages_from_output(output: str) -> set[str]:
+    pattern = r'│\s*(\w+)\s*│\s*([\w-]+)\s*│'
+    matches = re.findall(pattern, output)
+    return {match[1] for match in matches}
+
+
+@pytest.mark.parametrize(
+    ('installed', 'should_install'),
+    [
+        (
+            ['fastapi'],
+            {
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+        (
+            ['fastapi', 'starlette'],
+            {
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+        (
+            ['urllib3', 'requests'],
+            {
+                'opentelemetry-instrumentation-requests',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+    ],
+)
+def test_inspect_with_dependencies(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    installed: list[str],
+    should_install: list[str],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    with ExitStack() as stack:
-        find_spec = stack.enter_context(patch('importlib.util.find_spec'))
-        find_spec.side_effect = [True, None] * len(OTEL_PACKAGES)
 
+    def new_find_spec(name: str) -> ModuleSpec | None:
+        if name in STANDARD_LIBRARY_PACKAGES or name in installed:
+            return ModuleSpec(name, None)
+
+    with patch('importlib.util.find_spec', new=new_find_spec):
         main(['inspect'])
         output = capsys.readouterr().err
-        assert 'opentelemetry-instrumentation-fastapi' in output
-        assert 'opentelemetry-instrumentation-starlette' not in output
+        assert packages_from_output(output) == should_install
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
