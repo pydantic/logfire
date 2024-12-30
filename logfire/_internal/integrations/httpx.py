@@ -324,7 +324,6 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             self.wrap_response_read(read)
 
     def wrap_response_read(self, hook: Callable[[Callable[[], bytes]], bytes]):
-        _ = self.original_span_context
         response = self.response
         original_read = response.read
 
@@ -339,7 +338,6 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
         response.read = read
 
     def wrap_response_aread(self, hook: Callable[[Callable[[], Awaitable[bytes]]], Awaitable[bytes]]):
-        _ = self.original_span_context
         response = self.response
         original_aread = response.aread
 
@@ -353,13 +351,9 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
 
         response.aread = aread
 
-    @cached_property
-    def original_span_context(self):
-        return self.span.get_span_context()
-
     @contextlib.contextmanager
     def attach_original_span_context(self):
-        with use_span(NonRecordingSpan(self.original_span_context)):
+        with use_span(NonRecordingSpan(self.span.get_span_context())):
             yield
 
     def capture_text_as_json(
