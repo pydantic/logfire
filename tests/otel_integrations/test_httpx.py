@@ -451,6 +451,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                 capture_request_json_body=True,
                 capture_request_text_body=True,
                 capture_response_headers=True,
+                capture_response_text_body=True,
                 capture_response_json_body=True,
                 capture_request_form_data=True,
             )

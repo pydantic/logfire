@@ -415,29 +415,6 @@ def make_async_request_hook(
     return new_hook
 
 
-def capture_request(
-    span: Span,
-    request: RequestInfo,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
-) -> LogfireHttpxRequestInfo:
-    request = LogfireHttpxRequestInfo(*request)
-    request.span = span
-
-    if should_capture_headers:
-        request.capture_headers()
-    if should_capture_json:
-        request.capture_body_if_json()
-    if should_capture_text and not (should_capture_json and request.content_type_is_json):
-        request.capture_body_if_text()
-    if should_capture_form_data:
-        request.capture_body_if_form()
-
-    return request
-
-
 def make_response_hook(
     hook: ResponseHook | None,
     should_capture_headers: bool,
@@ -492,6 +469,29 @@ def make_async_response_hook(
     return new_hook
 
 
+def capture_request(
+    span: Span,
+    request: RequestInfo,
+    should_capture_headers: bool,
+    should_capture_json: bool,
+    should_capture_text: bool,
+    should_capture_form_data: bool,
+) -> LogfireHttpxRequestInfo:
+    request = LogfireHttpxRequestInfo(*request)
+    request.span = span
+
+    if should_capture_headers:
+        request.capture_headers()
+    if should_capture_json:
+        request.capture_body_if_json()
+    if should_capture_text and not (should_capture_json and request.content_type_is_json):
+        request.capture_body_if_text()
+    if should_capture_form_data:
+        request.capture_body_if_form()
+
+    return request
+
+
 def capture_response(
     span: Span,
     request: RequestInfo,
@@ -515,7 +515,7 @@ def capture_response(
         response.capture_headers()
     if should_capture_json:
         response.capture_body_if_json()
-    if should_capture_text:
+    if should_capture_text and not (should_capture_json and request.content_type_is_json):
         response.capture_body_if_text()
 
     return request, response
