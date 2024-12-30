@@ -181,7 +181,27 @@ def instrument_httpx(
         instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
 
 
-class LogfireHttpxRequestInfo(RequestInfo):
+class LogfireHttpxInfoMixin:
+    headers: httpx.Headers
+
+    @property
+    def content_type_header_object(self) -> ContentTypeHeader:
+        return content_type_header_from_string(self.content_type_header_string)
+
+    @property
+    def content_type_header_string(self) -> str:
+        return self.headers.get('content-type', '')
+
+    @property
+    def content_type_is_json(self):
+        return is_json_type(self.content_type_header_string)
+
+    @property
+    def content_type_is_text(self):
+        return is_text_type(self.content_type_header_string)
+
+
+class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     span: Span
 
     def capture_headers(self):
@@ -213,22 +233,6 @@ class LogfireHttpxRequestInfo(RequestInfo):
     @property
     def body_is_streaming(self):
         return not isinstance(self.stream, httpx.ByteStream)
-
-    @property
-    def content_type_header_object(self) -> ContentTypeHeader:
-        return content_type_header_from_string(self.content_type_header_string)
-
-    @property
-    def content_type_header_string(self) -> str:
-        return self.headers.get('content-type', '')
-
-    @property
-    def content_type_is_json(self):
-        return is_json_type(self.content_type_header_string)
-
-    @property
-    def content_type_is_text(self):
-        return is_text_type(self.content_type_header_string)
 
     @property
     def content_type_is_form(self):
@@ -265,7 +269,7 @@ class LogfireHttpxRequestInfo(RequestInfo):
         set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
 
 
-class LogfireHttpxResponseInfo(ResponseInfo):
+class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     span: Span
     logfire_instance: Logfire
     is_async: bool
@@ -365,22 +369,6 @@ class LogfireHttpxResponseInfo(ResponseInfo):
         # Set the attribute to the raw text so that the backend can parse it
         text = text if text is not None else self.response.text
         span._span.set_attribute(attr_name, text)  # type: ignore
-
-    @property
-    def content_type_header_object(self) -> ContentTypeHeader:
-        return content_type_header_from_string(self.content_type_header_string)
-
-    @property
-    def content_type_header_string(self) -> str:
-        return self.headers.get('content-type', '')
-
-    @property
-    def content_type_is_json(self):
-        return is_json_type(self.content_type_header_string)
-
-    @property
-    def content_type_is_text(self):
-        return is_text_type(self.content_type_header_string)
 
 
 def make_request_hook(
