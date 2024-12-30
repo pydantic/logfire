@@ -5,6 +5,7 @@ import opentelemetry.trace as trace_api
 import requests
 from . import async_ as async_
 from ..integrations.flask import CommenterOptions as CommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
+from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
@@ -20,9 +21,8 @@ from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKw
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
-from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection, SQLite3InstrumentKwargs as SQLite3InstrumentKwargs
+from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-from .integrations.wsgi import WSGIInstrumentKwargs as WSGIInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -685,7 +685,7 @@ class Logfire:
         Returns:
             The instrumented ASGI application.
         """
-    def instrument_wsgi(self, app: WSGIApplication, capture_headers: bool = False, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
+    def instrument_wsgi(self, app: WSGIApplication, capture_headers: bool = False, request_hook: WSGIRequestHook | None = None, response_hook: WSGIResponseHook | None = None, **kwargs: Any) -> WSGIApplication:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the WSGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.wsgi.OpenTelemetryMiddleware] under
@@ -697,6 +697,8 @@ class Logfire:
         Args:
             app: The WSGI application to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry WSGI middleware.
 
         Returns:
@@ -720,7 +722,7 @@ class Logfire:
             engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
-    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]) -> SQLite3Connection:
+    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Any) -> SQLite3Connection:
         """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
 
         Uses the
