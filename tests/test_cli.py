@@ -397,9 +397,9 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         output = capsys.readouterr().err
         assert output.splitlines() == snapshot(
             [
-                ' Organization       | Project',
-                '--------------------|------------------',
-                ' test-org           | test-pr',
+                'Organization   | Project',
+                '---------------|--------',
+                'test-org       | test-pr',
             ]
         )
 
