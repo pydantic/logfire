@@ -1141,10 +1141,16 @@ class Logfire:
         """
         import anthropic
 
-        from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.anthropic import (
+            get_endpoint_config,
+            is_async_client,
+            on_response,
+            patch_message_stream_manager,
+        )
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
 
         self._warn_if_not_initialized_for_instrumentation()
+        patch_message_stream_manager()
         return instrument_llm_provider(
             self,
             anthropic_client

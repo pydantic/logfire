@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 import anthropic
+from anthropic.lib.streaming._messages import MessageStream, MessageStreamManager
 from anthropic.types import Message, TextBlock, TextDelta
 
 from .types import EndpointConfig, StreamState
@@ -96,3 +98,25 @@ def is_async_client(
         client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)
     ), f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
     return True
+
+
+@lru_cache
+def patch_message_stream_manager() -> None:
+    original_enter = MessageStreamManager.__enter__
+
+    def patched_enter(self: MessageStreamManager) -> MessageStream:
+        original_api_request = self._MessageStreamManager__api_request
+
+        def patched_request():
+            raw_stream = original_api_request()
+            raw_stream.response._raw_stream = raw_stream
+            return raw_stream
+
+        self._MessageStreamManager__api_request = patched_request
+
+        message_stream = original_enter(self)
+        message_stream._raw_stream = message_stream.response._raw_stream
+        del message_stream.response._raw_stream
+        return message_stream
+
+    MessageStreamManager.__enter__ = patched_enter

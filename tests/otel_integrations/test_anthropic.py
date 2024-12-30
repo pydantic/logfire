@@ -332,12 +332,11 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
 
 
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = instrumented_client.messages.create(
+    response = instrumented_client.messages.stream(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
         system='You are a helpful assistant.',
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-        stream=True,
     )
     with response as stream:
         combined = ''.join(
@@ -358,7 +357,15 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_sync_messages_stream',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': IsJson(
+                        {
+                            'max_tokens': 1000,
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                            'model': 'claude-3-haiku-20240307',
+                            'stream': True,
+                            'system': 'You are a helpful assistant.',
+                        }
+                    ),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -375,7 +382,15 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': IsJson(
+                        {
+                            'max_tokens': 1000,
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                            'model': 'claude-3-haiku-20240307',
+                            'stream': True,
+                            'system': 'You are a helpful assistant.',
+                        }
+                    ),
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
@@ -396,12 +411,11 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
 async def test_async_messages_stream(
     instrumented_async_client: anthropic.AsyncAnthropic, exporter: TestExporter
 ) -> None:
-    response = await instrumented_async_client.messages.create(
+    response = instrumented_async_client.messages.stream(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
         system='You are a helpful assistant.',
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-        stream=True,
     )
     async with response as stream:
         chunk_content = [
@@ -423,7 +437,15 @@ async def test_async_messages_stream(
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_async_messages_stream',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': IsJson(
+                        {
+                            'max_tokens': 1000,
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                            'model': 'claude-3-haiku-20240307',
+                            'stream': True,
+                            'system': 'You are a helpful assistant.',
+                        }
+                    ),
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -440,7 +462,15 @@ async def test_async_messages_stream(
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'request_data': IsJson(
+                        {
+                            'max_tokens': 1000,
+                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                            'model': 'claude-3-haiku-20240307',
+                            'stream': True,
+                            'system': 'You are a helpful assistant.',
+                        }
+                    ),
                     'async': True,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_anthropic.py',
