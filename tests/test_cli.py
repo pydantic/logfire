@@ -210,8 +210,8 @@ def test_inspect(
 
 
 def packages_from_output(output: str) -> set[str]:
-    pattern = r'│\s*(\w+)\s*│\s*([\w-]+)\s*│'
-    matches = re.findall(pattern, output)
+    pattern = r'^\s*([\w]+)\s*\|\s*([\w\-]+)\s*$'
+    matches = re.findall(pattern, output, re.MULTILINE)
     return {match[1] for match in matches}
 
 
