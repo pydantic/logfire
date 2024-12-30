@@ -20,12 +20,9 @@ from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
-from logfire._internal.cli import STANDARD_LIBRARY_PACKAGES, _TerminalColor, main  # type: ignore[reportPrivateUsage]
+from logfire._internal.cli import STANDARD_LIBRARY_PACKAGES, main
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
-
-END = re.escape(_TerminalColor.END)
-BOLD = re.escape(_TerminalColor.BOLD)
 
 
 @pytest.fixture
@@ -306,11 +303,11 @@ expiration = "fake_exp"
                 'Welcome to Logfire! 🔥',
                 'Before you can send data to Logfire, we need to authenticate you.',
                 '',
-                f"Please open {_TerminalColor.BOLD}http://example.com/auth{_TerminalColor.END} in your browser to authenticate if it hasn't already.",
+                "Please open http://example.com/auth in your browser to authenticate if it hasn't already.",
                 'Waiting for you to authenticate with Logfire...',
                 'Successfully authenticated!',
                 '',
-                IsStr(regex=rf'Your Logfire credentials are stored in {BOLD}(.*\.toml){END}'),
+                IsStr(regex=r'Your Logfire credentials are stored in (.*\.toml)'),
             ]
         )
 
@@ -367,9 +364,7 @@ def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.Ca
         main(['auth'])
 
         _, err = capsys.readouterr()
-        assert err == IsStr(
-            regex=rf'You are already logged in\. \(Your credentials are stored in {BOLD}(.*\.toml){END}\)\n'
-        )
+        assert err == IsStr(regex=r'You are already logged in\. \(Your credentials are stored in (.*\.toml)\)\n')
 
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:

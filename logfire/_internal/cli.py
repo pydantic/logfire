@@ -196,15 +196,6 @@ def parse_inspect(args: argparse.Namespace) -> None:
         )
 
 
-class _TerminalColor:
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
-
-def _bold(text: Any) -> str:
-    return f'{_TerminalColor.BOLD}{text}{_TerminalColor.END}'
-
-
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.
 
@@ -215,7 +206,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):  # pragma: no branch
-            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {_bold(DEFAULT_FILE)})\n')
+            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
             return
     else:
         data: DefaultFile = {'tokens': {}}
@@ -231,14 +222,14 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
-    input(f"Press {_bold('Enter')} to open {frontend_host} in your browser...")
+    input(f'Press Enter to open {frontend_host} in your browser...')
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:
         pass
     sys.stderr.writelines(
         (
-            f"Please open {_bold(frontend_auth_url)} in your browser to authenticate if it hasn't already.\n",
+            f"Please open {frontend_auth_url} in your browser to authenticate if it hasn't already.\n",
             'Waiting for you to authenticate with Logfire...\n',
         )
     )
@@ -253,7 +244,7 @@ def parse_auth(args: argparse.Namespace) -> None:
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
-    sys.stderr.write(f'\nYour Logfire credentials are stored in {_bold(DEFAULT_FILE)}\n')
+    sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
