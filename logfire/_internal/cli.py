@@ -231,7 +231,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
-    input(f'Press {_bold('Enter')} to open {frontend_host} in your browser...')
+    input(f"Press {_bold('Enter')} to open {frontend_host} in your browser...")
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:
