@@ -395,10 +395,13 @@ def make_request_hook(
 
     def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = LogfireHttpxRequestInfo(*request)
-            request.span = span
-            capture_request(
-                request, should_capture_headers, should_capture_json, should_capture_text, should_capture_form_data
+            request = capture_request(
+                span,
+                request,
+                should_capture_headers,
+                should_capture_json,
+                should_capture_text,
+                should_capture_form_data,
             )
             run_hook(hook, span, request)
 
@@ -417,10 +420,13 @@ def make_async_request_hook(
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = LogfireHttpxRequestInfo(*request)
-            request.span = span
-            capture_request(
-                request, should_capture_headers, should_capture_json, should_capture_text, should_capture_form_data
+            request = capture_request(
+                span,
+                request,
+                should_capture_headers,
+                should_capture_json,
+                should_capture_text,
+                should_capture_form_data,
             )
             await run_async_hook(hook, span, request)
 
@@ -428,12 +434,16 @@ def make_async_request_hook(
 
 
 def capture_request(
-    request: LogfireHttpxRequestInfo,
+    span: Span,
+    request: RequestInfo,
     should_capture_headers: bool,
     should_capture_json: bool,
     should_capture_text: bool,
     should_capture_form_data: bool,
-) -> None:
+) -> LogfireHttpxRequestInfo:
+    request = LogfireHttpxRequestInfo(*request)
+    request.span = span
+
     if should_capture_headers:
         request.capture_headers()
     if should_capture_json:
@@ -442,6 +452,8 @@ def capture_request(
         request.capture_body_if_text()
     if should_capture_form_data:
         request.capture_body_if_form()
+
+    return request
 
 
 def make_response_hook(
@@ -456,15 +468,16 @@ def make_response_hook(
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         with handle_internal_errors():
-            request = LogfireHttpxRequestInfo(*request)
-            request.span = span
-
-            response = LogfireHttpxResponseInfo(*response)
-            response.span = span
-            response.logfire_instance = logfire_instance
-            response.is_async = False
-
-            capture_response(response, should_capture_headers, should_capture_json, should_capture_text)
+            request, response = capture_response(
+                span,
+                request,
+                response,
+                logfire_instance,
+                should_capture_headers,
+                should_capture_json,
+                should_capture_text,
+                is_async=False,
+            )
             run_hook(hook, span, request, response)
 
     return new_hook
@@ -482,32 +495,48 @@ def make_async_response_hook(
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
         with handle_internal_errors():
-            request = LogfireHttpxRequestInfo(*request)
-            request.span = span
-
-            response = LogfireHttpxResponseInfo(*response)
-            response.span = span
-            response.logfire_instance = logfire_instance
-            response.is_async = True
-
-            capture_response(response, should_capture_headers, should_capture_json, should_capture_text)
+            request, response = capture_response(
+                span,
+                request,
+                response,
+                logfire_instance,
+                should_capture_headers,
+                should_capture_json,
+                should_capture_text,
+                is_async=True,
+            )
             await run_async_hook(hook, span, request, response)
 
     return new_hook
 
 
 def capture_response(
-    response: LogfireHttpxResponseInfo,
+    span: Span,
+    request: RequestInfo,
+    response: ResponseInfo,
+    logfire_instance: Logfire,
     should_capture_headers: bool,
     should_capture_json: bool,
     should_capture_text: bool,
-) -> None:
+    *,
+    is_async: bool,
+) -> tuple[LogfireHttpxRequestInfo, LogfireHttpxResponseInfo]:
+    request = LogfireHttpxRequestInfo(*request)
+    request.span = span
+
+    response = LogfireHttpxResponseInfo(*response)
+    response.span = span
+    response.logfire_instance = logfire_instance
+    response.is_async = is_async
+
     if should_capture_headers:
         response.capture_headers()
     if should_capture_json:
         response.capture_body_if_json()
     if should_capture_text:
         response.capture_body_if_text()
+
+    return request, response
 
 
 async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
