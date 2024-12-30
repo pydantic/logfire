@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
+import importlib.metadata
 import importlib.util
 import logging
 import platform
@@ -107,7 +108,9 @@ def parse_clean(args: argparse.Namespace) -> None:
 
 # TODO(Marcelo): Automatically check if this list should be updated.
 # NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
+STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 OTEL_PACKAGES: set[str] = {
+    *STANDARD_LIBRARY_PACKAGES,
     'aio_pika',
     'aiohttp',
     'aiopg',
@@ -136,11 +139,9 @@ OTEL_PACKAGES: set[str] = {
     'remoulade',
     'requests',
     'sqlalchemy',
-    'sqlite3',
     'starlette',
     'tornado',
     'tortoise_orm',
-    'urllib',
     'urllib3',
 }
 OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
@@ -171,6 +172,8 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Drop packages that are dependencies of other packages.
     if packages.get('starlette') and packages.get('fastapi'):
         del packages['starlette']
+    if packages.get('urllib3') and packages.get('requests'):
+        del packages['urllib3']
 
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
