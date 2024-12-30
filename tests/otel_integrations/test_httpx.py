@@ -409,7 +409,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
             {
                 'name': 'Reading response body',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {
@@ -504,7 +504,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             {
                 'name': 'Reading response body',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {

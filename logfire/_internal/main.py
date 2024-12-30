@@ -1183,6 +1183,7 @@ class Logfire:
         capture_request_text_body: bool = False,
         capture_request_json_body: bool = False,
         capture_response_json_body: bool = False,
+        capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Unpack[ClientKwargs],
     ) -> None: ...
@@ -1196,6 +1197,7 @@ class Logfire:
         capture_request_json_body: bool = False,
         capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
+        capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Unpack[AsyncClientKwargs],
     ) -> None: ...
@@ -1209,6 +1211,7 @@ class Logfire:
         capture_request_json_body: bool = False,
         capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
+        capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Unpack[HTTPXInstrumentKwargs],
     ) -> None: ...
@@ -1221,6 +1224,7 @@ class Logfire:
         capture_request_json_body: bool = False,
         capture_request_text_body: bool = False,
         capture_response_json_body: bool = False,
+        capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
         **kwargs: Any,
     ) -> None:
@@ -1251,6 +1255,9 @@ class Logfire:
                 which happens automatically for non-streaming requests.
                 For streaming requests, the body is not captured if it's merely iterated over.
                 Doesn't check if the body is actually JSON.
+            capture_response_text_body: Set to `True` to capture the response text body
+                if the content type is either `text/*`
+                or `application/` followed by a known human-readable text format, e.g. XML.
             capture_request_form_data: Set to `True` to capture the request form data.
                 Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
                 Doesn't inspect or parse the raw request body.
@@ -1266,6 +1273,7 @@ class Logfire:
             capture_request_json_body=capture_request_json_body,
             capture_request_text_body=capture_request_text_body,
             capture_response_json_body=capture_response_json_body,
+            capture_response_text_body=capture_response_text_body,
             capture_request_form_data=capture_request_form_data,
             **kwargs,
         )
