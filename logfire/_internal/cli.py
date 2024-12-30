@@ -196,39 +196,55 @@ def parse_inspect(args: argparse.Namespace) -> None:
         )
 
 
+class _TerminalColor:
+    BOLD = '\033[1m'
+    END = '\033[0m'
+
+
+def _bold(text: Any) -> str:
+    return f'{_TerminalColor.BOLD}{text}{_TerminalColor.END}'
+
+
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
 
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):  # pragma: no branch
-            console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
+            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {_bold(DEFAULT_FILE)})\n')
             return
     else:
         data: DefaultFile = {'tokens': {}}
 
-    console.print()
-    console.print('Welcome to Logfire! :fire:')
-    console.print('Before you can send data to Logfire, we need to authenticate you.')
-    console.print()
+    sys.stderr.writelines(
+        (
+            '\n',
+            'Welcome to Logfire! 🔥\n',
+            'Before you can send data to Logfire, we need to authenticate you.\n',
+            '\n',
+        )
+    )
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
-    console.input(f'Press [bold]Enter[/] to open {frontend_host} in your browser...')
+    input(f'Press {_bold('Enter')} to open {frontend_host} in your browser...')
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:
         pass
-    console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
-    console.print('Waiting for you to authenticate with Logfire...')
+    sys.stderr.writelines(
+        (
+            f"Please open {_bold(frontend_auth_url)} in your browser to authenticate if it hasn't already.\n",
+            'Waiting for you to authenticate with Logfire...\n',
+        )
+    )
 
     data['tokens'][logfire_url] = poll_for_token(args._session, device_code, logfire_url)
-    console.print('Successfully authenticated!')
+    sys.stderr.write('Successfully authenticated!\n')
 
     # There's no standard library package to write TOML files, so we'll write it manually.
     with DEFAULT_FILE.open('w') as f:
@@ -237,8 +253,7 @@ def parse_auth(args: argparse.Namespace) -> None:
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
-    console.print()
-    console.print(f'Your Logfire credentials are stored in [bold]{DEFAULT_FILE}[/]')
+    sys.stderr.write(f'\nYour Logfire credentials are stored in {_bold(DEFAULT_FILE)}\n')
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
