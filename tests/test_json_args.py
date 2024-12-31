@@ -903,6 +903,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
     var = session.query(SAModel).all()[0]
     var2 = session.query(SAModel2).all()[0]
     logfire.info('test message', var=var, var2=var2)
+    engine.dispose()
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

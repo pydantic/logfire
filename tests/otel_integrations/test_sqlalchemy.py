@@ -40,6 +40,7 @@ def sqlite_engine(path: Path) -> Iterator[Engine]:
     try:
         yield engine
     finally:
+        engine.dispose()
         path.unlink()
 
 
