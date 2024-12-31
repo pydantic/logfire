@@ -95,7 +95,7 @@ if TYPE_CHECKING:
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
-    from .integrations.mysql import MySQLConnection, MySQLInstrumentKwargs
+    from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
@@ -1707,11 +1707,7 @@ class Logfire:
             },
         )
 
-    def instrument_mysql(
-        self,
-        conn: MySQLConnection = None,
-        **kwargs: Unpack[MySQLInstrumentKwargs],
-    ) -> MySQLConnection:
+    def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Any) -> MySQLConnection:
         """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
         Uses the
