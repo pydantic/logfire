@@ -264,11 +264,11 @@ def test_inspect_with_dependencies(
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
-def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
+def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixture[str]) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         webbrowser_open = stack.enter_context(
             patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
         )
@@ -296,21 +296,18 @@ token = "fake_token"
 expiration = "fake_exp"
 """
         )
-
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == snapshot(
+        _, err = capsys.readouterr()
+        assert err.splitlines() == snapshot(
             [
-                IsStr(regex=r'^\(file=.*'),
-                'print()',
-                "print('Welcome to Logfire! :fire:')",
-                "print('Before you can send data to Logfire, we need to authenticate you.')",
-                'print()',
-                "input('Press [bold]Enter[/] to open example.com in your browser...')",
-                'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
-                "print('Waiting for you to authenticate with Logfire...')",
-                "print('Successfully authenticated!')",
-                'print()',
-                IsStr(regex=r"^print\('Your Logfire credentials are stored in \[bold\].*/default.toml\[/\]'\)"),
+                '',
+                'Welcome to Logfire! 🔥',
+                'Before you can send data to Logfire, we need to authenticate you.',
+                '',
+                "Please open http://example.com/auth in your browser to authenticate if it hasn't already.",
+                'Waiting for you to authenticate with Logfire...',
+                'Successfully authenticated!',
+                '',
+                IsStr(regex=r'Your Logfire credentials are stored in (.*\.toml)'),
             ]
         )
 
@@ -321,7 +318,7 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
 
         m = requests_mock.Mocker()
@@ -346,7 +343,7 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
 
         m = requests_mock.Mocker()
@@ -362,18 +359,12 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
                 main(['auth'])
 
 
-def test_auth_on_authenticated_user(default_credentials: Path) -> None:
-    with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', default_credentials))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
-
+def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with patch('logfire._internal.cli.DEFAULT_FILE', default_credentials):
         main(['auth'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            f"print('You are already logged in. (Your credentials are stored in [bold]{default_credentials}[/])')",
-        ]
+        _, err = capsys.readouterr()
+        assert err == IsStr(regex=r'You are already logged in\. \(Your credentials are stored in (.*\.toml)\)\n')
 
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
