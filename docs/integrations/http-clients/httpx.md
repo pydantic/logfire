@@ -152,7 +152,7 @@ By default, **Logfire** doesn't capture HTTP bodies.
 
 To capture the request and response bodies, you need to set different parameters to `True`.
 
-### Capture Request Body
+#### Capture Request Body
 
 To capture the request body when the `Content-Type` header is set to `application/json`, you can set
 the `capture_request_json_body` parameter to `True`.
@@ -199,7 +199,7 @@ client = httpx.Client()
 client.post("https://httpbin.org/post", content="Hello, World!")
 ```
 
-### Capture Response Body
+#### Capture Response Body
 
 To capture the response body when the `Content-Type` header is set to `application/json`, you can set
 the `capture_response_json_body` parameter to `True`.
