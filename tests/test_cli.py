@@ -250,6 +250,11 @@ def packages_from_output(output: str) -> set[str]:
             ['starlette'],
             {'opentelemetry-instrumentation-starlette'},
         ),
+        (
+            'inspect --ignore urllib,sqlite3',
+            ['starlette'],
+            {'opentelemetry-instrumentation-starlette'},
+        ),
     ],
 )
 def test_inspect_with_dependencies(
