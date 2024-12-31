@@ -84,7 +84,7 @@ if TYPE_CHECKING:
     from typing_extensions import Unpack
 
     from ..integrations.flask import (
-        CommenterOptions,
+        CommenterOptions as FlaskCommenterOptions,
         RequestHook as FlaskRequestHook,
         ResponseHook as FlaskResponseHook,
     )
@@ -94,6 +94,12 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
+    from ..integrations.pymongo import (
+        FailedHook as PymongoFailedHook,
+        RequestHook as PymongoRequestHook,
+        ResponseHook as PymongoResponseHook,
+    )
+    from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import (
         RequestHook as WSGIRequestHook,
         ResponseHook as WSGIResponseHook,
@@ -102,9 +108,7 @@ if TYPE_CHECKING:
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import PsycopgInstrumentKwargs
-    from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
-    from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
@@ -1438,7 +1442,7 @@ class Logfire:
         *,
         capture_headers: bool = False,
         enable_commenter: bool = True,
-        commenter_options: CommenterOptions | None = None,
+        commenter_options: FlaskCommenterOptions | None = None,
         exclude_urls: str | None = None,
         request_hook: FlaskRequestHook | None = None,
         response_hook: FlaskResponseHook | None = None,
@@ -1618,7 +1622,9 @@ class Logfire:
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
-        **kwargs: Unpack[SQLAlchemyInstrumentKwargs],
+        enable_commenter: bool = False,
+        commenter_options: SQLAlchemyCommenterOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
@@ -1628,6 +1634,8 @@ class Logfire:
 
         Args:
             engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
         from .integrations.sqlalchemy import instrument_sqlalchemy
@@ -1635,7 +1643,9 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
             engine=engine,
-            **{  # type: ignore
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options or {},
+            **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -1691,18 +1701,36 @@ class Logfire:
             },
         )
 
-    def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
+    def instrument_pymongo(
+        self,
+        capture_statement: bool = False,
+        request_hook: PymongoRequestHook | None = None,
+        response_hook: PymongoResponseHook | None = None,
+        failed_hook: PymongoFailedHook | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
         library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            request_hook: A function called when a command is sent to the server.
+            response_hook: A function that is called when a command is successfully completed.
+            failed_hook: A function that is called when a command fails.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
         from .integrations.pymongo import instrument_pymongo
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_pymongo(
-            **{  # type: ignore
+            capture_statement=capture_statement,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            failed_hook=failed_hook,
+            **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
