@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
+    capture_all: bool,
     capture_headers: bool,
     capture_request_json_body: bool,
     capture_request_text_body: bool,
@@ -61,6 +62,18 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
+    if capture_all and (
+        capture_headers
+        or capture_request_json_body
+        or capture_request_text_body
+        or capture_response_json_body
+        or capture_response_text_body
+        or capture_request_form_data
+    ):
+        warn_at_user_stacklevel(
+            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
+        )
+
     capture_request_headers = kwargs.get('capture_request_headers')
     capture_response_headers = kwargs.get('capture_response_headers')
 
@@ -73,8 +86,13 @@ def instrument_httpx(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
 
-    should_capture_request_headers = capture_request_headers or capture_headers
-    should_capture_response_headers = capture_response_headers or capture_headers
+    should_capture_request_headers = capture_request_headers or capture_headers or capture_all
+    should_capture_response_headers = capture_response_headers or capture_headers or capture_all
+    should_capture_request_json_body = capture_request_json_body or capture_all
+    should_capture_request_text_body = capture_request_text_body or capture_all
+    should_capture_request_form_data = capture_request_form_data or capture_all
+    should_capture_response_json_body = capture_response_json_body or capture_all
+    should_capture_response_text_body = capture_response_text_body or capture_all
 
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
@@ -92,29 +110,29 @@ def instrument_httpx(
         final_kwargs['request_hook'] = make_request_hook(
             request_hook,
             should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            should_capture_request_json_body,
+            should_capture_request_text_body,
+            should_capture_request_form_data,
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_json_body,
+            should_capture_response_text_body,
             logfire_instance,
         )
         final_kwargs['async_request_hook'] = make_async_request_hook(
             async_request_hook,
             should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            should_capture_request_json_body,
+            should_capture_request_text_body,
+            should_capture_request_form_data,
         )
         final_kwargs['async_response_hook'] = make_async_response_hook(
             async_response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_json_body,
+            should_capture_response_text_body,
             logfire_instance,
         )
 
@@ -124,15 +142,15 @@ def instrument_httpx(
             request_hook = make_async_request_hook(
                 request_hook,
                 should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
+                should_capture_request_json_body,
+                should_capture_request_text_body,
+                should_capture_request_form_data,
             )
             response_hook = make_async_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_json_body,
+                should_capture_response_text_body,
                 logfire_instance,
             )
         else:
@@ -142,15 +160,15 @@ def instrument_httpx(
             request_hook = make_request_hook(
                 request_hook,
                 should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
+                should_capture_request_json_body,
+                should_capture_request_text_body,
+                should_capture_request_form_data,
             )
             response_hook = make_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_json_body,
+                should_capture_response_text_body,
                 logfire_instance,
             )
 
