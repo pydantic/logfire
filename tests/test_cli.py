@@ -216,9 +216,10 @@ def packages_from_output(output: str) -> set[str]:
 
 
 @pytest.mark.parametrize(
-    ('installed', 'should_install'),
+    ('command', 'installed', 'should_install'),
     [
         (
+            'inspect',
             ['fastapi'],
             {
                 'opentelemetry-instrumentation-fastapi',
@@ -227,6 +228,7 @@ def packages_from_output(output: str) -> set[str]:
             },
         ),
         (
+            'inspect',
             ['fastapi', 'starlette'],
             {
                 'opentelemetry-instrumentation-fastapi',
@@ -235,6 +237,7 @@ def packages_from_output(output: str) -> set[str]:
             },
         ),
         (
+            'inspect',
             ['urllib3', 'requests'],
             {
                 'opentelemetry-instrumentation-requests',
@@ -242,11 +245,22 @@ def packages_from_output(output: str) -> set[str]:
                 'opentelemetry-instrumentation-sqlite3',
             },
         ),
+        (
+            'inspect --ignore urllib --ignore sqlite3',
+            ['starlette'],
+            {'opentelemetry-instrumentation-starlette'},
+        ),
+        (
+            'inspect --ignore urllib,sqlite3',
+            ['starlette'],
+            {'opentelemetry-instrumentation-starlette'},
+        ),
     ],
 )
 def test_inspect_with_dependencies(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,
+    command: str,
     installed: list[str],
     should_install: list[str],
     capsys: pytest.CaptureFixture[str],
@@ -258,7 +272,7 @@ def test_inspect_with_dependencies(
             return ModuleSpec(name, None)
 
     with patch('importlib.util.find_spec', new=new_find_spec):
-        main(['inspect'])
+        main(shlex.split(command))
         output = capsys.readouterr().err
         assert packages_from_output(output) == should_install
 
