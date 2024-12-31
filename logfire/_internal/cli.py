@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
-from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
@@ -286,7 +285,6 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
-    console = Console(file=sys.stderr)
     project_info = LogfireCredentials.create_new_project(
         session=args._session,
         logfire_api_url=logfire_url,
@@ -295,7 +293,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
         project_name=project_name,
     )
     credentials = _write_credentials(project_info, data_dir, logfire_url)
-    console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
+    sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
 
 def parse_use_project(args: argparse.Namespace) -> None:
@@ -304,7 +302,6 @@ def parse_use_project(args: argparse.Namespace) -> None:
     logfire_url = args.logfire_url
     project_name = args.project_name
     organization = args.org
-    console = Console(file=sys.stderr)
 
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     project_info = LogfireCredentials.use_existing_project(
@@ -316,7 +313,9 @@ def parse_use_project(args: argparse.Namespace) -> None:
     )
     if project_info:
         credentials = _write_credentials(project_info, data_dir, logfire_url)
-        console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
+        sys.stderr.write(
+            f'Project configured successfully. You will be able to view it at: {credentials.project_url}\n'
+        )
 
 
 def parse_info(_args: argparse.Namespace) -> None:
