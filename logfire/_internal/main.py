@@ -99,6 +99,7 @@ if TYPE_CHECKING:
         RequestHook as PymongoRequestHook,
         ResponseHook as PymongoResponseHook,
     )
+    from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import (
         RequestHook as WSGIRequestHook,
@@ -108,7 +109,6 @@ if TYPE_CHECKING:
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import PsycopgInstrumentKwargs
-    from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
@@ -1737,7 +1737,13 @@ class Logfire:
             },
         )
 
-    def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+    def instrument_redis(
+        self,
+        capture_statement: bool = False,
+        request_hook: RedisRequestHook | None = None,
+        response_hook: RedisResponseHook | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
@@ -1746,14 +1752,18 @@ class Logfire:
 
         Args:
             capture_statement: Set to `True` to capture the statement in the span attributes.
-            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+            request_hook: A function that is called before performing the request.
+            response_hook: A function that is called after receiving the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
         from .integrations.redis import instrument_redis
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(
             capture_statement=capture_statement,
-            **{  # type: ignore
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
