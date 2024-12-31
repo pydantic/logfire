@@ -146,5 +146,106 @@ client.get('https://httpbin.org/get')
 
 You can also use the hooks to filter headers or modify them before capturing them.
 
+### Capture HTTP Body
+
+By default, **Logfire** doesn't capture HTTP bodies.
+
+To capture the request and response bodies, you need to set different parameters to `True`.
+
+### Capture Request Body
+
+To capture the request body when the `Content-Type` header is set to `application/json`, you can set
+the `capture_request_json_body` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_request_json_body=True)
+
+client = httpx.Client()
+client.post("https://httpbin.org/post", json={"key": "value"})
+```
+
+To capture the request body when the `Content-Type` header is set to `application/x-www-form-urlencoded`, you can set
+the `capture_request_form_data` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_request_form_data=True)
+
+client = httpx.Client()
+client.post("https://httpbin.org/post", data={"key": "value"})
+```
+
+To capture the request body when the `Content-Type` header is set to `text/*`, you can set
+the `capture_request_text_body` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_request_text_body=True)
+
+client = httpx.Client()
+client.post("https://httpbin.org/post", content="Hello, World!")
+```
+
+### Capture Response Body
+
+To capture the response body when the `Content-Type` header is set to `application/json`, you can set
+the `capture_response_json_body` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_response_json_body=True)
+
+client = httpx.Client()
+client.get("https://httpbin.org/json")
+```
+
+To capture the response body when the `Content-Type` header is set to `text/*`, you can set
+the `capture_response_text_body` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_response_text_body=True)
+
+client = httpx.Client()
+client.get("https://httpbin.org/get")
+```
+
+### Capture All Headers and Bodies
+
+To capture all HTTP headers and bodies, you can set the `capture_all` parameter to `True`.
+
+```py
+import httpx
+
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_all=True)
+
+client = httpx.Client()
+client.get("https://httpbin.org/get")
+```
+
 [httpx]: https://www.python-httpx.org/
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
