@@ -94,6 +94,11 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
+    from ..integrations.pymongo import (
+        FailedHook as PymongoFailedHook,
+        RequestHook as PymongoRequestHook,
+        ResponseHook as PymongoResponseHook,
+    )
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import (
         RequestHook as WSGIRequestHook,
@@ -103,7 +108,6 @@ if TYPE_CHECKING:
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import PsycopgInstrumentKwargs
-    from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
@@ -1697,18 +1701,36 @@ class Logfire:
             },
         )
 
-    def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
+    def instrument_pymongo(
+        self,
+        capture_statement: bool = False,
+        request_hook: PymongoRequestHook | None = None,
+        response_hook: PymongoResponseHook | None = None,
+        failed_hook: PymongoFailedHook | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
         library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            request_hook: A function called when a command is sent to the server.
+            response_hook: A function that is called when a command is successfully completed.
+            failed_hook: A function that is called when a command fails.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
         from .integrations.pymongo import instrument_pymongo
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_pymongo(
-            **{  # type: ignore
+            capture_statement=capture_statement,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            failed_hook=failed_hook,
+            **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
