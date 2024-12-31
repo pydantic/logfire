@@ -53,7 +53,34 @@ if __name__ == "__main__":
 
     By default, it is set to `False` given that Redis commands can contain sensitive information.
 
-The keyword arguments of `logfire.instrument_redis()` are passed to the `RedisInstrumentor().instrument()` method of the OpenTelemetry Redis Instrumentation package, read more about it [here][opentelemetry-redis].
+The keyword arguments of `logfire.instrument_redis()` are passed to the `RedisInstrumentor().instrument()`
+method of the OpenTelemetry Redis Instrumentation package, read more about it [here][opentelemetry-redis].
+
+## API Reference
+
+::: logfire.Logfire.instrument_redis
+    options:
+        heading_level: 4
+        show_source: false
+        show_root_doc_entry: true
+        show_root_heading: true
+        show_root_full_path: false
+
+::: logfire.integrations.redis.RequestHook
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_root_full_path: false
+        show_source: false
+        filters: []
+
+::: logfire.integrations.redis.ResponseHook
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_root_full_path: false
+        show_source: false
+        filters: []
 
 [redis]: https://redis.readthedocs.io/en/stable/
 [opentelemetry-redis]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/redis/redis.html

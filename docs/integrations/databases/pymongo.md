@@ -73,5 +73,39 @@ The following script connects to a MongoDB database, inserts a document, and que
 
 The keyword arguments of `logfire.instrument_pymongo()` are passed to the `PymongoInstrumentor().instrument()` method of the OpenTelemetry pymongo Instrumentation package, read more about it [here][opentelemetry-pymongo].
 
+## API Reference
+
+::: logfire.Logfire.instrument_pymongo
+    options:
+        heading_level: 4
+        show_source: false
+        show_root_doc_entry: true
+        show_root_heading: true
+        show_root_full_path: false
+
+::: logfire.integrations.pymongo.RequestHook
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_root_full_path: false
+        show_source: false
+        filters: []
+
+::: logfire.integrations.pymongo.ResponseHook
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_root_full_path: false
+        show_source: false
+        filters: []
+
+::: logfire.integrations.pymongo.FailedHook
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_root_full_path: false
+        show_source: false
+        filters: []
+
 [pymongo]: https://pymongo.readthedocs.io/en/stable/
 [opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
