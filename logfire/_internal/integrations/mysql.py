@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TypeVar
 
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.pooling import PooledMySQLConnection
 from opentelemetry.trace import TracerProvider
 
 try:
@@ -13,22 +15,15 @@ except ImportError:
         "    pip install 'logfire[mysql]'"
     )
 
-if TYPE_CHECKING:
-    from mysql.connector.abstracts import MySQLConnectionAbstract
-    from mysql.connector.pooling import PooledMySQLConnection
-    from typing_extensions import TypedDict, TypeVar, Unpack
 
-    MySQLConnection = TypeVar('MySQLConnection', bound=PooledMySQLConnection | MySQLConnectionAbstract | None)
-
-    class MySQLInstrumentKwargs(TypedDict, total=False):
-        skip_dep_check: bool
+MySQLConnection = TypeVar('MySQLConnection', 'PooledMySQLConnection | MySQLConnectionAbstract', None)
 
 
 def instrument_mysql(
     *,
     conn: MySQLConnection = None,
     tracer_provider: TracerProvider,
-    **kwargs: Unpack[MySQLInstrumentKwargs],
+    **kwargs: Any,
 ) -> MySQLConnection:
     """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
