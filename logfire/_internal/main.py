@@ -84,7 +84,7 @@ if TYPE_CHECKING:
     from typing_extensions import Unpack
 
     from ..integrations.flask import (
-        CommenterOptions,
+        CommenterOptions as FlaskCommenterOptions,
         RequestHook as FlaskRequestHook,
         ResponseHook as FlaskResponseHook,
     )
@@ -94,6 +94,7 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
+    from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import (
         RequestHook as WSGIRequestHook,
         ResponseHook as WSGIResponseHook,
@@ -104,7 +105,6 @@ if TYPE_CHECKING:
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
     from .integrations.redis import RedisInstrumentKwargs
-    from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
@@ -1438,7 +1438,7 @@ class Logfire:
         *,
         capture_headers: bool = False,
         enable_commenter: bool = True,
-        commenter_options: CommenterOptions | None = None,
+        commenter_options: FlaskCommenterOptions | None = None,
         exclude_urls: str | None = None,
         request_hook: FlaskRequestHook | None = None,
         response_hook: FlaskResponseHook | None = None,
@@ -1618,7 +1618,9 @@ class Logfire:
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
-        **kwargs: Unpack[SQLAlchemyInstrumentKwargs],
+        enable_commenter: bool = False,
+        commenter_options: SQLAlchemyCommenterOptions | None = None,
+        **kwargs: Any,
     ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
@@ -1628,6 +1630,8 @@ class Logfire:
 
         Args:
             engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
         from .integrations.sqlalchemy import instrument_sqlalchemy
@@ -1635,7 +1639,9 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
             engine=engine,
-            **{  # type: ignore
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options or {},
+            **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
