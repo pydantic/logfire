@@ -123,11 +123,13 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             return _array_schema(obj, seen)
         elif isinstance(obj, Mapping):
             return _mapping_schema(obj, seen)
-        elif is_sqlalchemy(obj):
-            return _sqlalchemy_schema(obj, seen)
+
+        sa_schema = _sqlalchemy_schema(obj, seen)
+        if sa_schema:
+            return sa_schema
         elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             return _dataclass_schema(obj, seen)
-        elif is_attrs(obj):
+        elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
 
         global _type_to_schema
@@ -284,7 +286,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.BaseModel)
     try:
-        fields = obj.model_fields
+        fields = type(obj).model_fields
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
@@ -326,7 +328,7 @@ def _numpy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return {
         'type': 'array',
         'x-python-datatype': 'ndarray',
-        'x-shape': to_json_value(obj.shape, seen),
+        'x-shape': to_json_value(obj.shape, seen),  # type: ignore[reportUnknownMemberType]
         'x-dtype': str(obj.dtype),  # type: ignore
     }
 
@@ -338,10 +340,16 @@ def _attrs_schema(obj: Any, seen: set[int]) -> JsonDict:
     return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__), seen)
 
 
-def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict:
-    from sqlalchemy import inspect as sa_inspect
+def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict | None:
+    if not is_sqlalchemy(obj):
+        return None
 
-    state = sa_inspect(obj)
+    from sqlalchemy import exc, inspect as sa_inspect
+
+    try:
+        state = sa_inspect(obj)
+    except exc.NoInspectionAvailable:
+        return None
     keys = [key for key in sa_inspect(obj).attrs.keys() if key not in state.unloaded]
     return _custom_object_schema(obj, 'sqlalchemy', keys, seen)
 

@@ -37,15 +37,13 @@ theme:
     - content.code.annotate
     - content.code.copy
     - content.code.select
-    - navigation.expand
-    - navigation.indexes
+    - navigation.indexes # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/#section-index-pages
     - navigation.path
-    - navigation.tabs
+    - navigation.sections
     - navigation.instant
     - navigation.instant.preview
     - navigation.instant.prefetch
     - navigation.instant.progress
-    - navigation.sections
     - navigation.tracking
     - navigation.top # alternatively, we could do navigation.tabs.sticky
     - toc.follow
@@ -66,17 +64,10 @@ extra_javascript:
   - "/flarelytics/client.js"
 
 nav:
-  - Why Logfire?:
-      - Introducing Logfire: why-logfire/index.md
-      - Simplicity and Power: why-logfire/simplicity.md
-      - Python-centric Insights: why-logfire/python-centric.md
-      - Pydantic Integration: why-logfire/pydantic.md
-      - OpenTelemetry: why-logfire/opentelemetry.md
-      - Structured Data and SQL: why-logfire/sql.md
-
-  - Get Started:
-      - Get Started: index.md
-      - Tracing with Spans: get-started/traces.md
+  - Logfire:
+      - Logfire: index.md
+      - Why Logfire?: why.md
+      - Concepts: concepts.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -84,66 +75,66 @@ nav:
           - Add Logfire Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
           - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
       - Web UI:
-          - Intro to the Web UI: guides/web-ui/index.md
           - Live View: guides/web-ui/live.md
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
-      - Advanced User Guide:
-          - Advanced User Guide: guides/advanced/index.md
-          - Environments: guides/advanced/environments.md
-          - Alternative Clients: guides/advanced/alternative-clients.md
-          - Alternative Backends: guides/advanced/alternative-backends.md
-          - Sampling: guides/advanced/sampling.md
-          - Scrubbing: guides/advanced/scrubbing.md
-          - Generators: guides/advanced/generators.md
-          - Creating Write Tokens: guides/advanced/creating-write-tokens.md
-          - Query API: guides/advanced/query-api.md
-          - Link to Code Source: guides/advanced/link-to-code-source.md
-          - Testing: guides/advanced/testing.md
-          - Backfill: guides/advanced/backfill.md
+  - How To - Guides:
+      - Create Write Tokens: how-to-guides/create-write-tokens.md
+      - Use different environments: how-to-guides/environments.md
+      - Link to Code Source: how-to-guides/link-to-code-source.md
+      - Use Alternative Clients: how-to-guides/alternative-clients.md
+      - Use Alternative Backends: how-to-guides/alternative-backends.md
+      - Implement Sampling Strategies: how-to-guides/sampling.md
+      - Export your Logfire Data: how-to-guides/query-api.md
+      - Scrub Sensitive Data: how-to-guides/scrubbing.md
+      - Detect Service is Down: how-to-guides/detect-service-is-down.md
+      - Suppress Spans and Metrics: how-to-guides/suppress.md
   - Integrations:
       - Integrations: integrations/index.md
-      - OpenTelemetry:
-          - FastAPI: integrations/fastapi.md
-          - Django: integrations/django.md
-          - Flask: integrations/flask.md
-          - Starlette: integrations/starlette.md
-          - ASGI: integrations/asgi.md
-          - WSGI: integrations/wsgi.md
-          - HTTPX: integrations/httpx.md
-          - Requests: integrations/requests.md
-          - AIOHTTP: integrations/aiohttp.md
-          - SQLAlchemy: integrations/sqlalchemy.md
-          - Asyncpg: integrations/asyncpg.md
-          - Psycopg: integrations/psycopg.md
-          - PyMongo: integrations/pymongo.md
-          - MySQL: integrations/mysql.md
-          - SQLite3: integrations/sqlite3.md
-          - Redis: integrations/redis.md
-          - BigQuery: integrations/bigquery.md
-          - Airflow: integrations/airflow.md
-          - FastStream: integrations/faststream.md
-          - Celery: integrations/celery.md
-          - Stripe: integrations/stripe.md
-          - System Metrics: integrations/system-metrics.md
-          - AWS Lambda: integrations/aws-lambda.md
-      - Custom:
-          - Pydantic: integrations/pydantic.md
-          - OpenAI: integrations/openai.md
-          - Anthropic: integrations/anthropic.md
+      - LLMs:
+          - OpenAI: integrations/llms/openai.md
+          - Anthropic: integrations/llms/anthropic.md
+          - Mirascope: integrations/llms/mirascope.md
+          - LiteLLM: integrations/llms/litellm.md
+          - Magentic: integrations/llms/magentic.md
+      - Web Frameworks:
+          - Web Frameworks: integrations/web-frameworks/index.md
+          - FastAPI: integrations/web-frameworks/fastapi.md
+          - Django: integrations/web-frameworks/django.md
+          - Flask: integrations/web-frameworks/flask.md
+          - Starlette: integrations/web-frameworks/starlette.md
+          - ASGI: integrations/web-frameworks/asgi.md
+          - WSGI: integrations/web-frameworks/wsgi.md
+      - Databases:
+          - Psycopg: integrations/databases/psycopg.md
+          - SQLAlchemy: integrations/databases/sqlalchemy.md
+          - Asyncpg: integrations/databases/asyncpg.md
+          - PyMongo: integrations/databases/pymongo.md
+          - MySQL: integrations/databases/mysql.md
+          - SQLite3: integrations/databases/sqlite3.md
+          - Redis: integrations/databases/redis.md
+          - BigQuery: integrations/databases/bigquery.md
+      - HTTP Clients:
+          - HTTPX: integrations/http-clients/httpx.md
+          - Requests: integrations/http-clients/requests.md
+          - AIOHTTP: integrations/http-clients/aiohttp.md
+      - Event Streams:
+          - Airflow: integrations/event-streams/airflow.md
+          - FastStream: integrations/event-streams/faststream.md
+          - Celery: integrations/event-streams/celery.md
       - Logging:
           - Logging: integrations/logging.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
-      - Third Party:
-          - Third Party: integrations/third-party/index.md
-          - Mirascope: integrations/third-party/mirascope.md
-          - LiteLLM: integrations/third-party/litellm.md
-          - Magentic: integrations/third-party/magentic.md
-      - Use Cases:
-          - Web Frameworks: integrations/use-cases/web-frameworks.md
+      - Pydantic: integrations/pydantic.md
+      - System Metrics: integrations/system-metrics.md
+      - Stripe: integrations/stripe.md
+      - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - Advanced:
+          - Generators: reference/advanced/generators.md
+          - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization-structure.md
@@ -223,6 +214,8 @@ plugins:
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
             - url: https://faststream.airt.ai/latest/objects.inv
+            - url: https://redis-py.readthedocs.io/en/stable/objects.inv
+            - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
         "guides/first_steps/index.md": "index.md"
@@ -230,18 +223,58 @@ plugins:
         "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
         "guides/onboarding_checklist/add_manual_tracing.md": "guides/onboarding-checklist/add-manual-tracing.md"
         "guides/onboarding_checklist/add_auto_tracing.md": "guides/onboarding-checklist/add-auto-tracing.md"
-        "guides/web_ui/index.md": "guides/web-ui/index.md"
+        "guides/web_ui/index.md": "guides/web-ui/live.md"
+        "guides/web-ui/index.md": "guides/web-ui/live.md"
         "guides/web_ui/live.md": "guides/web-ui/live.md"
         "guides/web_ui/dashboards.md": "guides/web-ui/dashboards.md"
         "guides/web_ui/alerts.md": "guides/web-ui/alerts.md"
         "guides/web_ui/explore.md": "guides/web-ui/explore.md"
-        "guides/advanced/alternative_backends.md": "guides/advanced/alternative-backends.md"
-        "guides/advanced/creating_write_tokens.md": "guides/advanced/creating-write-tokens.md"
+        "guides/advanced/generators.md": "reference/advanced/generators.md"
+        "guides/advanced/testing.md": "reference/advanced/testing.md"
+        "guides/advanced/query_api.md": "how-to-guides/query-api.md"
+        "guides/advanced/query-api.md": "how-to-guides/query-api.md"
+        "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"
+        "guides/advanced/sampling.md": "how-to-guides/sampling.md"
+        "guides/advanced/alternative-clients.md": "how-to-guides/alternative-clients.md"
+        "guides/advanced/link-to-code-source.md": "how-to-guides/link-to-code-source.md"
+        "guides/advanced/alternative_backends.md": "how-to-guides/alternative-backends.md"
+        "guides/advanced/alternative-backends.md": "how-to-guides/alternative-backends.md"
+        "guides/advanced/creating_write_tokens.md": "how-to-guides/create-write-tokens.md"
+        "guides/advanced/creating-write-tokens.md": "how-to-guides/create-write-tokens.md"
+        "guides/advanced/index.md": "how-to-guides/environments.md"
+        "guides/advanced/environments.md": "how-to-guides/environments.md"
         "integrations/system_metrics.md": "integrations/system-metrics.md"
-        "integrations/third_party/index.md": "integrations/third-party/index.md"
-        "integrations/third_party/mirascope.md": "integrations/third-party/mirascope.md"
-        "integrations/third_party/litellm.md": "integrations/third-party/litellm.md"
-        "integrations/use_cases/web_frameworks.md": "integrations/use-cases/web-frameworks.md"
+        "integrations/third_party/index.md": "integrations/index.md"
+        "integrations/third-party/index.md": "integrations/index.md"
+        "integrations/third_party/mirascope.md": "integrations/llms/mirascope.md"
+        "integrations/third_party/litellm.md": "integrations/llms/litellm.md"
+        "integrations/third-party/litellm.md": "integrations/llms/litellm.md"
+        "integrations/third-party/mirascope.md": "integrations/llms/mirascope.md"
+        "integrations/third-party/magentic.md": "integrations/llms/magentic.md"
+        "integrations/use_cases/web_frameworks.md": "integrations/web-frameworks/index.md"
+        "integrations/use-cases/web_frameworks.md": "integrations/web-frameworks/index.md"
+        "integrations/fastapi.md": "integrations/web-frameworks/fastapi.md"
+        "integrations/django.md": "integrations/web-frameworks/django.md"
+        "integrations/flask.md": "integrations/web-frameworks/flask.md"
+        "integrations/starlette.md": "integrations/web-frameworks/starlette.md"
+        "integrations/asgi.md": "integrations/web-frameworks/asgi.md"
+        "integrations/wsgi.md": "integrations/web-frameworks/wsgi.md"
+        "integrations/psycopg.md": "integrations/databases/psycopg.md"
+        "integrations/sqlalchemy.md": "integrations/databases/sqlalchemy.md"
+        "integrations/asyncpg.md": "integrations/databases/asyncpg.md"
+        "integrations/pymongo.md": "integrations/databases/pymongo.md"
+        "integrations/mysql.md": "integrations/databases/mysql.md"
+        "integrations/sqlite3.md": "integrations/databases/sqlite3.md"
+        "integrations/redis.md": "integrations/databases/redis.md"
+        "integrations/bigquery.md": "integrations/databases/bigquery.md"
+        "integrations/httpx.md": "integrations/http-clients/httpx.md"
+        "integrations/requests.md": "integrations/http-clients/requests.md"
+        "integrations/aiohttp.md": "integrations/http-clients/aiohttp.md"
+        "integrations/airflow.md": "integrations/event-streams/airflow.md"
+        "integrations/faststream.md": "integrations/event-streams/faststream.md"
+        "integrations/celery.md": "integrations/event-streams/celery.md"
+        "integrations/openai.md": "integrations/llms/openai.md"
+        "integrations/anthropic.md": "integrations/llms/anthropic.md"
         "reference/organization_structure.md": "reference/organization-structure.md"
         "legal/service_level_agreement.md": "https://pydantic.dev/legal/terms-of-service"
         "legal/terms_of_service.md": "https://pydantic.dev/legal/terms-of-service"
@@ -263,7 +296,13 @@ plugins:
         "api/integrations/pydantic.md": "reference/api/pydantic.md"
         "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
         "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
-        "guides/advanced/query_api.md": "guides/advanced/query-api.md"
         "guides/index.md": "index.md"
+        "why-logfire/index.md": "why.md"
+        "why-logfire/pydantic.md": "why.md"
+        "why-logfire/opentelemetry.md": "why.md"
+        "why-logfire/simplicity.md": "why.md"
+        "why-logfire/python-centric.md": "why.md"
+        "why-logfire/sql.md": "why.md"
+        "get-started/traces.md": "concepts.md"
 hooks:
   - docs/plugins/main.py

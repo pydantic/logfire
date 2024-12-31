@@ -7,11 +7,15 @@ from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
+from opentelemetry.context import Context
 from opentelemetry.instrumentation.aws_lambda import _HANDLER  # type: ignore[import]
+from opentelemetry.propagate import extract
 
 import logfire
 import logfire._internal.integrations.aws_lambda
 import logfire._internal.integrations.pymongo
+from logfire._internal.integrations.aws_lambda import LambdaEvent
+from logfire.propagate import get_context
 from logfire.testing import TestExporter
 
 
@@ -27,24 +31,46 @@ class MockLambdaContext:
     invoked_function_arn: str
 
 
+def event_context_extractor(lambda_event: LambdaEvent) -> Context:
+    return extract(lambda_event['context'])
+
+
 def test_instrument_aws_lambda(exporter: TestExporter) -> None:
+    with logfire.span('span'):
+        current_context = get_context()
+
     with mock.patch.dict('os.environ', {_HANDLER: 'tests.otel_integrations.test_aws_lambda.lambda_handler'}):
-        logfire.instrument_aws_lambda(lambda_handler)
+        logfire.instrument_aws_lambda(lambda_handler, event_context_extractor=event_context_extractor)
 
         context = MockLambdaContext(
             aws_request_id='mock_aws_request_id',
             invoked_function_arn='arn:aws:lambda:us-east-1:123456:function:myfunction:myalias',
         )
-        lambda_handler({'key': 'value'}, context)
+        lambda_handler({'key': 'value', 'context': current_context}, context)
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'tests.otel_integrations.test_aws_lambda.lambda_handler',
+                'name': 'span',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_aws_lambda.py',
+                    'code.function': 'test_instrument_aws_lambda',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'tests.otel_integrations.test_aws_lambda.lambda_handler',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'tests.otel_integrations.test_aws_lambda.lambda_handler',
@@ -52,7 +78,7 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
                     'faas.invocation_id': 'mock_aws_request_id',
                     'cloud.account.id': '123456',
                 },
-            }
+            },
         ]
     )
 

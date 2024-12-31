@@ -23,8 +23,6 @@ def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
-def parse_backfill(args: argparse.Namespace) -> None:
-    """Bulk upload data to Logfire."""
 
 OTEL_PACKAGES: set[str]
 OTEL_PACKAGE_LINK: Incomplete

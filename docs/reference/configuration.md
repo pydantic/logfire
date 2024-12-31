@@ -1,8 +1,8 @@
 You can use the following ways to configure Logfire:
 
 1. Programmatically via [`logfire.configure()`][logfire.configure]
-2. Using environment variables
-3. Using a configuration file (`pyproject.toml`)
+2. Using [environment variables](#using-environment-variables)
+3. Using a [configuration file](#using-a-configuration-file-pyprojecttoml) (`pyproject.toml`)
 
 The order of precedence is as above.
 

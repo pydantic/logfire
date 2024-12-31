@@ -2,42 +2,44 @@ import anthropic
 import httpx
 import openai
 import opentelemetry.trace as trace_api
+import requests
 from . import async_ as async_
+from ..integrations.flask import CommenterOptions as CommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
+from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
-from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, OPEN_SPANS as OPEN_SPANS
+from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
-from .integrations.asyncpg import AsyncPGInstrumentKwargs as AsyncPGInstrumentKwargs
-from .integrations.aws_lambda import AwsLambdaInstrumentKwargs as AwsLambdaInstrumentKwargs, LambdaHandler as LambdaHandler
-from .integrations.celery import CeleryInstrumentKwargs as CeleryInstrumentKwargs
-from .integrations.flask import FlaskInstrumentKwargs as FlaskInstrumentKwargs
-from .integrations.httpx import HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
+from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
+from .integrations.httpx import AsyncClientKwargs as AsyncClientKwargs, ClientKwargs as ClientKwargs, HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
 from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
 from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
 from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
 from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
 from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
-from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection, SQLite3InstrumentKwargs as SQLite3InstrumentKwargs
-from .integrations.starlette import StarletteInstrumentKwargs as StarletteInstrumentKwargs
+from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-from .integrations.wsgi import WSGIInstrumentKwargs as WSGIInstrumentKwargs
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider
+from .tracer import ProxyTracerProvider as ProxyTracerProvider, record_exception as record_exception, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
+from opentelemetry.context import Context as Context
+from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
 from opentelemetry.util import types as otel_types
+from sqlalchemy import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
@@ -499,10 +501,10 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
-        The following methods are instrumented for both the sync and the async clients:
+        The following methods are instrumented for both the sync and async clients:
 
         - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
         - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
@@ -517,6 +519,7 @@ class Logfire:
         import anthropic
 
         client = anthropic.Anthropic()
+
         logfire.configure()
         logfire.instrument_anthropic(client)
 
@@ -532,13 +535,10 @@ class Logfire:
 
         Args:
             anthropic_client: The Anthropic client or class to instrument:
-
-                - `None` (the default) to instrument both the
-                    `anthropic.Anthropic` and `anthropic.AsyncAnthropic` classes.
-                - The `anthropic.Anthropic` class or a subclass
-                - The `anthropic.AsyncAnthropic` class or a subclass
-                - An instance of `anthropic.Anthropic`
-                - An instance of `anthropic.AsyncAnthropic`
+                - `None` (the default) to instrument all Anthropic client types
+                - The `anthropic.Anthropic` or `anthropic.AnthropicBedrock` class or subclass
+                - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
+                - An instance of any of the above classes
 
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
@@ -548,25 +548,25 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self, **kwargs: Unpack[AsyncPGInstrumentKwargs]) -> None:
+    def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
-    def instrument_httpx(self, client: httpx.Client | httpx.AsyncClient | None = None, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None:
-        """Instrument the `httpx` module so that spans are automatically created for each request.
-
-        Optionally, pass an `httpx.Client` instance to instrument only that client.
-
-        Uses the
-        [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
-        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
-        """
-    def instrument_celery(self, **kwargs: Unpack[CeleryInstrumentKwargs]) -> None:
+    @overload
+    def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_text_body: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
+    @overload
+    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_request_text_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
+    @overload
+    def instrument_httpx(self, client: None = None, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_request_text_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
+    def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
         Uses the
         [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
         library.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
-    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[Span, HttpRequest], None] | None = None, response_hook: Callable[[Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None, response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
 
         Uses the
@@ -597,13 +597,14 @@ class Logfire:
                 for future compatibility.
 
         """
-    def instrument_requests(self, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_requests(self, excluded_urls: str | None = None, request_hook: Callable[[Span, requests.PreparedRequest], None] | None = None, response_hook: Callable[[Span, requests.PreparedRequest, requests.Response], None] | None = None, **kwargs: Any) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
 
         Args:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `request_hook` and `response_hook`.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
     def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
@@ -624,7 +625,7 @@ class Logfire:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
-    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, **kwargs: Unpack[FlaskInstrumentKwargs]) -> None:
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: CommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -634,9 +635,15 @@ class Logfire:
         Args:
             app: The Flask app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
+                See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
+            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
         """
-    def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[StarletteInstrumentKwargs]) -> None:
+    def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -651,6 +658,9 @@ class Logfire:
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            server_request_hook: A function that receives a server span and the ASGI scope for every incoming request.
+            client_request_hook: A function that receives a span, the ASGI scope and the receive ASGI message for every ASGI receive event.
+            client_response_hook: A function that receives a span, the ASGI scope and the send ASGI message for every ASGI send event.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Starlette instrumentation.
         """
     def instrument_asgi(self, app: ASGIApp, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
@@ -675,7 +685,7 @@ class Logfire:
         Returns:
             The instrumented ASGI application.
         """
-    def instrument_wsgi(self, app: WSGIApplication, capture_headers: bool = False, **kwargs: Unpack[WSGIInstrumentKwargs]) -> WSGIApplication:
+    def instrument_wsgi(self, app: WSGIApplication, capture_headers: bool = False, request_hook: WSGIRequestHook | None = None, response_hook: WSGIResponseHook | None = None, **kwargs: Any) -> WSGIApplication:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the WSGI [`OpenTelemetryMiddleware`][opentelemetry.instrumentation.wsgi.OpenTelemetryMiddleware] under
@@ -687,6 +697,8 @@ class Logfire:
         Args:
             app: The WSGI application to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry WSGI middleware.
 
         Returns:
@@ -699,14 +711,18 @@ class Logfire:
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_sqlalchemy(self, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
-    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Unpack[SQLite3InstrumentKwargs]) -> SQLite3Connection:
+    def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Any) -> SQLite3Connection:
         """Instrument the `sqlite3` module or a specific connection so that spans are automatically created for each operation.
 
         Uses the
@@ -720,12 +736,17 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns `None`.
         """
-    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, **kwargs: Unpack[AwsLambdaInstrumentKwargs]) -> None:
+    def instrument_aws_lambda(self, lambda_handler: LambdaHandler, event_context_extractor: Callable[[LambdaEvent], Context] | None = None, **kwargs: Any) -> None:
         """Instrument AWS Lambda so that spans are automatically created for each invocation.
 
         Uses the
         [OpenTelemetry AWS Lambda Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aws_lambda/aws_lambda.html)
         library, specifically `AwsLambdaInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            lambda_handler: The lambda handler function to instrument.
+            event_context_extractor: A function that returns an OTel Trace Context given the Lambda Event the AWS.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
     def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
@@ -1033,7 +1054,7 @@ class LogfireSpan(ReadableSpan):
     def message(self) -> str: ...
     @message.setter
     def message(self, message: str): ...
-    def end(self) -> None:
+    def end(self, end_time: int | None = None) -> None:
         """Sets the current time as the span's end time.
 
         The span's end time is the wall time at which the operation finished.
@@ -1092,7 +1113,7 @@ class NoopSpan:
     def is_recording(self) -> bool: ...
 AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
 
-def user_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
+def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
     """Prepare attributes for sending to OpenTelemetry.
 
     This will convert any non-OpenTelemetry compatible types to JSON.

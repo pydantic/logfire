@@ -1,5 +1,32 @@
 # Release Notes
 
+## [v2.11.1] (2024-12-30)
+
+* Handle errors from `sqlalchemy.inspect` by @alexmojaki in [#733](https://github.com/pydantic/logfire/pull/733)
+
+## [v2.11.0] (2024-12-23)
+
+* Add `capture_request_text_body` param to `instrument_httpx` by @alexmojaki in [#722](https://github.com/pydantic/logfire/pull/722)
+* Support for `AnthropicBedrock` client by @stephenhibbert in [#701](https://github.com/pydantic/logfire/pull/701)
+
+## [v2.10.0] (2024-12-23)
+
+* Add `capture_request_form_data` param to `instrument_httpx` by @alexmojaki in [#711](https://github.com/pydantic/logfire/pull/711)
+* Replace `capture_(request|response)_headers` with just `capture_headers` in `instrument_httpx` by @Kludex in [#719](https://github.com/pydantic/logfire/pull/719)
+* Support SQLAlchemy `AsyncEngine` by @Kludex in [#717](https://github.com/pydantic/logfire/pull/717)
+
+## [v2.9.0] (2024-12-20)
+
+* Capture httpx response JSON bodies by @alexmojaki in [#700](https://github.com/pydantic/logfire/pull/700)
+* Use end-at-shutdown and custom `record_exception` logic for all spans by @dmontagu in [#696](https://github.com/pydantic/logfire/pull/696)
+
+## [v2.8.0] (2024-12-18)
+
+* Add `capture_(request|response)_headers` ([#671](https://github.com/pydantic/logfire/pull/671)) and `capture_request_json_body` ([#682](https://github.com/pydantic/logfire/pull/682)) to `instrument_httpx` by @Kludex
+* Fix patching of ProcessPoolExecutor by @alexmojaki in [#690](https://github.com/pydantic/logfire/pull/690)
+* Rearrange span processors to avoid repeating scrubbing and other tweaking by @alexmojaki in [#658](https://github.com/pydantic/logfire/pull/658)
+* Remove end-on-exit stuff by @dmontagu in [#676](https://github.com/pydantic/logfire/pull/676)
+
 ## [v2.7.1] (2024-12-13)
 
 * Fix erroneous `<circular reference>` when object is repeated in list by @alexmojaki in [#664](https://github.com/pydantic/logfire/pull/664)
@@ -472,3 +499,8 @@ First release from new repo!
 [v2.6.2]: https://github.com/pydantic/logfire/compare/v2.6.1...v2.6.2
 [v2.7.0]: https://github.com/pydantic/logfire/compare/v2.6.2...v2.7.0
 [v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1
+[v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0
+[v2.9.0]: https://github.com/pydantic/logfire/compare/v2.8.0...v2.9.0
+[v2.10.0]: https://github.com/pydantic/logfire/compare/v2.9.0...v2.10.0
+[v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
+[v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1

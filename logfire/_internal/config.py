@@ -16,7 +16,6 @@ from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
-from weakref import WeakSet
 
 import requests
 from opentelemetry import trace
@@ -44,7 +43,7 @@ from opentelemetry.sdk.metrics import (
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import SpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
@@ -61,7 +60,6 @@ from logfire.version import VERSION
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
-    DEFAULT_FALLBACK_FILE_NAME,
     OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
@@ -76,10 +74,8 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.fallback import FallbackSpanExporter
-from .exporters.file import FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import MainSpanProcessorWrapper
+from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
@@ -87,7 +83,7 @@ from .integrations.executors import instrument_executors
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor, ProxyTracerProvider
+from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
     UnexpectedResponse,
@@ -98,10 +94,8 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .main import FastLogfireSpan, Logfire, LogfireSpan
+    from .main import Logfire
 
-# NOTE: this WeakSet is the reason that FastLogfireSpan.__slots__ has a __weakref__ slot.
-OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan] = WeakSet()
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
@@ -197,11 +191,7 @@ class MetricsOptions:
 
 @dataclass
 class CodeSource:
-    """Settings for the source code of the project.
-
-    !!! Warning
-        This setting is experimental, and may change in the future!
-    """
+    """Settings for the source code of the project."""
 
     repository: str
     """The repository URL for the code e.g. https://github.com/pydantic/logfire"""
@@ -297,8 +287,6 @@ def configure(  # noqa: D417
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
-            !!! Warning
-                This setting is experimental, and may change in the future!
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -578,6 +566,9 @@ class _LogfireConfigData:
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
+            id_generator = advanced.id_generator
+            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed']:  # type: ignore  # pragma: no branch
+                advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore
         elif advanced is None:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
@@ -761,20 +752,22 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors_with_pending_spans: list[SpanProcessor] = []
+            root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
+            if self.sampling.tail:
+                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
+            tracer_provider.add_span_processor(
+                CheckSuppressInstrumentationProcessorWrapper(
+                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                )
+            )
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                # Some span processors added to the tracer provider should also be recorded in
-                # `processors_with_pending_spans` so that they can be used by the final pending span processor.
-                # This means that `tracer_provider.add_span_processor` should only appear in two places.
+                main_multiprocessor.add_span_processor(span_processor)
+
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
-
-                if self.sampling.tail:
-                    span_processor = TailSamplingProcessor(span_processor, self.sampling.tail)
-                span_processor = MainSpanProcessorWrapper(span_processor, self.scrubber)
-                tracer_provider.add_span_processor(span_processor)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
 
@@ -847,9 +840,6 @@ class LogfireConfig(_LogfireConfigData):
                         compression=Compression.Gzip,
                     )
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                    span_exporter = FallbackSpanExporter(
-                        span_exporter, FileSpanExporter(self.data_dir / DEFAULT_FALLBACK_FILE_NAME, warn=True)
-                    )
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                     add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
@@ -874,8 +864,14 @@ class LogfireConfig(_LogfireConfigData):
                         ]
 
             if processors_with_pending_spans:
-                tracer_provider.add_span_processor(
-                    PendingSpanProcessor(self.advanced.id_generator, tuple(processors_with_pending_spans))
+                pending_multiprocessor = SynchronousMultiSpanProcessor()
+                for processor in processors_with_pending_spans:
+                    pending_multiprocessor.add_span_processor(processor)
+
+                main_multiprocessor.add_span_processor(
+                    PendingSpanProcessor(
+                        self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
+                    )
                 )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
@@ -936,8 +932,15 @@ class LogfireConfig(_LogfireConfigData):
                 # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
                 # Registering this callback here after the OTEL one means that this runs first.
                 # Otherwise OTEL would log an error "Already shutdown, dropping span."
+                # The reason that spans may be lingering open is that they're in suspended generator frames.
+                # Apart from here, they will be ended when the generator is garbage collected
+                # as the interpreter shuts down, but that's too late.
                 for span in list(OPEN_SPANS):
-                    span.__exit__(None, None, None)
+                    # TODO maybe we should be recording something about what happened here?
+                    span.end()
+                    # Interpreter shutdown may trigger another call to .end(),
+                    # which would log a warning "Calling end() on an ended span."
+                    span.end = lambda *_, **__: None  # type: ignore
 
             self._initialized = True
 

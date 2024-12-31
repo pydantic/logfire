@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import importlib
+from unittest import mock
+
+import pytest
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
 import logfire
+import logfire._internal.integrations.wsgi
 from logfire.testing import TestExporter
 
 
@@ -90,3 +95,14 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.wsgi': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.wsgi)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_wsgi()` requires the `opentelemetry-instrumentation-wsgi` package.
+You can install this with:
+    pip install 'logfire[wsgi]'\
+""")

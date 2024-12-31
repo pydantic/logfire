@@ -4,7 +4,7 @@ From the team behind **Pydantic**, **Logfire** is a new type of observability pl
 the same belief as our open source library — that the most powerful tools can be easy to use.
 
 **Logfire** is built on OpenTelemetry, and supports monitoring your application from any language,
-with particularly great support for Python! [Read more](why-logfire/index.md).
+with particularly great support for Python! [Read more](why.md).
 
 ## Getting Started
 
@@ -52,7 +52,8 @@ logfire auth
 ## Instrument your project {#instrument}
 === ":material-cog-outline: Development"
     !!! tip "Development setup"
-        During development, we recommend using the CLI to configure Logfire. You can also use a [write token](guides/advanced/creating-write-tokens.md).
+        During development, we recommend using the CLI to configure Logfire.
+        You can also use a [write token](how-to-guides/create-write-tokens.md).
 
     1. Set your project
 
@@ -72,8 +73,8 @@ logfire auth
     logfire.info('Hello, {name}!', name='world')  # (2)!
     ```
 
-    1. The `configure()` method should be called once before logging to initialize **Logfire**.
-    2. This will log `Hello world!` with `info` level.
+    3. The `configure()` method should be called once before logging to initialize **Logfire**.
+    4. This will log `Hello world!` with `info` level.
 
     !!! info ""
         Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
@@ -97,8 +98,8 @@ logfire auth
 
     2. Configure your **Logfire** environment
 
-    ```bash title="in the terminal:"
-    LOGFIRE_TOKEN=<your-write-token>
+    ```bash title="In the terminal:"
+    export LOGFIRE_TOKEN=<your-write-token>
     ```
 
     !!! info ""
@@ -130,7 +131,7 @@ logfire auth
 
 Ready to keep going?
 
-- Read about [Tracing with Spans](get-started/traces.md)
+- Read about [Concepts](concepts.md)
 - Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
 
 More topics to explore...

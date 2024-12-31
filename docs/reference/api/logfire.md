@@ -8,7 +8,12 @@
     options:
         show_root_heading: true
         show_root_full_path: false
-        filters: ["!^with_trace_sample_rate$", "!^_[^_]"]
+        exclude:
+        filters:
+            - "!instrument_redis"
+            - "!instrument_pymongo"
+            - "!^with_trace_sample_rate$"
+            - "!^_[^_]"
 
 
 ::: logfire

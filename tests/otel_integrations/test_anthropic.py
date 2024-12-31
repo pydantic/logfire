@@ -168,7 +168,12 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                 'content': 'Nine',
                                 'role': 'assistant',
                             },
-                            'usage': {'input_tokens': 2, 'output_tokens': 3},
+                            'usage': {
+                                'input_tokens': 2,
+                                'output_tokens': 3,
+                                'cache_creation_input_tokens': None,
+                                'cache_read_input_tokens': None,
+                            },
                         }
                     ),
                     'logfire.json_schema': IsJson(
@@ -236,7 +241,12 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                                 'content': 'Nine',
                                 'role': 'assistant',
                             },
-                            'usage': {'input_tokens': 2, 'output_tokens': 3},
+                            'usage': {
+                                'input_tokens': 2,
+                                'output_tokens': 3,
+                                'cache_creation_input_tokens': None,
+                                'cache_read_input_tokens': None,
+                            },
                         }
                     ),
                     'logfire.json_schema': IsJson(
@@ -256,7 +266,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                                     },
                                 },
                             },
-                        }
+                        },
                     ),
                 },
             }
@@ -475,7 +485,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"input_tokens":2,"output_tokens":3}}',
+                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3}}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
                 },
             }

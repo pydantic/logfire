@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import requests
 import requests_mock
@@ -34,12 +36,17 @@ def test_internal_exception_tb(caplog: pytest.LogCaptureFixture):
     user_code_example.user1()
 
     tracebacks = [
-        r.exc_text.replace(  # type: ignore
-            user_code_example.__file__,
-            'user_code_example.py',
-        ).replace(
-            internal_logfire_code_example.__file__,
-            'internal_logfire_code_example.py',
+        re.sub(
+            # Remove lines with ~ and ^ pointers (and whitespace) only
+            r'\n[ ~^]+\n',
+            '\n',
+            r.exc_text.replace(  # type: ignore
+                user_code_example.__file__,
+                'user_code_example.py',
+            ).replace(
+                internal_logfire_code_example.__file__,
+                'internal_logfire_code_example.py',
+            ),
         )
         for r in caplog.records
     ]

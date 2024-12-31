@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import sys
+import traceback
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
-from weakref import WeakKeyDictionary
+from weakref import WeakKeyDictionary, WeakSet
 
 import opentelemetry.trace as trace_api
 from opentelemetry import context as context_api
@@ -17,6 +19,7 @@ from opentelemetry.sdk.trace import (
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 from opentelemetry.trace.status import Status, StatusCode
@@ -27,11 +30,22 @@ from .constants import (
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
+    ATTRIBUTES_VALIDATION_ERROR_KEY,
     PENDING_SPAN_NAME_SUFFIX,
+    log_level_attributes,
 )
+from .utils import handle_internal_errors
 
 if TYPE_CHECKING:
     from .config import LogfireConfig
+
+try:
+    from pydantic import ValidationError
+except ImportError:  # pragma: no cover
+    ValidationError = None
+
+
+OPEN_SPANS: WeakSet[_LogfireWrappedSpan] = WeakSet()
 
 
 @dataclass
@@ -100,14 +114,18 @@ class ProxyTracerProvider(TracerProvider):
             return True  # pragma: no cover
 
 
-@dataclass
-class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
+@dataclass(eq=False)
+class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """Span that overrides end() to use a timestamp generator if one was provided."""
 
     span: Span
     ns_timestamp_generator: Callable[[], int]
 
+    def __post_init__(self):
+        OPEN_SPANS.add(self)
+
     def end(self, end_time: int | None = None) -> None:
+        OPEN_SPANS.discard(self)
         self.span.end(end_time or self.ns_timestamp_generator())
 
     def get_span_context(self) -> SpanContext:
@@ -151,7 +169,7 @@ class _MaybeDeterministicTimestampSpan(trace_api.Span, ReadableSpan):
         escaped: bool = False,
     ) -> None:
         timestamp = timestamp or self.ns_timestamp_generator()
-        return self.span.record_exception(exception, attributes, timestamp, escaped)
+        record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
     if not TYPE_CHECKING:  # pragma: no branch
         # for ReadableSpan
@@ -211,7 +229,7 @@ class _ProxyTracer(Tracer):
                     ),
                 )
             )
-        return _MaybeDeterministicTimestampSpan(
+        return _LogfireWrappedSpan(
             span,
             ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
         )
@@ -237,11 +255,14 @@ class SuppressedTracer(Tracer):
 class PendingSpanProcessor(SpanProcessor):
     """Span processor that emits an extra pending span for each span as it starts.
 
-    The pending span is emitted by calling `on_end` on all other processors.
+    The pending span is emitted by calling `on_end` on the inner `processor`.
+    This is intentionally not a `WrapperSpanProcessor` to avoid the default implementations of `on_end`
+    and `shutdown`. This processor is expected to contain processors which are already included
+    elsewhere in the pipeline where `on_end` and `shutdown` are called normally.
     """
 
     id_generator: IdGenerator
-    other_processors: tuple[SpanProcessor, ...]
+    processor: SpanProcessor
 
     def on_start(
         self,
@@ -250,7 +271,7 @@ class PendingSpanProcessor(SpanProcessor):
     ) -> None:
         assert isinstance(span, ReadableSpan) and isinstance(span, Span)
         if not span.is_recording():  # pragma: no cover
-            # Span was sampled out
+            # Span was sampled out, or has finished already (happens with tail sampling)
             return
 
         attributes = span.attributes
@@ -295,8 +316,7 @@ class PendingSpanProcessor(SpanProcessor):
             end_time=start_and_end_time,
             instrumentation_scope=span.instrumentation_scope,
         )
-        for processor in self.other_processors:
-            processor.on_end(pending_span)
+        self.processor.on_end(pending_span)
 
 
 def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types.AttributeValue]) -> bool:
@@ -312,3 +332,51 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
     if not attributes:  # pragma: no cover
         return None
     return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))
+
+
+@handle_internal_errors()
+def record_exception(
+    span: trace_api.Span,
+    exception: BaseException,
+    *,
+    attributes: otel_types.Attributes = None,
+    timestamp: int | None = None,
+    escaped: bool = False,
+) -> None:
+    """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+    # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
+    # `escaped=True` means that the exception is escaping the scope of the span.
+    # This means we know that the exception hasn't been handled,
+    # so we can set the OTEL status and the log level to error.
+    if escaped:
+        set_exception_status(span, exception)
+        span.set_attributes(log_level_attributes('error'))
+
+    attributes = {**(attributes or {})}
+    if ValidationError is not None and isinstance(exception, ValidationError):
+        # insert a more detailed breakdown of pydantic errors
+        try:
+            err_json = exception.json(include_url=False)
+        except TypeError:  # pragma: no cover
+            # pydantic v1
+            err_json = exception.json()
+        span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
+        attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
+
+    if exception is not sys.exc_info()[1]:
+        # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
+        # ignoring the passed exception.
+        # So we override the stacktrace attribute with the correct one.
+        stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+        attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
+
+    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+
+
+def set_exception_status(span: trace_api.Span, exception: BaseException):
+    span.set_status(
+        trace_api.Status(
+            status_code=StatusCode.ERROR,
+            description=f'{exception.__class__.__name__}: {exception}',
+        )
+    )

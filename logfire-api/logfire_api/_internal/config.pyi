@@ -2,21 +2,19 @@ import dataclasses
 import requests
 from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_logged_in as is_logged_in
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import DEFAULT_FALLBACK_FILE_NAME as DEFAULT_FALLBACK_FILE_NAME, LevelName as LevelName, OTLP_MAX_BODY_SIZE as OTLP_MAX_BODY_SIZE, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
+from .constants import LevelName as LevelName, OTLP_MAX_BODY_SIZE as OTLP_MAX_BODY_SIZE, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
-from .exporters.fallback import FallbackSpanExporter as FallbackSpanExporter
-from .exporters.file import FileSpanExporter as FileSpanExporter
 from .exporters.otlp import OTLPExporterHttpSession as OTLPExporterHttpSession, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter
-from .exporters.processor_wrapper import MainSpanProcessorWrapper as MainSpanProcessorWrapper
+from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
 from .integrations.executors import instrument_executors as instrument_executors
-from .main import FastLogfireSpan as FastLogfireSpan, Logfire as Logfire, LogfireSpan as LogfireSpan
+from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from .tracer import PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
+from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from dataclasses import dataclass
@@ -30,9 +28,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, TypedDict
 from typing_extensions import Self, Unpack
-from weakref import WeakSet
 
-OPEN_SPANS: WeakSet[LogfireSpan | FastLogfireSpan]
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
@@ -75,11 +71,7 @@ class MetricsOptions:
 
 @dataclass
 class CodeSource:
-    """Settings for the source code of the project.
-
-    !!! Warning
-        This setting is experimental, and may change in the future!
-    """
+    """Settings for the source code of the project."""
     repository: str
     revision: str
     root_path: str = ...
@@ -135,8 +127,6 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
-            !!! Warning
-                This setting is experimental, and may change in the future!
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
 
