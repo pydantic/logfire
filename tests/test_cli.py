@@ -372,10 +372,9 @@ def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
     assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,use} ...'
 
 
-def test_projects_list(default_credentials: Path) -> None:
+def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        table_add_row = stack.enter_context(patch('logfire._internal.cli.Table.add_row'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -386,13 +385,19 @@ def test_projects_list(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-        assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
+        output = capsys.readouterr().err
+        assert output.splitlines() == snapshot(
+            [
+                ' Organization   | Project',
+                '----------------|--------',
+                ' test-org       | test-pr',
+            ]
+        )
 
 
-def test_projects_list_no_project(default_credentials: Path) -> None:
+def test_projects_list_no_project(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -400,11 +405,11 @@ def test_projects_list_no_project(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('No projects found for the current user. You can create a new project with `logfire projects new`')",
-        ]
+        output = capsys.readouterr().err
+        assert (
+            output
+            == 'No projects found for the current user. You can create a new project with `logfire projects new`\n'
+        )
 
 
 def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:

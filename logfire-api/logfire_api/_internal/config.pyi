@@ -71,11 +71,7 @@ class MetricsOptions:
 
 @dataclass
 class CodeSource:
-    """Settings for the source code of the project.
-
-    !!! Warning
-        This setting is experimental, and may change in the future!
-    """
+    """Settings for the source code of the project."""
     repository: str
     revision: str
     root_path: str = ...
@@ -131,8 +127,6 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
-            !!! Warning
-                This setting is experimental, and may change in the future!
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
 
