@@ -12,6 +12,7 @@ import platform
 import sys
 import warnings
 import webbrowser
+from operator import itemgetter
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -172,14 +173,14 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # fmt: off
     sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
     sys.stderr.write('\n')
-    sys.stderr.write(f' {"Package":<18}| OpenTelemetry instrumentation package\n')
-    sys.stderr.write(f' {"-" * 18}|{"-" * 45}\n')
     # fmt: on
 
+    rows: list[list[str]] = []
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
         otel_package_name = f'opentelemetry-instrumentation-{package_name}'
-        sys.stderr.write(f' {name:<18}| {otel_package_name}\n')
+        rows.append([name, otel_package_name])
+    sys.stderr.write(_pretty_table(['Package', 'OpenTelemetry instrumentation package'], rows))
 
     if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
@@ -245,10 +246,15 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     logfire_url = args.logfire_url
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     if projects:
-        sys.stderr.write(f' {"Organization":<18} | Project\n')
-        sys.stderr.write(f'{"-" * 20}|{"-" * 18}\n')
-        for project in projects:
-            sys.stderr.write(f' {project["organization_name"]:<18} | {project["project_name"]}\n')
+        sys.stderr.write(
+            _pretty_table(
+                ['Organization', 'Project'],
+                [
+                    [project['organization_name'], project['project_name']]
+                    for project in sorted(projects, key=itemgetter('organization_name', 'project_name'))
+                ],
+            )
+        )
     else:
         sys.stderr.write(
             'No projects found for the current user. You can create a new project with `logfire projects new`\n'
@@ -350,6 +356,15 @@ def parse_info(_args: argparse.Namespace) -> None:
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
     sys.stderr.writelines('\n'.join(toml_lines) + '\n')
+
+
+def _pretty_table(header: list[str], rows: list[list[str]]):
+    rows = [[' ' + first, *rest] for first, *rest in [header] + rows]
+    widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+    lines = ['   | '.join(cell.ljust(width) for cell, width in zip(row, widths)) for row in rows]
+    header_line = '---|-'.join('-' * width for width in widths)
+    lines.insert(1, header_line)
+    return '\n'.join(lines) + '\n'
 
 
 def _main(args: list[str] | None = None) -> None:
