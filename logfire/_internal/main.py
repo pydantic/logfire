@@ -88,13 +88,18 @@ if TYPE_CHECKING:
         RequestHook as FlaskRequestHook,
         ResponseHook as FlaskResponseHook,
     )
+    from ..integrations.httpx import (
+        AsyncRequestHook as HttpxAsyncRequestHook,
+        AsyncResponseHook as HttpxAsyncResponseHook,
+        RequestHook as HttpxRequestHook,
+        ResponseHook as HttpxResponseHook,
+    )
     from ..integrations.wsgi import (
         RequestHook as WSGIRequestHook,
         ResponseHook as WSGIResponseHook,
     )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
-    from .integrations.httpx import AsyncClientKwargs, ClientKwargs, HTTPXInstrumentKwargs
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import PsycopgInstrumentKwargs
     from .integrations.pymongo import PymongoInstrumentKwargs
@@ -1185,7 +1190,9 @@ class Logfire:
         capture_response_json_body: bool = False,
         capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
-        **kwargs: Unpack[ClientKwargs],
+        request_hook: HttpxRequestHook | None = None,
+        response_hook: HttpxResponseHook | None = None,
+        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -1199,7 +1206,9 @@ class Logfire:
         capture_response_json_body: bool = False,
         capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
-        **kwargs: Unpack[AsyncClientKwargs],
+        request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
+        response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
+        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -1213,7 +1222,11 @@ class Logfire:
         capture_response_json_body: bool = False,
         capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
-        **kwargs: Unpack[HTTPXInstrumentKwargs],
+        request_hook: HttpxRequestHook | None = None,
+        response_hook: HttpxResponseHook | None = None,
+        async_request_hook: HttpxAsyncRequestHook | None = None,
+        async_response_hook: HttpxAsyncResponseHook | None = None,
+        **kwargs: Any,
     ) -> None: ...
 
     def instrument_httpx(
@@ -1226,6 +1239,10 @@ class Logfire:
         capture_response_json_body: bool = False,
         capture_response_text_body: bool = False,
         capture_request_form_data: bool = False,
+        request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
+        response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
+        async_request_hook: HttpxAsyncRequestHook | None = None,
+        async_response_hook: HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -1261,6 +1278,10 @@ class Logfire:
             capture_request_form_data: Set to `True` to capture the request form data.
                 Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
                 Doesn't inspect or parse the raw request body.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            async_request_hook: A function called right after a span is created for an async request.
+            async_response_hook: A function called right before a span is finished for an async response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
         from .integrations.httpx import instrument_httpx
@@ -1275,6 +1296,10 @@ class Logfire:
             capture_response_json_body=capture_response_json_body,
             capture_response_text_body=capture_response_text_body,
             capture_request_form_data=capture_request_form_data,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            async_request_hook=async_request_hook,
+            async_response_hook=async_response_hook,
             **kwargs,
         )
 

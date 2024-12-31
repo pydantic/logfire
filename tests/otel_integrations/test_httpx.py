@@ -318,7 +318,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
 def test_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)  # type: ignore
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
             response = client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -329,7 +329,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
 async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)  # type: ignore
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
             response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -351,7 +351,7 @@ You can install this with:
 def test_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(  # type: ignore
+            logfire.instrument_httpx(
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
@@ -446,7 +446,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
 async def test_async_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(  # type: ignore
+            logfire.instrument_httpx(
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,

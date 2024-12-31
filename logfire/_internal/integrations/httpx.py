@@ -37,29 +37,7 @@ from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypedDict, TypeVar
-
-    class AsyncClientKwargs(TypedDict, total=False):
-        request_hook: RequestHook | AsyncRequestHook
-        response_hook: ResponseHook | AsyncResponseHook
-        skip_dep_check: bool
-
-    class ClientKwargs(TypedDict, total=False):
-        request_hook: RequestHook
-        response_hook: ResponseHook
-        skip_dep_check: bool
-
-    class HTTPXInstrumentKwargs(TypedDict, total=False):
-        request_hook: RequestHook
-        response_hook: ResponseHook
-        async_request_hook: AsyncRequestHook
-        async_response_hook: AsyncResponseHook
-        skip_dep_check: bool
-
-    AnyRequestHook = TypeVar('AnyRequestHook', RequestHook, AsyncRequestHook)
-    AnyResponseHook = TypeVar('AnyResponseHook', ResponseHook, AsyncResponseHook)
-    Hook = TypeVar('Hook', RequestHook, ResponseHook)
-    AsyncHook = TypeVar('AsyncHook', AsyncRequestHook, AsyncResponseHook)
+    from typing import ParamSpec
 
     P = ParamSpec('P')
 
@@ -73,6 +51,10 @@ def instrument_httpx(
     capture_response_json_body: bool,
     capture_response_text_body: bool,
     capture_request_form_data: bool,
+    request_hook: RequestHook | AsyncRequestHook | None,
+    response_hook: ResponseHook | AsyncResponseHook | None,
+    async_request_hook: AsyncRequestHook | None,
+    async_response_hook: AsyncResponseHook | None,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
@@ -105,10 +87,8 @@ def instrument_httpx(
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='httpx')
 
     if client is None:
-        request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
-        response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
-        async_request_hook = cast('AsyncRequestHook | None', final_kwargs.get('async_request_hook'))
-        async_response_hook = cast('AsyncResponseHook | None', final_kwargs.get('async_response_hook'))
+        request_hook = cast('RequestHook | None', request_hook)
+        response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
             request_hook,
             should_capture_request_headers,
@@ -141,9 +121,6 @@ def instrument_httpx(
         instrumentor.instrument(**final_kwargs)
     else:
         if isinstance(client, httpx.AsyncClient):
-            request_hook = cast('RequestHook | AsyncRequestHook | None', final_kwargs.get('request_hook'))
-            response_hook = cast('ResponseHook | AsyncResponseHook | None', final_kwargs.get('response_hook'))
-
             request_hook = make_async_request_hook(
                 request_hook,
                 should_capture_request_headers,
@@ -159,8 +136,8 @@ def instrument_httpx(
                 logfire_instance,
             )
         else:
-            request_hook = cast('RequestHook | None', final_kwargs.get('request_hook'))
-            response_hook = cast('ResponseHook | None', final_kwargs.get('response_hook'))
+            request_hook = cast('RequestHook | None', request_hook)
+            response_hook = cast('ResponseHook | None', response_hook)
 
             request_hook = make_request_hook(
                 request_hook,

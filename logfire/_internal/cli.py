@@ -12,6 +12,7 @@ import platform
 import sys
 import warnings
 import webbrowser
+from operator import itemgetter
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -172,14 +173,14 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # fmt: off
     sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
     sys.stderr.write('\n')
-    sys.stderr.write(f' {"Package":<18}| OpenTelemetry instrumentation package\n')
-    sys.stderr.write(f' {"-" * 18}|{"-" * 45}\n')
     # fmt: on
 
+    rows: list[list[str]] = []
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
         otel_package_name = f'opentelemetry-instrumentation-{package_name}'
-        sys.stderr.write(f' {name:<18}| {otel_package_name}\n')
+        rows.append([name, otel_package_name])
+    sys.stderr.write(_pretty_table(['Package', 'OpenTelemetry instrumentation package'], rows))
 
     if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
@@ -200,34 +201,41 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
 
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):  # pragma: no branch
-            console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
+            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
             return
     else:
         data: DefaultFile = {'tokens': {}}
 
-    console.print()
-    console.print('Welcome to Logfire! :fire:')
-    console.print('Before you can send data to Logfire, we need to authenticate you.')
-    console.print()
+    sys.stderr.writelines(
+        (
+            '\n',
+            'Welcome to Logfire! 🔥\n',
+            'Before you can send data to Logfire, we need to authenticate you.\n',
+            '\n',
+        )
+    )
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
-    console.input(f'Press [bold]Enter[/] to open {frontend_host} in your browser...')
+    input(f'Press Enter to open {frontend_host} in your browser...')
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:
         pass
-    console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
-    console.print('Waiting for you to authenticate with Logfire...')
+    sys.stderr.writelines(
+        (
+            f"Please open {frontend_auth_url} in your browser to authenticate if it hasn't already.\n",
+            'Waiting for you to authenticate with Logfire...\n',
+        )
+    )
 
     data['tokens'][logfire_url] = poll_for_token(args._session, device_code, logfire_url)
-    console.print('Successfully authenticated!')
+    sys.stderr.write('Successfully authenticated!\n')
 
     # There's no standard library package to write TOML files, so we'll write it manually.
     with DEFAULT_FILE.open('w') as f:
@@ -236,8 +244,7 @@ def parse_auth(args: argparse.Namespace) -> None:
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
-    console.print()
-    console.print(f'Your Logfire credentials are stored in [bold]{DEFAULT_FILE}[/]')
+    sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
@@ -245,10 +252,15 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     logfire_url = args.logfire_url
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     if projects:
-        sys.stderr.write(f' {"Organization":<18} | Project\n')
-        sys.stderr.write(f'{"-" * 20}|{"-" * 18}\n')
-        for project in projects:
-            sys.stderr.write(f' {project["organization_name"]:<18} | {project["project_name"]}\n')
+        sys.stderr.write(
+            _pretty_table(
+                ['Organization', 'Project'],
+                [
+                    [project['organization_name'], project['project_name']]
+                    for project in sorted(projects, key=itemgetter('organization_name', 'project_name'))
+                ],
+            )
+        )
     else:
         sys.stderr.write(
             'No projects found for the current user. You can create a new project with `logfire projects new`\n'
@@ -350,6 +362,15 @@ def parse_info(_args: argparse.Namespace) -> None:
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
     sys.stderr.writelines('\n'.join(toml_lines) + '\n')
+
+
+def _pretty_table(header: list[str], rows: list[list[str]]):
+    rows = [[' ' + first, *rest] for first, *rest in [header] + rows]
+    widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+    lines = ['   | '.join(cell.ljust(width) for cell, width in zip(row, widths)) for row in rows]
+    header_line = '---|-'.join('-' * width for width in widths)
+    lines.insert(1, header_line)
+    return '\n'.join(lines) + '\n'
 
 
 def _main(args: list[str] | None = None) -> None:
