@@ -51,10 +51,10 @@ def instrument_httpx(
     capture_response_json_body: bool,
     capture_response_text_body: bool,
     capture_request_form_data: bool,
-    request_hook: RequestHook | AsyncRequestHook | None = None,
-    response_hook: ResponseHook | AsyncResponseHook | None = None,
-    async_request_hook: AsyncRequestHook | None = None,
-    async_response_hook: AsyncResponseHook | None = None,
+    request_hook: RequestHook | AsyncRequestHook | None,
+    response_hook: ResponseHook | AsyncResponseHook | None,
+    async_request_hook: AsyncRequestHook | None,
+    async_response_hook: AsyncResponseHook | None,
     **kwargs: Any,
 ) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
