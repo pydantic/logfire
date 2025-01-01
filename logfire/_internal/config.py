@@ -236,6 +236,7 @@ def configure(  # noqa: D417
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
     code_source: CodeSource | None = None,
+    distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
@@ -287,6 +288,7 @@ def configure(  # noqa: D417
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
+        distributed_tracing: TODO
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -417,6 +419,7 @@ def configure(  # noqa: D417
         inspect_arguments=inspect_arguments,
         sampling=sampling,
         code_source=code_source,
+        distributed_tracing=distributed_tracing,
         advanced=advanced,
     )
 
@@ -481,6 +484,9 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
+    distributed_tracing: bool | None
+    """TODO"""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -503,6 +509,7 @@ class _LogfireConfigData:
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
         code_source: CodeSource | None,
+        distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -515,6 +522,7 @@ class _LogfireConfigData:
         self.environment = param_manager.load_param('environment', environment)
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
+        self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
             raise LogfireConfigError(
@@ -605,6 +613,7 @@ class LogfireConfig(_LogfireConfigData):
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
         code_source: CodeSource | None = None,
+        distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -630,6 +639,7 @@ class LogfireConfig(_LogfireConfigData):
             inspect_arguments=inspect_arguments,
             sampling=sampling,
             code_source=code_source,
+            distributed_tracing=distributed_tracing,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -659,6 +669,7 @@ class LogfireConfig(_LogfireConfigData):
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
         code_source: CodeSource | None,
+        distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -678,6 +689,7 @@ class LogfireConfig(_LogfireConfigData):
                 inspect_arguments,
                 sampling,
                 code_source,
+                distributed_tracing,
                 advanced,
             )
             self.initialize()
@@ -946,6 +958,20 @@ class LogfireConfig(_LogfireConfigData):
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
+
+            if self.distributed_tracing != True:  # noqa
+                from opentelemetry.propagate import get_global_textmap, set_global_textmap
+
+                from ..propagate import NoExtractPropagator, WarnOnExtractPropagator
+
+                current = get_global_textmap()
+                while isinstance(current, (WarnOnExtractPropagator, NoExtractPropagator)):
+                    current = current.wrapped
+                if self.distributed_tracing is None:
+                    new = WarnOnExtractPropagator(current)
+                else:
+                    new = NoExtractPropagator(current)
+                set_global_textmap(new)
 
             self._ensure_flush_after_aws_lambda()
 

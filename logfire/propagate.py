@@ -15,13 +15,12 @@ from __future__ import annotations
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping
 
 from opentelemetry import context as otel_context, propagate
 from opentelemetry.propagators.textmap import TextMapPropagator
 
-if TYPE_CHECKING:
-    from logfire import Logfire
+import logfire
 
 # anything that can be used to carry context, e.g. Headers or a dict
 ContextCarrier = Mapping[str, Any]
@@ -111,18 +110,19 @@ class NoExtractPropagator(WrapperPropagator):
 
 @dataclass
 class WarnOnExtractPropagator(WrapperPropagator):
-    logfire_instance: Logfire
     warned: bool = False
 
     def extract(
         self,
+        carrier: Any,
+        context: otel_context.Context | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> otel_context.Context:
-        result = super().extract(*args, **kwargs)
-        if result and not self.warned:
+        result = super().extract(carrier, context, *args, **kwargs)
+        if result and result != context and not self.warned:
             self.warned = True
             message = 'Found propagated context.'  # TODO
             warnings.warn(message)
-            self.logfire_instance.warn(message)
+            logfire.warn(message)
         return result
