@@ -46,11 +46,8 @@ def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
     capture_headers: bool,
-    capture_request_json_body: bool,
-    capture_request_text_body: bool,
-    capture_response_json_body: bool,
-    capture_response_text_body: bool,
-    capture_request_form_data: bool,
+    capture_request_body: bool,
+    capture_response_body: bool,
     request_hook: RequestHook | AsyncRequestHook | None,
     response_hook: ResponseHook | AsyncResponseHook | None,
     async_request_hook: AsyncRequestHook | None,
@@ -75,6 +72,8 @@ def instrument_httpx(
 
     should_capture_request_headers = capture_request_headers or capture_headers
     should_capture_response_headers = capture_response_headers or capture_headers
+    should_capture_request_body = capture_request_body
+    should_capture_response_body = capture_response_body
 
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
@@ -90,31 +89,21 @@ def instrument_httpx(
         request_hook = cast('RequestHook | None', request_hook)
         response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook,
-            should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            request_hook, should_capture_request_headers, capture_request_body
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_body,
             logfire_instance,
         )
         final_kwargs['async_request_hook'] = make_async_request_hook(
-            async_request_hook,
-            should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            async_request_hook, should_capture_request_headers, should_capture_request_body
         )
         final_kwargs['async_response_hook'] = make_async_response_hook(
             async_response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_body,
             logfire_instance,
         )
 
@@ -124,33 +113,23 @@ def instrument_httpx(
             request_hook = make_async_request_hook(
                 request_hook,
                 should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
+                should_capture_request_body,
             )
             response_hook = make_async_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_body,
                 logfire_instance,
             )
         else:
             request_hook = cast('RequestHook | None', request_hook)
             response_hook = cast('ResponseHook | None', response_hook)
 
-            request_hook = make_request_hook(
-                request_hook,
-                should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
-            )
+            request_hook = make_request_hook(request_hook, should_capture_request_headers, should_capture_request_body)
             response_hook = make_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_body,
                 logfire_instance,
             )
 
@@ -342,26 +321,13 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
         span._span.set_attribute(attr_name, text)  # type: ignore
 
 
-def make_request_hook(
-    hook: RequestHook | None,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
-) -> RequestHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or should_capture_form_data or hook):
+def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:
+    if not (capture_headers or capture_body or hook):
         return None
 
     def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = capture_request(
-                span,
-                request,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
-                should_capture_form_data,
-            )
+            request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
 
     return new_hook
@@ -370,23 +336,14 @@ def make_request_hook(
 def make_async_request_hook(
     hook: AsyncRequestHook | RequestHook | None,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
+    should_capture_body: bool,
 ) -> AsyncRequestHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or should_capture_form_data or hook):
+    if not (should_capture_headers or should_capture_body or hook):
         return None
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = capture_request(
-                span,
-                request,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
-                should_capture_form_data,
-            )
+            request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
 
     return new_hook
@@ -394,12 +351,11 @@ def make_async_request_hook(
 
 def make_response_hook(
     hook: ResponseHook | None,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    capture_headers: bool,
+    capture_body: bool,
     logfire_instance: Logfire,
 ) -> ResponseHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or hook):
+    if not (capture_headers or capture_body or hook):
         return None
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
@@ -409,9 +365,8 @@ def make_response_hook(
                 request,
                 response,
                 logfire_instance,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
+                capture_headers,
+                capture_body,
                 is_async=False,
             )
             run_hook(hook, span, request, response)
@@ -422,11 +377,10 @@ def make_response_hook(
 def make_async_response_hook(
     hook: ResponseHook | AsyncResponseHook | None,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    should_capture_body: bool,
     logfire_instance: Logfire,
 ) -> AsyncResponseHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or hook):
+    if not (should_capture_headers or should_capture_body or hook):
         return None
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
@@ -437,8 +391,7 @@ def make_async_response_hook(
                 response,
                 logfire_instance,
                 should_capture_headers,
-                should_capture_json,
-                should_capture_text,
+                should_capture_body,
                 is_async=True,
             )
             await run_async_hook(hook, span, request, response)
@@ -450,21 +403,20 @@ def capture_request(
     span: Span,
     request: RequestInfo,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
+    should_capture_body: bool,
 ) -> LogfireHttpxRequestInfo:
     request = LogfireHttpxRequestInfo(*request)
     request.span = span
 
     if should_capture_headers:
         request.capture_headers()
-    if should_capture_json:
-        request.capture_body_if_json()
-    if should_capture_text and not (should_capture_json and request.content_type_is_json):
-        request.capture_body_if_text()
-    if should_capture_form_data:
-        request.capture_body_if_form()
+    if should_capture_body:
+        if request.content_type_is_json:
+            request.capture_body_if_json()
+        if request.content_type_is_form:
+            request.capture_body_if_form()
+        if request.content_type_is_text:
+            request.capture_body_if_text()
 
     return request
 
@@ -474,9 +426,8 @@ def capture_response(
     request: RequestInfo,
     response: ResponseInfo,
     logfire_instance: Logfire,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    capture_headers: bool,
+    capture_body: bool,
     *,
     is_async: bool,
 ) -> tuple[LogfireHttpxRequestInfo, LogfireHttpxResponseInfo]:
@@ -488,11 +439,11 @@ def capture_response(
     response.logfire_instance = logfire_instance
     response.is_async = is_async
 
-    if should_capture_headers:
+    if capture_headers:
         response.capture_headers()
-    if should_capture_json:
-        response.capture_body_if_json()
-    if should_capture_text and not (should_capture_json and request.content_type_is_json):
+    if capture_body:
+        if response.content_type_is_json:
+            response.capture_body_if_json()
         response.capture_body_if_text()
 
     return request, response

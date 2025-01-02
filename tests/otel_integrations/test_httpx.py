@@ -240,7 +240,7 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
     assert all(key in span['attributes'] for key in expected_attributes)
 
 
-CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[tuple[str, Any, dict[str, Any]]]] = (
+CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (
     ('content_type', 'body', 'expected_attributes'),
     [
         ('application/json', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
@@ -266,7 +266,7 @@ def test_httpx_client_instrumentation_with_capture_json_body(
 ):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_body=True)
             headers = {'Content-Type': content_type} if content_type else {}
             response = client.post('https://example.org/', headers=headers, content=body)
             checker(response)
@@ -281,7 +281,7 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
 ):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_body=True)
             response = await client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
             checker(response)
 
@@ -304,7 +304,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
 
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_body=True)
             response = client.post(
                 'https://example.org/', headers={'Content-Type': 'application/json'}, content=stream()
             )
@@ -318,7 +318,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
 def test_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
             response = client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -329,7 +329,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
 async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_json_body=True)
+            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
             response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
 
@@ -352,13 +352,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(
-                client,
-                capture_request_headers=True,
-                capture_request_json_body=True,
-                capture_request_text_body=True,
-                capture_response_headers=True,
-                capture_response_text_body=True,
-                capture_response_json_body=True,
+                client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
             response = client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
@@ -447,14 +441,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(
-                client,
-                capture_request_headers=True,
-                capture_request_json_body=True,
-                capture_request_text_body=True,
-                capture_response_headers=True,
-                capture_response_text_body=True,
-                capture_response_json_body=True,
-                capture_request_form_data=True,
+                client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
             response = await client.post('https://example.org/', json={'hello': 'world'})
             checker(response)
@@ -541,7 +528,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
 
 def test_httpx_client_capture_json_response_checks_header(exporter: TestExporter):
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_json_body=True)
+        logfire.instrument_httpx(client, capture_response_body=True)
         response = client.post('https://example.org/', content=b'hello')
         assert response.json() == {'good': 'response'}
 
@@ -553,7 +540,7 @@ def test_httpx_client_capture_json_response_checks_header(exporter: TestExporter
 
 async def test_httpx_async_client_capture_json_response_checks_header(exporter: TestExporter):
     async with httpx.AsyncClient(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_json_body=True)
+        logfire.instrument_httpx(client, capture_response_body=True)
         response = await client.post('https://example.org/', content=b'hello')
         assert response.json() == {'good': 'response'}
 
@@ -568,12 +555,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
 
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(
-            client,
-            capture_request_form_data=True,
-            capture_request_text_body=True,
-            capture_response_text_body=True,
-        )
+        logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org/', data={'form': 'values'})
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -609,7 +591,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
 
 def test_httpx_client_capture_request_text_body(exporter: TestExporter):
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_request_text_body=True)
+        logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -644,7 +626,7 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
 
 def test_httpx_client_capture_response_text_body(exporter: TestExporter):
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_text_body=True)
+        logfire.instrument_httpx(client, capture_response_body=True)
         client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
 
     assert exporter.exported_spans_as_dict() == snapshot(

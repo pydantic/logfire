@@ -1182,11 +1182,8 @@ class Logfire:
         client: httpx.Client,
         *,
         capture_headers: bool = False,
-        capture_request_text_body: bool = False,
-        capture_request_json_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         **kwargs: Any,
@@ -1198,11 +1195,8 @@ class Logfire:
         client: httpx.AsyncClient,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
@@ -1214,11 +1208,8 @@ class Logfire:
         client: None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1231,11 +1222,8 @@ class Logfire:
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1257,24 +1245,8 @@ class Logfire:
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
                 [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
-            capture_request_text_body: Set to `True` to capture the request text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_json_body: Set to `True` to capture the request JSON body.
-                Specifically captures the raw request body whenever the content type is `application/json`.
-                Doesn't check if the body is actually JSON.
-            capture_response_json_body: Set to `True` to capture the response JSON body.
-                Specifically captures the raw response body whenever the content type is `application/json`
-                when the `response.read()` or `.aread()` method is first called,
-                which happens automatically for non-streaming requests.
-                For streaming requests, the body is not captured if it's merely iterated over.
-                Doesn't check if the body is actually JSON.
-            capture_response_text_body: Set to `True` to capture the response text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_form_data: Set to `True` to capture the request form data.
-                Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
-                Doesn't inspect or parse the raw request body.
+            capture_request_body: Set to `True` to capture the request body.
+            capture_response_body: Set to `True` to capture the response body.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             async_request_hook: A function called right after a span is created for an async request.
@@ -1288,11 +1260,8 @@ class Logfire:
             self,
             client,
             capture_headers=capture_headers,
-            capture_request_json_body=capture_request_json_body,
-            capture_request_text_body=capture_request_text_body,
-            capture_response_json_body=capture_response_json_body,
-            capture_response_text_body=capture_response_text_body,
-            capture_request_form_data=capture_request_form_data,
+            capture_request_body=capture_request_body,
+            capture_response_body=capture_response_body,
             request_hook=request_hook,
             response_hook=response_hook,
             async_request_hook=async_request_hook,
