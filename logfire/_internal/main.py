@@ -65,6 +65,7 @@ from .tracer import ProxyTracerProvider, record_exception, set_exception_status
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
+    from types import ModuleType
     from wsgiref.types import WSGIApplication
 
     import anthropic
@@ -94,6 +95,7 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
+    from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
     from ..integrations.pymongo import (
         FailedHook as PymongoFailedHook,
         RequestHook as PymongoRequestHook,
@@ -108,7 +110,7 @@ if TYPE_CHECKING:
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
-    from .integrations.psycopg import PsycopgInstrumentKwargs
+    from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
@@ -1412,7 +1414,25 @@ class Logfire:
             },
         )
 
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+    @overload
+    def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
+
+    @overload
+    def instrument_psycopg(
+        self,
+        conn_or_module: None | Literal['psycopg', 'psycopg2'] | ModuleType = None,
+        enable_commenter: bool = False,
+        commenter_options: PsycopgCommenterOptions | None = None,
+        **kwargs: Any,
+    ) -> None: ...
+
+    def instrument_psycopg(
+        self,
+        conn_or_module: Any = None,
+        enable_commenter: bool = False,
+        commenter_options: PsycopgCommenterOptions | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
@@ -1428,13 +1448,21 @@ class Logfire:
                 - `None` (the default) to instrument whichever module(s) are installed.
                 - A `psycopg` or `psycopg2` connection.
 
+            enable_commenter: Adds comments to SQL queries performed by Psycopg, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
                 particularly `enable_commenter` and `commenter_options`.
         """
         from .integrations.psycopg import instrument_psycopg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_psycopg(self, conn_or_module, **kwargs)
+        return instrument_psycopg(
+            self,
+            conn_or_module=conn_or_module,
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options or {},
+            **kwargs,
+        )
 
     def instrument_flask(
         self,
