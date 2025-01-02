@@ -77,6 +77,7 @@ if TYPE_CHECKING:
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
@@ -96,17 +97,9 @@ if TYPE_CHECKING:
         ResponseHook as HttpxResponseHook,
     )
     from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
-    from ..integrations.pymongo import (
-        FailedHook as PymongoFailedHook,
-        RequestHook as PymongoRequestHook,
-        ResponseHook as PymongoResponseHook,
-    )
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
-    from ..integrations.wsgi import (
-        RequestHook as WSGIRequestHook,
-        ResponseHook as WSGIResponseHook,
-    )
+    from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -1732,9 +1725,9 @@ class Logfire:
     def instrument_pymongo(
         self,
         capture_statement: bool = False,
-        request_hook: PymongoRequestHook | None = None,
-        response_hook: PymongoResponseHook | None = None,
-        failed_hook: PymongoFailedHook | None = None,
+        request_hook: Callable[[Span, CommandStartedEvent], None] | None = None,
+        response_hook: Callable[[Span, CommandSucceededEvent], None] | None = None,
+        failed_hook: Callable[[Span, CommandFailedEvent], None] | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
