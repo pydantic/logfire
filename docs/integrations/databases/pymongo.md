@@ -83,29 +83,5 @@ The keyword arguments of `logfire.instrument_pymongo()` are passed to the `Pymon
         show_root_heading: true
         show_root_full_path: false
 
-::: logfire.integrations.pymongo.RequestHook
-    options:
-        heading_level: 4
-        show_root_heading: true
-        show_root_full_path: false
-        show_source: false
-        filters: []
-
-::: logfire.integrations.pymongo.ResponseHook
-    options:
-        heading_level: 4
-        show_root_heading: true
-        show_root_full_path: false
-        show_source: false
-        filters: []
-
-::: logfire.integrations.pymongo.FailedHook
-    options:
-        heading_level: 4
-        show_root_heading: true
-        show_root_full_path: false
-        show_source: false
-        filters: []
-
 [pymongo]: https://pymongo.readthedocs.io/en/stable/
 [opentelemetry-pymongo]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html
