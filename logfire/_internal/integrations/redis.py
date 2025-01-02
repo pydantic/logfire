@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from opentelemetry.instrumentation.redis import RedisInstrumentor
+
+    from logfire.integrations.redis import RequestHook, ResponseHook
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_redis()` requires the `opentelemetry-instrumentation-redis` package.\n'
@@ -18,34 +20,23 @@ from logfire._internal.utils import truncate_string
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
     from redis import Connection
-    from typing_extensions import Protocol, TypedDict, Unpack
-
-    class RequestHook(Protocol):
-        def __call__(self, span: Span, instance: Connection, *args: Any, **kwargs: Any) -> None: ...
-
-    class ResponseHook(Protocol):
-        def __call__(self, span: Span, instance: Connection, response: Any) -> None: ...
-
-    class RedisInstrumentKwargs(TypedDict, total=False):
-        request_hook: RequestHook | None
-        response_hook: ResponseHook | None
-        skip_dep_check: bool
 
 
-def instrument_redis(capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+def instrument_redis(
+    *,
+    capture_statement: bool,
+    request_hook: RequestHook | None,
+    response_hook: ResponseHook | None,
+    **kwargs: Any,
+) -> None:
     """Instrument the `redis` module so that spans are automatically created for each operation.
 
     See the `Logfire.instrument_redis` method for details.
-
-    Args:
-        capture_statement: Whether to capture the statement being executed. Defaults to False.
-        **kwargs: Additional keyword arguments to pass to the `RedisInstrumentor.instrument` method.
     """
-    request_hook = kwargs.pop('request_hook', None)
     if capture_statement:
         request_hook = _capture_statement_hook(request_hook)
 
-    RedisInstrumentor().instrument(request_hook=request_hook, **kwargs)  # type: ignore
+    RedisInstrumentor().instrument(request_hook=request_hook, response_hook=response_hook, **kwargs)
 
 
 def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:

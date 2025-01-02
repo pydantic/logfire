@@ -226,6 +226,3 @@ except ImportError:
 
         class LogfireLoggingHandler:
             def __init__(self, *args, **kwargs) -> None: ...
-
-        def load_spans_from_file(*args, **kwargs):
-            return []

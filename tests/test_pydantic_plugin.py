@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import cloudpickle
 import pytest
+import sqlmodel
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
@@ -1266,3 +1267,39 @@ def test_cloudpickle():
 
     m = MyModel(x=1)
     assert cloudpickle.loads(cloudpickle.dumps(m)).model_dump() == m.model_dump() == {'x': 1}  # type: ignore
+
+
+def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
+    logfire.instrument_pydantic()
+
+    class Hero(sqlmodel.SQLModel, table=True):
+        id: int = sqlmodel.Field(default=1, primary_key=True)  # type: ignore
+
+    Hero.model_validate({})
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'pydantic.validate_python',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_pydantic_plugin.py',
+                    'code.function': 'test_sqlmodel_pydantic_plugin',
+                    'code.lineno': 123,
+                    'schema_name': 'Hero',
+                    'validation_method': 'validate_python',
+                    'input_data': '{}',
+                    'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
+                    'logfire.level_num': 9,
+                    'logfire.span_type': 'span',
+                    'success': True,
+                    'result': '{"id":1}',
+                    'logfire.msg': 'Pydantic Hero validate_python succeeded',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
+                },
+            }
+        ]
+    )

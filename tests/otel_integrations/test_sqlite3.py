@@ -84,6 +84,7 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
             ]
         )
 
+    conn.close()
     SQLite3Instrumentor().uninstrument()
 
 
@@ -138,6 +139,7 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
         assert len(exporter.exported_spans_as_dict()) == spans_before_uninstrument
         values = cur.execute('SELECT * FROM test').fetchall()
         assert values == [(1, 'test'), (2, 'test-2')]
+    conn.close()
 
 
 def test_missing_opentelemetry_dependency() -> None:

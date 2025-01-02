@@ -1,8 +1,3 @@
-!!! warning "Experimental"
-    This feature is experimental and may change in the future.
-
-    If you have any feedback or suggestions, please [let us know][help].
-
 We support linking to the source code on GitHub, GitLab, and any other VCS provider that uses the same URL format.
 
 ![Link to GitHub](../images/guide/link-to-github.gif)
@@ -40,5 +35,4 @@ OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.repository.ref.revision
 OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.root.path=.
 ```
 
-[help]: ../help.md
 [otel-resource-attributes]: https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration

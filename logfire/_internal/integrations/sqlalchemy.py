@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import contextlib
+from typing import TYPE_CHECKING, Any
 
 try:
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+    from logfire.integrations.sqlalchemy import CommenterOptions
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_sqlalchemy()` requires the `opentelemetry-instrumentation-sqlalchemy` package.\n'
@@ -13,23 +16,22 @@ except ImportError:
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
-    from typing_extensions import TypedDict, Unpack
-
-    class CommenterOptions(TypedDict, total=False):
-        db_driver: bool
-        db_framework: bool
-        opentelemetry_values: bool
-
-    class SQLAlchemyInstrumentKwargs(TypedDict, total=False):
-        engine: Engine | None
-        enable_commenter: bool | None
-        commenter_options: CommenterOptions | None
-        skip_dep_check: bool
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 
-def instrument_sqlalchemy(**kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+def instrument_sqlalchemy(
+    engine: AsyncEngine | Engine | None,
+    enable_commenter: bool,
+    commenter_options: CommenterOptions,
+    **kwargs: Any,
+) -> None:
     """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_sqlalchemy` method for details.
     """
-    SQLAlchemyInstrumentor().instrument(**kwargs)
+    with contextlib.suppress(ImportError):
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        if isinstance(engine, AsyncEngine):
+            engine = engine.sync_engine
+    return SQLAlchemyInstrumentor().instrument(engine=engine, **kwargs)

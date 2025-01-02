@@ -1,5 +1,20 @@
 # Release Notes
 
+## [v2.11.1] (2024-12-30)
+
+* Handle errors from `sqlalchemy.inspect` by @alexmojaki in [#733](https://github.com/pydantic/logfire/pull/733)
+
+## [v2.11.0] (2024-12-23)
+
+* Add `capture_request_text_body` param to `instrument_httpx` by @alexmojaki in [#722](https://github.com/pydantic/logfire/pull/722)
+* Support for `AnthropicBedrock` client by @stephenhibbert in [#701](https://github.com/pydantic/logfire/pull/701)
+
+## [v2.10.0] (2024-12-23)
+
+* Add `capture_request_form_data` param to `instrument_httpx` by @alexmojaki in [#711](https://github.com/pydantic/logfire/pull/711)
+* Replace `capture_(request|response)_headers` with just `capture_headers` in `instrument_httpx` by @Kludex in [#719](https://github.com/pydantic/logfire/pull/719)
+* Support SQLAlchemy `AsyncEngine` by @Kludex in [#717](https://github.com/pydantic/logfire/pull/717)
+
 ## [v2.9.0] (2024-12-20)
 
 * Capture httpx response JSON bodies by @alexmojaki in [#700](https://github.com/pydantic/logfire/pull/700)
@@ -486,3 +501,6 @@ First release from new repo!
 [v2.7.1]: https://github.com/pydantic/logfire/compare/v2.7.0...v2.7.1
 [v2.8.0]: https://github.com/pydantic/logfire/compare/v2.7.1...v2.8.0
 [v2.9.0]: https://github.com/pydantic/logfire/compare/v2.8.0...v2.9.0
+[v2.10.0]: https://github.com/pydantic/logfire/compare/v2.9.0...v2.10.0
+[v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
+[v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1

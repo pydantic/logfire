@@ -103,3 +103,21 @@ Shows up like this in Logfire:
   ![Logfire Anthropic Streaming](../../images/logfire-screenshot-anthropic-stream.png){ width="500" }
   <figcaption>Anthropic streaming response</figcaption>
 </figure>
+
+## Amazon Bedrock
+
+You can also log Anthropic LLM calls to Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
+
+```python
+import anthropic
+import logfire
+
+client = anthropic.AnthropicBedrock(
+    aws_region='us-east-1',
+    aws_access_key='access-key',
+    aws_secret_key='secret-key',
+)
+
+logfire.configure()
+logfire.instrument_anthropic(client)
+```

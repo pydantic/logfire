@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "2.9.0"
+version = "2.11.1"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -29,6 +29,7 @@ classifiers = [
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Intended Audience :: Developers',
     'Intended Audience :: Information Technology',
     'Intended Audience :: System Administrators',
@@ -98,15 +99,15 @@ dev = [
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
     "pytest >= 8.3.4",
-    "pytest-django",
-    "pytest-pretty",
+    "pytest-django >= 4.6.0",
+    "pytest-pretty >= 1.2.0",
     "pydantic @ git+https://github.com/pydantic/pydantic",
-    "requests",
-    "sqlalchemy",
+    "requests >= 2.31.0",
+    "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2; python_version >= '3.9'",
-    "pandas; python_version < '3.9'",
-    "attrs",
-    "openai",
+    "pandas<2.1.2; python_version < '3.9'",
+    "attrs >= 23.1.0",
+    "openai >= 1.58.1",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
     "opentelemetry-instrumentation-wsgi>=0.42b0",
@@ -127,29 +128,30 @@ dev = [
     "opentelemetry-instrumentation-mysql>=0.42b0",
     "opentelemetry-instrumentation-sqlite3>=0.42b0",
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
-    "eval-type-backport",
-    "requests-mock",
-    "inline-snapshot",
-    "structlog",
-    "loguru",
-    "ruff",
+    "eval-type-backport >= 0.2.0",
+    "requests-mock >= 1.12.1",
+    "inline-snapshot >= 0.17.1",
+    "structlog >= 24.4.0",
+    "loguru >= 0.7.3",
+    "ruff >= 0.8.3",
     "pyright>=1.1.360",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.5.0",
-    "psycopg[binary]",
-    "psycopg2-binary",
-    "asyncpg",
-    "pymysql",
-    "cryptography",
+    "psycopg[binary] >= 3.2.3",
+    "psycopg2-binary >= 2.9.10",
+    "asyncpg >= 0.30.0",
+    "pymysql >= 1.1.1",
+    "cryptography >= 44.0.0",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
-    "sqlmodel",
+    "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
     "testcontainers>3.7.1; python_version >= '3.9'",
     "testcontainers==3.7.1; python_version < '3.9'",
     "mysql-connector-python~=8.0",
-    "pyarrow>=17.0.0",
+    "pyarrow>=17.0.0; python_version < '3.13'",
+    "pyarrow>=18.1.0; python_version >= '3.13'",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version >= '3.9' and python_version < '3.12'",
     "numpy<1.24.4; python_version < '3.9'",
@@ -157,8 +159,11 @@ dev = [
     "vcrpy>=6",
     "uvicorn>=0.30.6",
     "logfire-api",
-    "requests",
     "setuptools>=75.3.0",
+    "aiosqlite>=0.20.0",
+    "boto3 >= 1.28.57",
+    "botocore >= 1.31.57",
+    "greenlet >= 3.1.1",
 ]
 docs = [
     "mkdocs>=1.5.0",
@@ -168,6 +173,9 @@ docs = [
     "mkdocs-redirects>=1.2.1",
     "griffe",
 ]
+
+[tool.inline-snapshot]
+default-flags=["disable"]
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
@@ -268,8 +276,8 @@ filterwarnings = [
     'ignore:(?s).*aiosqlite/core\.py.*get_loop\(future\).call_soon_threadsafe.*RuntimeError. Event loop is closed:pytest.PytestUnhandledThreadExceptionWarning',
     # This problem is fixed in https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2013, but not the warning.
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
-    # ignore DeprecationWarning from httpx - Marcelo knows why this is happening
-    "ignore:The 'app' shortcut is now deprecated.*:DeprecationWarning:httpx*:",
+    "ignore:The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
+    "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

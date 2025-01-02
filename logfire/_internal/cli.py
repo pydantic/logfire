@@ -5,29 +5,25 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
+import importlib.metadata
 import importlib.util
 import logging
-import os
 import platform
 import sys
 import warnings
 import webbrowser
+from operator import itemgetter
 from pathlib import Path
-from typing import Any, Iterator, cast
-from urllib.parse import urljoin, urlparse
+from typing import Any, Sequence, cast
+from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
-from rich.console import Console
-from rich.progress import Progress
-from rich.table import Table
 
-import logfire
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
-from . import config as logfire_config
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from .config import LogfireCredentials
 from .config_params import ParamManager
@@ -109,56 +105,11 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write('Clean aborted.\n')
 
 
-# TODO(Marcelo): Add tests for this command.
-def parse_backfill(args: argparse.Namespace) -> None:  # pragma: no cover
-    """Bulk upload data to Logfire."""
-    data_dir = Path(args.data_dir)
-    credentials = LogfireCredentials.load_creds_file(data_dir)
-    if credentials is None:
-        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
-        sys.exit(1)
-
-    file = Path(args.file)
-    if not file.exists():
-        sys.stderr.write(f'No backfill file found at {file.resolve()}\n')
-        sys.exit(1)
-
-    logfire_url = cast(str, args.logfire_url)
-    logfire.configure(data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=logfire_url))
-    config = logfire_config.GLOBAL_CONFIG
-    config.initialize()
-    token = config.token
-    assert token is not None  # if no token was available a new project should have been created
-    console = Console(file=sys.stderr)
-    with Progress(console=console) as progress:
-        total = os.path.getsize(file)
-        task = progress.add_task('Backfilling...', total=total)
-        with file.open('rb') as f:
-
-            def reader() -> Iterator[bytes]:
-                while True:
-                    data = f.read(1024 * 1024)
-                    if not data:
-                        return
-                    yield data
-                    progress.update(task, completed=f.tell())
-
-            url = urljoin(config.advanced.base_url, '/v1/backfill/traces')
-            response = requests.post(
-                url, data=reader(), headers={'Authorization': token, 'User-Agent': f'logfire/{VERSION}'}
-            )
-            if response.status_code != 200:
-                try:
-                    data = response.json()
-                except requests.JSONDecodeError:
-                    data = response.text
-                console.print(data)
-                sys.exit(1)
-
-
 # TODO(Marcelo): Automatically check if this list should be updated.
 # NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
+STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 OTEL_PACKAGES: set[str] = {
+    *STANDARD_LIBRARY_PACKAGES,
     'aio_pika',
     'aiohttp',
     'aiopg',
@@ -187,11 +138,9 @@ OTEL_PACKAGES: set[str] = {
     'remoulade',
     'requests',
     'sqlalchemy',
-    'sqlite3',
     'starlette',
     'tornado',
     'tortoise_orm',
-    'urllib',
     'urllib3',
 }
 OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
@@ -199,16 +148,14 @@ OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm',
 
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
-    console = Console(file=sys.stderr)
-    table = Table()
-    table.add_column('Package')
-    table.add_column('OpenTelemetry instrumentation package')
+    packages_to_ignore: set[str] = set(args.ignore) if args.ignore else set()
+    packages_to_inspect = OTEL_PACKAGES - packages_to_ignore
 
     # Ignore warnings from packages that we don't control.
     warnings.simplefilter('ignore', category=UserWarning)
 
     packages: dict[str, str] = {}
-    for name in OTEL_PACKAGES:
+    for name in packages_to_inspect:
         # Check if the package can be imported (without actually importing it).
         if importlib.util.find_spec(name) is None:
             continue
@@ -222,27 +169,33 @@ def parse_inspect(args: argparse.Namespace) -> None:
     # Drop packages that are dependencies of other packages.
     if packages.get('starlette') and packages.get('fastapi'):
         del packages['starlette']
+    if packages.get('urllib3') and packages.get('requests'):
+        del packages['urllib3']
 
+    # fmt: off
+    sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
+    sys.stderr.write('\n')
+    # fmt: on
+
+    rows: list[list[str]] = []
     for name, otel_package in sorted(packages.items()):
         package_name = otel_package.replace('.', '-')
-        import_name = otel_package.replace('-', '_')
-        link = f'[link={BASE_OTEL_INTEGRATION_URL}/{import_name}/{import_name}.html]opentelemetry-instrumentation-{package_name}[/link]'
-        table.add_row(name, link)
-
-    console.print(
-        'The following packages from your environment have an OpenTelemetry instrumentation that is not installed:'
-    )
-    console.print(table)
+        otel_package_name = f'opentelemetry-instrumentation-{package_name}'
+        rows.append([name, otel_package_name])
+    sys.stderr.write(_pretty_table(['Package', 'OpenTelemetry instrumentation package'], rows))
 
     if packages:  # pragma: no branch
         otel_packages_to_install = ' '.join(
             f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
         )
         install_command = f'pip install {otel_packages_to_install}'
-        console.print('\n[bold green]To install these packages, run:[/bold green]\n')
-        console.print(f'[cyan]{install_command}[/cyan]', soft_wrap=True)
-        console.print('\n[bold blue]For further information, visit[/bold blue]', end=' ')
-        console.print(f'[link={INTEGRATIONS_DOCS_URL}]{INTEGRATIONS_DOCS_URL}[/link]')
+        sys.stderr.writelines(
+            (
+                '\nTo install these packages, run:\n',
+                f'\n$ {install_command}\n',
+                f'\nFor further information, visit {INTEGRATIONS_DOCS_URL}\n',
+            )
+        )
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -250,34 +203,41 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    console = Console(file=sys.stderr)
     logfire_url = cast(str, args.logfire_url)
 
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
         if is_logged_in(data, logfire_url):  # pragma: no branch
-            console.print(f'You are already logged in. (Your credentials are stored in [bold]{DEFAULT_FILE}[/])')
+            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
             return
     else:
         data: DefaultFile = {'tokens': {}}
 
-    console.print()
-    console.print('Welcome to Logfire! :fire:')
-    console.print('Before you can send data to Logfire, we need to authenticate you.')
-    console.print()
+    sys.stderr.writelines(
+        (
+            '\n',
+            'Welcome to Logfire! 🔥\n',
+            'Before you can send data to Logfire, we need to authenticate you.\n',
+            '\n',
+        )
+    )
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
-    console.input(f'Press [bold]Enter[/] to open {frontend_host} in your browser...')
+    input(f'Press Enter to open {frontend_host} in your browser...')
     try:
         webbrowser.open(frontend_auth_url, new=2)
     except webbrowser.Error:
         pass
-    console.print(f"Please open [bold]{frontend_auth_url}[/] in your browser to authenticate if it hasn't already.")
-    console.print('Waiting for you to authenticate with Logfire...')
+    sys.stderr.writelines(
+        (
+            f"Please open {frontend_auth_url} in your browser to authenticate if it hasn't already.\n",
+            'Waiting for you to authenticate with Logfire...\n',
+        )
+    )
 
     data['tokens'][logfire_url] = poll_for_token(args._session, device_code, logfire_url)
-    console.print('Successfully authenticated!')
+    sys.stderr.write('Successfully authenticated!\n')
 
     # There's no standard library package to write TOML files, so we'll write it manually.
     with DEFAULT_FILE.open('w') as f:
@@ -286,25 +246,26 @@ def parse_auth(args: argparse.Namespace) -> None:
             f.write(f'token = "{info["token"]}"\n')
             f.write(f'expiration = "{info["expiration"]}"\n')
 
-    console.print()
-    console.print(f'Your Logfire credentials are stored in [bold]{DEFAULT_FILE}[/]')
+    sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     logfire_url = args.logfire_url
-    console = Console(file=sys.stderr)
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     if projects:
-        table = Table()
-        table.add_column('Organization')
-        table.add_column('Project')
-        for project in projects:
-            table.add_row(project['organization_name'], project['project_name'])
-        console.print(table)
+        sys.stderr.write(
+            _pretty_table(
+                ['Organization', 'Project'],
+                [
+                    [project['organization_name'], project['project_name']]
+                    for project in sorted(projects, key=itemgetter('organization_name', 'project_name'))
+                ],
+            )
+        )
     else:
-        console.print(
-            'No projects found for the current user. You can create a new project with `logfire projects new`'
+        sys.stderr.write(
+            'No projects found for the current user. You can create a new project with `logfire projects new`\n'
         )
 
 
@@ -324,7 +285,6 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
-    console = Console(file=sys.stderr)
     project_info = LogfireCredentials.create_new_project(
         session=args._session,
         logfire_api_url=logfire_url,
@@ -333,7 +293,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
         project_name=project_name,
     )
     credentials = _write_credentials(project_info, data_dir, logfire_url)
-    console.print(f'Project created successfully. You will be able to view it at: {credentials.project_url}')
+    sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
 
 def parse_use_project(args: argparse.Namespace) -> None:
@@ -342,7 +302,6 @@ def parse_use_project(args: argparse.Namespace) -> None:
     logfire_url = args.logfire_url
     project_name = args.project_name
     organization = args.org
-    console = Console(file=sys.stderr)
 
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     project_info = LogfireCredentials.use_existing_project(
@@ -354,14 +313,14 @@ def parse_use_project(args: argparse.Namespace) -> None:
     )
     if project_info:
         credentials = _write_credentials(project_info, data_dir, logfire_url)
-        console.print(f'Project configured successfully. You will be able to view it at: {credentials.project_url}')
+        sys.stderr.write(
+            f'Project configured successfully. You will be able to view it at: {credentials.project_url}\n'
+        )
 
 
 def parse_info(_args: argparse.Namespace) -> None:
     """Show versions of logfire, OS and related packages."""
     import importlib.metadata as importlib_metadata
-
-    from rich.syntax import Syntax
 
     # get data about packages that are closely related to logfire
     package_names = {
@@ -397,16 +356,37 @@ def parse_info(_args: argparse.Namespace) -> None:
         if name.startswith('opentelemetry'):
             related_packages.append((otel_index, name, version))
 
-    toml_lines = (
+    toml_lines: tuple[str, ...] = (
         f'logfire="{VERSION}"',
         f'platform="{platform.platform()}"',
         f'python="{sys.version}"',
         '[related_packages]',
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
-    console = Console(file=sys.stderr)
-    # use background_color='default' to avoid rich's annoying background color that messes up copy-pasting
-    console.print(Syntax('\n'.join(toml_lines), 'toml', background_color='default', word_wrap=True))
+    sys.stderr.writelines('\n'.join(toml_lines) + '\n')
+
+
+def _pretty_table(header: list[str], rows: list[list[str]]):
+    rows = [[' ' + first, *rest] for first, *rest in [header] + rows]
+    widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
+    lines = ['   | '.join(cell.ljust(width) for cell, width in zip(row, widths)) for row in rows]
+    header_line = '---|-'.join('-' * width for width in widths)
+    lines.insert(1, header_line)
+    return '\n'.join(lines) + '\n'
+
+
+class SplitArgs(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ):
+        if isinstance(values, str):  # pragma: no branch
+            values = values.split(',')
+        namespace_value: list[str] = getattr(namespace, self.dest) or []
+        setattr(namespace, self.dest, namespace_value + list(values or []))
 
 
 def _main(args: list[str] | None = None) -> None:
@@ -426,11 +406,6 @@ def _main(args: list[str] | None = None) -> None:
     cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
     cmd_auth.set_defaults(func=parse_auth)
 
-    cmd_backfill = subparsers.add_parser('backfill', help=parse_backfill.__doc__)
-    cmd_backfill.set_defaults(func=parse_backfill)
-    cmd_backfill.add_argument('--data-dir', default='.logfire')
-    cmd_backfill.add_argument('--file', default='logfire_spans.bin')
-
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
     cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
@@ -438,6 +413,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
+    cmd_inspect.add_argument('--ignore', action=SplitArgs, help='ignore a package')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)

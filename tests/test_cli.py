@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import io
 import json
 import os
@@ -6,6 +8,7 @@ import shlex
 import sys
 import webbrowser
 from contextlib import ExitStack
+from importlib.machinery import ModuleSpec
 from pathlib import Path
 from unittest.mock import call, patch
 
@@ -17,7 +20,7 @@ from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
-from logfire._internal.cli import OTEL_PACKAGES, main
+from logfire._internal.cli import STANDARD_LIBRARY_PACKAGES, main
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 
@@ -206,26 +209,80 @@ def test_inspect(
     assert capsys.readouterr().err.startswith('The following packages')
 
 
-def test_inspect_drop_dependant_packages(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+def packages_from_output(output: str) -> set[str]:
+    pattern = r'^\s*([\w]+)\s*\|\s*([\w\-]+)\s*$'
+    matches = re.findall(pattern, output, re.MULTILINE)
+    return {match[1] for match in matches}
+
+
+@pytest.mark.parametrize(
+    ('command', 'installed', 'should_install'),
+    [
+        (
+            'inspect',
+            ['fastapi'],
+            {
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+        (
+            'inspect',
+            ['fastapi', 'starlette'],
+            {
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+        (
+            'inspect',
+            ['urllib3', 'requests'],
+            {
+                'opentelemetry-instrumentation-requests',
+                'opentelemetry-instrumentation-urllib',
+                'opentelemetry-instrumentation-sqlite3',
+            },
+        ),
+        (
+            'inspect --ignore urllib --ignore sqlite3',
+            ['starlette'],
+            {'opentelemetry-instrumentation-starlette'},
+        ),
+        (
+            'inspect --ignore urllib,sqlite3',
+            ['starlette'],
+            {'opentelemetry-instrumentation-starlette'},
+        ),
+    ],
+)
+def test_inspect_with_dependencies(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    command: str,
+    installed: list[str],
+    should_install: list[str],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    with ExitStack() as stack:
-        find_spec = stack.enter_context(patch('importlib.util.find_spec'))
-        find_spec.side_effect = [True, None] * len(OTEL_PACKAGES)
 
-        main(['inspect'])
+    def new_find_spec(name: str) -> ModuleSpec | None:
+        if name in STANDARD_LIBRARY_PACKAGES or name in installed:
+            return ModuleSpec(name, None)
+
+    with patch('importlib.util.find_spec', new=new_find_spec):
+        main(shlex.split(command))
         output = capsys.readouterr().err
-        assert 'opentelemetry-instrumentation-fastapi' in output
-        assert 'opentelemetry-instrumentation-starlette' not in output
+        assert packages_from_output(output) == should_install
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
-def test_auth(tmp_path: Path, webbrowser_error: bool) -> None:
+def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixture[str]) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         webbrowser_open = stack.enter_context(
             patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
         )
@@ -253,21 +310,18 @@ token = "fake_token"
 expiration = "fake_exp"
 """
         )
-
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == snapshot(
+        _, err = capsys.readouterr()
+        assert err.splitlines() == snapshot(
             [
-                IsStr(regex=r'^\(file=.*'),
-                'print()',
-                "print('Welcome to Logfire! :fire:')",
-                "print('Before you can send data to Logfire, we need to authenticate you.')",
-                'print()',
-                "input('Press [bold]Enter[/] to open example.com in your browser...')",
-                'print("Please open [bold]http://example.com/auth[/] in your browser to authenticate if it hasn\'t already.")',
-                "print('Waiting for you to authenticate with Logfire...')",
-                "print('Successfully authenticated!')",
-                'print()',
-                IsStr(regex=r"^print\('Your Logfire credentials are stored in \[bold\].*/default.toml\[/\]'\)"),
+                '',
+                'Welcome to Logfire! 🔥',
+                'Before you can send data to Logfire, we need to authenticate you.',
+                '',
+                "Please open http://example.com/auth in your browser to authenticate if it hasn't already.",
+                'Waiting for you to authenticate with Logfire...',
+                'Successfully authenticated!',
+                '',
+                IsStr(regex=r'Your Logfire credentials are stored in (.*\.toml)'),
             ]
         )
 
@@ -278,7 +332,7 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
 
         m = requests_mock.Mocker()
@@ -303,7 +357,7 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
+        stack.enter_context(patch('logfire._internal.cli.input'))
         stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
 
         m = requests_mock.Mocker()
@@ -319,18 +373,12 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
                 main(['auth'])
 
 
-def test_auth_on_authenticated_user(default_credentials: Path) -> None:
-    with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', default_credentials))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
-
+def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with patch('logfire._internal.cli.DEFAULT_FILE', default_credentials):
         main(['auth'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            f"print('You are already logged in. (Your credentials are stored in [bold]{default_credentials}[/])')",
-        ]
+        _, err = capsys.readouterr()
+        assert err == IsStr(regex=r'You are already logged in\. \(Your credentials are stored in (.*\.toml)\)\n')
 
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
@@ -338,10 +386,9 @@ def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
     assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,use} ...'
 
 
-def test_projects_list(default_credentials: Path) -> None:
+def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        table_add_row = stack.enter_context(patch('logfire._internal.cli.Table.add_row'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -352,13 +399,19 @@ def test_projects_list(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-        assert "call('test-org', 'test-pr')" == str(table_add_row.mock_calls[0])
+        output = capsys.readouterr().err
+        assert output.splitlines() == snapshot(
+            [
+                ' Organization   | Project',
+                '----------------|--------',
+                ' test-org       | test-pr',
+            ]
+        )
 
 
-def test_projects_list_no_project(default_credentials: Path) -> None:
+def test_projects_list_no_project(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -366,17 +419,18 @@ def test_projects_list_no_project(default_credentials: Path) -> None:
 
         main(['projects', 'list'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('No projects found for the current user. You can create a new project with `logfire projects new`')",
-        ]
+        output = capsys.readouterr().err
+        assert (
+            output
+            == 'No projects found for the current user. You can create a new project with `logfire projects new`\n'
+        )
 
 
-def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -396,11 +450,10 @@ def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_crede
 
         main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output.splitlines() == snapshot(
+            ['Project created successfully. You will be able to view it at: fake_project_url']
+        )
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -408,10 +461,11 @@ def test_projects_new_with_project_name_and_org(tmp_dir_cwd: Path, default_crede
         }
 
 
-def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_without_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
 
         m = requests_mock.Mocker()
@@ -436,11 +490,8 @@ def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_c
             call('The project will be created in the organization "fake_org". Continue?', default=True),
         ]
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -448,10 +499,11 @@ def test_projects_new_with_project_name_without_org(tmp_dir_cwd: Path, default_c
         }
 
 
-def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_wrong_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
 
         m = requests_mock.Mocker()
@@ -475,12 +527,8 @@ def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default
         assert confirm_mock.mock_calls == [
             call('The project will be created in the organization "fake_org". Continue?', default=True),
         ]
-
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -488,10 +536,11 @@ def test_projects_new_with_project_name_and_wrong_org(tmp_dir_cwd: Path, default
         }
 
 
-def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_and_default_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -511,11 +560,8 @@ def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, defau
 
         main(['projects', 'new', 'myproject', '--default-org'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -523,10 +569,11 @@ def test_projects_new_with_project_name_and_default_org(tmp_dir_cwd: Path, defau
         }
 
 
-def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_with_project_name_multiple_organizations(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['fake_org']))
 
         m = requests_mock.Mocker()
@@ -563,11 +610,8 @@ def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path
             )
         ]
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -576,11 +620,10 @@ def test_projects_new_with_project_name_multiple_organizations(tmp_dir_cwd: Path
 
 
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(
-    tmp_dir_cwd: Path, default_credentials: Path
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -608,11 +651,8 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
 
         main(['projects', 'new', 'myproject', '--default-org'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -620,10 +660,11 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
         }
 
 
-def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_without_project_name(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
         m = requests_mock.Mocker()
@@ -647,11 +688,9 @@ def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credential
         assert prompt_mock.mock_calls == [
             call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))
         ]
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -659,10 +698,11 @@ def test_projects_new_without_project_name(tmp_dir_cwd: Path, default_credential
         }
 
 
-def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_new_invalid_project_name(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
         m = requests_mock.Mocker()
@@ -693,11 +733,9 @@ def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credential
                 default='testprojectsnewinvalidproj0',
             ),
         ]
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -708,7 +746,6 @@ def test_projects_new_invalid_project_name(tmp_dir_cwd: Path, default_credential
 def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
@@ -731,10 +768,11 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
-def test_projects_without_project_name_without_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_without_project_name_without_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
@@ -762,11 +800,9 @@ def test_projects_without_project_name_without_org(tmp_dir_cwd: Path, default_cr
         assert prompt_mock.mock_calls == [
             call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name))
         ]
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project created successfully. You will be able to view it at: fake_project_url')",
-        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project created successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -806,7 +842,6 @@ def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials
 def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
@@ -819,10 +854,9 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
-def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -847,11 +881,8 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
 
         main(['projects', 'use', 'myproject'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -859,10 +890,11 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path) -> None:
         }
 
 
-def test_projects_use_without_project_name(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_without_project_name(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
 
         m = requests_mock.Mocker()
@@ -900,11 +932,8 @@ def test_projects_use_without_project_name(tmp_dir_cwd: Path, default_credential
             )
         ]
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -912,10 +941,11 @@ def test_projects_use_without_project_name(tmp_dir_cwd: Path, default_credential
         }
 
 
-def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_multiple(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         config_console = stack.enter_context(patch('logfire._internal.config.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
 
@@ -942,11 +972,8 @@ def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> 
 
         main(['projects', 'use', 'myproject'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
 
         config_console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in config_console.mock_calls]
         assert config_console_calls == [
@@ -972,10 +999,11 @@ def test_projects_use_multiple(tmp_dir_cwd: Path, default_credentials: Path) -> 
         }
 
 
-def test_projects_use_multiple_with_org(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_multiple_with_org(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -1000,11 +1028,8 @@ def test_projects_use_multiple_with_org(tmp_dir_cwd: Path, default_credentials: 
 
         main(['projects', 'use', 'myproject', '--org', 'fake_org'])
 
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-        ]
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -1012,10 +1037,11 @@ def test_projects_use_multiple_with_org(tmp_dir_cwd: Path, default_credentials: 
         }
 
 
-def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_wrong_project(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['y', '1']))
 
         m = requests_mock.Mocker()
@@ -1050,11 +1076,9 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
                 default='1',
             ),
         ]
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
-            "print('Project configured successfully. You will be able to view it at: fake_project_url')",
-        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -1062,10 +1086,11 @@ def test_projects_use_wrong_project(tmp_dir_cwd: Path, default_credentials: Path
         }
 
 
-def test_projects_use_wrong_project_give_up(tmp_dir_cwd: Path, default_credentials: Path) -> None:
+def test_projects_use_wrong_project_give_up(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        console = stack.enter_context(patch('logfire._internal.cli.Console'))
         config_console = stack.enter_context(patch('logfire._internal.config.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['n']))
 
@@ -1084,10 +1109,6 @@ def test_projects_use_wrong_project_give_up(tmp_dir_cwd: Path, default_credentia
                 choices=['y', 'n'],
                 default='y',
             ),
-        ]
-        console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in console.mock_calls]
-        assert console_calls == [
-            IsStr(regex=r'^\(file=.*'),
         ]
         config_console_calls = [re.sub(r'^call(\(\).)?', '', str(call)) for call in config_console.mock_calls]
         assert config_console_calls == [
@@ -1118,7 +1139,6 @@ def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.Capture
 def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
@@ -1146,7 +1166,6 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
 def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
-        stack.enter_context(patch('logfire._internal.cli.Console'))
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()

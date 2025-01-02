@@ -88,6 +88,8 @@ nav:
       - Implement Sampling Strategies: how-to-guides/sampling.md
       - Export your Logfire Data: how-to-guides/query-api.md
       - Scrub Sensitive Data: how-to-guides/scrubbing.md
+      - Detect Service is Down: how-to-guides/detect-service-is-down.md
+      - Suppress Spans and Metrics: how-to-guides/suppress.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -133,7 +135,6 @@ nav:
       - Advanced:
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
-          - Backfill: reference/advanced/backfill.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Organization Structure: reference/organization-structure.md
@@ -213,6 +214,8 @@ plugins:
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
             - url: https://faststream.airt.ai/latest/objects.inv
+            - url: https://redis-py.readthedocs.io/en/stable/objects.inv
+            - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
         "guides/first_steps/index.md": "index.md"
@@ -228,7 +231,6 @@ plugins:
         "guides/web_ui/explore.md": "guides/web-ui/explore.md"
         "guides/advanced/generators.md": "reference/advanced/generators.md"
         "guides/advanced/testing.md": "reference/advanced/testing.md"
-        "guides/advanced/backfill.md": "reference/advanced/backfill.md"
         "guides/advanced/query_api.md": "how-to-guides/query-api.md"
         "guides/advanced/query-api.md": "how-to-guides/query-api.md"
         "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"

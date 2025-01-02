@@ -15,7 +15,7 @@ from opentelemetry.trace.span import Span
 
 import logfire
 import logfire._internal.integrations.httpx
-from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM
+from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM, is_json_type, is_text_type
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
@@ -190,6 +190,7 @@ RESPONSE_ATTRIBUTES = {
         ({'capture_response_headers': True}, RESPONSE_ATTRIBUTES),
         ({'capture_response_headers': True, 'response_hook': response_hook}, {*RESPONSE_ATTRIBUTES, 'response_hook'}),
         ({'capture_response_headers': False, 'response_hook': response_hook}, {'response_hook'}),
+        ({'capture_headers': True}, {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES}),
     ],
 )
 def test_httpx_client_instrumentation_with_capture_headers(
@@ -289,11 +290,7 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
 
 
 CAPTURE_FULL_REQUEST_ATTRIBUTES = {
-    'http.request.header.host',
-    'http.request.header.accept',
-    'http.request.header.accept-encoding',
-    'http.request.header.connection',
-    'http.request.header.user-agent',
+    *REQUEST_ATTRIBUTES,
     'http.request.header.content-type',
     'http.request.header.content-length',
     'http.request.body.json',
@@ -358,7 +355,9 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
+                capture_request_text_body=True,
                 capture_response_headers=True,
+                capture_response_text_body=True,
                 capture_response_json_body=True,
             )
             response = client.post('https://example.org/', json={'hello': 'world'})
@@ -411,7 +410,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
             {
                 'name': 'Reading response body',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {
@@ -451,7 +450,9 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                 client,
                 capture_request_headers=True,
                 capture_request_json_body=True,
+                capture_request_text_body=True,
                 capture_response_headers=True,
+                capture_response_text_body=True,
                 capture_response_json_body=True,
                 capture_request_form_data=True,
             )
@@ -505,7 +506,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             {
                 'name': 'Reading response body',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {
@@ -567,7 +568,12 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
 
     with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_request_form_data=True)
+        logfire.instrument_httpx(
+            client,
+            capture_request_form_data=True,
+            capture_request_text_body=True,
+            capture_response_text_body=True,
+        )
         client.post('https://example.org/', data={'form': 'values'})
 
     assert exporter.exported_spans_as_dict() == snapshot(
@@ -599,3 +605,115 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_httpx_client_capture_request_text_body(exporter: TestExporter):
+    with httpx.Client(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_request_text_body=True)
+        client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.request.body.text': 'hello',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            }
+        ]
+    )
+
+
+def test_httpx_client_capture_response_text_body(exporter: TestExporter):
+    with httpx.Client(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_response_text_body=True)
+        client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_httpx_client_capture_response_text_body',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                },
+            },
+        ]
+    )
+
+
+def test_is_json_type():
+    assert is_json_type('application/json')
+    assert is_json_type(' APPLICATION / JSON ')
+    assert is_json_type('application/json; charset=utf-8')
+    assert is_json_type('application/json; charset=potato; foo=bar')
+    assert is_json_type('application/json+ld')
+    assert is_json_type('application/x-json+ld')
+    assert is_json_type('application/ld+xml+json')
+    assert not is_json_type('json')
+    assert not is_json_type('json/application')
+    assert not is_json_type('text/json')
+    assert not is_json_type('other/json')
+    assert not is_json_type('')
+    assert not is_json_type('application/json-x')
+    assert not is_json_type('application//json')
+
+
+def test_is_text_type():
+    assert is_text_type('text/foo')
+    assert is_text_type('application/json')
+    assert is_text_type('application/xml')
+    assert is_text_type('application/foo+xml')
+    assert not is_text_type('application/text')
+    assert not is_text_type('foo/text')
