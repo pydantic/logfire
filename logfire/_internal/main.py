@@ -1449,13 +1449,9 @@ class Logfire:
         from .integrations.psycopg import instrument_psycopg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_psycopg(
-            self,
-            conn_or_module=conn_or_module,
-            enable_commenter=enable_commenter,
-            commenter_options=commenter_options or {},
-            **kwargs,
-        )
+        if enable_commenter:
+            kwargs.update({'enable_commenter': True, 'commenter_options': commenter_options or {}})
+        return instrument_psycopg(self, conn_or_module=conn_or_module, **kwargs)
 
     def instrument_flask(
         self,
