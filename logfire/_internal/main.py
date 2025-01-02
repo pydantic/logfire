@@ -2104,7 +2104,6 @@ class FastLogfireSpan:
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
     def __enter__(self) -> FastLogfireSpan:
-        self._span.__enter__()
         return self
 
     @handle_internal_errors()
@@ -2166,7 +2165,7 @@ class LogfireSpan(ReadableSpan):
                     self._span.set_attribute(
                         ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
                     )
-        self._span.__exit__(exc_type, exc_value, traceback)
+            self._span.__exit__(exc_type, exc_value, traceback)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
