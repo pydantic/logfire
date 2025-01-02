@@ -411,12 +411,9 @@ def capture_request(
     if should_capture_headers:
         request.capture_headers()
     if should_capture_body:
-        if request.content_type_is_json:
-            request.capture_body_if_json()
-        if request.content_type_is_form:
-            request.capture_body_if_form()
-        if request.content_type_is_text:
-            request.capture_body_if_text()
+        request.capture_body_if_json()
+        request.capture_body_if_form()
+        request.capture_body_if_text()
 
     return request
 
@@ -442,8 +439,7 @@ def capture_response(
     if capture_headers:
         response.capture_headers()
     if capture_body:
-        if response.content_type_is_json:
-            response.capture_body_if_json()
+        response.capture_body_if_json()
         response.capture_body_if_text()
 
     return request, response
