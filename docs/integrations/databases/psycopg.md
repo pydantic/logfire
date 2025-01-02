@@ -123,7 +123,6 @@ logfire.instrument_psycopg(enable_commenter=True, commenter_options={'db_driver'
     options:
         heading_level: 4
         show_root_heading: true
-        show_root_full_path: false
         show_source: false
         filters: []
 
