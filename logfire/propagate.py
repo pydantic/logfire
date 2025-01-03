@@ -91,6 +91,8 @@ def attach_context(carrier: ContextCarrier, *, third_party: bool = False) -> Ite
 
 @dataclass
 class WrapperPropagator(TextMapPropagator):
+    """Helper base class to wrap another propagator."""
+
     wrapped: TextMapPropagator
 
     def extract(self, *args: Any, **kwargs: Any) -> otel_context.Context:
@@ -105,6 +107,11 @@ class WrapperPropagator(TextMapPropagator):
 
 
 class NoExtractTraceContextPropagator(WrapperPropagator):
+    """A propagator that ignores any trace context that was extracted by the wrapped propagator.
+
+    Used when `logfire.configure(distributed_tracing=False)` is called.
+    """
+
     def extract(
         self,
         carrier: Any,
@@ -121,6 +128,11 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
 
 @dataclass
 class WarnOnExtractTraceContextPropagator(WrapperPropagator):
+    """A propagator that warns the first time that trace context is extracted by the wrapped propagator.
+
+    Used when `logfire.configure(distributed_tracing=None)` is called. This is the default behavior.
+    """
+
     warned: bool = False
 
     def extract(
