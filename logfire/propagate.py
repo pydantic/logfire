@@ -107,7 +107,8 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
         **kwargs: Any,
     ) -> otel_context.Context:
         result = super().extract(carrier, context, *args, **kwargs)
-        if result == context:
+        if result == context:  # pragma: no cover
+            # Optimization: nothing was extracted by the wrapped propagator
             return result
         return trace.set_span_in_context(trace.get_current_span(context), result)
 

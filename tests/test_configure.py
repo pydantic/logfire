@@ -19,6 +19,8 @@ from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
+from opentelemetry.propagate import get_global_textmap
+from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
@@ -55,6 +57,7 @@ from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
+from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
 
 
@@ -1821,6 +1824,9 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     config_kwargs['distributed_tracing'] = None
     logfire.configure(**config_kwargs)
 
+    assert isinstance(get_global_textmap(), WarnOnExtractTraceContextPropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
+
     with logfire.span('span1'):
         ctx = propagate.get_context()
 
@@ -1901,6 +1907,9 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
 
 
 def test_distributed_tracing_enabled(exporter: TestExporter):
+    assert isinstance(get_global_textmap(), CompositePropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
+
     with logfire.span('span1'):
         ctx = propagate.get_context()
 
@@ -1966,6 +1975,9 @@ def test_distributed_tracing_enabled(exporter: TestExporter):
 def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dict[str, Any]):
     config_kwargs['distributed_tracing'] = False
     logfire.configure(**config_kwargs)
+
+    assert isinstance(get_global_textmap(), NoExtractTraceContextPropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
 
     with logfire.span('span1'):
         ctx = propagate.get_context()
