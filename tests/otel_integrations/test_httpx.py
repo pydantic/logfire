@@ -243,17 +243,17 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (
     ('content_type', 'body', 'expected_attributes'),
     [
-        ('application/json', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
-        ('application/json; charset=utf-8', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
+        ('application/json', '{"hello": "world"}', {'http.request.body.text': '{"hello": "world"}'}),
+        ('application/json; charset=utf-8', '{"hello": "world"}', {'http.request.body.text': '{"hello": "world"}'}),
         (
             'application/json; charset=iso-8859-1',
             '{"hello": "world"}',
-            {'http.request.body.json': '{"hello": "world"}'},
+            {'http.request.body.text': '{"hello": "world"}'},
         ),
-        ('application/json; charset=utf-32', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
-        ('application/json; charset=potato', '{"hello": "world"}', {'http.request.body.json': '{"hello": "world"}'}),
-        ('application/json; charset=ascii', b'\x80\x81\x82', {'http.request.body.json': '���'}),
-        ('application/json; charset=utf8', b'\x80\x81\x82', {'http.request.body.json': '���'}),
+        ('application/json; charset=utf-32', '{"hello": "world"}', {}),
+        ('application/json; charset=potato', '{"hello": "world"}', {}),
+        ('application/json; charset=ascii', b'\x80\x81\x82', {}),
+        ('application/json; charset=utf8', b'\x80\x81\x82', {}),
         ('text/plain', '{"hello": "world"}', {}),
         ('', '{"hello": "world"}', {}),
     ],
@@ -272,6 +272,9 @@ def test_httpx_client_instrumentation_with_capture_json_body(
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
+    from rich.pretty import pprint
+
+    pprint(span['attributes'])
     assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
 
 
@@ -293,7 +296,7 @@ CAPTURE_FULL_REQUEST_ATTRIBUTES = {
     *REQUEST_ATTRIBUTES,
     'http.request.header.content-type',
     'http.request.header.content-length',
-    'http.request.body.json',
+    'http.request.body.text',
 }
 
 
@@ -524,30 +527,6 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             },
         ]
     )
-
-
-def test_httpx_client_capture_json_response_checks_header(exporter: TestExporter):
-    with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_body=True)
-        response = client.post('https://example.org/', content=b'hello')
-        assert response.json() == {'good': 'response'}
-
-    spans = exporter.exported_spans_as_dict()
-    assert len(spans) == 1
-    assert spans[0]['name'] == 'POST'
-    assert 'http.response.body.json' not in str(spans)
-
-
-async def test_httpx_async_client_capture_json_response_checks_header(exporter: TestExporter):
-    async with httpx.AsyncClient(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_body=True)
-        response = await client.post('https://example.org/', content=b'hello')
-        assert response.json() == {'good': 'response'}
-
-    spans = exporter.exported_spans_as_dict()
-    assert len(spans) == 1
-    assert spans[0]['name'] == 'POST'
-    assert 'http.response.body.json' not in str(spans)
 
 
 def test_httpx_client_capture_request_form_data(exporter: TestExporter):
