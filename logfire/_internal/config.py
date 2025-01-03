@@ -295,6 +295,7 @@ def configure(  # noqa: D417
             Set to `False` to suppress extraction of incoming trace context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
+            This setting always applies globally, and the last value set is used, including the default value.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
