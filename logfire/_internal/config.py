@@ -290,7 +290,11 @@ def configure(  # noqa: D417
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
-        distributed_tracing: TODO
+        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+            Set to `True` to disable the warning.
+            Set to `False` to suppress extraction of incoming trace context.
+            See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
+            for more information.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -487,7 +491,7 @@ class _LogfireConfigData:
     """Settings for the source code of the project."""
 
     distributed_tracing: bool | None
-    """TODO"""
+    """Whether to extract incoming trace context."""
 
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
