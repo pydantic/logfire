@@ -12,7 +12,6 @@ And existing plugins exist to propagate the context with
 
 from __future__ import annotations
 
-import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping
@@ -21,6 +20,7 @@ from opentelemetry import context as otel_context, propagate, trace
 from opentelemetry.propagators.textmap import TextMapPropagator
 
 import logfire
+from logfire._internal.stack_info import warn_at_user_stacklevel
 
 # anything that can be used to carry context, e.g. Headers or a dict
 ContextCarrier = Mapping[str, Any]
@@ -124,9 +124,9 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         **kwargs: Any,
     ) -> otel_context.Context:
         result = super().extract(carrier, context, *args, **kwargs)
-        if result and not self.warned and trace.get_current_span(context) != trace.get_current_span(result):
+        if not self.warned and result != context and trace.get_current_span(context) != trace.get_current_span(result):
             self.warned = True
             message = 'Found propagated trace context.'  # TODO
-            warnings.warn(message)
+            warn_at_user_stacklevel(message, RuntimeWarning)
             logfire.warn(message)
         return result
