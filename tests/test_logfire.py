@@ -3194,13 +3194,22 @@ def test_logfire_span_records_exceptions_once():
     assert n_calls_to_record_exception == 1
 
 
-def test_exit_ended_span():
-    logfire.configure(send_to_logfire=False, console=False)
-
+def test_exit_ended_span(exporter: TestExporter):
     tracer = get_tracer(__name__)
 
     with tracer.start_span('test') as span:
         # Ensure that doing this does not emit a warning about calling end() twice when the block exits.
         span.end()
 
-    assert not span.is_recording()
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'attributes': {'logfire.msg': 'test', 'logfire.span_type': 'span'},
+                'context': {'is_remote': False, 'span_id': 1, 'trace_id': 1},
+                'end_time': 2000000000,
+                'name': 'test',
+                'parent': None,
+                'start_time': 1000000000,
+            }
+        ]
+    )
