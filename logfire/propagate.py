@@ -72,7 +72,6 @@ def attach_context(carrier: ContextCarrier, *, third_party: bool = False) -> Ite
     Set `third_party` to `True` if using this inside a library intended to be used by others.
     This will respect the [`distributed_tracing` argument of `logfire.configure()`][logfire.configure(distributed_tracing)],
     so users will be warned about unintentional distributed tracing by default and they can suppress it.
-
     See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing) for more information.
     """
     # capture the current context to restore it later
