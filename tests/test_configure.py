@@ -19,6 +19,8 @@ from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
+from opentelemetry.propagate import get_global_textmap
+from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
@@ -34,7 +36,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
-from logfire import configure
+from logfire import configure, propagate
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -55,6 +57,7 @@ from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
+from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
 
 
@@ -1813,5 +1816,252 @@ def test_local_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
                     'code.lineno': 123,
                 },
             }
+        ]
+    )
+
+
+def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    assert isinstance(get_global_textmap(), WarnOnExtractTraceContextPropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
+
+    with logfire.span('span1'):
+        ctx = propagate.get_context()
+
+    with propagate.attach_context(ctx):
+        logfire.info('test1')
+
+    with inline_snapshot.extra.warns(
+        snapshot(
+            [
+                'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+            ]
+        )
+    ):
+        with propagate.attach_context(ctx, third_party=True):
+            logfire.info('test2')
+
+    # Only warn once.
+    with propagate.attach_context(ctx, third_party=True):
+        logfire.info('test3')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span1',
+                    'logfire.msg': 'span1',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': None,
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'test2',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'test3',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test3',
+                    'logfire.msg': 'test3',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+def test_distributed_tracing_enabled(exporter: TestExporter):
+    assert isinstance(get_global_textmap(), CompositePropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
+
+    with logfire.span('span1'):
+        ctx = propagate.get_context()
+
+    with propagate.attach_context(ctx):
+        logfire.info('test1')
+
+    with propagate.attach_context(ctx, third_party=True):
+        logfire.info('test2')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_enabled',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span1',
+                    'logfire.msg': 'span1',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_enabled',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'test2',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_enabled',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+
+def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+
+    assert isinstance(get_global_textmap(), NoExtractTraceContextPropagator)
+    assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
+
+    with logfire.span('span1'):
+        ctx = propagate.get_context()
+
+    with propagate.attach_context(ctx):
+        logfire.info('test1')
+
+    with propagate.attach_context(ctx, third_party=True):
+        logfire.info('test2')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span1',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_disabled',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span1',
+                    'logfire.msg': 'span1',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'test1',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test1',
+                    'logfire.msg': 'test1',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_disabled',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'test2',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': None,
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test2',
+                    'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_disabled',
+                    'code.lineno': 123,
+                },
+            },
         ]
     )
