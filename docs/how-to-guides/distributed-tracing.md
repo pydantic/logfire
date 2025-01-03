@@ -72,3 +72,10 @@ Because instrumented web servers automatically extract the `traceparent` header 
 - Spans missing their parent.
 - Spans being mysteriously grouped together.
 - Spans missing entirely because the original trace was excluded by sampling.
+
+By default, **Logfire** warns you when trace context is extracted, e.g. when server instrumentation finds a `traceparent` header. You can deal with this by setting the [`distributed_tracing` argument of `logfire.configure()`][logfire.configure(distributed_tracing)] or by setting the `LOGFIRE_DISTRIBUTED_TRACING` environment variable:
+
+- Setting to `False` will prevent trace context from being extracted. This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
+- Setting to `True` implies that the context propagation is intentional and will silence the warning.
+
+The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.propagate.attach_context`][logfire.propagate.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.
