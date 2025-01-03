@@ -962,15 +962,15 @@ class LogfireConfig(_LogfireConfigData):
             if self.distributed_tracing != True:  # noqa
                 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 
-                from ..propagate import NoExtractPropagator, WarnOnExtractPropagator
+                from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 
                 current = get_global_textmap()
-                while isinstance(current, (WarnOnExtractPropagator, NoExtractPropagator)):
+                while isinstance(current, (WarnOnExtractTraceContextPropagator, NoExtractTraceContextPropagator)):
                     current = current.wrapped
                 if self.distributed_tracing is None:
-                    new = WarnOnExtractPropagator(current)
+                    new = WarnOnExtractTraceContextPropagator(current)
                 else:
-                    new = NoExtractPropagator(current)
+                    new = NoExtractTraceContextPropagator(current)
                 set_global_textmap(new)
 
             self._ensure_flush_after_aws_lambda()

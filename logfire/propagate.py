@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping
 
-from opentelemetry import context as otel_context, propagate
+from opentelemetry import context as otel_context, propagate, trace
 from opentelemetry.propagators.textmap import TextMapPropagator
 
 import logfire
@@ -97,7 +97,7 @@ class WrapperPropagator(TextMapPropagator):
         return self.wrapped.fields
 
 
-class NoExtractPropagator(WrapperPropagator):
+class NoExtractTraceContextPropagator(WrapperPropagator):
     def extract(
         self,
         carrier: Any,
@@ -105,11 +105,14 @@ class NoExtractPropagator(WrapperPropagator):
         *args: Any,
         **kwargs: Any,
     ) -> otel_context.Context:
-        return otel_context.get_current() if context is None else context
+        result = super().extract(carrier, context, *args, **kwargs)
+        if result == context:
+            return result
+        return trace.set_span_in_context(trace.get_current_span(context), result)
 
 
 @dataclass
-class WarnOnExtractPropagator(WrapperPropagator):
+class WarnOnExtractTraceContextPropagator(WrapperPropagator):
     warned: bool = False
 
     def extract(
@@ -120,9 +123,9 @@ class WarnOnExtractPropagator(WrapperPropagator):
         **kwargs: Any,
     ) -> otel_context.Context:
         result = super().extract(carrier, context, *args, **kwargs)
-        if result and result != context and not self.warned:
+        if result and not self.warned and trace.get_current_span(context) != trace.get_current_span(result):
             self.warned = True
-            message = 'Found propagated context.'  # TODO
+            message = 'Found propagated trace context.'  # TODO
             warnings.warn(message)
             logfire.warn(message)
         return result
