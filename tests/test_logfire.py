@@ -3195,10 +3195,12 @@ def test_logfire_span_records_exceptions_once():
 
 
 def test_exit_ended_span():
-    # Ensure that doing this does not emit a warning
     logfire.configure(send_to_logfire=False, console=False)
 
     tracer = get_tracer(__name__)
 
     with tracer.start_span('test') as span:
+        # Ensure that doing this does not emit a warning about calling end() twice when the block exits.
         span.end()
+
+    assert not span.is_recording()
