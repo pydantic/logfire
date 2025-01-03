@@ -1837,6 +1837,10 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
         with propagate.attach_context(ctx, third_party=True):
             logfire.info('test2')
 
+    # Only warn once.
+    with propagate.attach_context(ctx, third_party=True):
+        logfire.info('test3')
+
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -1897,6 +1901,22 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'test2',
                     'logfire.msg': 'test2',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_distributed_tracing_default',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'test3',
+                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'test3',
+                    'logfire.msg': 'test3',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_distributed_tracing_default',
                     'code.lineno': 123,
