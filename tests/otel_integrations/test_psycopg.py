@@ -80,7 +80,7 @@ def test_instrument_psycopg_connection():
 
 def test_instrument_unknown():
     with pytest.raises(ValueError):
-        instrument_psycopg('unknown')
+        instrument_psycopg('unknown')  # type: ignore[reportCallIssue]
 
 
 def test_instrument_missing_otel_package():
