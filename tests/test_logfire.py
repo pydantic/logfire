@@ -3192,3 +3192,13 @@ def test_logfire_span_records_exceptions_once():
                 raise RuntimeError('error')
 
     assert n_calls_to_record_exception == 1
+
+
+def test_exit_ended_span():
+    # Ensure that doing this does not emit a warning
+    logfire.configure(send_to_logfire=False, console=False)
+
+    tracer = get_tracer(__name__)
+
+    with tracer.start_span('test') as span:
+        span.end()
