@@ -272,9 +272,6 @@ def test_httpx_client_instrumentation_with_capture_json_body(
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
-    from rich.pretty import pprint
-
-    pprint(span['attributes'])
     assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
 
 

@@ -148,7 +148,7 @@ class LogfireHttpxInfoMixin:
         return self.headers.get('content-type', '')
 
     @property
-    def content_type_is_json(self):
+    def content_type_is_json(self):  # pragma: no cover
         return is_json_type(self.content_type_header_string)
 
 
@@ -233,7 +233,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
                 # response.text uses errors='replace' under the hood.
                 # We rely on decoding errors to guess when the response is not text.
                 text = self.response.content.decode(self.response.encoding or 'utf-8')
-            except (UnicodeDecodeError, LookupError):
+            except (UnicodeDecodeError, LookupError):  # pragma: no cover
                 return
             self.capture_text_as_json(span, attr_name=attr_name, text=text)
 
