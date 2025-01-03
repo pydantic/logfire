@@ -24,6 +24,7 @@ from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
+from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -57,6 +58,7 @@ from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
+from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -959,19 +961,16 @@ class LogfireConfig(_LogfireConfigData):
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
             instrument_executors()
 
-            if self.distributed_tracing != True:  # noqa
-                from opentelemetry.propagate import get_global_textmap, set_global_textmap
-
-                from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-
-                current = get_global_textmap()
-                while isinstance(current, (WarnOnExtractTraceContextPropagator, NoExtractTraceContextPropagator)):
-                    current = current.wrapped
-                if self.distributed_tracing is None:
-                    new = WarnOnExtractTraceContextPropagator(current)
-                else:
-                    new = NoExtractTraceContextPropagator(current)
-                set_global_textmap(new)
+            current_textmap = get_global_textmap()
+            while isinstance(current_textmap, (WarnOnExtractTraceContextPropagator, NoExtractTraceContextPropagator)):
+                current_textmap = current_textmap.wrapped
+            if self.distributed_tracing is None:
+                new_textmap = WarnOnExtractTraceContextPropagator(current_textmap)
+            elif self.distributed_tracing:
+                new_textmap = current_textmap
+            else:
+                new_textmap = NoExtractTraceContextPropagator(current_textmap)
+            set_global_textmap(new_textmap)
 
             self._ensure_flush_after_aws_lambda()
 
