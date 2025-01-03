@@ -73,4 +73,5 @@ li.md-nav__item>a[href^="#logfire.configure("] {
 
 .md-typeset .doc h5 {
   text-transform: none;
+  font-size: 1.5em;
 }
