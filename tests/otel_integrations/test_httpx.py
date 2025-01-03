@@ -15,7 +15,7 @@ from opentelemetry.trace.span import Span
 
 import logfire
 import logfire._internal.integrations.httpx
-from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM, is_json_type, is_text_type
+from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM, is_json_type
 from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
@@ -384,8 +384,8 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
                     'http.request.header.content-type': ('application/json',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.json":{"type":"object"}}}',
-                    'http.request.body.json': '{"hello":"world"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'http.request.body.text': '{"hello":"world"}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -414,8 +414,8 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.json': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.json":{"type":"object"}}}',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
                 },
             },
             {
@@ -473,8 +473,8 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
                     'http.request.header.content-type': ('application/json',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.json":{"type":"object"}}}',
-                    'http.request.body.json': '{"hello":"world"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'http.request.body.text': '{"hello":"world"}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -503,8 +503,8 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.json': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.json":{"type":"object"}}}',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
                 },
             },
             {
@@ -612,6 +612,7 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
                     'network.peer.address': 'example.org',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
                     'http.request.body.text': 'hello',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -690,12 +691,3 @@ def test_is_json_type():
     assert not is_json_type('')
     assert not is_json_type('application/json-x')
     assert not is_json_type('application//json')
-
-
-def test_is_text_type():
-    assert is_text_type('text/foo')
-    assert is_text_type('application/json')
-    assert is_text_type('application/xml')
-    assert is_text_type('application/foo+xml')
-    assert not is_text_type('application/text')
-    assert not is_text_type('foo/text')
