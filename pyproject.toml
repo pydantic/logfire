@@ -175,7 +175,7 @@ docs = [
 ]
 
 [tool.inline-snapshot]
-default-flags=["disable"]
+default-flags = ["disable"]
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
