@@ -70,3 +70,8 @@ li.md-nav__item>a[href^="#logfire.Logfire.instrument_fastapi("],
 li.md-nav__item>a[href^="#logfire.configure("] {
   display: inline-block;
 }
+
+.md-typeset .doc h5 {
+  text-transform: none;
+  font-size: 1.1em;
+}
