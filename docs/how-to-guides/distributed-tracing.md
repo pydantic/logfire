@@ -33,15 +33,15 @@ This contains 4 fields:
 - `7dcd821387246e1c` is the `span_id` of the parent span, i.e. the `parent_span_id` of the child log.
 - `01` is the `trace_flags` field and indicates that the trace should be included by sampling.
 
-See the [API reference](../../reference/api/propagate.md) for more details about these functions.
+See the [API reference](../reference/api/propagate.md) for more details about these functions.
 
 ## Integrations
 
 OpenTelemetry instrumentation libraries (which **Logfire** uses for its integrations) handle context propagation automatically, even across different programming languages. For example:
 
-- Instrumented HTTP clients such as [`requests`](../../integrations/requests.md) and [`httpx`](../../integrations/httpx.md) will automatically set the `traceparent` header when making requests.
-- Instrumented web servers such as [`flask`](../../integrations/flask.md) and [`fastapi`](../../integrations/fastapi.md) will automatically extract the `traceparent` header and use it to set the context for server spans.
-- The [`celery` integration](../../integrations/celery.md) will automatically propagate the context to child tasks.
+- Instrumented HTTP clients such as [`requests`](../integrations/http-clients/requests.md) and [`httpx`](../integrations/http-clients/httpx.md) will automatically set the `traceparent` header when making requests.
+- Instrumented web servers such as [`flask`](../integrations/web-frameworks/flask.md) and [`fastapi`](../integrations/web-frameworks/fastapi.md) will automatically extract the `traceparent` header and use it to set the context for server spans.
+- The [`celery` integration](../integrations/event-streams/celery.md) will automatically propagate the context to child tasks.
 
 ## Thread and Pool executors
 

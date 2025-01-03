@@ -99,6 +99,7 @@ IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
+"""Whether to extract incoming trace context. By default, will extract but warn about it."""
 # fmt: on
 
 CONFIG_PARAMS = {
