@@ -172,7 +172,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
             self.capture_text_as_json(attr_name=attr_name, text=text)
 
     def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
-        if not self.content_type_is_form:
+        if not self.content_type_header_string == 'application/x-www-form-urlencoded':
             return False
 
         data = self.form_data
@@ -188,11 +188,6 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     @property
     def body_is_streaming(self):
         return not isinstance(self.stream, httpx.ByteStream)
-
-    @cached_property
-    def content_type_is_form(self):
-        content_type = self.content_type_header_string
-        return content_type == 'application/x-www-form-urlencoded'
 
     @property
     def content_type_charset(self):
