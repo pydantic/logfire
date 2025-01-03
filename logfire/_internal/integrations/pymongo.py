@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
+
+from opentelemetry.sdk.trace import Span
+from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
 
 try:
     from opentelemetry.instrumentation.pymongo import (
         PymongoInstrumentor,
         dummy_callback,  # type: ignore[reportUnknownVariableType]
     )
-
-    from logfire.integrations.pymongo import FailedHook, RequestHook, ResponseHook
 except ImportError:
     raise RuntimeError(
         '`logfire.instrument_pymongo()` requires the `opentelemetry-instrumentation-pymongo` package.\n'
@@ -20,9 +21,9 @@ except ImportError:
 def instrument_pymongo(
     *,
     capture_statement: bool,
-    request_hook: RequestHook | None,
-    response_hook: ResponseHook | None,
-    failed_hook: FailedHook | None,
+    request_hook: Callable[[Span, CommandStartedEvent], None] | None = None,
+    response_hook: Callable[[Span, CommandSucceededEvent], None] | None = None,
+    failed_hook: Callable[[Span, CommandFailedEvent], None] | None = None,
     **kwargs: Any,
 ) -> None:
     """Instrument the `pymongo` module so that spans are automatically created for each operation.

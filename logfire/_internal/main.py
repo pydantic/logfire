@@ -76,6 +76,7 @@ if TYPE_CHECKING:
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
@@ -94,17 +95,9 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
-    from ..integrations.pymongo import (
-        FailedHook as PymongoFailedHook,
-        RequestHook as PymongoRequestHook,
-        ResponseHook as PymongoResponseHook,
-    )
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
-    from ..integrations.wsgi import (
-        RequestHook as WSGIRequestHook,
-        ResponseHook as WSGIResponseHook,
-    )
+    from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -1704,9 +1697,9 @@ class Logfire:
     def instrument_pymongo(
         self,
         capture_statement: bool = False,
-        request_hook: PymongoRequestHook | None = None,
-        response_hook: PymongoResponseHook | None = None,
-        failed_hook: PymongoFailedHook | None = None,
+        request_hook: Callable[[Span, CommandStartedEvent], None] | None = None,
+        response_hook: Callable[[Span, CommandSucceededEvent], None] | None = None,
+        failed_hook: Callable[[Span, CommandFailedEvent], None] | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
@@ -2116,8 +2109,7 @@ class FastLogfireSpan:
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         context_api.detach(self._token)
-        _exit_span(self._span, exc_value)
-        self._span.end()
+        self._span.__exit__(exc_type, exc_value, traceback)
 
 
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
@@ -2153,6 +2145,7 @@ class LogfireSpan(ReadableSpan):
                     attributes=self._otlp_attributes,
                     links=self._links,
                 )
+            self._span.__enter__()
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
@@ -2162,14 +2155,17 @@ class LogfireSpan(ReadableSpan):
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
+        assert self._span is not None
 
         context_api.detach(self._token)
         self._token = None
-
-        assert self._span is not None
-        _exit_span(self._span, exc_value)
-
-        self.end()
+        if self._span.is_recording():
+            with handle_internal_errors():
+                if self._added_attributes:
+                    self._span.set_attribute(
+                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                    )
+            self._span.__exit__(exc_type, exc_value, traceback)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
@@ -2194,26 +2190,6 @@ class LogfireSpan(ReadableSpan):
     @message.setter
     def message(self, message: str):
         self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
-
-    def end(self, end_time: int | None = None) -> None:
-        """Sets the current time as the span's end time.
-
-        The span's end time is the wall time at which the operation finished.
-
-        Only the first call to this method is recorded, further calls are ignored so you
-        can call this within the span's context manager to end it before the context manager
-        exits.
-        """
-        if self._span is None:  # pragma: no cover
-            raise RuntimeError('Span has not been started')
-        if self._span.is_recording():
-            with handle_internal_errors():
-                if self._added_attributes:
-                    self._span.set_attribute(
-                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
-                    )
-
-                self._span.end(end_time)
 
     @handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:
@@ -2344,16 +2320,6 @@ class NoopSpan:
 
     def is_recording(self) -> bool:
         return False
-
-
-def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
-    if not span.is_recording():
-        return
-
-    # record exception if present
-    # isinstance is to ignore BaseException
-    if isinstance(exception, Exception):
-        record_exception(span, exception, escaped=True)
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
