@@ -1833,7 +1833,13 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     with propagate.attach_context(ctx):
         logfire.info('test1')
 
-    with inline_snapshot.extra.warns(snapshot(['RuntimeWarning: Found propagated trace context.'])):
+    with inline_snapshot.extra.warns(
+        snapshot(
+            [
+                'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+            ]
+        )
+    ):
         with propagate.attach_context(ctx, third_party=True):
             logfire.info('test2')
 
@@ -1875,7 +1881,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'Found propagated trace context.',
+                'name': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': 4000000000,
@@ -1883,8 +1889,8 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Found propagated trace context.',
-                    'logfire.msg': 'Found propagated trace context.',
+                    'logfire.msg_template': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_distributed_tracing_default',
                     'code.lineno': 123,

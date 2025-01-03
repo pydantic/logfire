@@ -127,7 +127,10 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         result = super().extract(carrier, context, *args, **kwargs)
         if not self.warned and result != context and trace.get_current_span(context) != trace.get_current_span(result):
             self.warned = True
-            message = 'Found propagated trace context.'  # TODO
+            message = (
+                'Found propagated trace context. See '
+                'https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+            )
             warn_at_user_stacklevel(message, RuntimeWarning)
             logfire.warn(message)
         return result
