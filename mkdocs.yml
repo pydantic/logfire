@@ -93,6 +93,7 @@ nav:
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
+          - LLamaIndex: integrations/llms/llamaindex.md
           - OpenAI: integrations/llms/openai.md
           - Anthropic: integrations/llms/anthropic.md
           - Mirascope: integrations/llms/mirascope.md
