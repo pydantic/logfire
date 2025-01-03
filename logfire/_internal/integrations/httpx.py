@@ -156,7 +156,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     span: Span
 
     def capture_headers(self):
-        capture_headers(self.span, self.headers, 'request')
+        capture_request_or_response_headers(self.span, self.headers, 'request')
 
     def capture_body(self):
         if self.content_type_is_form:
@@ -230,7 +230,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     is_async: bool
 
     def capture_headers(self):
-        capture_headers(self.span, self.headers, 'response')
+        capture_request_or_response_headers(self.span, self.headers, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text'):
         def hook(span: LogfireSpan):
@@ -448,7 +448,9 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
         hook(*args, **kwargs)
 
 
-def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']) -> None:
+def capture_request_or_response_headers(
+    span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']
+) -> None:
     span.set_attributes(
         {
             f'http.{request_or_response}.header.{header_name}': headers.get_list(header_name)
