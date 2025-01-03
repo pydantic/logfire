@@ -159,9 +159,8 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
         capture_request_or_response_headers(self.span, self.headers, 'request')
 
     def capture_body(self):
-        if self.content_type_is_form:
-            self.capture_body_if_form()
-        else:
+        captured_form = self.capture_body_if_form()
+        if not captured_form:
             self.capture_body_if_text()
 
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
@@ -172,14 +171,15 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
                 return
             self.capture_text_as_json(attr_name=attr_name, text=text)
 
-    def capture_body_if_form(self, attr_name: str = 'http.request.body.form'):
+    def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
         if not self.content_type_is_form:
-            return
+            return False
 
         data = self.form_data
         if not (data and isinstance(data, Mapping)):  # pragma: no cover  # type: ignore
-            return
+            return False
         self.set_complex_span_attributes({attr_name: data})
+        return True
 
     def capture_text_as_json(self, attr_name: str, text: str):
         self.set_complex_span_attributes({attr_name: {}})  # Set the JSON schema
