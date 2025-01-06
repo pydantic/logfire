@@ -98,6 +98,8 @@ IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file
 """Whether to show a warning message if logfire if used without calling logfire.configure()"""
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
 """The base URL of the Logfire backend. Primarily for testing purposes."""
+DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
+"""Whether to extract incoming trace context. By default, will extract but warn about it."""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -121,6 +123,7 @@ CONFIG_PARAMS = {
     'pydantic_plugin_exclude': PYDANTIC_PLUGIN_EXCLUDE,
     'inspect_arguments': INSPECT_ARGUMENTS,
     'ignore_no_config': IGNORE_NO_CONFIG,
+    'distributed_tracing': DISTRIBUTED_TRACING,
 }
 
 

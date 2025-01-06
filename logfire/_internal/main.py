@@ -1184,11 +1184,8 @@ class Logfire:
         client: httpx.Client,
         *,
         capture_headers: bool = False,
-        capture_request_text_body: bool = False,
-        capture_request_json_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         **kwargs: Any,
@@ -1200,11 +1197,8 @@ class Logfire:
         client: httpx.AsyncClient,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
@@ -1216,11 +1210,8 @@ class Logfire:
         client: None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1233,11 +1224,8 @@ class Logfire:
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1259,24 +1247,8 @@ class Logfire:
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
                 [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
-            capture_request_text_body: Set to `True` to capture the request text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_json_body: Set to `True` to capture the request JSON body.
-                Specifically captures the raw request body whenever the content type is `application/json`.
-                Doesn't check if the body is actually JSON.
-            capture_response_json_body: Set to `True` to capture the response JSON body.
-                Specifically captures the raw response body whenever the content type is `application/json`
-                when the `response.read()` or `.aread()` method is first called,
-                which happens automatically for non-streaming requests.
-                For streaming requests, the body is not captured if it's merely iterated over.
-                Doesn't check if the body is actually JSON.
-            capture_response_text_body: Set to `True` to capture the response text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_form_data: Set to `True` to capture the request form data.
-                Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
-                Doesn't inspect or parse the raw request body.
+            capture_request_body: Set to `True` to capture the request body.
+            capture_response_body: Set to `True` to capture the response body.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             async_request_hook: A function called right after a span is created for an async request.
@@ -1290,11 +1262,8 @@ class Logfire:
             self,
             client,
             capture_headers=capture_headers,
-            capture_request_json_body=capture_request_json_body,
-            capture_request_text_body=capture_request_text_body,
-            capture_response_json_body=capture_response_json_body,
-            capture_response_text_body=capture_response_text_body,
-            capture_request_form_data=capture_request_form_data,
+            capture_request_body=capture_request_body,
+            capture_response_body=capture_response_body,
             request_hook=request_hook,
             response_hook=response_hook,
             async_request_hook=async_request_hook,
@@ -2133,8 +2102,7 @@ class FastLogfireSpan:
     @handle_internal_errors()
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         context_api.detach(self._token)
-        _exit_span(self._span, exc_value)
-        self._span.end()
+        self._span.__exit__(exc_type, exc_value, traceback)
 
 
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
@@ -2170,6 +2138,7 @@ class LogfireSpan(ReadableSpan):
                     attributes=self._otlp_attributes,
                     links=self._links,
                 )
+            self._span.__enter__()
             if self._token is None:  # pragma: no branch
                 self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
@@ -2179,14 +2148,17 @@ class LogfireSpan(ReadableSpan):
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
+        assert self._span is not None
 
         context_api.detach(self._token)
         self._token = None
-
-        assert self._span is not None
-        _exit_span(self._span, exc_value)
-
-        self.end()
+        if self._span.is_recording():
+            with handle_internal_errors():
+                if self._added_attributes:
+                    self._span.set_attribute(
+                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
+                    )
+            self._span.__exit__(exc_type, exc_value, traceback)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
@@ -2211,26 +2183,6 @@ class LogfireSpan(ReadableSpan):
     @message.setter
     def message(self, message: str):
         self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
-
-    def end(self, end_time: int | None = None) -> None:
-        """Sets the current time as the span's end time.
-
-        The span's end time is the wall time at which the operation finished.
-
-        Only the first call to this method is recorded, further calls are ignored so you
-        can call this within the span's context manager to end it before the context manager
-        exits.
-        """
-        if self._span is None:  # pragma: no cover
-            raise RuntimeError('Span has not been started')
-        if self._span.is_recording():
-            with handle_internal_errors():
-                if self._added_attributes:
-                    self._span.set_attribute(
-                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
-                    )
-
-                self._span.end(end_time)
 
     @handle_internal_errors()
     def set_attribute(self, key: str, value: Any) -> None:
@@ -2361,16 +2313,6 @@ class NoopSpan:
 
     def is_recording(self) -> bool:
         return False
-
-
-def _exit_span(span: trace_api.Span, exception: BaseException | None) -> None:
-    if not span.is_recording():
-        return
-
-    # record exception if present
-    # isinstance is to ignore BaseException
-    if isinstance(exception, Exception):
-        record_exception(span, exception, escaped=True)
 
 
 AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
