@@ -1444,7 +1444,7 @@ class Logfire:
             enable_commenter: Adds comments to SQL queries performed by Psycopg, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `enable_commenter` and `commenter_options`.
+                for future compatibility.
         """
         from .integrations.psycopg import instrument_psycopg
 
