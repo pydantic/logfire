@@ -75,3 +75,7 @@ li.md-nav__item>a[href^="#logfire.configure("] {
   text-transform: none;
   font-size: 1.1em;
 }
+
+.md-search__output em {
+  color: var(--md-primary-fg-color);
+}

@@ -7,7 +7,6 @@ const RESULT = 3
 
 
 const appID = 'KPPUDTIAVX';
-// API key with `addObject` and `editSettings` ACL
 const apiKey = '1fc841595212a2c3afe8c24dd4cb8790';
 const indexName = 'logfire-docs';
 
@@ -29,6 +28,7 @@ self.onmessage = async (event) => {
 
     const hits = results[0].hits
 
+    console.log(hits)
     const mappedGroupedResults = hits.reduce((acc, hit) => {
       if (!acc[hit.pageID]) {
         acc[hit.pageID] = []
@@ -38,7 +38,7 @@ self.onmessage = async (event) => {
         terms: {},
         location: hit.abs_url,
         title: hit.title,
-        text: hit.content,
+        text: hit._highlightResult.content.value,
 
       })
       return acc
