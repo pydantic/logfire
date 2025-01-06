@@ -162,7 +162,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
         if not self.body_is_streaming:
             try:
-                text = self.text
+                text = self.content.decode(self.content_type_charset)
             except (UnicodeDecodeError, LookupError):
                 return
             self.capture_text_as_json(attr_name=attr_name, text=text)
@@ -194,10 +194,6 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
         if self.body_is_streaming:  # pragma: no cover
             raise ValueError('Cannot read content from a streaming body')
         return list(self.stream)[0]  # type: ignore
-
-    @cached_property
-    def text(self) -> str:
-        return self.content.decode(self.content_type_charset)
 
     @cached_property
     def form_data(self) -> Mapping[str, Any] | None:
