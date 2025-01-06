@@ -11,9 +11,10 @@ And existing plugins exist to propagate the context with
 """  # noqa: D205
 
 from contextlib import contextmanager
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, cast
 
 from opentelemetry import context, propagate
+from opentelemetry.trace import Link, Span
 
 # anything that can be used to carry context, e.g. Headers or a dict
 ContextCarrier = Mapping[str, Any]
@@ -70,3 +71,26 @@ def attach_context(carrier: ContextCarrier) -> Iterator[None]:
         yield
     finally:
         context.attach(old_context)
+
+
+def build_span_link(carrier: ContextCarrier) -> Link:
+    """Build a span link from a context carrier.
+
+    This is useful when you want to link a span in a different service to the current span.
+
+    ```py
+    from logfire.propagate import build_span_link, get_context
+
+    logfire_context = get_context()
+
+    ...
+
+    # later on in another thread, process or service
+    link = build_span_link(logfire_context)
+    with logfire.span('process_data', _links=[link]):
+        ...
+    ```
+    """
+    context = propagate.extract(carrier=carrier)
+    span = cast(Span, next(iter(context.values())))
+    return Link(span.get_span_context())
