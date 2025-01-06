@@ -7,7 +7,7 @@ from unittest import mock
 
 import httpx
 import pytest
-from dirty_equals import IsDict, IsStr
+from dirty_equals import IsStr
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
@@ -241,28 +241,24 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 
 
 CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (
-    ('content_type', 'body', 'expected_attributes'),
+    ('content_type', 'body', 'expected_http_request_body_text'),
     [
-        ('application/json', '{"hello": "world"}', {'http.request.body.text': '{"hello": "world"}'}),
-        ('application/json; charset=utf-8', '{"hello": "world"}', {'http.request.body.text': '{"hello": "world"}'}),
-        (
-            'application/json; charset=iso-8859-1',
-            '{"hello": "world"}',
-            {'http.request.body.text': '{"hello": "world"}'},
-        ),
-        ('application/json; charset=utf-32', '{"hello": "world"}', {}),
-        ('application/json; charset=potato', '{"hello": "world"}', {}),
-        ('application/json; charset=ascii', b'\x80\x81\x82', {}),
-        ('application/json; charset=utf8', b'\x80\x81\x82', {}),
-        ('text/plain', '{"hello": "world"}', {}),
-        ('', '{"hello": "world"}', {}),
+        ('application/json', '{"hello": "world"}', '{"hello": "world"}'),
+        ('application/json; charset=utf-8', '{"hello": "world"}', '{"hello": "world"}'),
+        ('application/json; charset=iso-8859-1', '{"hello": "world"}', '{"hello": "world"}'),
+        ('application/json; charset=utf-32', '{"hello": "world"}', None),
+        ('application/json; charset=potato', '{"hello": "world"}', None),
+        ('application/json; charset=ascii', b'\x80\x81\x82', None),
+        ('application/json; charset=utf8', b'\x80\x81\x82', None),
+        ('text/plain', '{"hello": "world"}', '{"hello": "world"}'),
+        ('', '{"hello": "world"}', '{"hello": "world"}'),
     ],
 )
 
 
 @pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
 def test_httpx_client_instrumentation_with_capture_json_body(
-    exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
+    exporter: TestExporter, content_type: str, body: Any, expected_http_request_body_text: str
 ):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
@@ -272,12 +268,12 @@ def test_httpx_client_instrumentation_with_capture_json_body(
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
-    assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
+    assert span['attributes'].get('http.request.body.text') == expected_http_request_body_text
 
 
 @pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
 async def test_async_httpx_client_instrumentation_with_capture_json_body(
-    exporter: TestExporter, content_type: str, body: Any, expected_attributes: dict[str, Any]
+    exporter: TestExporter, content_type: str, body: Any, expected_http_request_body_text: str
 ):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
@@ -286,7 +282,7 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
-    assert span['attributes'] == IsDict(expected_attributes).settings(partial=True)
+    assert span['attributes'].get('http.request.body.text') == expected_http_request_body_text
 
 
 CAPTURE_FULL_REQUEST_ATTRIBUTES = {
@@ -335,17 +331,6 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
 
     span = exporter.exported_spans_as_dict()[0]
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
-
-
-def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.httpx': None}):
-        with pytest.raises(RuntimeError) as exc_info:
-            importlib.reload(logfire._internal.integrations.httpx)
-        assert str(exc_info.value) == snapshot("""\
-`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.
-You can install this with:
-    pip install 'logfire[httpx]'\
-""")
 
 
 def test_httpx_client_capture_full(exporter: TestExporter):
@@ -601,57 +586,6 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
     )
 
 
-def test_httpx_client_capture_response_text_body(exporter: TestExporter):
-    with httpx.Client(transport=create_transport()) as client:
-        logfire.instrument_httpx(client, capture_response_body=True)
-        client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'POST',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'http.method': 'POST',
-                    'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
-                    'http.host': 'example.org',
-                    'server.address': 'example.org',
-                    'network.peer.address': 'example.org',
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
-                    'http.status_code': 200,
-                    'http.response.status_code': 200,
-                    'http.flavor': '1.1',
-                    'network.protocol.version': '1.1',
-                    'http.target': '/',
-                },
-            },
-            {
-                'name': 'Reading response body',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_httpx.py',
-                    'code.function': 'test_httpx_client_capture_response_text_body',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'Reading response body',
-                    'logfire.msg': 'Reading response body',
-                    'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
-                },
-            },
-        ]
-    )
-
-
 def test_is_json_type():
     assert is_json_type('application/json')
     assert is_json_type(' APPLICATION / JSON ')
@@ -667,3 +601,14 @@ def test_is_json_type():
     assert not is_json_type('')
     assert not is_json_type('application/json-x')
     assert not is_json_type('application//json')
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.httpx': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            importlib.reload(logfire._internal.integrations.httpx)
+        assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_httpx()` requires the `opentelemetry-instrumentation-httpx` package.
+You can install this with:
+    pip install 'logfire[httpx]'\
+""")

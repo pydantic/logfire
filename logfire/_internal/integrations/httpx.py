@@ -147,10 +147,6 @@ class LogfireHttpxInfoMixin:
     def content_type_header_string(self) -> str:
         return self.headers.get('content-type', '')
 
-    @property
-    def content_type_is_json(self):  # pragma: no cover
-        return is_json_type(self.content_type_header_string)
-
 
 class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     span: Span
