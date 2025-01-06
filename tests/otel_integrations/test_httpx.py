@@ -511,6 +511,76 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
     )
 
 
+def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: TestExporter):
+    def handler(request: Request):
+        return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(b'\x80\x81\x82'))
+
+    with check_traceparent_header() as checker:
+        with httpx.Client(transport=httpx.MockTransport(handler=handler)) as client:
+            logfire.instrument_httpx(client, capture_response_body=True)
+            response = client.post('https://example.org/')
+            checker(response)
+
+    spans = exporter.exported_spans_as_dict()
+    assert spans == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST /',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_httpx_client_not_capture_response_body_on_wrong_encoding',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'check_traceparent_header',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
 def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 1
     assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']

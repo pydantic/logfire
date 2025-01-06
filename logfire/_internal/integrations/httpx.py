@@ -229,7 +229,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
                 # response.text uses errors='replace' under the hood.
                 # We rely on decoding errors to guess when the response is not text.
                 text = self.response.content.decode(self.response.encoding or 'utf-8')
-            except (UnicodeDecodeError, LookupError):  # pragma: no cover
+            except (UnicodeDecodeError, LookupError):
                 return
             self.capture_text_as_json(span, attr_name=attr_name, text=text)
 
