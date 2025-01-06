@@ -109,6 +109,23 @@ logfire.configure()
 logfire.instrument_psycopg(enable_commenter=True, commenter_options={'db_driver': False, 'dbapi_threadsafety': False})
 ```
 
+## API Reference
+
+::: logfire.Logfire.instrument_psycopg
+    options:
+        heading_level: 4
+        show_source: false
+        show_root_doc_entry: true
+        show_root_heading: true
+        show_root_full_path: false
+
+::: logfire.integrations.psycopg.CommenterOptions
+    options:
+        heading_level: 4
+        show_root_heading: true
+        show_source: false
+        filters: []
+
 [opentelemetry-psycopg]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html
 [opentelemetry-psycopg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html
 [psycopg]: https://www.psycopg.org/

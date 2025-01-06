@@ -4,7 +4,7 @@ import contextlib
 import importlib
 from importlib.util import find_spec
 from types import ModuleType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from packaging.requirements import Requirement
 
@@ -13,25 +13,22 @@ from logfire import Logfire
 if TYPE_CHECKING:  # pragma: no cover
     from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
-    from typing_extensions import TypedDict, Unpack
+    from psycopg import AsyncConnection, Connection
+    from psycopg2._psycopg import connection as Psycopg2Connection
+    from typing_extensions import TypeVar
+
+    PsycopgConnection = TypeVar('PsycopgConnection', Connection[Any], AsyncConnection[Any], Psycopg2Connection)
 
     Instrumentor = PsycopgInstrumentor | Psycopg2Instrumentor
 
-    class CommenterOptions(TypedDict, total=False):
-        db_driver: bool
-        db_framework: bool
-        opentelemetry_values: bool
 
-    class PsycopgInstrumentKwargs(TypedDict, total=False):
-        enable_commenter: bool
-        commenter_options: CommenterOptions
-
-
-PACKAGE_NAMES = ('psycopg', 'psycopg2')
+PACKAGE_NAMES: tuple[Literal['psycopg'], Literal['psycopg2']] = ('psycopg', 'psycopg2')
 
 
 def instrument_psycopg(
-    logfire_instance: Logfire, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]
+    logfire_instance: Logfire,
+    conn_or_module: ModuleType | Literal['psycopg', 'psycopg2'] | None | PsycopgConnection | Psycopg2Connection,
+    **kwargs: Any,
 ) -> None:
     """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
@@ -44,10 +41,11 @@ def instrument_psycopg(
                 instrument_psycopg(logfire_instance, package, **kwargs)
         return
     elif conn_or_module in PACKAGE_NAMES:
-        _instrument_psycopg(logfire_instance, conn_or_module, **kwargs)
+        _instrument_psycopg(logfire_instance, name=conn_or_module, **kwargs)
         return
     elif isinstance(conn_or_module, ModuleType):
-        instrument_psycopg(logfire_instance, conn_or_module.__name__, **kwargs)
+        module_name = cast(Literal['psycopg', 'psycopg2'], conn_or_module.__name__)
+        instrument_psycopg(logfire_instance, module_name, **kwargs)
         return
     else:
         # Given an object that's not a module or string,
@@ -66,14 +64,12 @@ def instrument_psycopg(
 
 
 def _instrument_psycopg(
-    logfire_instance: Logfire, name: str, conn: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]
+    logfire_instance: Logfire,
+    name: Literal['psycopg', 'psycopg2'],
+    conn: Any = None,
+    **kwargs: Any,
 ) -> None:
-    try:
-        instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
-    except ImportError:
-        raise ImportError(f"Run `pip install 'logfire[{name}]'` to install {name} instrumentation.")
-
-    instrumentor = getattr(instrumentor_module, f'{name.capitalize()}Instrumentor')()
+    instrumentor = _get_instrumentor(name)
     if conn is None:
         # OTEL looks at the installed packages to determine if the correct dependencies are installed.
         # This means that if a user installs `psycopg-binary` (which is commonly recommended)
@@ -99,7 +95,7 @@ def _instrument_psycopg(
         )
     else:
         # instrument_connection doesn't have a skip_dep_check argument.
-        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())
+        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())  # type: ignore[reportUnknownMemberType]
 
 
 def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:
@@ -110,3 +106,20 @@ def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:
             if req.name == name and req.specifier.contains(version.split()[0]):
                 return True
     return False
+
+
+@overload
+def _get_instrumentor(name: Literal['psycopg']) -> PsycopgInstrumentor: ...
+
+
+@overload
+def _get_instrumentor(name: Literal['psycopg2']) -> Psycopg2Instrumentor: ...
+
+
+def _get_instrumentor(name: str) -> Instrumentor:
+    try:
+        instrumentor_module = importlib.import_module(f'opentelemetry.instrumentation.{name}')
+    except ImportError:
+        raise ImportError(f"Run `pip install 'logfire[{name}]'` to install {name} instrumentation.")
+
+    return getattr(instrumentor_module, f'{name.capitalize()}Instrumentor')()

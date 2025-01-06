@@ -12,6 +12,7 @@
         filters:
             - "!instrument_redis"
             - "!instrument_pymongo"
+            - "!instrument_psycopg"
             - "!^with_trace_sample_rate$"
             - "!^_[^_]"
 
