@@ -88,7 +88,7 @@ nav:
       - Implement Sampling Strategies: how-to-guides/sampling.md
       - Export your Logfire Data: how-to-guides/query-api.md
       - Scrub Sensitive Data: how-to-guides/scrubbing.md
-      - Trace across Processes: how-to-guides/distributed-tracing.md
+      - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
   - Integrations:
