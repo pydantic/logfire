@@ -36,7 +36,16 @@ logfire.instrument_django()
 **OpenTelemetry Django Instrumentation** package,
 which you can find more information about [here][opentelemetry-django].
 
+## Database
+
+By default, the **Django** configuration [uses SQLite as the database engine].
+To instrument it, you need to call [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3].
+
+If you are using a different database, check the available instrumentation methods in our [Integrations section].
+
 [django]: https://www.djangoproject.com/
 [opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
 [django-instrumentor]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html#opentelemetry.instrumentation.django.DjangoInstrumentor
 [Asynchronous support]: https://docs.djangoproject.com/en/dev/topics/async/#asynchronous-support
+[uses SQLite as the database engine]: https://docs.djangoproject.com/en/dev/ref/settings/#databases
+[Integrations section]: ../index.md
