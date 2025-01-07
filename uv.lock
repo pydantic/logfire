@@ -1914,10 +1914,7 @@ name = "logfire"
 version = "3.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "algoliasearch" },
-    { name = "bs4" },
     { name = "executing" },
-    { name = "markdown" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
@@ -2078,8 +2075,11 @@ dev = [
     { name = "vcrpy", version = "7.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
 ]
 docs = [
+    { name = "algoliasearch" },
+    { name = "bs4" },
     { name = "griffe", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "griffe", version = "1.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "markdown" },
     { name = "mkdocs" },
     { name = "mkdocs-glightbox" },
     { name = "mkdocs-material" },
@@ -2090,10 +2090,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "algoliasearch", specifier = ">=3,<4" },
-    { name = "bs4", specifier = ">=0.0.2" },
     { name = "executing", specifier = ">=2.0.1" },
-    { name = "markdown", specifier = ">=3.7" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
@@ -2203,7 +2200,10 @@ dev = [
     { name = "vcrpy", specifier = ">=6" },
 ]
 docs = [
+    { name = "algoliasearch", specifier = ">=3,<4" },
+    { name = "bs4", specifier = ">=0.0.2" },
     { name = "griffe" },
+    { name = "markdown", specifier = ">=3.7" },
     { name = "mkdocs", specifier = ">=1.5.0" },
     { name = "mkdocs-glightbox", specifier = ">=0.4.0" },
     { name = "mkdocs-material", specifier = ">=9.5.48" },
