@@ -9,6 +9,7 @@ from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.propagate import ContextCarrier as ContextCarrier, get_context as get_context
+from typing import Any, Sequence
 
 BASE_OTEL_INTEGRATION_URL: str
 BASE_DOCS_URL: str
@@ -24,6 +25,7 @@ def parse_whoami(args: argparse.Namespace) -> None:
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
 
+STANDARD_LIBRARY_PACKAGES: Incomplete
 OTEL_PACKAGES: set[str]
 OTEL_PACKAGE_LINK: Incomplete
 
@@ -42,5 +44,9 @@ def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
 def parse_info(_args: argparse.Namespace) -> None:
     """Show versions of logfire, OS and related packages."""
+
+class SplitArgs(argparse.Action):
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: str | Sequence[Any] | None, option_string: str | None = None): ...
+
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""

@@ -1,5 +1,6 @@
 import dataclasses
 import requests
+from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_logged_in as is_logged_in
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import LevelName as LevelName, OTLP_MAX_BODY_SIZE as OTLP_MAX_BODY_SIZE, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
@@ -78,7 +79,7 @@ class CodeSource:
 
 class DeprecatedKwargs(TypedDict): ...
 
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, code_source: CodeSource | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -127,6 +128,12 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         code_source: Settings for the source code of the project.
+        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+            Set to `True` to disable the warning.
+            Set to `False` to suppress extraction of incoming trace context.
+            See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
+            for more information.
+            This setting always applies globally, and the last value set is used, including the default value.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
 
@@ -153,17 +160,18 @@ class _LogfireConfigData:
     inspect_arguments: bool
     sampling: SamplingOptions
     code_source: CodeSource | None
+    distributed_tracing: bool | None
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, code_source: CodeSource | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, code_source: CodeSource | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, code_source: CodeSource | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:

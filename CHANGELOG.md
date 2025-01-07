@@ -1,5 +1,17 @@
 # Release Notes
 
+## [v3.0.0] (2025-01-07)
+
+* **BREAKING CHANGE**: Removed `capture_request_json_body`, `capture_request_text_body`, `capture_request_form_data`, and `capture_response_json_body` parameters from `logfire.instrument_httpx()`, replaced with `capture_request_body` `capture_response_body` by @Kludex in [#769](https://github.com/pydantic/logfire/pull/769)
+
+Other changes:
+
+* Add `distributed_tracing` argument to `logfire.configure()` and warn by default when trace context is extracted by @alexmojaki in [#773](https://github.com/pydantic/logfire/pull/773)
+* Don't show `urllib3` when `requests` is installed on `logfire inspect` by @Kludex in [#744](https://github.com/pydantic/logfire/pull/744)
+* Add `--ignore` to `logfire inspect` by @Kludex in [#748](https://github.com/pydantic/logfire/pull/748)
+* Access `model_fields` on the model class by @Viicos in [#761](https://github.com/pydantic/logfire/pull/761)
+* Remove double record exception by @dmontagu in [#712](https://github.com/pydantic/logfire/pull/712)
+
 ## [v2.11.1] (2024-12-30)
 
 * Handle errors from `sqlalchemy.inspect` by @alexmojaki in [#733](https://github.com/pydantic/logfire/pull/733)
@@ -504,3 +516,4 @@ First release from new repo!
 [v2.10.0]: https://github.com/pydantic/logfire/compare/v2.9.0...v2.10.0
 [v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
 [v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1
+[v3.0.0]: https://github.com/pydantic/logfire/compare/v2.11.1...v3.0.0
