@@ -17,18 +17,31 @@ self.onmessage = async (event) => {
     self.postMessage({ type: READY });
   } else if (event.data.type === QUERY) {
 
+    const query = event.data.data
+
+    if (query === '') {
+      self.postMessage({
+        type: RESULT, data: {
+          items: []
+        }
+      });
+      return
+    }
+
     const { results } = await client.search({
       requests: [
         {
           indexName,
-          query: event.data.data,
+          query,
         },
       ],
     });
 
     const hits = results[0].hits
 
-    console.log(hits)
+    // make navigation work with preview deployments
+    const stripDocsPathName = !(new URL(self.location.href).pathname.startsWith('/docs'));
+
     const mappedGroupedResults = hits.reduce((acc, hit) => {
       if (!acc[hit.pageID]) {
         acc[hit.pageID] = []
@@ -36,7 +49,7 @@ self.onmessage = async (event) => {
       acc[hit.pageID].push({
         score: 1,
         terms: {},
-        location: hit.abs_url,
+        location: stripDocsPathName ? hit.abs_url.replace('/docs', '') : hit.abs_url,
         title: hit.title,
         text: hit._highlightResult.content.value,
 
@@ -45,7 +58,7 @@ self.onmessage = async (event) => {
     }, {})
 
 
-    console.log(mappedGroupedResults)
+
 
     self.postMessage({
       type: RESULT, data: {
