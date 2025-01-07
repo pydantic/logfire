@@ -172,6 +172,8 @@ docs = [
     "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
     "griffe",
+    "bs4>=0.0.2",
+    "algoliasearch>=3,<4",
 ]
 
 [tool.inline-snapshot]
