@@ -202,14 +202,15 @@ extend-exclude = ["logfire-api/logfire_api/*"]
 
 [tool.ruff.lint]
 extend-select = [
-    "Q",
-    "RUF100",
-    "C90",
-    "UP",
-    "I",
-    "D",
+    "Q",      # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
+    "C90",    # https://docs.astral.sh/ruff/rules/#mccabe-c90
+    "UP",     # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "I",      # https://docs.astral.sh/ruff/rules/#isort-i
+    "D",      # https://docs.astral.sh/ruff/rules/#pydocstyle-d
     "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
-] # add "T" to disallow prints
+    "FA",     # https://docs.astral.sh/ruff/rules/#flake8-future-annotations-fa
+]
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
 isort = { combine-as-imports = true, known-first-party = [
     "logfire",
