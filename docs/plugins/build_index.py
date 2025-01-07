@@ -1,12 +1,9 @@
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
 from __future__ import annotations as _annotations
 
 import os
-from typing import Any
+from typing import Any, cast
 
-from algoliasearch.search_client import SearchClient, SearchIndex
+from algoliasearch.search_client import SearchClient
 from bs4 import BeautifulSoup
 from mkdocs.config import Config
 from mkdocs.structure.files import Files
@@ -22,7 +19,8 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
     if not ALGOLIA_WRITE_API_KEY:
         return html
 
-    title: str = str(page.title)
+    assert page.title is not None, 'Page title must not be None'  # type: ignore[reportUnknownMemberType]
+    title = cast(str, page.title)  # type: ignore[reportUnknownMemberType]
 
     soup = BeautifulSoup(html, 'html.parser')
 
@@ -36,7 +34,7 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
         section_title = current_heading.get_text().replace('¶', '').replace('dataclass', '').strip()
 
         # Get content until next heading
-        content = []
+        content: list[str] = []
         sibling = current_heading.find_next_sibling()
         while sibling and sibling.name not in ['h1', 'h2']:
             content.append(str(sibling))
@@ -51,7 +49,7 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
         records.append(
             {
                 'content': section_html,
-                'pageID': page.title,
+                'pageID': title,
                 'abs_url': anchor_url,
                 'title': f'{title} - {section_title}',
                 'objectID': anchor_url,
@@ -66,8 +64,8 @@ def on_post_build(config: Config) -> None:
         return
 
     client = SearchClient.create(ALGOLIA_APP_ID, ALGOLIA_WRITE_API_KEY)
-    index: SearchIndex = client.init_index(ALGOLIA_INDEX_NAME)
+    index = client.init_index(ALGOLIA_INDEX_NAME)
     # temporary filter the records from the index if the content is bigger than 10k characters
     filtered_records = list(filter(lambda record: len(record['content']) < 9000, records))
     print(f'Uploading {len(filtered_records)} out of {len(records)} records to Algolia...')
-    index.replace_all_objects(filtered_records, {'createIfNotExists': True}).wait()
+    index.replace_all_objects(filtered_records, {'createIfNotExists': True}).wait()  # type: ignore[reportUnknownMemberType]
