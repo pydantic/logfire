@@ -4,7 +4,11 @@ import openai
 import opentelemetry.trace as trace_api
 import requests
 from . import async_ as async_
-from ..integrations.flask import CommenterOptions as CommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
+from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
+from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
+from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
+from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
+from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
@@ -15,12 +19,8 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
-from .integrations.httpx import AsyncClientKwargs as AsyncClientKwargs, ClientKwargs as ClientKwargs, HTTPXInstrumentKwargs as HTTPXInstrumentKwargs
-from .integrations.mysql import MySQLConnection as MySQLConnection, MySQLInstrumentKwargs as MySQLInstrumentKwargs
-from .integrations.psycopg import PsycopgInstrumentKwargs as PsycopgInstrumentKwargs
-from .integrations.pymongo import PymongoInstrumentKwargs as PymongoInstrumentKwargs
-from .integrations.redis import RedisInstrumentKwargs as RedisInstrumentKwargs
-from .integrations.sqlalchemy import SQLAlchemyInstrumentKwargs as SQLAlchemyInstrumentKwargs
+from .integrations.mysql import MySQLConnection as MySQLConnection
+from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
 from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
 from .json_encoder import logfire_json_dumps as logfire_json_dumps
@@ -38,11 +38,13 @@ from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Up
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, Tracer
 from opentelemetry.util import types as otel_types
+from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
+from types import ModuleType
 from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
@@ -551,11 +553,11 @@ class Logfire:
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
-    def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_text_body: bool = False, capture_request_json_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[ClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_request_text_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[AsyncClientKwargs]) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: None = None, *, capture_headers: bool = False, capture_request_json_body: bool = False, capture_request_text_body: bool = False, capture_response_json_body: bool = False, capture_request_form_data: bool = False, **kwargs: Unpack[HTTPXInstrumentKwargs]) -> None: ...
+    def instrument_httpx(self, client: None = None, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
@@ -606,26 +608,11 @@ class Logfire:
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
-        """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
-
-        Uses the OpenTelemetry instrumentation libraries for
-        [`psycopg`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg/psycopg.html)
-        and
-        [`psycopg2`](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/psycopg2/psycopg2.html).
-
-        Args:
-            conn_or_module: Can be:
-
-                - The `psycopg` (version 3) or `psycopg2` module.
-                - The string `'psycopg'` or `'psycopg2'` to instrument the module.
-                - `None` (the default) to instrument whichever module(s) are installed.
-                - A `psycopg` or `psycopg2` connection.
-
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `enable_commenter` and `commenter_options`.
-        """
-    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: CommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
+    @overload
+    def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
+    @overload
+    def instrument_psycopg(self, conn_or_module: None | Literal['psycopg', 'psycopg2'] | ModuleType = None, enable_commenter: bool = False, commenter_options: PsycopgCommenterOptions | None = None, **kwargs: Any) -> None: ...
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: FlaskCommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -711,7 +698,7 @@ class Logfire:
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, **kwargs: Unpack[SQLAlchemyInstrumentKwargs]) -> None:
+    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
@@ -720,6 +707,8 @@ class Logfire:
 
         Args:
             engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
         """
     def instrument_sqlite3(self, conn: SQLite3Connection = None, **kwargs: Any) -> SQLite3Connection:
@@ -748,14 +737,21 @@ class Logfire:
             event_context_extractor: A function that returns an OTel Trace Context given the Lambda Event the AWS.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
-    def instrument_pymongo(self, **kwargs: Unpack[PymongoInstrumentKwargs]) -> None:
+    def instrument_pymongo(self, capture_statement: bool = False, request_hook: Callable[[Span, CommandStartedEvent], None] | None = None, response_hook: Callable[[Span, CommandSucceededEvent], None] | None = None, failed_hook: Callable[[Span, CommandFailedEvent], None] | None = None, **kwargs: Any) -> None:
         """Instrument the `pymongo` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry pymongo Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymongo/pymongo.html)
         library, specifically `PymongoInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            request_hook: A function called when a command is sent to the server.
+            response_hook: A function that is called when a command is successfully completed.
+            failed_hook: A function that is called when a command fails.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
-    def instrument_redis(self, capture_statement: bool = False, **kwargs: Unpack[RedisInstrumentKwargs]) -> None:
+    def instrument_redis(self, capture_statement: bool = False, request_hook: RedisRequestHook | None = None, response_hook: RedisResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument the `redis` module so that spans are automatically created for each operation.
 
         Uses the
@@ -764,9 +760,11 @@ class Logfire:
 
         Args:
             capture_statement: Set to `True` to capture the statement in the span attributes.
-            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
+            request_hook: A function that is called before performing the request.
+            response_hook: A function that is called after receiving the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
         """
-    def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Unpack[MySQLInstrumentKwargs]) -> MySQLConnection:
+    def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Any) -> MySQLConnection:
         """Instrument the `mysql` module or a specific MySQL connection so that spans are automatically created for each operation.
 
         Uses the
@@ -1054,15 +1052,6 @@ class LogfireSpan(ReadableSpan):
     def message(self) -> str: ...
     @message.setter
     def message(self, message: str): ...
-    def end(self, end_time: int | None = None) -> None:
-        """Sets the current time as the span's end time.
-
-        The span's end time is the wall time at which the operation finished.
-
-        Only the first call to this method is recorded, further calls are ignored so you
-        can call this within the span's context manager to end it before the context manager
-        exits.
-        """
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 

@@ -1,24 +1,17 @@
-from _typeshed import Incomplete
 from logfire import Logfire as Logfire
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
-from typing import Any
-from typing_extensions import TypedDict, Unpack
+from psycopg import AsyncConnection, Connection
+from psycopg2._psycopg import connection as Psycopg2Connection
+from types import ModuleType
+from typing import Any, Literal
+from typing_extensions import TypeVar
 
+PsycopgConnection = TypeVar('PsycopgConnection', Connection[Any], AsyncConnection[Any], Psycopg2Connection)
 Instrumentor = PsycopgInstrumentor | Psycopg2Instrumentor
+PACKAGE_NAMES: tuple[Literal['psycopg'], Literal['psycopg2']]
 
-class CommenterOptions(TypedDict, total=False):
-    db_driver: bool
-    db_framework: bool
-    opentelemetry_values: bool
-
-class PsycopgInstrumentKwargs(TypedDict, total=False):
-    enable_commenter: bool
-    commenter_options: CommenterOptions
-
-PACKAGE_NAMES: Incomplete
-
-def instrument_psycopg(logfire_instance: Logfire, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+def instrument_psycopg(logfire_instance: Logfire, conn_or_module: ModuleType | Literal['psycopg', 'psycopg2'] | None | PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None:
     """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_psycopg` method for details.

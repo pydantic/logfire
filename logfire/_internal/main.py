@@ -65,6 +65,7 @@ from .tracer import ProxyTracerProvider, record_exception, set_exception_status
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
+    from types import ModuleType
     from wsgiref.types import WSGIApplication
 
     import anthropic
@@ -95,13 +96,14 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
+    from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
-    from .integrations.psycopg import PsycopgInstrumentKwargs
+    from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
     from .integrations.sqlite3 import SQLite3Connection
     from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
     from .utils import SysExcInfo
@@ -1182,11 +1184,8 @@ class Logfire:
         client: httpx.Client,
         *,
         capture_headers: bool = False,
-        capture_request_text_body: bool = False,
-        capture_request_json_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         **kwargs: Any,
@@ -1198,11 +1197,8 @@ class Logfire:
         client: httpx.AsyncClient,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
@@ -1214,11 +1210,8 @@ class Logfire:
         client: None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | None = None,
         response_hook: HttpxResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1231,11 +1224,8 @@ class Logfire:
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
         capture_headers: bool = False,
-        capture_request_json_body: bool = False,
-        capture_request_text_body: bool = False,
-        capture_response_json_body: bool = False,
-        capture_response_text_body: bool = False,
-        capture_request_form_data: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None,
         response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None,
         async_request_hook: HttpxAsyncRequestHook | None = None,
@@ -1257,24 +1247,8 @@ class Logfire:
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
                 [Capture Headers](https://logfire.pydantic.dev/docs/guides/advanced/capture_headers/) section for more info.
-            capture_request_text_body: Set to `True` to capture the request text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_json_body: Set to `True` to capture the request JSON body.
-                Specifically captures the raw request body whenever the content type is `application/json`.
-                Doesn't check if the body is actually JSON.
-            capture_response_json_body: Set to `True` to capture the response JSON body.
-                Specifically captures the raw response body whenever the content type is `application/json`
-                when the `response.read()` or `.aread()` method is first called,
-                which happens automatically for non-streaming requests.
-                For streaming requests, the body is not captured if it's merely iterated over.
-                Doesn't check if the body is actually JSON.
-            capture_response_text_body: Set to `True` to capture the response text body
-                if the content type is either `text/*`
-                or `application/` followed by a known human-readable text format, e.g. XML.
-            capture_request_form_data: Set to `True` to capture the request form data.
-                Specifically captures the `data` argument of `httpx` methods like `post` and `put`.
-                Doesn't inspect or parse the raw request body.
+            capture_request_body: Set to `True` to capture the request body.
+            capture_response_body: Set to `True` to capture the response body.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             async_request_hook: A function called right after a span is created for an async request.
@@ -1288,11 +1262,8 @@ class Logfire:
             self,
             client,
             capture_headers=capture_headers,
-            capture_request_json_body=capture_request_json_body,
-            capture_request_text_body=capture_request_text_body,
-            capture_response_json_body=capture_response_json_body,
-            capture_response_text_body=capture_response_text_body,
-            capture_request_form_data=capture_request_form_data,
+            capture_request_body=capture_request_body,
+            capture_response_body=capture_response_body,
             request_hook=request_hook,
             response_hook=response_hook,
             async_request_hook=async_request_hook,
@@ -1405,7 +1376,25 @@ class Logfire:
             },
         )
 
-    def instrument_psycopg(self, conn_or_module: Any = None, **kwargs: Unpack[PsycopgInstrumentKwargs]) -> None:
+    @overload
+    def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
+
+    @overload
+    def instrument_psycopg(
+        self,
+        conn_or_module: None | Literal['psycopg', 'psycopg2'] | ModuleType = None,
+        enable_commenter: bool = False,
+        commenter_options: PsycopgCommenterOptions | None = None,
+        **kwargs: Any,
+    ) -> None: ...
+
+    def instrument_psycopg(
+        self,
+        conn_or_module: Any = None,
+        enable_commenter: bool = False,
+        commenter_options: PsycopgCommenterOptions | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument a `psycopg` connection or module so that spans are automatically created for each query.
 
         Uses the OpenTelemetry instrumentation libraries for
@@ -1421,13 +1410,17 @@ class Logfire:
                 - `None` (the default) to instrument whichever module(s) are installed.
                 - A `psycopg` or `psycopg2` connection.
 
+            enable_commenter: Adds comments to SQL queries performed by Psycopg, so that database logs have additional context.
+            commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
-                particularly `enable_commenter` and `commenter_options`.
+                for future compatibility.
         """
         from .integrations.psycopg import instrument_psycopg
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_psycopg(self, conn_or_module, **kwargs)
+        if enable_commenter:
+            kwargs.update({'enable_commenter': True, 'commenter_options': commenter_options or {}})
+        return instrument_psycopg(self, conn_or_module=conn_or_module, **kwargs)
 
     def instrument_flask(
         self,

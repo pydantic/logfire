@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
-from contextlib import suppress
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
@@ -46,11 +45,8 @@ def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
     capture_headers: bool,
-    capture_request_json_body: bool,
-    capture_request_text_body: bool,
-    capture_response_json_body: bool,
-    capture_response_text_body: bool,
-    capture_request_form_data: bool,
+    capture_request_body: bool,
+    capture_response_body: bool,
     request_hook: RequestHook | AsyncRequestHook | None,
     response_hook: ResponseHook | AsyncResponseHook | None,
     async_request_hook: AsyncRequestHook | None,
@@ -75,6 +71,8 @@ def instrument_httpx(
 
     should_capture_request_headers = capture_request_headers or capture_headers
     should_capture_response_headers = capture_response_headers or capture_headers
+    should_capture_request_body = capture_request_body
+    should_capture_response_body = capture_response_body
 
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
@@ -90,31 +88,21 @@ def instrument_httpx(
         request_hook = cast('RequestHook | None', request_hook)
         response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook,
-            should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            request_hook, should_capture_request_headers, capture_request_body
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_body,
             logfire_instance,
         )
         final_kwargs['async_request_hook'] = make_async_request_hook(
-            async_request_hook,
-            should_capture_request_headers,
-            capture_request_json_body,
-            capture_request_text_body,
-            capture_request_form_data,
+            async_request_hook, should_capture_request_headers, should_capture_request_body
         )
         final_kwargs['async_response_hook'] = make_async_response_hook(
             async_response_hook,
             should_capture_response_headers,
-            capture_response_json_body,
-            capture_response_text_body,
+            should_capture_response_body,
             logfire_instance,
         )
 
@@ -124,33 +112,23 @@ def instrument_httpx(
             request_hook = make_async_request_hook(
                 request_hook,
                 should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
+                should_capture_request_body,
             )
             response_hook = make_async_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_body,
                 logfire_instance,
             )
         else:
             request_hook = cast('RequestHook | None', request_hook)
             response_hook = cast('ResponseHook | None', response_hook)
 
-            request_hook = make_request_hook(
-                request_hook,
-                should_capture_request_headers,
-                capture_request_json_body,
-                capture_request_text_body,
-                capture_request_form_data,
-            )
+            request_hook = make_request_hook(request_hook, should_capture_request_headers, should_capture_request_body)
             response_hook = make_response_hook(
                 response_hook,
                 should_capture_response_headers,
-                capture_response_json_body,
-                capture_response_text_body,
+                should_capture_response_body,
                 logfire_instance,
             )
 
@@ -169,52 +147,43 @@ class LogfireHttpxInfoMixin:
     def content_type_header_string(self) -> str:
         return self.headers.get('content-type', '')
 
-    @property
-    def content_type_is_json(self):
-        return is_json_type(self.content_type_header_string)
-
-    @property
-    def content_type_is_text(self):
-        return is_text_type(self.content_type_header_string)
-
 
 class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     span: Span
 
     def capture_headers(self):
-        capture_headers(self.span, self.headers, 'request')
+        capture_request_or_response_headers(self.span, self.headers, 'request')
 
-    def capture_body_if_json(self, attr_name: str = 'http.request.body.json'):
-        if not self.body_is_streaming and self.content_type_is_json:
-            self.capture_text_as_json(attr_name=attr_name)
+    def capture_body(self):
+        captured_form = self.capture_body_if_form()
+        if not captured_form:
+            self.capture_body_if_text()
 
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
-        if not self.body_is_streaming and self.content_type_is_text:
-            self.span.set_attribute(attr_name, self.text)
+        if not self.body_is_streaming:
+            try:
+                text = self.content.decode(self.content_type_charset)
+            except (UnicodeDecodeError, LookupError):
+                return
+            self.capture_text_as_json(attr_name=attr_name, text=text)
 
-    def capture_body_if_form(self, attr_name: str = 'http.request.body.form'):
-        if not self.content_type_is_form:
-            return
+    def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
+        if not self.content_type_header_string == 'application/x-www-form-urlencoded':
+            return False
 
         data = self.form_data
         if not (data and isinstance(data, Mapping)):  # pragma: no cover  # type: ignore
-            return
+            return False
         self.set_complex_span_attributes({attr_name: data})
+        return True
 
-    def capture_text_as_json(self, attr_name: str = 'http.request.body.json', text: str | None = None):
-        if text is None:  # pragma: no branch
-            text = self.text
+    def capture_text_as_json(self, attr_name: str, text: str):
         self.set_complex_span_attributes({attr_name: {}})  # Set the JSON schema
         self.span.set_attribute(attr_name, text)
 
     @property
     def body_is_streaming(self):
         return not isinstance(self.stream, httpx.ByteStream)
-
-    @property
-    def content_type_is_form(self):
-        content_type = self.content_type_header_string
-        return content_type == 'application/x-www-form-urlencoded'
 
     @property
     def content_type_charset(self):
@@ -226,11 +195,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
             raise ValueError('Cannot read content from a streaming body')
         return list(self.stream)[0]  # type: ignore
 
-    @property
-    def text(self) -> str:
-        return decode_body(self.content, self.content_type_charset)
-
-    @property
+    @cached_property
     def form_data(self) -> Mapping[str, Any] | None:
         frame = inspect.currentframe().f_back.f_back.f_back  # type: ignore
         while frame:
@@ -252,23 +217,21 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     is_async: bool
 
     def capture_headers(self):
-        capture_headers(self.span, self.headers, 'response')
-
-    def capture_body_if_json(self, attr_name: str = 'http.response.body.json'):
-        if self.content_type_is_json:
-
-            def hook(span: LogfireSpan):
-                self.capture_text_as_json(span, attr_name=attr_name)
-
-            self.on_response_read(hook)
+        capture_request_or_response_headers(self.span, self.headers, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text'):
-        if self.content_type_is_text:
+        def hook(span: LogfireSpan):
+            try:
+                # response.text uses errors='replace' under the hood.
+                # We rely on decoding errors to guess when the response is not text.
+                text = self.response.content.decode(self.response.encoding or 'utf-8')
+            except (UnicodeDecodeError, LookupError):
+                return
+            self.capture_text_as_json(span, attr_name=attr_name, text=text)
 
-            def hook(span: LogfireSpan):
-                span.set_attribute(attr_name, self.response.text)
+            span.set_attribute(attr_name, text)
 
-            self.on_response_read(hook)
+        self.on_response_read(hook)
 
     @cached_property
     def response(self) -> httpx.Response:
@@ -333,35 +296,19 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
         with use_span(NonRecordingSpan(self.span.get_span_context())):
             yield
 
-    def capture_text_as_json(
-        self, span: LogfireSpan, *, text: str | None = None, attr_name: str = 'http.response.body.json'
-    ):
+    def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str):
         span.set_attribute(attr_name, {})  # Set the JSON schema
         # Set the attribute to the raw text so that the backend can parse it
-        text = text if text is not None else self.response.text
         span._span.set_attribute(attr_name, text)  # type: ignore
 
 
-def make_request_hook(
-    hook: RequestHook | None,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
-) -> RequestHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or should_capture_form_data or hook):
+def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:
+    if not (capture_headers or capture_body or hook):
         return None
 
     def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = capture_request(
-                span,
-                request,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
-                should_capture_form_data,
-            )
+            request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
 
     return new_hook
@@ -370,23 +317,14 @@ def make_request_hook(
 def make_async_request_hook(
     hook: AsyncRequestHook | RequestHook | None,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
+    should_capture_body: bool,
 ) -> AsyncRequestHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or should_capture_form_data or hook):
+    if not (should_capture_headers or should_capture_body or hook):
         return None
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
         with handle_internal_errors():
-            request = capture_request(
-                span,
-                request,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
-                should_capture_form_data,
-            )
+            request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
 
     return new_hook
@@ -394,12 +332,11 @@ def make_async_request_hook(
 
 def make_response_hook(
     hook: ResponseHook | None,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    capture_headers: bool,
+    capture_body: bool,
     logfire_instance: Logfire,
 ) -> ResponseHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or hook):
+    if not (capture_headers or capture_body or hook):
         return None
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
@@ -409,9 +346,8 @@ def make_response_hook(
                 request,
                 response,
                 logfire_instance,
-                should_capture_headers,
-                should_capture_json,
-                should_capture_text,
+                capture_headers,
+                capture_body,
                 is_async=False,
             )
             run_hook(hook, span, request, response)
@@ -422,11 +358,10 @@ def make_response_hook(
 def make_async_response_hook(
     hook: ResponseHook | AsyncResponseHook | None,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    should_capture_body: bool,
     logfire_instance: Logfire,
 ) -> AsyncResponseHook | None:
-    if not (should_capture_headers or should_capture_json or should_capture_text or hook):
+    if not (should_capture_headers or should_capture_body or hook):
         return None
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
@@ -437,8 +372,7 @@ def make_async_response_hook(
                 response,
                 logfire_instance,
                 should_capture_headers,
-                should_capture_json,
-                should_capture_text,
+                should_capture_body,
                 is_async=True,
             )
             await run_async_hook(hook, span, request, response)
@@ -450,21 +384,15 @@ def capture_request(
     span: Span,
     request: RequestInfo,
     should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
-    should_capture_form_data: bool,
+    should_capture_body: bool,
 ) -> LogfireHttpxRequestInfo:
     request = LogfireHttpxRequestInfo(*request)
     request.span = span
 
     if should_capture_headers:
         request.capture_headers()
-    if should_capture_json:
-        request.capture_body_if_json()
-    if should_capture_text and not (should_capture_json and request.content_type_is_json):
-        request.capture_body_if_text()
-    if should_capture_form_data:
-        request.capture_body_if_form()
+    if should_capture_body:
+        request.capture_body()
 
     return request
 
@@ -474,9 +402,8 @@ def capture_response(
     request: RequestInfo,
     response: ResponseInfo,
     logfire_instance: Logfire,
-    should_capture_headers: bool,
-    should_capture_json: bool,
-    should_capture_text: bool,
+    capture_headers: bool,
+    capture_body: bool,
     *,
     is_async: bool,
 ) -> tuple[LogfireHttpxRequestInfo, LogfireHttpxResponseInfo]:
@@ -488,11 +415,9 @@ def capture_response(
     response.logfire_instance = logfire_instance
     response.is_async = is_async
 
-    if should_capture_headers:
+    if capture_headers:
         response.capture_headers()
-    if should_capture_json:
-        response.capture_body_if_json()
-    if should_capture_text and not (should_capture_json and request.content_type_is_json):
+    if capture_body:
         response.capture_body_if_text()
 
     return request, response
@@ -510,22 +435,15 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
         hook(*args, **kwargs)
 
 
-def capture_headers(span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']) -> None:
+def capture_request_or_response_headers(
+    span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']
+) -> None:
     span.set_attributes(
         {
             f'http.{request_or_response}.header.{header_name}': headers.get_list(header_name)
             for header_name in headers.keys()
         }
     )
-
-
-def decode_body(body: bytes, charset: str):
-    with suppress(UnicodeDecodeError, LookupError):
-        return body.decode(charset)
-    if charset.lower() not in ('utf-8', 'utf8'):
-        with suppress(UnicodeDecodeError):
-            return body.decode('utf-8')
-    return body.decode(charset, errors='replace')
 
 
 CODES_FOR_METHODS_WITH_DATA_PARAM = [
@@ -554,38 +472,3 @@ def content_type_subtypes(subtype: str) -> set[str]:
 def is_json_type(content_type: str) -> bool:
     header = content_type_header_from_string(content_type)
     return header.maintype == 'application' and 'json' in content_type_subtypes(header.subtype)
-
-
-TEXT_SUBTYPES = {
-    'json',
-    'jsonp',
-    'json-p',
-    'javascript',
-    'jsonl',
-    'json-l',
-    'jsonlines',
-    'json-lines',
-    'ndjson',
-    'nd-json',
-    'json5',
-    'json-5',
-    'xml',
-    'xhtml',
-    'html',
-    'csv',
-    'tsv',
-    'yaml',
-    'yml',
-    'toml',
-}
-
-
-@lru_cache
-def is_text_type(content_type: str) -> bool:
-    header = content_type_header_from_string(content_type)
-    if header.maintype == 'text':
-        return True
-    if header.maintype != 'application':
-        return False
-
-    return bool(content_type_subtypes(header.subtype) & TEXT_SUBTYPES)

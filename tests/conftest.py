@@ -74,6 +74,7 @@ def config_kwargs(
         # Ensure that inspect_arguments doesn't break things in most versions
         # (it's off by default for <3.11) but it's completely forbidden for 3.8.
         inspect_arguments=sys.version_info[:2] >= (3, 9),
+        distributed_tracing=True,
     )
 
 

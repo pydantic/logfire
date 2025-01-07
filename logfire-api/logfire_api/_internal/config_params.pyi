@@ -49,6 +49,7 @@ TRACE_SAMPLE_RATE: Incomplete
 INSPECT_ARGUMENTS: Incomplete
 IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
+DISTRIBUTED_TRACING: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass
