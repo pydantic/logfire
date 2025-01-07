@@ -1183,6 +1183,7 @@ class Logfire:
         self,
         client: httpx.Client,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1196,6 +1197,7 @@ class Logfire:
         self,
         client: httpx.AsyncClient,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1209,6 +1211,7 @@ class Logfire:
         self,
         client: None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1223,6 +1226,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1243,6 +1247,7 @@ class Logfire:
         Args:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
+            capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
             capture_headers: Set to `True` to capture all HTTP headers.
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
@@ -1261,6 +1266,7 @@ class Logfire:
         return instrument_httpx(
             self,
             client,
+            capture_all=capture_all,
             capture_headers=capture_headers,
             capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
