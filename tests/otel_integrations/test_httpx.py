@@ -765,7 +765,7 @@ def test_httpx_capture_all_and_other_flags_should_warn(exporter: TestExporter):
         with pytest.warns(
             UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
         ):
-            logfire.instrument_httpx(client, capture_all=True, capture_response_json_body=True)
+            logfire.instrument_httpx(client, capture_all=True, capture_request_body=True)
 
 
 def test_missing_opentelemetry_dependency() -> None:
