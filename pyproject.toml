@@ -173,7 +173,6 @@ docs = [
     "mkdocs-redirects>=1.2.1",
     "griffe",
     "bs4>=0.0.2",
-    "markdown>=3.7",
     "algoliasearch>=3,<4",
 ]
 

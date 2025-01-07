@@ -46,13 +46,14 @@ jobs:
       - run: uv pip install --upgrade mkdocs-material mkdocstrings-python griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_WRITE_API_KEY }}
       - run: |
           if [[ -n "${{ github.head_ref }}" && "${{ github.repository }}" != "${{ github.event.pull_request.head.repo.full_name }}" ]]; then
             uv run --no-sync mkdocs build --no-strict
           else
             uv run --no-sync mkdocs build
           fi
+        env:
+          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_WRITE_API_KEY }}
 
   test:
     name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
