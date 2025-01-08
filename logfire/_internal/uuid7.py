@@ -13,11 +13,13 @@ def uuid7(random: Random = _random) -> int:  # pragma: no cover
 
     UUIDv7 objects feature monotonicity within a millisecond.
 
-    Vendored from https://github.com/python/cpython/pull/121119
-    w/ addition of `random` argument and returning an integer instead of a UUID object because:
+    Vendored from https://github.com/python/cpython/pull/121119 w/ minor changes:
 
-    1. We end up wanting an integer anyway.
-    2. The UUID object checks the version and variant, which currently rejects v7 UUIDs.
+    1. Added a `random` argument to allow for seeding.
+    2. Return an integer instead of a UUID object because:
+     a. We need an integer anyway and would have just converted the UUID object to an integer
+        (thus it's actually faster to do it this way than it will be in CPython!).
+     b. The UUID object checks the version and variant, which currently rejects v7 UUIDs.
     """
     # --- 48 ---   -- 4 --   --- 12 ---   -- 2 --   --- 30 ---   - 32 -
     # unix_ts_ms | version | counter_hi | variant | counter_lo | random
