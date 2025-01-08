@@ -8,6 +8,7 @@ from contextlib import ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
+from time import sleep
 from typing import Any, Callable
 from unittest.mock import patch
 
@@ -3221,15 +3222,28 @@ def test_exit_ended_span(exporter: TestExporter):
 )
 def test_default_id_generator(exporter: TestExporter) -> None:
     """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
-    with ExitStack() as stack:
-        for i in range(1024):
+    for i in range(32):
+        with ExitStack() as stack:
             for j in range(8):
                 stack.enter_context(logfire.span(f'span {i}:{j}'))
+                # make sure we get a mix of traces spread across ms
+                # test should take < 32 * 8 ms (0.25s) to run
+                sleep(1 / 1000 / 5)
 
     exported = exporter.exported_spans_as_dict()
 
+    # sanity check: there are 32 trace ids
+    assert len({export['context']['trace_id'] for export in exported}) == 32
+    # sanity check: there are multiple milliseconds (first 6 bytes)
+    assert len({export['context']['trace_id'] >> 64 for export in exported}) >= 5  # 5 is an arbitrary number
+
     # Check that trace ids are sortable and unique
     # We use ULIDs to generate trace ids, so they should be sortable.
-    sorted_by_trace_id = [export['name'] for export in sorted(exported, key=lambda span: span['context']['trace_id'])]
+    sorted_by_trace_id = [
+        export['name']
+        # sort by trace_id and start_time so that if two trace ids were generated in the same ms and thus may sort randomly
+        # we disambiguate with the start time
+        for export in sorted(exported, key=lambda span: (span['context']['trace_id'], span['start_time']))
+    ]
     sorted_by_start_timestamp = [export['name'] for export in sorted(exported, key=lambda span: span['start_time'])]
     assert sorted_by_trace_id == sorted_by_start_timestamp
