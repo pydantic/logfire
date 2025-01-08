@@ -37,6 +37,6 @@ def ulid(random: Random = _random) -> int:
     # It just needs to be monotonically increasing so that the ULID is sortable, at least for our purposes.
     timestamp = int(time.time() * 1000).to_bytes(6, byteorder='big')
     # Randomness: next 10 bytes of the ULID (80 bits)
-    randomness = bytearray(random.getrandbits(8) for _ in range(10))
+    randomness = random.getrandbits(80).to_bytes(10, byteorder='big')
     # Convert to int and return
     return int.from_bytes(timestamp + randomness, byteorder='big')
