@@ -53,6 +53,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.uuid7 import Uuidv7TraceIdGenerator
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -762,9 +763,7 @@ class LogfireConfig(_LogfireConfigData):
             else:
                 sampler = head
             tracer_provider = SDKTracerProvider(
-                sampler=sampler,
-                resource=resource,
-                id_generator=self.advanced.id_generator,
+                sampler=sampler, resource=resource, id_generator=self.advanced.id_generator or Uuidv7TraceIdGenerator()
             )
 
             self._tracer_provider.shutdown()
