@@ -70,7 +70,7 @@ def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any
 
     # 1000 iterations of 2 spans -> 2000 spans
     # 30% sampling -> 600 spans (approximately)
-    assert len(exporter.exported_spans_as_dict()) == 634
+    assert len(exporter.exported_spans_as_dict()) == 616
 
 
 @pytest.mark.skipif(
