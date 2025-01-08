@@ -4,6 +4,7 @@ import atexit
 import dataclasses
 import functools
 import json
+import multiprocessing
 import os
 import re
 import sys
@@ -946,7 +947,7 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
 
             @atexit.register
-            def _exit_open_spans():  # type: ignore[reportUnusedFunction]  # pragma: no cover
+            def exit_open_spans():  # pragma: no cover
                 # Ensure that all open spans are closed when the program exits.
                 # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
                 # Registering this callback here after the OTEL one means that this runs first.
@@ -960,6 +961,25 @@ class LogfireConfig(_LogfireConfigData):
                     # Interpreter shutdown may trigger another call to .end(),
                     # which would log a warning "Calling end() on an ended span."
                     span.end = lambda *_, **__: None  # type: ignore
+
+            start_method = (
+                multiprocessing.get_start_method(allow_none=True)  # don't fix a start method
+                or (multiprocessing.get_all_start_methods() or [''])[0]  # the first start method is the default
+            )
+            if start_method == 'fork':
+                # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
+                # https://github.com/pydantic/logfire/issues/779
+                original_os_exit = os._exit
+
+                def patched_os_exit(code: int):  # pragma: no cover
+                    try:
+                        exit_open_spans()
+                        self.force_flush()
+                    except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
+                        pass
+                    return original_os_exit(code)
+
+                os._exit = patched_os_exit
 
             self._initialized = True
 
