@@ -10,10 +10,10 @@ from mkdocs.structure.pages import Page
 
 
 def on_config(config: MkDocsConfig):
-    file_path = os.path.join(config.site_dir, 'llms.txt')
-    if os.path.exists(file_path):
-        with open(file_path) as f:
-            f.write('')
+    os.mkdir(config.site_dir)
+    llms_path = os.path.join(config.site_dir, 'llms.txt')
+    with open(llms_path, 'w') as f:
+        f.write('')
 
 
 def on_page_content(html: str, page: Page, config: MkDocsConfig, files: Files) -> str:
