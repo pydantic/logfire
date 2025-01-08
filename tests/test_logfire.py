@@ -3226,7 +3226,7 @@ def incrementing_ms_ts_generator() -> int:
 
 @pytest.mark.parametrize(
     'id_generator',
-    [SeededRandomIdGenerator(ms_timestamp_generator=incrementing_ms_ts_generator)],
+    [SeededRandomIdGenerator(_ms_timestamp_generator=incrementing_ms_ts_generator)],
 )
 def test_default_id_generator(exporter: TestExporter) -> None:
     """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
