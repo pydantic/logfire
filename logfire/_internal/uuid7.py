@@ -59,7 +59,7 @@ def uuid7(random: Random = _random) -> int:  # pragma: no cover
             timestamp_ms += 1  # advance the 48-bit timestamp
             counter, tail = get_counter_and_tail()
         else:
-            tail = int.from_bytes(random.randbytes(4))
+            tail = int.from_bytes(random.getrandbits(4 * 8).to_bytes(4, 'little'))
 
     _last_timestamp_v7 = timestamp_ms
     _last_counter_v7 = counter
