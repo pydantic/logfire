@@ -1,15 +1,10 @@
 from __future__ import annotations
 
 from random import Random
-from time import time
 from typing import Callable
 
 
-def _ms_timestamp_generator() -> int:
-    return int(time() * 1000)
-
-
-def ulid(random: Random, ms_timestamp_generator: Callable[[], int] | None) -> int:
+def ulid(random: Random, ms_timestamp_generator: Callable[[], int]) -> int:
     """Generate an integer ULID compatible with UUID v4.
 
     ULIDs as defined by the [spec](https://github.com/ulid/spec) look like this:
@@ -38,7 +33,7 @@ def ulid(random: Random, ms_timestamp_generator: Callable[[], int] | None) -> in
     # Timestamp: first 6 bytes of the ULID (48 bits)
     # Note that it's not important that this timestamp is super precise or unique.
     # It just needs to be roughly monotonically increasing so that the ULID is sortable, at least for our purposes.
-    timestamp = (ms_timestamp_generator or _ms_timestamp_generator)().to_bytes(6, byteorder='big')
+    timestamp = ms_timestamp_generator().to_bytes(6, byteorder='big')
     # Randomness: next 10 bytes of the ULID (80 bits)
     randomness = random.getrandbits(80).to_bytes(10, byteorder='big')
     # Convert to int and return

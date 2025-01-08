@@ -9,6 +9,7 @@ import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from time import time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
@@ -359,6 +360,10 @@ def is_asgi_send_receive_span_name(name: str) -> bool:
     return name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive'))
 
 
+def _default_ms_timestamp_generator() -> int:
+    return int(time() * 1000)
+
+
 @dataclass(repr=True, eq=True)
 class SeededRandomIdGenerator(IdGenerator):
     """Generate random span/trace IDs from a seed for deterministic tests.
@@ -372,7 +377,7 @@ class SeededRandomIdGenerator(IdGenerator):
     """
 
     seed: int | None = 0
-    _ms_timestamp_generator: Callable[[], int] | None = None
+    _ms_timestamp_generator: Callable[[], int] = _default_ms_timestamp_generator
     """Private argument, do not set this directly."""
 
     def __post_init__(self) -> None:
