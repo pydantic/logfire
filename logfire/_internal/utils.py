@@ -385,7 +385,7 @@ class SeededRandomIdGenerator(IdGenerator):
         return span_id
 
     def generate_trace_id(self) -> int:
-        trace_id = ulid()
+        trace_id = ulid(self.random)
         while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
-            trace_id = ulid()
+            trace_id = ulid(self.random)
         return trace_id
