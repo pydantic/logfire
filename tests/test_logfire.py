@@ -4,7 +4,7 @@ import inspect
 import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
@@ -37,8 +37,12 @@ from logfire._internal.constants import (
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
+<<<<<<< HEAD
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import is_instrumentation_suppressed
+=======
+from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
+>>>>>>> 2327918 (fix)
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
 from tests.test_metrics import get_collected_metrics
@@ -3213,3 +3217,22 @@ def test_exit_ended_span(exporter: TestExporter):
             }
         ]
     )
+
+
+@pytest.mark.parametrize(
+    'id_generator',
+    [SeededRandomIdGenerator()],
+)
+def test_default_id_generator(exporter: TestExporter) -> None:
+    """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
+    with ExitStack() as stack:
+        for i in range(1024):
+            for j in range(8):
+                stack.enter_context(logfire.span(f'span {i}:{j}'))
+
+    exported = exporter.exported_spans_as_dict()
+
+    # check that trace ids are sortable and unique
+    sorted_by_trace_id = [export['name'] for export in sorted(exported, key=lambda span: span['context']['trace_id'])]
+    sorted_by_start_timestamp = [export['name'] for export in sorted(exported, key=lambda span: span['start_time'])]
+    assert sorted_by_trace_id == sorted_by_start_timestamp

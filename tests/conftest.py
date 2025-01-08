@@ -11,6 +11,7 @@ import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import logfire
 from logfire import configure
@@ -55,7 +56,7 @@ def metrics_reader() -> InMemoryMetricReader:
 @pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
-    id_generator: IncrementalIdGenerator,
+    id_generator: IdGenerator,
     time_generator: TimeGenerator,
 ) -> dict[str, Any]:
     """

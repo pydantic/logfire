@@ -22,6 +22,7 @@ from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
 
 from logfire._internal.stack_info import is_user_code
+from logfire._internal.uuid7 import uuid7
 
 if TYPE_CHECKING:
     from packaging.version import Version
@@ -384,7 +385,7 @@ class SeededRandomIdGenerator(IdGenerator):
         return span_id
 
     def generate_trace_id(self) -> int:
-        trace_id = self.random.getrandbits(128)
+        trace_id = uuid7()
         while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
-            trace_id = self.random.getrandbits(128)
+            trace_id = uuid7()
         return trace_id
