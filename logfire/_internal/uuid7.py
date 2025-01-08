@@ -21,7 +21,7 @@ else:
     except ImportError:
         # vendored from https://github.com/python/cpython/pull/121119
 
-        def uuid7() -> UUID:
+        def uuid7() -> UUID:  # pragma: no cover
             """Generate a UUID from a Unix timestamp in milliseconds and random bits.
 
             UUIDv7 objects feature monotonicity within a millisecond.
