@@ -37,12 +37,8 @@ from logfire._internal.constants import (
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
-<<<<<<< HEAD
 from logfire._internal.tracer import record_exception
-from logfire._internal.utils import is_instrumentation_suppressed
-=======
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
->>>>>>> 2327918 (fix)
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
 from tests.test_metrics import get_collected_metrics
