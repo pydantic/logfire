@@ -4,7 +4,6 @@ import atexit
 import dataclasses
 import functools
 import json
-import multiprocessing
 import os
 import re
 import sys
@@ -962,24 +961,19 @@ class LogfireConfig(_LogfireConfigData):
                     # which would log a warning "Calling end() on an ended span."
                     span.end = lambda *_, **__: None  # type: ignore
 
-            start_method = (
-                multiprocessing.get_start_method(allow_none=True)  # don't fix a start method
-                or (multiprocessing.get_all_start_methods() or [''])[0]  # the first start method is the default
-            )
-            if start_method == 'fork':
-                # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
-                # https://github.com/pydantic/logfire/issues/779
-                original_os_exit = os._exit
+            # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
+            # https://github.com/pydantic/logfire/issues/779
+            original_os_exit = os._exit
 
-                def patched_os_exit(code: int):  # pragma: no cover
-                    try:
-                        exit_open_spans()
-                        self.force_flush()
-                    except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
-                        pass
-                    return original_os_exit(code)
+            def patched_os_exit(code: int):  # pragma: no cover
+                try:
+                    exit_open_spans()
+                    self.force_flush()
+                except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
+                    pass
+                return original_os_exit(code)
 
-                os._exit = patched_os_exit
+            os._exit = patched_os_exit
 
             self._initialized = True
 
