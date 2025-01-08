@@ -3228,7 +3228,8 @@ def test_default_id_generator(exporter: TestExporter) -> None:
 
     exported = exporter.exported_spans_as_dict()
 
-    # check that trace ids are sortable and unique
+    # Check that trace ids are sortable and unique
+    # We use ULIDs to generate trace ids, so they should be sortable.
     sorted_by_trace_id = [export['name'] for export in sorted(exported, key=lambda span: span['context']['trace_id'])]
     sorted_by_start_timestamp = [export['name'] for export in sorted(exported, key=lambda span: span['start_time'])]
     assert sorted_by_trace_id == sorted_by_start_timestamp
