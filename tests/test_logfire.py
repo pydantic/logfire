@@ -4,7 +4,7 @@ import inspect
 import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from contextlib import ExitStack, asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
@@ -3220,7 +3220,7 @@ _ns_currnet_ts = 0
 
 def incrementing_ms_ts_generator() -> int:
     global _ns_currnet_ts
-    _ns_currnet_ts += 42  # some randon number that results in non-whole ms
+    _ns_currnet_ts += 420_000  # some randon number that results in non-whole ms
     return _ns_currnet_ts // 1_000_000
 
 
@@ -3231,24 +3231,24 @@ def incrementing_ms_ts_generator() -> int:
 def test_default_id_generator(exporter: TestExporter) -> None:
     """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
     for i in range(1024):
-        with ExitStack() as stack:
-            for j in range(32):
-                stack.enter_context(logfire.span(f'span {i}:{j}'))
+        logfire.info('log', i=i)
 
     exported = exporter.exported_spans_as_dict()
 
     # sanity check: there are 1024 trace ids
     assert len({export['context']['trace_id'] for export in exported}) == 1024
     # sanity check: there are multiple milliseconds (first 6 bytes)
-    assert len({export['context']['trace_id'] >> 64 for export in exported}) == snapshot(1015)
+    assert len({export['context']['trace_id'] >> 80 for export in exported}) == snapshot(431)
 
     # Check that trace ids are sortable and unique
     # We use ULIDs to generate trace ids, so they should be sortable.
     sorted_by_trace_id = [
-        export['name']
+        export['attributes']['i']
         # sort by trace_id and start_time so that if two trace ids were generated in the same ms and thus may sort randomly
         # we disambiguate with the start time
-        for export in sorted(exported, key=lambda span: (span['context']['trace_id'], span['start_time']))
+        for export in sorted(exported, key=lambda span: (span['context']['trace_id'] >> 80, span['start_time']))
     ]
-    sorted_by_start_timestamp = [export['name'] for export in sorted(exported, key=lambda span: span['start_time'])]
+    sorted_by_start_timestamp = [
+        export['attributes']['i'] for export in sorted(exported, key=lambda span: span['start_time'])
+    ]
     assert sorted_by_trace_id == sorted_by_start_timestamp
