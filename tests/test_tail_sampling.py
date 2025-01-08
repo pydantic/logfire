@@ -345,7 +345,7 @@ def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 299, len(exporter.exported_spans)
+    assert len(exporter.exported_spans) - 100 == snapshot(299)
 
 
 class TestSampler(Sampler):
@@ -406,7 +406,7 @@ def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], expo
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 293, len(exporter.exported_spans)
+    assert len(exporter.exported_spans) - 100 == snapshot(293)
 
 
 def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):

@@ -9,8 +9,9 @@ import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
 from opentelemetry import context, trace as trace_api
 from opentelemetry.sdk.resources import Resource
@@ -359,6 +360,10 @@ def is_asgi_send_receive_span_name(name: str) -> bool:
     return name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive'))
 
 
+def _ms_ts_generator() -> int:
+    return int(time() * 1000)
+
+
 @dataclass(repr=True)
 class SeededRandomIdGenerator(IdGenerator):
     """Generate random span/trace IDs from a seed for deterministic tests.
@@ -372,6 +377,7 @@ class SeededRandomIdGenerator(IdGenerator):
     """
 
     seed: int | None = 0
+    ms_timestamp_generator: Callable[[], int] = _ms_ts_generator
 
     def __post_init__(self) -> None:
         self.random = random.Random(self.seed)
@@ -385,7 +391,7 @@ class SeededRandomIdGenerator(IdGenerator):
         return span_id
 
     def generate_trace_id(self) -> int:
-        trace_id = ulid(self.random)
+        trace_id = ulid(self.random, self.ms_timestamp_generator)
         while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
-            trace_id = ulid(self.random)
+            trace_id = ulid(self.random, self.ms_timestamp_generator)
         return trace_id

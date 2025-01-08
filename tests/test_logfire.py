@@ -8,7 +8,6 @@ from contextlib import ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
-from time import sleep
 from typing import Any, Callable
 from unittest.mock import patch
 
@@ -3216,26 +3215,32 @@ def test_exit_ended_span(exporter: TestExporter):
     )
 
 
+_ns_currnet_ts = 0
+
+
+def incrementing_ms_ts_generator() -> int:
+    global _ns_currnet_ts
+    _ns_currnet_ts += 42  # some randon number that results in non-whole ms
+    return _ns_currnet_ts // 1_000_000
+
+
 @pytest.mark.parametrize(
     'id_generator',
-    [SeededRandomIdGenerator()],
+    [SeededRandomIdGenerator(ms_timestamp_generator=incrementing_ms_ts_generator)],
 )
 def test_default_id_generator(exporter: TestExporter) -> None:
     """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
-    for i in range(32):
+    for i in range(1024):
         with ExitStack() as stack:
-            for j in range(8):
+            for j in range(32):
                 stack.enter_context(logfire.span(f'span {i}:{j}'))
-                # make sure we get a mix of traces spread across ms
-                # test should take < 32 * 8 ms (0.25s) to run
-                sleep(1 / 1000 / 5)
 
     exported = exporter.exported_spans_as_dict()
 
-    # sanity check: there are 32 trace ids
-    assert len({export['context']['trace_id'] for export in exported}) == 32
+    # sanity check: there are 1024 trace ids
+    assert len({export['context']['trace_id'] for export in exported}) == 1024
     # sanity check: there are multiple milliseconds (first 6 bytes)
-    assert len({export['context']['trace_id'] >> 64 for export in exported}) >= 5  # 5 is an arbitrary number
+    assert len({export['context']['trace_id'] >> 64 for export in exported}) == snapshot(1015)
 
     # Check that trace ids are sortable and unique
     # We use ULIDs to generate trace ids, so they should be sortable.
