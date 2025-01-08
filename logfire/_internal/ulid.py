@@ -34,7 +34,7 @@ def ulid(random: Random = _random) -> int:
     """
     # Timestamp: first 6 bytes of the ULID (48 bits)
     # Note that it's not important that this timestamp is super precise or unique.
-    # It just needs to be monotonically increasing so that the ULID is sortable, at least for our purposes.
+    # It just needs to be roughly monotonically increasing so that the ULID is sortable, at least for our purposes.
     timestamp = int(time.time() * 1000).to_bytes(6, byteorder='big')
     # Randomness: next 10 bytes of the ULID (80 bits)
     randomness = random.getrandbits(80).to_bytes(10, byteorder='big')
