@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v3.1.0] (2025-01-09)
+
+* Add `capture_all` to `instrument_httpx` by @Kludex in [#780](https://github.com/pydantic/logfire/pull/780)
+* Ensure cleanup when forked process ends by @alexmojaki in [#785](https://github.com/pydantic/logfire/pull/785)
+* Generate trace IDs as ULIDs by default by @adriangb in [#783](https://github.com/pydantic/logfire/pull/783)
+
 ## [v3.0.0] (2025-01-07)
 
 * **BREAKING CHANGE**: Removed `capture_request_json_body`, `capture_request_text_body`, `capture_request_form_data`, and `capture_response_json_body` parameters from `logfire.instrument_httpx()`, replaced with `capture_request_body` `capture_response_body` by @Kludex in [#769](https://github.com/pydantic/logfire/pull/769)
@@ -517,3 +523,4 @@ First release from new repo!
 [v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
 [v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1
 [v3.0.0]: https://github.com/pydantic/logfire/compare/v2.11.1...v3.0.0
+[v3.1.0]: https://github.com/pydantic/logfire/compare/v3.0.0...v3.1.0
