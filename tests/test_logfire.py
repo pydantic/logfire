@@ -38,7 +38,7 @@ from logfire._internal.constants import (
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
-from logfire._internal.utils import is_instrumentation_suppressed
+from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
 from tests.test_metrics import get_collected_metrics
@@ -3213,3 +3213,42 @@ def test_exit_ended_span(exporter: TestExporter):
             }
         ]
     )
+
+
+_ns_currnet_ts = 0
+
+
+def incrementing_ms_ts_generator() -> int:
+    global _ns_currnet_ts
+    _ns_currnet_ts += 420_000  # some randon number that results in non-whole ms
+    return _ns_currnet_ts // 1_000_000
+
+
+@pytest.mark.parametrize(
+    'id_generator',
+    [SeededRandomIdGenerator(_ms_timestamp_generator=incrementing_ms_ts_generator)],
+)
+def test_default_id_generator(exporter: TestExporter) -> None:
+    """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
+    for i in range(1024):
+        logfire.info('log', i=i)
+
+    exported = exporter.exported_spans_as_dict()
+
+    # sanity check: there are 1024 trace ids
+    assert len({export['context']['trace_id'] for export in exported}) == 1024
+    # sanity check: there are multiple milliseconds (first 6 bytes)
+    assert len({export['context']['trace_id'] >> 80 for export in exported}) == snapshot(431)
+
+    # Check that trace ids are sortable and unique
+    # We use ULIDs to generate trace ids, so they should be sortable.
+    sorted_by_trace_id = [
+        export['attributes']['i']
+        # sort by trace_id and start_time so that if two trace ids were generated in the same ms and thus may sort randomly
+        # we disambiguate with the start time
+        for export in sorted(exported, key=lambda span: (span['context']['trace_id'] >> 80, span['start_time']))
+    ]
+    sorted_by_start_timestamp = [
+        export['attributes']['i'] for export in sorted(exported, key=lambda span: span['start_time'])
+    ]
+    assert sorted_by_trace_id == sorted_by_start_timestamp

@@ -345,7 +345,7 @@ def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 321
+    assert len(exporter.exported_spans) - 100 == snapshot(299)
 
 
 class TestSampler(Sampler):
@@ -406,7 +406,7 @@ def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], expo
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 315
+    assert len(exporter.exported_spans) - 100 == snapshot(293)
 
 
 def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -432,20 +432,20 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
 
     for _ in range(1000):
         logfire.warn('warn')
-    assert span_counts == snapshot({'start': 720, 'end': 617})
-    assert len(exporter.exported_spans) == snapshot(103)
+    assert span_counts == snapshot({'start': 719, 'end': 611})
+    assert len(exporter.exported_spans) == snapshot(108)
     assert span_counts['end'] + len(exporter.exported_spans) == span_counts['start']
 
     exporter.clear()
     for _ in range(1000):
         with logfire.span('span'):
             pass
-    assert len(exporter.exported_spans_as_dict()) == snapshot(505)
+    assert len(exporter.exported_spans_as_dict()) == snapshot(511)
 
     exporter.clear()
     for _ in range(1000):
         logfire.error('error')
-    assert len(exporter.exported_spans) == snapshot(282)
+    assert len(exporter.exported_spans) == snapshot(298)
 
 
 def test_span_levels():
