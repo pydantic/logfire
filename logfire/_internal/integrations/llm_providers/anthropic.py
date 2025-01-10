@@ -92,7 +92,7 @@ def is_async_client(
     """Returns whether or not the `client` class is async."""
     if issubclass(client, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
         return False
-    assert issubclass(
-        client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)
-    ), f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
+    assert issubclass(client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)), (
+        f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
+    )
     return True

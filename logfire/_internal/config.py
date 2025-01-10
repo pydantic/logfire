@@ -318,14 +318,12 @@ def configure(  # noqa: D417
     collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)  # type: ignore
     if collect_system_metrics is False:
         raise ValueError(
-            'The `collect_system_metrics` argument has been removed. '
-            'System metrics are no longer collected by default.'
+            'The `collect_system_metrics` argument has been removed. System metrics are no longer collected by default.'
         )
 
     if collect_system_metrics is not None:
         raise ValueError(
-            'The `collect_system_metrics` argument has been removed. '
-            'Use `logfire.instrument_system_metrics()` instead.'
+            'The `collect_system_metrics` argument has been removed. Use `logfire.instrument_system_metrics()` instead.'
         )
 
     scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)  # type: ignore
@@ -1332,7 +1330,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
             selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n' f'{project_choices_str}\n',
+                f'Please select one of the following projects by number:\n{project_choices_str}\n',
                 choices=list(project_choices.keys()),
                 default='1',
             )
