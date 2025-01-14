@@ -179,6 +179,7 @@ docs = [
 
 [tool.inline-snapshot]
 default-flags = ["disable"]
+format-command="ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }

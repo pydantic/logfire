@@ -487,7 +487,7 @@ def test_span_levels():
 
 def test_invalid_rates():
     with inline_snapshot.extra.raises(
-        snapshot('ValueError: Invalid sampling rates, ' 'must be 0.0 <= background_rate <= head <= 1.0')
+        snapshot('ValueError: Invalid sampling rates, must be 0.0 <= background_rate <= head <= 1.0')
     ):
         logfire.SamplingOptions.level_or_duration(background_rate=-1)
     with pytest.raises(ValueError):
@@ -502,7 +502,7 @@ def test_trace_sample_rate(config_kwargs: dict[str, Any]):
     assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.sampling.head == 0.123
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot(
-        'The `trace_sample_rate` argument is deprecated. ' 'Use `sampling=logfire.SamplingOptions(head=...)` instead.'
+        'The `trace_sample_rate` argument is deprecated. Use `sampling=logfire.SamplingOptions(head=...)` instead.'
     )
 
 

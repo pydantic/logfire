@@ -135,8 +135,10 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
         o = o.A  # type: ignore[reportUnknownMemberType]
 
     for dimension in range(dimensions):
+        if shape[dimension] <= NUMPY_DIMENSION_MAX_SIZE:
+            continue
         # In case of multiple dimensions, we limit the dimension size by the NUMPY_DIMENSION_MAX_SIZE.
-        half = min(shape[dimension], NUMPY_DIMENSION_MAX_SIZE) // 2
+        half = NUMPY_DIMENSION_MAX_SIZE // 2
         # Slicing and concatenating arrays along the specified axis
         slices = [slice(None)] * dimensions
         slices[dimension] = slice(0, half)
