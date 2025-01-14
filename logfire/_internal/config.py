@@ -76,7 +76,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
+from .exporters.otlp import OTLPExporterHttpSession, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -856,6 +856,7 @@ class LogfireConfig(_LogfireConfigData):
                         session=session,
                         compression=Compression.Gzip,
                     )
+                    span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500

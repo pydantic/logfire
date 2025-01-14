@@ -230,3 +230,14 @@ class BodyTooLargeError(Exception):
         super().__init__(f'Request body is too large ({size} bytes), must be less than {max_size} bytes.')
         self.size = size
         self.max_size = max_size
+
+
+class QuietSpanExporter(WrapperSpanExporter):
+    """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        try:
+            return super().export(spans)
+        except requests.exceptions.RequestException:
+            # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+            return SpanExportResult.FAILURE
