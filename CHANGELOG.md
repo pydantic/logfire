@@ -2,7 +2,7 @@
 
 ## [v3.1.1] (2025-01-14)
 
-* Prevent OTEL from logging noisy traceback for handled requests exceptions by @alexmojaki in [#796](https://github.com/pydantic/logfire/pull/796)
+* Prevent OTel from logging noisy traceback for handled requests exceptions by @alexmojaki in [#796](https://github.com/pydantic/logfire/pull/796)
 
 ## [v3.1.0] (2025-01-09)
 
