@@ -47,3 +47,7 @@ class BodyTooLargeError(Exception):
     size: Incomplete
     max_size: Incomplete
     def __init__(self, size: int, max_size: int) -> None: ...
+
+class QuietSpanExporter(WrapperSpanExporter):
+    """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult: ...

@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.1.1] (2025-01-14)
+
+* Prevent OTEL from logging noisy traceback for handled requests exceptions by @alexmojaki in [#796](https://github.com/pydantic/logfire/pull/796)
+
 ## [v3.1.0] (2025-01-09)
 
 * Add `capture_all` to `instrument_httpx` by @Kludex in [#780](https://github.com/pydantic/logfire/pull/780)
@@ -524,3 +528,4 @@ First release from new repo!
 [v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1
 [v3.0.0]: https://github.com/pydantic/logfire/compare/v2.11.1...v3.0.0
 [v3.1.0]: https://github.com/pydantic/logfire/compare/v3.0.0...v3.1.0
+[v3.1.1]: https://github.com/pydantic/logfire/compare/v3.1.0...v3.1.1
