@@ -67,7 +67,9 @@ except ImportError:
 
             def info(self, *args, **kwargs) -> None: ...
 
-            def warn(self, *args, **kwargs) -> None: ...
+            def warning(self, *args, **kwargs) -> None: ...
+
+            warn = warning
 
             def error(self, *args, **kwargs) -> None: ...
 
@@ -151,6 +153,7 @@ except ImportError:
         notice = DEFAULT_LOGFIRE_INSTANCE.notice
         info = DEFAULT_LOGFIRE_INSTANCE.info
         warn = DEFAULT_LOGFIRE_INSTANCE.warn
+        warning = DEFAULT_LOGFIRE_INSTANCE.warning
         error = DEFAULT_LOGFIRE_INSTANCE.error
         exception = DEFAULT_LOGFIRE_INSTANCE.exception
         fatal = DEFAULT_LOGFIRE_INSTANCE.fatal

@@ -136,7 +136,7 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-    def warn(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
+    def warning(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log a warning message.
 
         ```py
@@ -144,8 +144,10 @@ class Logfire:
 
         logfire.configure()
 
-        logfire.warn('This is a warning log')
+        logfire.warning('This is a warning log')
         ```
+
+        `logfire.warn` is an alias of `logfire.warning`.
 
         Args:
             msg_template: The message to log.
@@ -156,6 +158,7 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
+    warn = warning
     def error(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log an error message.
 
