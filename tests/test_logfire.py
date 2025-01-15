@@ -44,7 +44,7 @@ from logfire.testing import TestExporter
 from tests.test_metrics import get_collected_metrics
 
 
-@pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
+@pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'warning', 'error', 'fatal'])
 def test_log_methods_without_kwargs(method: str):
     with pytest.warns(FormattingFailedWarning) as warnings:
         getattr(logfire, method)('{foo}', bar=2)
@@ -537,7 +537,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'trace'))
+@pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'warning', 'trace'))
 def test_log(exporter: TestExporter, level: LevelName):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
@@ -1775,7 +1775,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal', 'span'))
+@pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal', 'span'))
 def test_forbid_methods_with_leading_underscore_on_attributes(method: str) -> None:
     with pytest.raises(ValueError, match='Attribute keys cannot start with an underscore.'):
         getattr(logfire, method)('test {_foo=}', _foo='bar')

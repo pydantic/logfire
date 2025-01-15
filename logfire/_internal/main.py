@@ -388,7 +388,7 @@ class Logfire:
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('notice', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
-    def warn(
+    def warning(
         self,
         msg_template: str,
         /,
@@ -404,8 +404,10 @@ class Logfire:
 
         logfire.configure()
 
-        logfire.warn('This is a warning log')
+        logfire.warning('This is a warning log')
         ```
+
+        `logfire.warn` is an alias of `logfire.warning`.
 
         Args:
             msg_template: The message to log.
@@ -419,6 +421,8 @@ class Logfire:
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('warn', msg_template, attributes, tags=_tags, exc_info=_exc_info)
+
+    warn = warning
 
     def error(
         self,
