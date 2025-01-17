@@ -43,6 +43,9 @@ In this example:
 3. Logfire calculates the age from the `dob` and displays age in the debug message
 
 ```py
+import logfire
+from datetime import date
+
 logfire.configure()
 
 with logfire.span('Asking the user for their {question}', question='birthday'):  # (1)!
