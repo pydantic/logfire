@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v3.2.0] (2025-01-17)
+
+* Fix conflict with `ddtrace` futures patching by renaming `fn` parameter by @alexmojaki in [#802](https://github.com/pydantic/logfire/pull/802)
+* Add `logfire.warning` to mirror `logging.warning` by @JacobHayes in [#800](https://github.com/pydantic/logfire/pull/800)
+* Try `to_dict` method when encoding JSON by @alexmojaki in [#799](https://github.com/pydantic/logfire/pull/799)
+* Don't truncate numpy array dimensions below max by @alexmojaki in [#792](https://github.com/pydantic/logfire/pull/792)
+
 ## [v3.1.1] (2025-01-14)
 
 * Prevent OTel from logging noisy traceback for handled requests exceptions by @alexmojaki in [#796](https://github.com/pydantic/logfire/pull/796)
@@ -529,3 +536,4 @@ First release from new repo!
 [v3.0.0]: https://github.com/pydantic/logfire/compare/v2.11.1...v3.0.0
 [v3.1.0]: https://github.com/pydantic/logfire/compare/v3.0.0...v3.1.0
 [v3.1.1]: https://github.com/pydantic/logfire/compare/v3.1.0...v3.1.1
+[v3.2.0]: https://github.com/pydantic/logfire/compare/v3.1.1...v3.2.0
