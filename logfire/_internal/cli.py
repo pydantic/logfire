@@ -9,6 +9,7 @@ import importlib.metadata
 import importlib.util
 import logging
 import platform
+import runpy
 import sys
 import warnings
 import webbrowser
@@ -389,6 +390,17 @@ class SplitArgs(argparse.Action):
         setattr(namespace, self.dest, namespace_value + list(values or []))
 
 
+def parse_run(args: argparse.Namespace) -> None:
+    import logfire
+
+    logfire.configure()
+
+    if args.module:
+        runpy.run_module(args.module, run_name='__main__')
+    else:
+        runpy.run_path(args.file, run_name='__main__')
+
+
 def _main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog='logfire',
@@ -434,6 +446,11 @@ def _main(args: list[str] | None = None) -> None:
         '--default-org', action='store_true', help='whether to create project under user default organization'
     )
     cmd_projects_new.set_defaults(func=parse_create_new_project)
+
+    cmd_run = subparsers.add_parser('run', help='instrument a Python application')
+    cmd_run.add_argument('-m', dest='module', help='run a module as a script')
+    cmd_run.add_argument('file', nargs='?', help='Python script to execute')
+    cmd_run.set_defaults(func=parse_run)
 
     cmd_projects_use = projects_subparsers.add_parser('use', help='use a project')
     cmd_projects_use.add_argument('project_name', nargs='?', help='project name')
