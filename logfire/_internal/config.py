@@ -1567,7 +1567,7 @@ def get_runtime_version() -> str:
     version_info = sys.implementation.version
     if version_info.releaselevel == 'final' and not version_info.serial:
         return '.'.join(map(str, version_info[:3]))
-    return '.'.join(map(str, version_info))
+    return '.'.join(map(str, version_info))  # pragma: no cover
 
 
 class LogfireNotConfiguredWarning(UserWarning):
