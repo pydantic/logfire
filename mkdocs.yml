@@ -309,4 +309,4 @@ plugins:
 hooks:
   - docs/plugins/main.py
   - docs/plugins/build_llms_txt.py
-  - docs/plugins/build_index.py
+  - docs/plugins/algolia.py
