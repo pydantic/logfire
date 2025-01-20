@@ -308,3 +308,5 @@ plugins:
         "get-started/traces.md": "concepts.md"
 hooks:
   - docs/plugins/main.py
+  - docs/plugins/build_llms_txt.py
+  - docs/plugins/build_index.py

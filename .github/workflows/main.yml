@@ -52,6 +52,8 @@ jobs:
           else
             uv run --no-sync mkdocs build
           fi
+        env:
+          ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_WRITE_API_KEY }}
 
   test:
     name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}

@@ -2,6 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 from dataclasses import dataclass
 from logfire._internal.stack_info import is_user_code as is_user_code
+from logfire._internal.ulid import ulid as ulid
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event as Event, ReadableSpan
@@ -91,7 +92,7 @@ def handle_internal_errors() -> Generator[None]: ...
 def maybe_capture_server_headers(capture: bool): ...
 def is_asgi_send_receive_span_name(name: str) -> bool: ...
 
-@dataclass(repr=True)
+@dataclass(repr=True, eq=True)
 class SeededRandomIdGenerator(IdGenerator):
     """Generate random span/trace IDs from a seed for deterministic tests.
 

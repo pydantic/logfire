@@ -28,15 +28,17 @@ try:
         """A wrapper around ThreadPoolExecutor.submit() that carries over OTEL context across threads."""
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
-        return submit_t_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=None)
+        return submit_t_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=None)
 
     def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ProcessPoolExecutor.submit() that carries over OTEL context across processes."""
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
-        return submit_p_orig(s, _run_with_context, carrier=carrier, fn=fn, parent_config=serialize_config())
+        return submit_p_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=serialize_config())
 
-    def _run_with_context(carrier: ContextCarrier, fn: Callable[[], Any], parent_config: dict[str, Any] | None) -> Any:
+    def _run_with_context(
+        carrier: ContextCarrier, func: Callable[[], Any], parent_config: dict[str, Any] | None
+    ) -> Any:
         """A wrapper around a function that restores OTEL context from a carrier and then calls the function.
 
         This gets run from within a process / thread.
@@ -45,7 +47,7 @@ try:
             deserialize_config(parent_config)  # pragma: no cover
 
         with attach_context(carrier):
-            return fn()
+            return func()
 
 except ImportError:  # pragma: no cover
 

@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, Literal, Mapping, ParamSpec
 
 P = ParamSpec('P')
 
-def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
+def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_all: bool, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
 
     See the `Logfire.instrument_httpx` method for details.

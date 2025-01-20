@@ -105,7 +105,6 @@ CREATE TABLE metrics AS (
     histogram_bucket_counts integer[],
     histogram_explicit_bounds double precision[],
     attributes jsonb,
-    tags text[],
     otel_scope_name text,
     otel_scope_version text,
     otel_scope_attributes jsonb,

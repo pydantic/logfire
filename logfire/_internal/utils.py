@@ -9,8 +9,9 @@ import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
 
 from opentelemetry import context, trace as trace_api
 from opentelemetry.sdk.resources import Resource
@@ -22,6 +23,7 @@ from opentelemetry.util import types as otel_types
 from requests import RequestException, Response
 
 from logfire._internal.stack_info import is_user_code
+from logfire._internal.ulid import ulid
 
 if TYPE_CHECKING:
     from packaging.version import Version
@@ -358,7 +360,11 @@ def is_asgi_send_receive_span_name(name: str) -> bool:
     return name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive'))
 
 
-@dataclass(repr=True)
+def _default_ms_timestamp_generator() -> int:
+    return int(time() * 1000)
+
+
+@dataclass(repr=True, eq=True)
 class SeededRandomIdGenerator(IdGenerator):
     """Generate random span/trace IDs from a seed for deterministic tests.
 
@@ -371,6 +377,8 @@ class SeededRandomIdGenerator(IdGenerator):
     """
 
     seed: int | None = 0
+    _ms_timestamp_generator: Callable[[], int] = _default_ms_timestamp_generator
+    """Private argument, do not set this directly."""
 
     def __post_init__(self) -> None:
         self.random = random.Random(self.seed)
@@ -384,7 +392,7 @@ class SeededRandomIdGenerator(IdGenerator):
         return span_id
 
     def generate_trace_id(self) -> int:
-        trace_id = self.random.getrandbits(128)
+        trace_id = ulid(self.random, self._ms_timestamp_generator)
         while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
-            trace_id = self.random.getrandbits(128)
+            trace_id = ulid(self.random, self._ms_timestamp_generator)
         return trace_id

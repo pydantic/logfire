@@ -388,7 +388,7 @@ class Logfire:
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('notice', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
-    def warn(
+    def warning(
         self,
         msg_template: str,
         /,
@@ -404,8 +404,10 @@ class Logfire:
 
         logfire.configure()
 
-        logfire.warn('This is a warning log')
+        logfire.warning('This is a warning log')
         ```
+
+        `logfire.warn` is an alias of `logfire.warning`.
 
         Args:
             msg_template: The message to log.
@@ -419,6 +421,8 @@ class Logfire:
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('warn', msg_template, attributes, tags=_tags, exc_info=_exc_info)
+
+    warn = warning
 
     def error(
         self,
@@ -1183,6 +1187,7 @@ class Logfire:
         self,
         client: httpx.Client,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1196,6 +1201,7 @@ class Logfire:
         self,
         client: httpx.AsyncClient,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1209,6 +1215,7 @@ class Logfire:
         self,
         client: None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1223,6 +1230,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1243,6 +1251,7 @@ class Logfire:
         Args:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
+            capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
             capture_headers: Set to `True` to capture all HTTP headers.
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
@@ -1261,6 +1270,7 @@ class Logfire:
         return instrument_httpx(
             self,
             client,
+            capture_all=capture_all,
             capture_headers=capture_headers,
             capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "3.0.0"
+version = "3.2.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -101,7 +101,8 @@ dev = [
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",
-    "pydantic @ git+https://github.com/pydantic/pydantic",
+    "pydantic @ git+https://github.com/pydantic/pydantic ; python_version >= '3.9'",
+    "pydantic==2.10.5; python_version < '3.9'",
     "requests >= 2.31.0",
     "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2; python_version >= '3.9'",
@@ -172,10 +173,14 @@ docs = [
     "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
     "griffe",
+    "bs4>=0.0.2",
+    "algoliasearch>=3,<4",
+    "markdownify>=0.14.1",
 ]
 
 [tool.inline-snapshot]
 default-flags = ["disable"]
+format-command="ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
@@ -202,14 +207,15 @@ extend-exclude = ["logfire-api/logfire_api/*"]
 
 [tool.ruff.lint]
 extend-select = [
-    "Q",
-    "RUF100",
-    "C90",
-    "UP",
-    "I",
-    "D",
+    "Q",      # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
+    "C90",    # https://docs.astral.sh/ruff/rules/#mccabe-c90
+    "UP",     # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "I",      # https://docs.astral.sh/ruff/rules/#isort-i
+    "D",      # https://docs.astral.sh/ruff/rules/#pydocstyle-d
     "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
-] # add "T" to disallow prints
+    "FA",     # https://docs.astral.sh/ruff/rules/#flake8-future-annotations-fa
+]
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
 isort = { combine-as-imports = true, known-first-party = [
     "logfire",

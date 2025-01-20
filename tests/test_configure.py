@@ -14,6 +14,7 @@ from unittest.mock import call, patch
 
 import inline_snapshot.extra
 import pytest
+import requests.exceptions
 import requests_mock
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -46,6 +47,7 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.otlp import QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
@@ -2065,3 +2067,14 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
             },
         ]
     )
+
+
+def test_quiet_span_exporter(caplog: LogCaptureFixture):
+    class ConnectionErrorExporter(SpanExporter):
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            raise requests.exceptions.ConnectionError()
+
+    exporter = QuietSpanExporter(ConnectionErrorExporter())
+
+    assert exporter.export([]) == SpanExportResult.FAILURE
+    assert not caplog.messages

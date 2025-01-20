@@ -76,7 +76,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.otlp import OTLPExporterHttpSession, RetryFewerSpansSpanExporter
+from .exporters.otlp import OTLPExporterHttpSession, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -318,14 +318,12 @@ def configure(  # noqa: D417
     collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)  # type: ignore
     if collect_system_metrics is False:
         raise ValueError(
-            'The `collect_system_metrics` argument has been removed. '
-            'System metrics are no longer collected by default.'
+            'The `collect_system_metrics` argument has been removed. System metrics are no longer collected by default.'
         )
 
     if collect_system_metrics is not None:
         raise ValueError(
-            'The `collect_system_metrics` argument has been removed. '
-            'Use `logfire.instrument_system_metrics()` instead.'
+            'The `collect_system_metrics` argument has been removed. Use `logfire.instrument_system_metrics()` instead.'
         )
 
     scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)  # type: ignore
@@ -582,7 +580,7 @@ class _LogfireConfigData:
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
             id_generator = advanced.id_generator
-            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed']:  # type: ignore  # pragma: no branch
+            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # type: ignore  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore
         elif advanced is None:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
@@ -858,6 +856,7 @@ class LogfireConfig(_LogfireConfigData):
                         session=session,
                         compression=Compression.Gzip,
                     )
+                    span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
@@ -946,7 +945,7 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
 
             @atexit.register
-            def _exit_open_spans():  # type: ignore[reportUnusedFunction]  # pragma: no cover
+            def exit_open_spans():  # pragma: no cover
                 # Ensure that all open spans are closed when the program exits.
                 # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
                 # Registering this callback here after the OTEL one means that this runs first.
@@ -960,6 +959,20 @@ class LogfireConfig(_LogfireConfigData):
                     # Interpreter shutdown may trigger another call to .end(),
                     # which would log a warning "Calling end() on an ended span."
                     span.end = lambda *_, **__: None  # type: ignore
+
+            # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
+            # https://github.com/pydantic/logfire/issues/779
+            original_os_exit = os._exit
+
+            def patched_os_exit(code: int):  # pragma: no cover
+                try:
+                    exit_open_spans()
+                    self.force_flush()
+                except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
+                    pass
+                return original_os_exit(code)
+
+            os._exit = patched_os_exit
 
             self._initialized = True
 
@@ -1318,7 +1331,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
             selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n' f'{project_choices_str}\n',
+                f'Please select one of the following projects by number:\n{project_choices_str}\n',
                 choices=list(project_choices.keys()),
                 default='1',
             )

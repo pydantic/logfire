@@ -58,6 +58,7 @@ debug = DEFAULT_LOGFIRE_INSTANCE.debug
 info = DEFAULT_LOGFIRE_INSTANCE.info
 notice = DEFAULT_LOGFIRE_INSTANCE.notice
 warn = DEFAULT_LOGFIRE_INSTANCE.warn
+warning = DEFAULT_LOGFIRE_INSTANCE.warning
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 exception = DEFAULT_LOGFIRE_INSTANCE.exception
@@ -102,6 +103,7 @@ __all__ = (
     'notice',
     'info',
     'warn',
+    'warning',
     'error',
     'exception',
     'fatal',

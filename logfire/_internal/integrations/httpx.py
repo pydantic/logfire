@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
+    capture_all: bool,
     capture_headers: bool,
     capture_request_body: bool,
     capture_response_body: bool,
@@ -57,6 +58,11 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
+    if capture_all and (capture_headers or capture_request_body or capture_response_body):
+        warn_at_user_stacklevel(
+            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
+        )
+
     capture_request_headers = kwargs.get('capture_request_headers')
     capture_response_headers = kwargs.get('capture_response_headers')
 
@@ -69,10 +75,10 @@ def instrument_httpx(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
 
-    should_capture_request_headers = capture_request_headers or capture_headers
-    should_capture_response_headers = capture_response_headers or capture_headers
-    should_capture_request_body = capture_request_body
-    should_capture_response_body = capture_response_body
+    should_capture_request_headers = capture_request_headers or capture_headers or capture_all
+    should_capture_response_headers = capture_response_headers or capture_headers or capture_all
+    should_capture_request_body = capture_request_body or capture_all
+    should_capture_response_body = capture_response_body or capture_all
 
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
