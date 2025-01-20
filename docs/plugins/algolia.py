@@ -14,7 +14,7 @@ ALGOLIA_INDEX_NAME = 'logfire-docs'
 ALGOLIA_APP_ID = 'KPPUDTIAVX'
 ALGOLIA_WRITE_API_KEY = os.environ.get('ALGOLIA_WRITE_API_KEY')
 # Algolia accepts 100k, leaaving some room for other fields
-MAX_CONTENT_SIZE = 90000
+MAX_CONTENT_SIZE = 90_000
 
 
 def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
