@@ -64,7 +64,7 @@ from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTrac
 from logfire.testing import TestExporter
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
-PROCESS_RUNTIME_DESCRIPTION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+) \(main, (?P<month>[A-Za-z]{3}) (?P<day>\d{1,2}) (?P<year>\d{4}), (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\) \n?\[Clang (?P<clang_version>[\d.]+)\s?\]'
+PROCESS_RUNTIME_DESCRIPTION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+) \(main, (?P<month>[A-Za-z]{3})\s+(?P<day>\d{1,2}) (?P<year>\d{4}),(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\)\s*\[Clang (?P<clang_version>[\d.]+)\s*\]'
 
 
 def test_propagate_config_to_tags(exporter: TestExporter) -> None:
