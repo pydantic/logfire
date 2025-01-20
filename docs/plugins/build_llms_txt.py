@@ -10,7 +10,7 @@ from mkdocs.structure.pages import Page
 
 
 def on_config(config: MkDocsConfig):
-    os.mkdir(config.site_dir)
+    os.makedirs(config.site_dir, exist_ok=True)
     llms_path = os.path.join(config.site_dir, 'llms.txt')
     with open(llms_path, 'w') as f:
         f.write('')
