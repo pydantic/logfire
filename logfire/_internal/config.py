@@ -712,6 +712,7 @@ class LogfireConfig(_LogfireConfigData):
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
                 ResourceAttributes.PROCESS_PID: os.getpid(),
+                # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
                 ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
                 ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
