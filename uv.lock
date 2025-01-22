@@ -1748,7 +1748,7 @@ docs = [
     { name = "markdownify", specifier = ">=0.14.1" },
     { name = "mkdocs", specifier = ">=1.5.0" },
     { name = "mkdocs-glightbox", specifier = ">=0.4.0" },
-    { name = "mkdocs-material", specifier = ">=9.5.48" },
+    { name = "mkdocs-material", specifier = ">=9.5.32" },
     { name = "mkdocs-redirects", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.8.0" },
 ]

@@ -712,6 +712,10 @@ class LogfireConfig(_LogfireConfigData):
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
                 ResourceAttributes.PROCESS_PID: os.getpid(),
+                # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
+                ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
+                ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
+                ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
                 # Having this giant blob of data associated with every span/metric causes various problems so it's
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -1558,6 +1562,13 @@ def sanitize_project_name(name: str) -> str:
 
 def default_project_name():
     return sanitize_project_name(os.path.basename(os.getcwd()))
+
+
+def get_runtime_version() -> str:
+    version_info = sys.implementation.version
+    if version_info.releaselevel == 'final' and not version_info.serial:
+        return '.'.join(map(str, version_info[:3]))
+    return '.'.join(map(str, version_info))  # pragma: no cover
 
 
 class LogfireNotConfiguredWarning(UserWarning):

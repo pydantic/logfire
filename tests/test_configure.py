@@ -16,6 +16,7 @@ import inline_snapshot.extra
 import pytest
 import requests.exceptions
 import requests_mock
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -61,6 +62,9 @@ from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
+
+PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
+PROCESS_RUNTIME_DESCRIPTION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+) \((?P<branch>\w+), (?P<month>[A-Za-z]{3})\s+(?P<day>\d{1,2}) (?P<year>\d{4}), (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\)\s*\[\w+ (?P<clang_version>[\d.]+)\s*\]'
 
 
 def test_propagate_config_to_tags(exporter: TestExporter) -> None:
@@ -673,6 +677,9 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                         'process.pid': 1234,
                     }
                 },
@@ -716,6 +723,9 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'service.version': '1.2.3',
                         'service.instance.id': 'instance_id',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                     }
                 },
             }
@@ -760,6 +770,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                     }
                 },
             }
@@ -1658,6 +1671,9 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -1705,6 +1721,9 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -1754,6 +1773,9 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': IsStr(regex=PROCESS_RUNTIME_DESCRIPTION_REGEX),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
