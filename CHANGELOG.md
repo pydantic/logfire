@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.3.0] (2025-01-22)
+
+* Add process runtime information by @Kludex in [#811](https://github.com/pydantic/logfire/pull/811)
+
 ## [v3.2.0] (2025-01-17)
 
 * Fix conflict with `ddtrace` futures patching by renaming `fn` parameter by @alexmojaki in [#802](https://github.com/pydantic/logfire/pull/802)
@@ -537,3 +541,4 @@ First release from new repo!
 [v3.1.0]: https://github.com/pydantic/logfire/compare/v3.0.0...v3.1.0
 [v3.1.1]: https://github.com/pydantic/logfire/compare/v3.1.0...v3.1.1
 [v3.2.0]: https://github.com/pydantic/logfire/compare/v3.1.1...v3.2.0
+[v3.3.0]: https://github.com/pydantic/logfire/compare/v3.2.0...v3.3.0
