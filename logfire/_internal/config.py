@@ -747,7 +747,7 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            if emscripten:
+            if emscripten:  # pragma: no cover
                 # Resource.create creates a thread pool which fails in Pyodide / Emscripten
                 resource = Resource(otel_resource_attributes)
             else:
@@ -856,7 +856,7 @@ class LogfireConfig(_LogfireConfigData):
                         if show_project_link and validated_credentials is not None:
                             validated_credentials.print_token_summary()
 
-                    if emscripten:
+                    if emscripten:  # pragma: no cover
                         check_token()
                     else:
                         thread = Thread(target=check_token, name='check_logfire_token')
@@ -874,7 +874,7 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
-                    if emscripten:
+                    if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
                     else:
