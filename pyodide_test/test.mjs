@@ -18,6 +18,7 @@ async function runTest() {
     }
   })
   await pyodide.loadPackage(['micropip', 'pygments'])
+  console.log('Running Pyodide test...\n')
   await pyodide.runPythonAsync(`
 import sys
 import micropip
@@ -26,17 +27,21 @@ await micropip.install(['file:${wheelPath}'])
 import logfire
 logfire.configure(token='unknown', inspect_arguments=False)
 logfire.info('hello {name}', name='world')
+sys.stdout.flush()
+sys.stderr.flush()
 `)
   let out = stdout.join('')
-  assert.ok(out.includes('hello world'), `stdout did not include message, stdout: "${out}"`)
-
   let err = stderr.join('')
+  console.log('stdout:', out)
+  console.log('stderr:', err)
+  assert.ok(out.includes('hello world'))
+
   assert.ok(
     err.includes(
       'UserWarning: Logfire API returned status code 401.'
     ),
-    `stderr did not include warning, stderr: "${err}"`
   )
+  console.log('\n\nLogfire Pyodide tests passed 🎉')
 }
 
 
