@@ -1378,7 +1378,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
             project_name: The default name of the project.
 
         Returns:
-            The created project informations.
+            The created project information.
 
         Raises:
             LogfireConfigError: If there was an error creating projects.

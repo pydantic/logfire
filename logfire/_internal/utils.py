@@ -220,7 +220,7 @@ def get_version(version: str) -> Version:
     return Version(version)  # type: ignore
 
 
-# OTEL uses two different keys to supress instrumentation. We need to check both.
+# OTEL uses two different keys to suppress instrumentation. We need to check both.
 SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS = [
     # This is still used in some places in OTEL, and probably more in older versions.
     'suppress_instrumentation',
