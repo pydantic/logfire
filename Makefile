@@ -49,7 +49,7 @@ testcov: test
 .PHONY: test-pyodide  # Check logfire runs with pyodide
 test-pyodide:
 	uv build
-	cd pyodide_test && npm test
+	cd pyodide_test && npm install && npm test
 
 .PHONY: docs  # Build the documentation
 docs:
