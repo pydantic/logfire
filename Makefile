@@ -46,6 +46,11 @@ testcov: test
 	@echo "building coverage html"
 	uv run coverage html --show-contexts
 
+.PHONY: test-pyodide  # Check logfire runs with pyodide
+test-pyodide:
+	uv build
+	cd pyodide_test && npm test
+
 .PHONY: docs  # Build the documentation
 docs:
 	uv run mkdocs build

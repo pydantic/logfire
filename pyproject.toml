@@ -248,17 +248,7 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = [
-    "docs/**/*.py",
-    "examples/**/*.py",
-    "site/**/*.py",
-    ".venv",
-    "venv*",
-    "**/venv*",
-    "ignoreme",
-    "out",
-    "logfire-api",
-]
+include = ["logfire", "tests"]
 venvPath = "."
 venv = ".venv"
 

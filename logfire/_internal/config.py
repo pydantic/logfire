@@ -5,6 +5,7 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
 import sys
 import time
@@ -708,6 +709,8 @@ class LogfireConfig(_LogfireConfigData):
         if self._initialized:  # pragma: no cover
             return
 
+        emscripten = platform.system().lower() == 'emscripten'
+
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
                 ResourceAttributes.SERVICE_NAME: self.service_name,
@@ -744,7 +747,11 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            resource = Resource.create(otel_resource_attributes)
+            if emscripten:
+                # Resource.create creates a thread pool which fails in Pyodide / Emscripten
+                resource = Resource(otel_resource_attributes)
+            else:
+                resource = Resource.create(otel_resource_attributes)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -849,8 +856,11 @@ class LogfireConfig(_LogfireConfigData):
                         if show_project_link and validated_credentials is not None:
                             validated_credentials.print_token_summary()
 
-                    thread = Thread(target=check_token, name='check_logfire_token')
-                    thread.start()
+                    if emscripten:
+                        check_token()
+                    else:
+                        thread = Thread(target=check_token, name='check_logfire_token')
+                        thread.start()
 
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
@@ -864,10 +874,19 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
                     schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
-                    add_span_processor(BatchSpanProcessor(span_exporter, schedule_delay_millis=schedule_delay_millis))
+                    if emscripten:
+                        # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
+                        logfire_processor = SimpleSpanProcessor(span_exporter)
+                    else:
+                        logfire_processor = BatchSpanProcessor(
+                            span_exporter, schedule_delay_millis=schedule_delay_millis
+                        )
+                    add_span_processor(logfire_processor)
 
-                    if metric_readers is not None:
-                        metric_readers += [
+                    # TODO should we warn here if we have metrics but we're in emscripten?
+                    # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
+                    if metric_readers is not None and not emscripten:
+                        metric_readers.append(
                             PeriodicExportingMetricReader(
                                 QuietMetricExporter(
                                     OTLPMetricExporter(
@@ -883,7 +902,7 @@ class LogfireConfig(_LogfireConfigData):
                                     preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                                 )
                             )
-                        ]
+                        )
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()

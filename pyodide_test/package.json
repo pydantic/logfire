@@ -1,0 +1,14 @@
+{
+  "name": "pyodide_test",
+  "version": "0.0.0",
+  "main": "test.js",
+  "scripts": {
+    "test": "node --experimental-wasm-stack-switching test.mjs"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "pyodide": "^0.27.2"
+  }
+}
