@@ -61,6 +61,7 @@ def celery_worker(celery_app: Celery) -> Iterator[WorkController]:
         yield worker
 
 
+@pytest.mark.xdist_group(name='sequential')
 def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
     # Send and wait for the task to be executed
     result = celery_app.send_task('tasks.say_hello')  # type: ignore
