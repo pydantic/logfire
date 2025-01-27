@@ -131,10 +131,30 @@ jobs:
           env_vars: PYTHON
       - run: uv run coverage report --fail-under 100
 
+  test-pyodide:
+    name: test on Pyodide
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.30"
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23"
+
+      - run: make test-pyodide
+        env:
+          UV_PYTHON: ${{ matrix.python-version }}
+
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [lint, docs, test, coverage]
+    needs: [lint, docs, test, coverage, test-pyodide]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
