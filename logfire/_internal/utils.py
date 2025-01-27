@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import os
+import platform
 import random
 import sys
 from contextlib import contextmanager
@@ -396,3 +397,11 @@ class SeededRandomIdGenerator(IdGenerator):
         while trace_id == trace_api.INVALID_TRACE_ID:  # pragma: no cover
             trace_id = ulid(self.random, self._ms_timestamp_generator)
         return trace_id
+
+
+def platform_is_emscripten() -> bool:
+    """Return True if the platform is Emscripten, e.g. Pyodide.
+
+    Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
+    """
+    return platform.system().lower() == 'emscripten'
