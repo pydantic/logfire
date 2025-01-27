@@ -1460,7 +1460,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "3.3.0"
+version = "3.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -1755,7 +1755,7 @@ docs = [
 
 [[package]]
 name = "logfire-api"
-version = "3.3.0"
+version = "3.4.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -1954,13 +1954,14 @@ wheels = [
 
 [[package]]
 name = "mkdocs-material"
-version = "9.5.49"
-source = { registry = "https://pypi.org/simple" }
+version = "9.5.32+insiders.4.53.12"
+source = { registry = "https://pppr.pydantic.dev/simple/" }
 dependencies = [
     { name = "babel" },
     { name = "colorama" },
     { name = "jinja2" },
     { name = "markdown" },
+    { name = "mergedeep" },
     { name = "mkdocs" },
     { name = "mkdocs-material-extensions" },
     { name = "paginate" },
@@ -1969,9 +1970,8 @@ dependencies = [
     { name = "regex" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/14/8daeeecee2e25bd84239a843fdcb92b20db88ebbcb26e0d32f414ca54a22/mkdocs_material-9.5.49.tar.gz", hash = "sha256:3671bb282b4f53a1c72e08adbe04d2481a98f85fed392530051f80ff94a9621d", size = 3949559 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/2d/2dd23a36b48421db54f118bb6f6f733dbe2d5c78fe7867375e48649fd3df/mkdocs_material-9.5.49-py3-none-any.whl", hash = "sha256:c3c2d8176b18198435d3a3e119011922f3e11424074645c24019c2dcf08a360e", size = 8684098 },
+    { url = "https://pppr.pydantic.dev/simple/mkdocs-material/mkdocs_material-9.5.32+insiders.4.53.12-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -2018,16 +2018,15 @@ wheels = [
 
 [[package]]
 name = "mkdocstrings-python"
-version = "1.11.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.12.2.1.9.0"
+source = { registry = "https://pppr.pydantic.dev/simple/" }
 dependencies = [
     { name = "griffe" },
     { name = "mkdocs-autorefs" },
     { name = "mkdocstrings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/ba/534c934cd0a809f51c91332d6ed278782ee4126b8ba8db02c2003f162b47/mkdocstrings_python-1.11.1.tar.gz", hash = "sha256:8824b115c5359304ab0b5378a91f6202324a849e1da907a3485b59208b797322", size = 166890 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/f2/2a2c48fda645ac6bbe73bcc974587a579092b6868e6ff8bc6d177f4db38a/mkdocstrings_python-1.11.1-py3-none-any.whl", hash = "sha256:a21a1c05acef129a618517bb5aae3e33114f569b11588b1e7af3e9d4061a71af", size = 109297 },
+    { url = "https://pppr.pydantic.dev/simple/mkdocstrings-python/mkdocstrings_python-1.12.2.1.9.0-py3-none-any.whl" },
 ]
 
 [[package]]
