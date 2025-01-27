@@ -5,7 +5,6 @@ import dataclasses
 import functools
 import json
 import os
-import platform
 import re
 import sys
 import time
@@ -92,6 +91,7 @@ from .utils import (
     UnexpectedResponse,
     ensure_data_dir_exists,
     handle_internal_errors,
+    platform_is_emscripten,
     read_toml_file,
     suppress_instrumentation,
 )
@@ -709,7 +709,7 @@ class LogfireConfig(_LogfireConfigData):
         if self._initialized:  # pragma: no cover
             return
 
-        emscripten = platform.system().lower() == 'emscripten'
+        emscripten = platform_is_emscripten()
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {

@@ -19,7 +19,7 @@ from requests import Session
 import logfire
 
 from ..stack_info import STACK_INFO_KEYS
-from ..utils import logger, truncate_string
+from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperSpanExporter
 
 
@@ -50,7 +50,9 @@ class OTLPExporterHttpSession(Session):
             #   If we do this we must measure and limit the amount of time spent requesting and retrying.
             # TODO consider increasing the BatchSpanProcessor export delay here
             #   to reduce the number of small inefficient requests.
-            self.retryer.add_task(data, {'url': url, **kwargs})
+            # No threads in Emscripten, we can't add a task to try later, just raise
+            if not platform_is_emscripten():  # pragma: no branch
+                self.retryer.add_task(data, {'url': url, **kwargs})
             raise
 
         return response
@@ -133,7 +135,7 @@ class DiskRetryer:
             if self._should_log():
                 logger.error('Export and retry failed: %s', e)
 
-    def _should_log(self):
+    def _should_log(self) -> bool:
         result = time.monotonic() - self.last_log_time >= self.LOG_INTERVAL
         if result:
             self.last_log_time = time.monotonic()
