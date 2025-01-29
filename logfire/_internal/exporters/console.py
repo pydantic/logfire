@@ -193,9 +193,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
         log_level = NUMBER_TO_LEVEL.get(log_level_num)
 
         if file_location or log_level:
-            parts: TextParts = [(indent_str, ''), ('│', 'blue'), (' ', '')]
+            parts: TextParts = [(indent_str, ''), ('│', 'blue')]
             if file_location:
-                parts.append((file_location, 'cyan'))
+                parts.append((f' {file_location}', 'cyan'))
             if log_level:
                 parts.append((f' {log_level}', ''))
             return parts
