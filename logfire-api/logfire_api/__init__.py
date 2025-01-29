@@ -229,3 +229,7 @@ except ImportError:
 
         class LogfireLoggingHandler:
             def __init__(self, *args, **kwargs) -> None: ...
+
+        def logfire_info() -> str:
+            """Show versions of logfire, OS and related packages."""
+            raise NotImplementedError('this method is not implement in logfire-api')

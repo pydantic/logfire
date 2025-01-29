@@ -108,3 +108,9 @@ class SeededRandomIdGenerator(IdGenerator):
     def __post_init__(self) -> None: ...
     def generate_span_id(self) -> int: ...
     def generate_trace_id(self) -> int: ...
+
+def platform_is_emscripten() -> bool:
+    """Return True if the platform is Emscripten, e.g. Pyodide.
+
+    Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
+    """

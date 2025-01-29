@@ -1,6 +1,6 @@
 import requests
 from ..stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
-from ..utils import logger as logger, truncate_string as truncate_string
+from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten, truncate_string as truncate_string
 from .wrapper import WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
 from functools import cached_property
