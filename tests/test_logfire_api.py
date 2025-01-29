@@ -203,10 +203,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('MetricsOptions')
 
     assert hasattr(logfire_api, 'logfire_info')
-    try:
-        logfire_api.logfire_info()
-    except NotImplementedError:
-        pass
+    logfire_api.logfire_info()
     logfire__all__.remove('logfire_info')
 
     # If it's not empty, it means that some of the __all__ members are not tested.

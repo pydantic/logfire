@@ -232,4 +232,4 @@ except ImportError:
 
         def logfire_info() -> str:
             """Show versions of logfire, OS and related packages."""
-            raise NotImplementedError('this method is not implement in logfire-api')
+            return 'logfire_info() is not implement by logfire-api'
