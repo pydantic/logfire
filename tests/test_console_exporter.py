@@ -796,3 +796,23 @@ def test_exception(exporter: TestExporter) -> None:
         '\x1b[0m\x1b[97;49mby\x1b[0m\x1b[97;49m \x1b[0m\x1b[97;49mzero\x1b[0m',
         '',
     ]
+
+
+def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='always', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(['hi', '\x1b[34m│\x1b[0m \x1b[36m3\x1b[0m info'])
+
+
+def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(['hi', '│ 3 info'])

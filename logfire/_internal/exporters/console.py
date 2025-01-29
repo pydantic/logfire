@@ -182,7 +182,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if not self._verbose or not span.attributes:
             return []
 
-        file_location: str = span.attributes.get('code.filepath')  # type: ignore
+        file_location = str(span.attributes.get('code.filepath'))
         if file_location:
             lineno = span.attributes.get('code.lineno')
             if lineno:  # pragma: no branch
