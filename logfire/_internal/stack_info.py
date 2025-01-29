@@ -105,3 +105,14 @@ def is_user_code(code: CodeType) -> bool:
 def warn_at_user_stacklevel(msg: str, category: type[Warning]):
     _frame, stacklevel = get_user_frame_and_stacklevel()
     warnings.warn(msg, stacklevel=stacklevel, category=category)
+
+
+def add_non_user_code_prefix(path: str | Path) -> None:
+    """Add a path to the list of prefixes that are considered non-user code.
+
+    This prevents the stack info from including frames from the given path.
+    """
+    global NON_USER_CODE_PREFIXES
+    if isinstance(path, Path):
+        path = str(path)
+    NON_USER_CODE_PREFIXES += (path,)  # pyright: ignore[reportConstantRedefinition]
