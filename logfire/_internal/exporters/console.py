@@ -118,9 +118,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
             parts += [('\n', '')] + details_parts
 
         if self._console:
-            self._console.print(Text.assemble(*parts))
+            self._console.print(Text.assemble(*[(text, style) for text, style in parts if isinstance(text, str)]))  # type: ignore
         else:
-            print(''.join(text for text, _style in parts), file=self._output)
+            print(''.join(text for text, _style in parts if isinstance(text, str)), file=self._output)  # type: ignore
 
         # This uses a separate system for color vs no-color because it's not simple text:
         # in the rich case it uses syntax highlighting and columns for layout.

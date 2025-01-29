@@ -86,6 +86,26 @@ def test_simple_console_exporter_no_colors_concise(simple_spans: list[ReadableSp
     )
 
 
+def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='always', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == ['hi', '\x1b[34m│\x1b[0m  info']
+
+
+def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == ['hi', '│  info']
+
+
 def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=False, colors='always').export(simple_spans)
