@@ -20,10 +20,16 @@ body:
 
         **Don't worry if you can't run this command or don't have this information, we'll help you if we can.**
 
-        Please run the following command and copy the output below:
+        Please run the following command in your terminal:
 
         ```bash
         logfire info
+        ```
+
+        Or in python run:
+
+        ```python
+        import logfire; print(logfire.logfire_info())
         ```
 
       render: TOML

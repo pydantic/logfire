@@ -43,6 +43,7 @@ file_handler.setLevel(logging.DEBUG)
 logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
+__all__ = 'main', 'logfire_info'
 
 
 def version_callback() -> None:
@@ -318,7 +319,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
         )
 
 
-def parse_info(_args: argparse.Namespace) -> None:
+def logfire_info() -> str:
     """Show versions of logfire, OS and related packages."""
     import importlib.metadata as importlib_metadata
 
@@ -363,7 +364,12 @@ def parse_info(_args: argparse.Namespace) -> None:
         '[related_packages]',
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
-    sys.stderr.writelines('\n'.join(toml_lines) + '\n')
+    return '\n'.join(toml_lines) + '\n'
+
+
+def parse_info(_args: argparse.Namespace) -> None:
+    """Show versions of logfire, OS and related packages."""
+    sys.stderr.writelines(logfire_info())
 
 
 def _pretty_table(header: list[str], rows: list[list[str]]):
