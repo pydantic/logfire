@@ -8,6 +8,7 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
+from ._internal.cli import logfire_info
 from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
 from ._internal.main import Logfire, LogfireSpan
@@ -150,4 +151,5 @@ __all__ = (
     'loguru_handler',
     'SamplingOptions',
     'MetricsOptions',
+    'logfire_info',
 )

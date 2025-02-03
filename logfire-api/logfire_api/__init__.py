@@ -231,3 +231,7 @@ except ImportError:
 
         class LogfireLoggingHandler:
             def __init__(self, *args, **kwargs) -> None: ...
+
+        def logfire_info() -> str:
+            """Show versions of logfire, OS and related packages."""
+            return 'logfire_info() is not implement by logfire-api'
