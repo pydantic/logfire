@@ -805,7 +805,15 @@ def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> No
     )
 
     logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
-    assert capsys.readouterr().out.splitlines() == snapshot(['hi', '\x1b[34m│\x1b[0m\x1b[36m 3\x1b[0m info'])
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '\x1b[34m│\x1b[0m\x1b[36m 3\x1b[0m info',
+            'hi',
+            '\x1b[34m│\x1b[0m info',
+        ]
+    )
 
 
 def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[str]) -> None:
@@ -815,4 +823,12 @@ def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[st
     )
 
     logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
-    assert capsys.readouterr().out.splitlines() == snapshot(['hi', '│ 3 info'])
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '│ 3 info',
+            'hi',
+            '│ info',
+        ]
+    )
