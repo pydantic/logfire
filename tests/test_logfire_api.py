@@ -94,6 +94,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.no_auto_trace(lambda: None)  # pragma: no branch
     logfire__all__.remove('no_auto_trace')
 
+    assert hasattr(logfire_api, 'add_non_user_code_prefix')
+    logfire_api.add_non_user_code_prefix('/foo/bar')
+    logfire__all__.remove('add_non_user_code_prefix')
+
     assert hasattr(logfire_api, 'suppress_instrumentation')
     with logfire_api.suppress_instrumentation():
         ...

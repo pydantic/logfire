@@ -12,6 +12,7 @@ from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, Metri
 from ._internal.constants import LevelName
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
+from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
@@ -142,6 +143,7 @@ __all__ = (
     'ScrubMatch',
     'ScrubbingOptions',
     'VERSION',
+    'add_non_user_code_prefix',
     'suppress_instrumentation',
     'StructlogProcessor',
     'LogfireLoggingHandler',

@@ -193,6 +193,8 @@ except ImportError:
         def no_auto_trace(x):
             return x
 
+        def add_non_user_code_prefix(*args, **kwargs) -> None: ...
+
         @contextmanager
         def suppress_instrumentation():
             yield

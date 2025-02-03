@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from pathlib import Path
 from types import CodeType, FrameType
 from typing import TypedDict
 
@@ -39,3 +40,8 @@ def is_user_code(code: CodeType) -> bool:
         On the other hand, generator expressions and lambdas might be called far away from where they are defined.
     """
 def warn_at_user_stacklevel(msg: str, category: type[Warning]): ...
+def add_non_user_code_prefix(path: str | Path) -> None:
+    """Add a path to the list of prefixes that are considered non-user code.
+
+    This prevents the stack info from including frames from the given path.
+    """
