@@ -1,5 +1,4 @@
 *.env
-.idea/
 .DS_Store
 .logfire
 .python-version
