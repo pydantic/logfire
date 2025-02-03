@@ -31,7 +31,7 @@ def test_reraise_internal_exception():
 def test_internal_exception_tb(caplog: pytest.LogCaptureFixture):
     # Pretend that `internal_logfire_code_example` is a module within logfire,
     # so all frames from it should be included.
-    logfire._internal.stack_info.NON_USER_CODE_PREFIXES += (internal_logfire_code_example.__file__,)
+    logfire.add_non_user_code_prefix(internal_logfire_code_example.__file__)
 
     user_code_example.user1()
 

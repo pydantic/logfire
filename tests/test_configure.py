@@ -1036,6 +1036,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         ]
 
 
+@pytest.mark.xdist_group(name='sequential')
 def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -1160,6 +1161,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         }
 
 
+@pytest.mark.xdist_group(name='sequential')
 def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(

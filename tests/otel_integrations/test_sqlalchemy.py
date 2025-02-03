@@ -45,7 +45,7 @@ def sqlite_engine(path: Path) -> Iterator[Engine]:
 
 
 def test_sqlalchemy_instrumentation(exporter: TestExporter):
-    with sqlite_engine(Path('example.db')) as engine:
+    with sqlite_engine(Path('example1.db')) as engine:
         logfire.instrument_sqlalchemy(engine=engine)
 
         Base.metadata.create_all(engine)
@@ -69,13 +69,13 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'PRAGMA example.db',
+                'name': 'PRAGMA example1.db',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -85,11 +85,11 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'PRAGMA main.table_info("auth_records")',
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
-                'name': 'PRAGMA example.db',
+                'name': 'PRAGMA example1.db',
                 'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': 5000000000,
@@ -99,11 +99,11 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
-                'name': 'CREATE example.db',
+                'name': 'CREATE example1.db',
                 'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
                 'parent': None,
                 'start_time': 7000000000,
@@ -116,7 +116,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
 """,
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
@@ -128,13 +128,13 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'select example.db',
+                'name': 'select example1.db',
                 'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
                 'parent': None,
                 'start_time': 11000000000,
@@ -144,11 +144,11 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'logfire.msg': 'select * from auth_records',
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
-                'name': 'INSERT example.db',
+                'name': 'INSERT example1.db',
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
@@ -158,7 +158,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
@@ -170,13 +170,13 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'SELECT example.db',
+                'name': 'SELECT example1.db',
                 'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
@@ -186,11 +186,11 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
                     'db.statement': 'SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
             {
-                'name': 'DELETE example.db',
+                'name': 'DELETE example1.db',
                 'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
                 'parent': None,
                 'start_time': 19000000000,
@@ -200,7 +200,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example1.db',
                 },
             },
         ]
@@ -221,7 +221,7 @@ def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
 
 @pytest.mark.anyio
 async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
-    with sqlite_async_engine(Path('example.db')) as engine:
+    with sqlite_async_engine(Path('example2.db')) as engine:
         logfire.instrument_sqlalchemy(engine=engine)
 
         async with engine.begin() as conn:
@@ -246,13 +246,13 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'PRAGMA example.db',
+                'name': 'PRAGMA example2.db',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -262,11 +262,11 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'PRAGMA main.table_info("auth_records")',
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
-                'name': 'PRAGMA example.db',
+                'name': 'PRAGMA example2.db',
                 'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': 5000000000,
@@ -276,11 +276,11 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
-                'name': 'CREATE example.db',
+                'name': 'CREATE example2.db',
                 'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
                 'parent': None,
                 'start_time': 7000000000,
@@ -290,7 +290,7 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)\n)',
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
@@ -302,13 +302,13 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'select example.db',
+                'name': 'select example2.db',
                 'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
                 'parent': None,
                 'start_time': 11000000000,
@@ -318,11 +318,11 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'select * from auth_records',
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
-                'name': 'INSERT example.db',
+                'name': 'INSERT example2.db',
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
@@ -332,7 +332,7 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
@@ -344,13 +344,13 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'SELECT example.db',
+                'name': 'SELECT example2.db',
                 'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
@@ -362,11 +362,11 @@ async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
 SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?\
 """,
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
             {
-                'name': 'DELETE example.db',
+                'name': 'DELETE example2.db',
                 'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
                 'parent': None,
                 'start_time': 19000000000,
@@ -376,7 +376,7 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
                     'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
-                    'db.name': 'example.db',
+                    'db.name': 'example2.db',
                 },
             },
         ]
