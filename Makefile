@@ -30,7 +30,7 @@ typecheck:
 
 .PHONY: test  # Run the tests
 test:
-	uv run --no-sync coverage run -m pytest
+	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
 
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
