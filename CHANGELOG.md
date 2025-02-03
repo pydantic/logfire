@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v3.5.0] (2025-02-03)
+
+* Add `logfire.logfire_info()` by @samuelcolvin in [#826](https://github.com/pydantic/logfire/pull/826)
+* Add `logfire.add_non_user_code_prefix` function for library developers by @dmontagu in [#829](https://github.com/pydantic/logfire/pull/829)
+* Skip export retry in pyodide by @samuelcolvin in [#823](https://github.com/pydantic/logfire/pull/823)
+* More resilient console logging by @samuelcolvin in [#831](https://github.com/pydantic/logfire/pull/831)
+
 ## [v3.4.0] (2025-01-27)
 
 * Support Pyodide by @samuelcolvin in [#818](https://github.com/pydantic/logfire/pull/818)
@@ -547,3 +554,4 @@ First release from new repo!
 [v3.2.0]: https://github.com/pydantic/logfire/compare/v3.1.1...v3.2.0
 [v3.3.0]: https://github.com/pydantic/logfire/compare/v3.2.0...v3.3.0
 [v3.4.0]: https://github.com/pydantic/logfire/compare/v3.3.0...v3.4.0
+[v3.5.0]: https://github.com/pydantic/logfire/compare/v3.4.0...v3.5.0
