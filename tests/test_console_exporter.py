@@ -106,7 +106,7 @@ def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSp
         [
             '00:00:01.000 rootSpan',
             '00:00:02.000 childSpan 1',
-            '             │ testing.py:42 ',
+            '             │ testing.py:42',
         ]
     )
 
@@ -419,7 +419,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     assert out.getvalue().splitlines() == snapshot(
         [
             '\x1b[32m00:00:01.000\x1b[0m Hello world!',
-            '             \x1b[34m│\x1b[0m \x1b[36mtest_console_exporter.py:123\x1b[0m info',
+            '             \x1b[34m│\x1b[0m\x1b[36m test_console_exporter.py:123\x1b[0m info',
             "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
             '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
@@ -796,3 +796,39 @@ def test_exception(exporter: TestExporter) -> None:
         '\x1b[0m\x1b[97;49mby\x1b[0m\x1b[97;49m \x1b[0m\x1b[97;49mzero\x1b[0m',
         '',
     ]
+
+
+def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='always', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '\x1b[34m│\x1b[0m\x1b[36m 3\x1b[0m info',
+            'hi',
+            '\x1b[34m│\x1b[0m info',
+        ]
+    )
+
+
+def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '│ 3 info',
+            'hi',
+            '│ info',
+        ]
+    )

@@ -182,23 +182,23 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if not self._verbose or not span.attributes:
             return []
 
-        file_location: str = span.attributes.get('code.filepath')  # type: ignore
+        file_location_raw = span.attributes.get('code.filepath')
+        file_location = None if file_location_raw is None else str(file_location_raw)
         if file_location:
             lineno = span.attributes.get('code.lineno')
             if lineno:  # pragma: no branch
                 file_location += f':{lineno}'
 
         log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
-        log_level = NUMBER_TO_LEVEL.get(log_level_num, '')
+        log_level = NUMBER_TO_LEVEL.get(log_level_num)
 
         if file_location or log_level:
-            return [
-                (indent_str, ''),
-                ('│', 'blue'),
-                (' ', ''),
-                (file_location, 'cyan'),
-                (f' {log_level}', ''),
-            ]
+            parts: TextParts = [(indent_str, ''), ('│', 'blue')]
+            if file_location:
+                parts.append((f' {file_location}', 'cyan'))
+            if log_level:
+                parts.append((f' {log_level}', ''))
+            return parts
         else:
             return []
 
