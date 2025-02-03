@@ -19,10 +19,33 @@ StackInfo = TypedDict('StackInfo', {'code.filepath': str, 'code.lineno': int, 'c
 STACK_INFO_KEYS = set(StackInfo.__annotations__.keys())
 assert STACK_INFO_KEYS == {'code.filepath', 'code.lineno', 'code.function'}
 
-SITE_PACKAGES_DIR = str(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent.absolute())
-PYTHON_LIB_DIR = str(Path(inspect.__file__).parent.absolute())
-LOGFIRE_DIR = str(Path(logfire.__file__).parent.absolute())
-NON_USER_CODE_PREFIXES = (SITE_PACKAGES_DIR, PYTHON_LIB_DIR, LOGFIRE_DIR)
+NON_USER_CODE_PREFIXES: tuple[str, ...] = ()
+
+
+def add_non_user_code_prefix(path: str | Path) -> None:
+    """Add a path to the list of prefixes that are considered non-user code.
+
+    This prevents the stack info from including frames from the given path.
+
+    This is for advanced users and shouldn't often be needed.
+    By default, the following prefixes are already included:
+
+    - The standard library
+    - site-packages (specifically wherever opentelemetry is installed)
+    - The logfire package
+
+    This function is useful if you're writing a library that uses logfire and you want to exclude your library's frames.
+    Since site-packages is already included, this is already the case by default for users of your library.
+    But this is useful when testing your library since it's not installed in site-packages.
+    """
+    global NON_USER_CODE_PREFIXES
+    path = str(Path(path).absolute())
+    NON_USER_CODE_PREFIXES += (path,)  # pyright: ignore[reportConstantRedefinition]
+
+
+add_non_user_code_prefix(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent)
+add_non_user_code_prefix(Path(inspect.__file__).parent)
+add_non_user_code_prefix(Path(logfire.__file__).parent)
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
@@ -105,14 +128,3 @@ def is_user_code(code: CodeType) -> bool:
 def warn_at_user_stacklevel(msg: str, category: type[Warning]):
     _frame, stacklevel = get_user_frame_and_stacklevel()
     warnings.warn(msg, stacklevel=stacklevel, category=category)
-
-
-def add_non_user_code_prefix(path: str | Path) -> None:
-    """Add a path to the list of prefixes that are considered non-user code.
-
-    This prevents the stack info from including frames from the given path.
-    """
-    global NON_USER_CODE_PREFIXES
-    if isinstance(path, Path):
-        path = str(path)
-    NON_USER_CODE_PREFIXES += (path,)  # pyright: ignore[reportConstantRedefinition]
