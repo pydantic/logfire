@@ -34,13 +34,7 @@ from .utils import read_toml_file
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
-
-HOME_LOGFIRE.mkdir(exist_ok=True)
-
 LOGFIRE_LOG_FILE = HOME_LOGFIRE / 'log.txt'
-file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
-file_handler.setLevel(logging.DEBUG)
-logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 __all__ = 'main', 'logfire_info'
@@ -396,6 +390,12 @@ class SplitArgs(argparse.Action):
 
 
 def _main(args: list[str] | None = None) -> None:
+    HOME_LOGFIRE.mkdir(exist_ok=True)
+
+    file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
+    file_handler.setLevel(logging.DEBUG)
+    logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
+
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
