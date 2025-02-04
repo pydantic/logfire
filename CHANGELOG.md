@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.5.1] (2025-02-04)
+
+* Prevent side effects when importing logfire by @alexmojaki in [#835](https://github.com/pydantic/logfire/pull/835)
+
 ## [v3.5.0] (2025-02-03)
 
 * Add `logfire.logfire_info()` by @samuelcolvin in [#826](https://github.com/pydantic/logfire/pull/826)
@@ -555,3 +559,4 @@ First release from new repo!
 [v3.3.0]: https://github.com/pydantic/logfire/compare/v3.2.0...v3.3.0
 [v3.4.0]: https://github.com/pydantic/logfire/compare/v3.3.0...v3.4.0
 [v3.5.0]: https://github.com/pydantic/logfire/compare/v3.4.0...v3.5.0
+[v3.5.1]: https://github.com/pydantic/logfire/compare/v3.5.0...v3.5.1
