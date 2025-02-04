@@ -106,7 +106,7 @@ class BaseTransformer(ast.NodeTransformer):
 
         return ast.fix_missing_locations(
             ast.copy_location(
-                type(node)(
+                type(node)(  # type: ignore
                     name=node.name,
                     args=node.args,
                     body=new_body,

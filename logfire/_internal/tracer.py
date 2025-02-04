@@ -137,7 +137,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     def get_span_context(self) -> SpanContext:
         return self.span.get_span_context()
 
-    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+    def set_attributes(self, attributes: Mapping[str, otel_types.AttributeValue]) -> None:
         self.span.set_attributes(attributes)
 
     def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:

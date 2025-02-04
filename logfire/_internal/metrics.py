@@ -44,20 +44,15 @@ class ProxyMeterProvider(MeterProvider):
         name: str,
         version: str | None = None,
         schema_url: str | None = None,
-        *args: Any,
-        **kwargs: Any,
+        attributes: Attributes | None = None,
     ) -> Meter:
         with self.lock:
             if name in self.suppressed_scopes:
                 provider = NoOpMeterProvider()
             else:
                 provider = self.provider
-            meter = _ProxyMeter(
-                provider.get_meter(name, version=version, schema_url=schema_url, *args, **kwargs),
-                name,
-                version,
-                schema_url,
-            )
+            inner_meter = provider.get_meter(name, version, schema_url, attributes)
+            meter = _ProxyMeter(inner_meter, name, version, schema_url)
             self.meters.add(meter)
             return meter
 
@@ -160,9 +155,12 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = '',
         description: str = '',
+        **kwargs: Any,
     ) -> Histogram:
         with self._lock:
-            proxy = _ProxyHistogram(self._meter.create_histogram(name, unit, description), name, unit, description)
+            proxy = _ProxyHistogram(
+                self._meter.create_histogram(name, unit, description, **kwargs), name, unit, description
+            )
             self._instruments.add(proxy)
             return proxy
 

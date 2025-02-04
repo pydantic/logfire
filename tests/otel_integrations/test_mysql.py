@@ -115,8 +115,8 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
         )
 
         conn = MySQLInstrumentor().uninstrument_connection(conn)  # type: ignore
-        with conn.cursor() as cursor:  # type: ignore
-            cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
+        with conn.cursor() as cursor:
+            cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
 
         assert len(exporter.exported_spans_as_dict()) == 1
 
