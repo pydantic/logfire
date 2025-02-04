@@ -392,10 +392,6 @@ class SplitArgs(argparse.Action):
 def _main(args: list[str] | None = None) -> None:
     HOME_LOGFIRE.mkdir(exist_ok=True)
 
-    file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
-    file_handler.setLevel(logging.DEBUG)
-    logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
-
     parser = argparse.ArgumentParser(
         prog='logfire',
         description='The CLI for Pydantic Logfire.',
@@ -474,8 +470,14 @@ def _main(args: list[str] | None = None) -> None:
 
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""
+    file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
+    file_handler.setLevel(logging.DEBUG)
+    logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
+
     try:
         _main(args)
     except KeyboardInterrupt:
         sys.stderr.write('User cancelled.\n')
         sys.exit(1)
+    finally:
+        file_handler.close()
