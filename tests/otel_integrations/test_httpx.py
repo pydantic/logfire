@@ -760,6 +760,40 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
     )
 
 
+async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
+    async with httpx.AsyncClient(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_request_body=True)
+        await client.get('https://example.org/')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://example.org/',
+                    'url.full': 'https://example.org/',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/',
+                },
+            }
+        ]
+    )
+
+
 def test_httpx_capture_all_and_other_flags_should_warn(exporter: TestExporter):
     with httpx.Client(transport=create_transport()) as client:
         with pytest.warns(

@@ -176,11 +176,13 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
 
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
         if not self.body_is_streaming:
-            try:
-                text = self.content.decode(self.content_type_charset)
-            except (UnicodeDecodeError, LookupError):
-                return
-            self.capture_text_as_json(attr_name=attr_name, text=text)
+            content = self.content
+            if content:
+                try:
+                    text = self.content.decode(self.content_type_charset)
+                except (UnicodeDecodeError, LookupError):
+                    return
+                self.capture_text_as_json(attr_name=attr_name, text=text)
 
     def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
         if not self.content_type_header_string == 'application/x-www-form-urlencoded':
