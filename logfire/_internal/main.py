@@ -2202,7 +2202,7 @@ class LogfireSpan(ReadableSpan):
         """
         self._added_attributes = True
         self._json_schema_properties[key] = create_json_schema(value, set())
-        key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
+        otel_value = set_user_attribute(self._otlp_attributes, key, value)
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
@@ -2341,11 +2341,10 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def set_user_attribute(
     otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any
-) -> tuple[str, otel_types.AttributeValue]:
+) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
 
-    Returns the final key and value that was added to the dictionary.
-    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
+    Returns the final value that was added to the dictionary.
     """
     otel_value: otel_types.AttributeValue
     if isinstance(value, int):
@@ -2363,7 +2362,7 @@ def set_user_attribute(
     else:
         otel_value = logfire_json_dumps(value)
     otlp_attributes[key] = otel_value
-    return key, otel_value
+    return otel_value
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
