@@ -400,7 +400,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
                     'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
             {
@@ -489,7 +489,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
                     'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
             {
@@ -738,7 +738,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
                     'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
             {

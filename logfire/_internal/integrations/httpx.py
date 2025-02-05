@@ -235,8 +235,6 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
                 return
             self.capture_text_as_json(span, attr_name=attr_name, text=text)
 
-            span.set_attribute(attr_name, text)
-
         self.on_response_read(hook)
 
     @cached_property
