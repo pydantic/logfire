@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.5.2] (2025-02-05)
+
+* Support OpenTelemetry 1.30.0 by @alexmojaki in [#839](https://github.com/pydantic/logfire/pull/839)
+
 ## [v3.5.1] (2025-02-04)
 
 * Prevent side effects when importing logfire by @alexmojaki in [#835](https://github.com/pydantic/logfire/pull/835)
@@ -560,3 +564,4 @@ First release from new repo!
 [v3.4.0]: https://github.com/pydantic/logfire/compare/v3.3.0...v3.4.0
 [v3.5.0]: https://github.com/pydantic/logfire/compare/v3.4.0...v3.5.0
 [v3.5.1]: https://github.com/pydantic/logfire/compare/v3.5.0...v3.5.1
+[v3.5.2]: https://github.com/pydantic/logfire/compare/v3.5.1...v3.5.2
