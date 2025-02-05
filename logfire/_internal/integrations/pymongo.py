@@ -8,7 +8,7 @@ from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandS
 try:
     from opentelemetry.instrumentation.pymongo import (
         PymongoInstrumentor,
-        dummy_callback,  # type: ignore[reportUnknownVariableType]
+        dummy_callback,
     )
 except ImportError:
     raise RuntimeError(
