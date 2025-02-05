@@ -80,6 +80,15 @@ def instrument_httpx(
     should_capture_request_body = capture_request_body or capture_all
     should_capture_response_body = capture_response_body or capture_all
 
+    del (  # Make sure these aren't used accidentally
+        capture_all,
+        capture_headers,
+        capture_request_body,
+        capture_response_body,
+        capture_request_headers,
+        capture_response_headers,
+    )
+
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
         'meter_provider': logfire_instance.config.get_meter_provider(),
@@ -94,7 +103,7 @@ def instrument_httpx(
         request_hook = cast('RequestHook | None', request_hook)
         response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook, should_capture_request_headers, capture_request_body
+            request_hook, should_capture_request_headers, should_capture_request_body
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
