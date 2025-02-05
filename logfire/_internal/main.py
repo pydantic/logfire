@@ -2202,7 +2202,7 @@ class LogfireSpan(ReadableSpan):
         """
         self._added_attributes = True
         self._json_schema_properties[key] = create_json_schema(value, set())
-        otel_value = set_user_attribute(self._otlp_attributes, key, value)
+        otel_value = self._otlp_attributes[key] = prepare_otlp_attribute(value)
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
@@ -2331,22 +2331,11 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
     """
-    otlp_attributes: dict[str, otel_types.AttributeValue] = {}
-
-    for key, value in attributes.items():
-        set_user_attribute(otlp_attributes, key, value)
-
-    return otlp_attributes
+    return {key: prepare_otlp_attribute(value) for key, value in attributes.items()}
 
 
-def set_user_attribute(
-    otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any
-) -> otel_types.AttributeValue:
-    """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
-
-    Returns the final value that was added to the dictionary.
-    """
-    otel_value: otel_types.AttributeValue
+def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
+    """Convert a user attribute to an OpenTelemetry compatible type."""
     if isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
@@ -2354,15 +2343,13 @@ def set_user_attribute(
                 ' if you need support for sending larger integers, please open a feature request',
                 UserWarning,
             )
-            otel_value = str(value)
+            return str(value)
         else:
-            otel_value = value
+            return value
     elif isinstance(value, (str, bool, float)):
-        otel_value = value
+        return value
     else:
-        otel_value = logfire_json_dumps(value)
-    otlp_attributes[key] = otel_value
-    return otel_value
+        return logfire_json_dumps(value)
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
