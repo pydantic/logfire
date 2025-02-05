@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.5.3] (2025-02-05)
+
+* Fixes for capturing httpx bodies by @alexmojaki in [#842](https://github.com/pydantic/logfire/pull/842)
+
 ## [v3.5.2] (2025-02-05)
 
 * Support OpenTelemetry 1.30.0 by @alexmojaki in [#839](https://github.com/pydantic/logfire/pull/839)
@@ -565,3 +569,4 @@ First release from new repo!
 [v3.5.0]: https://github.com/pydantic/logfire/compare/v3.4.0...v3.5.0
 [v3.5.1]: https://github.com/pydantic/logfire/compare/v3.5.0...v3.5.1
 [v3.5.2]: https://github.com/pydantic/logfire/compare/v3.5.1...v3.5.2
+[v3.5.3]: https://github.com/pydantic/logfire/compare/v3.5.2...v3.5.3
