@@ -17,7 +17,6 @@ from typing import (
     Sequence,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -45,7 +44,6 @@ from .constants import (
     ATTRIBUTES_TAGS_KEY,
     DISABLE_CONSOLE_KEY,
     LEVEL_NUMBERS,
-    NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
     log_level_attributes,
@@ -2350,10 +2348,7 @@ def set_user_attribute(
     The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
     """
     otel_value: otel_types.AttributeValue
-    if value is None:
-        otel_value = cast('list[str]', otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
-        key = NULL_ARGS_KEY
-    elif isinstance(value, int):
+    if isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
                 f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '

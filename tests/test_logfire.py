@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.metrics import get_meter
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -32,7 +32,6 @@ from logfire._internal.constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
-    NULL_ARGS_KEY,
     LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
@@ -541,40 +540,30 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
 def test_log(exporter: TestExporter, level: LevelName):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
-    s = exporter.exported_spans[0]
-
-    assert s.attributes is not None
-    assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name} {number} {none}'
-    assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 None'
-    assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
-    assert s.attributes['name'] == 'foo'
-    assert s.attributes['number'] == 2
-    assert s.attributes[NULL_ARGS_KEY] == ('none',)
-    assert ATTRIBUTES_TAGS_KEY not in s.attributes
-
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name} {number} {none}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': LEVEL_NUMBERS[level],
-                'logfire.msg_template': 'test {name} {number} {none}',
-                'logfire.msg': 'test foo 2 None',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_log',
-                'name': 'foo',
-                'number': 2,
-                'logfire.null_args': ('none',),
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"none":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name} {number} {none}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': Is(LEVEL_NUMBERS[level]),
+                    'logfire.msg_template': 'test {name} {number} {none}',
+                    'logfire.msg': 'test foo 2 None',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_log',
+                    'name': 'foo',
+                    'number': 2,
+                    'none': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"none":{"type":"null"}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_log_equals(exporter: TestExporter) -> None:
@@ -1612,8 +1601,9 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
                     'logfire.msg': 'hi',
                     'logfire.span_type': 'span',
                     'c': '{"d":2}',
-                    'logfire.null_args': ('e', 'f'),
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{},"f":{}}}',
+                    'e': 'null',
+                    'f': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{"type":"null"},"f":{"type":"null"}}}',
                 },
             }
         ]
