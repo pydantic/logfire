@@ -51,7 +51,7 @@ class ProxyMeterProvider(MeterProvider):
                 provider = NoOpMeterProvider()
             else:
                 provider = self.provider
-            inner_meter = provider.get_meter(name, version, schema_url, attributes)
+            inner_meter = provider.get_meter(name, version, schema_url, *[attributes] if attributes is not None else [])
             meter = _ProxyMeter(inner_meter, name, version, schema_url)
             self.meters.add(meter)
             return meter
