@@ -80,6 +80,15 @@ def instrument_httpx(
     should_capture_request_body = capture_request_body or capture_all
     should_capture_response_body = capture_response_body or capture_all
 
+    del (  # Make sure these aren't used accidentally
+        capture_all,
+        capture_headers,
+        capture_request_body,
+        capture_response_body,
+        capture_request_headers,
+        capture_response_headers,
+    )
+
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
         'meter_provider': logfire_instance.config.get_meter_provider(),
@@ -94,7 +103,7 @@ def instrument_httpx(
         request_hook = cast('RequestHook | None', request_hook)
         response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook, should_capture_request_headers, capture_request_body
+            request_hook, should_capture_request_headers, should_capture_request_body
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
@@ -167,11 +176,13 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
 
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
         if not self.body_is_streaming:
-            try:
-                text = self.content.decode(self.content_type_charset)
-            except (UnicodeDecodeError, LookupError):
-                return
-            self.capture_text_as_json(attr_name=attr_name, text=text)
+            content = self.content
+            if content:
+                try:
+                    text = self.content.decode(self.content_type_charset)
+                except (UnicodeDecodeError, LookupError):
+                    return
+                self.capture_text_as_json(attr_name=attr_name, text=text)
 
     def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
         if not self.content_type_header_string == 'application/x-www-form-urlencoded':
@@ -234,8 +245,6 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             except (UnicodeDecodeError, LookupError):
                 return
             self.capture_text_as_json(span, attr_name=attr_name, text=text)
-
-            span.set_attribute(attr_name, text)
 
         self.on_response_read(hook)
 
