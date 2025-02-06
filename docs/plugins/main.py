@@ -92,7 +92,6 @@ def install_logfire(markdown: str, page: Page) -> str:
         # Split them and strip quotes for each one separately.
         extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
         package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
-        extras_arg = ' '.join(f'-E {extra}' for extra in extras)
         instructions = [
             '=== "pip"',
             '    ```bash',
@@ -101,10 +100,6 @@ def install_logfire(markdown: str, page: Page) -> str:
             '=== "uv"',
             '    ```bash',
             f'    uv add {package}',
-            '    ```',
-            '=== "rye"',
-            '    ```bash',
-            f'    rye add logfire {extras_arg}',
             '    ```',
             '=== "poetry"',
             '    ```bash',
