@@ -1,20 +1,33 @@
 from __future__ import annotations as _annotations
 
 import os
-from typing import Any, cast
+from typing import cast
 
 from algoliasearch.search_client import SearchClient
 from bs4 import BeautifulSoup
 from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
+from typing_extensions import TypedDict
 
-records: list[dict[str, Any]] = []
-ALGOLIA_INDEX_NAME = 'logfire-docs'
+
+class AlgoliaRecord(TypedDict):
+    content: str
+    pageID: str
+    abs_url: str
+    title: str
+    objectID: str
+    rank: int
+
+
+records: list[AlgoliaRecord] = []
+ALGOLIA_INDEX_NAME = 'alt-logfire-docs'
 ALGOLIA_APP_ID = 'KPPUDTIAVX'
 ALGOLIA_WRITE_API_KEY = os.environ.get('ALGOLIA_WRITE_API_KEY')
 # Algolia accepts 100k, leaaving some room for other fields
 MAX_CONTENT_SIZE = 90_000
+
+HEADING_TAG_NAMES = ['h1', 'h2', 'h3']
 
 
 def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
@@ -25,6 +38,13 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
     title = cast(str, page.title)  # type: ignore[reportUnknownMemberType]
 
     soup = BeautifulSoup(html, 'html.parser')
+
+    # If the page does not start with a heading, add the h1 with the title
+    # Some examples don't have a heading. or start with h2
+    first_element = soup.find()
+
+    if not first_element or not first_element.name or first_element.name not in ['h1', 'h2', 'h3']:
+        soup.insert(0, BeautifulSoup(f'<h1 id="{title}">{title}</h1>', 'html.parser'))
 
     # Clean up presentational and UI elements
     for element in soup.find_all(['autoref']):
@@ -50,8 +70,10 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
     for extra in soup.find_all('table', attrs={'class': 'highlighttable'}):
         extra.replace_with(BeautifulSoup(f'<pre>{extra.find("code").get_text()}</pre>', 'html.parser'))
 
-    # Find all h1 and h2 headings
-    headings = soup.find_all(['h1', 'h2'])
+    headings = soup.find_all(HEADING_TAG_NAMES)
+
+    # Use the rank to put the sections in the beginning higher in the search results
+    rank = 100
 
     # Process each section
     for i in range(len(headings)):
@@ -62,25 +84,38 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
         # Get content until next heading
         content: list[str] = []
         sibling = current_heading.find_next_sibling()
-        while sibling and sibling.name not in ['h1', 'h2']:
+        while sibling and sibling.name not in HEADING_TAG_NAMES:
             content.append(str(sibling))
             sibling = sibling.find_next_sibling()
 
-        section_html = ''.join(content)
+        section_soup = BeautifulSoup(''.join(content), 'html.parser')
+        section_plain_text = section_soup.get_text(' ', strip=True)
 
         # Create anchor URL
-        anchor_url = f'{page.abs_url}#{heading_id}' if heading_id else page.abs_url
+        anchor_url = f'{page.abs_url}#{heading_id}' if heading_id else page.abs_url or ''
+
+        record_title = title
+
+        if current_heading.name == 'h2':
+            record_title = f'{title} - {section_title}'
+        elif current_heading.name == 'h3':
+            previous_heading = current_heading.find_previous(['h1', 'h2'])
+            parent_title = previous_heading.get_text().replace('¶', '').strip()
+            record_title = f'{title} - {parent_title} - {section_title}'
 
         # Create record for this section
         records.append(
-            {
-                'content': section_html,
-                'pageID': title,
-                'abs_url': anchor_url,
-                'title': f'{title} - {section_title}',
-                'objectID': anchor_url,
-            }
+            AlgoliaRecord(
+                content=section_plain_text,
+                pageID=title,
+                abs_url=anchor_url,
+                title=record_title,
+                objectID=anchor_url,
+                rank=rank,
+            )
         )
+
+        rank -= 5
 
     return html
 
@@ -92,6 +127,15 @@ def on_post_build(config: Config) -> None:
     client = SearchClient.create(ALGOLIA_APP_ID, ALGOLIA_WRITE_API_KEY)
     index = client.init_index(ALGOLIA_INDEX_NAME)
 
+    index.set_settings(  # type: ignore[reportUnknownMemberType]
+        settings={
+            'searchableAttributes': ['title', 'content'],
+            'attributesToSnippet': ['content:40'],
+            'customRanking': [
+                'desc(rank)',
+            ],
+        }
+    )
     for large_record in list(filter(lambda record: len(record['content']) >= MAX_CONTENT_SIZE, records)):
         print(f'Content for {large_record["abs_url"]} is too large to be indexed. Skipping...')
         print(f'Content : {large_record["content"]} characters')
