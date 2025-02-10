@@ -1,12 +1,14 @@
-# Pydantic Logfire
+# Getting Started
+
+## About Logfire
 
 From the team behind **Pydantic**, **Logfire** is a new type of observability platform built on
 the same belief as our open source library — that the most powerful tools can be easy to use.
 
-**Logfire** is built on OpenTelemetry, and supports monitoring your application from any language,
+**Logfire** is built on OpenTelemetry, and supports monitoring your application from **any language**,
 with particularly great support for Python! [Read more](why.md).
 
-## Getting Started
+## Overview
 
 This page is a quick walk-through for setting up a Python app:
 

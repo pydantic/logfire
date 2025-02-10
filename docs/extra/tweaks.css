@@ -79,3 +79,25 @@ li.md-nav__item>a[href^="#logfire.configure("] {
 .md-search__output em {
   color: var(--md-primary-fg-color);
 }
+
+.md-search__input::-webkit-search-decoration,
+.md-search__input::-webkit-search-cancel-button,
+.md-search__input::-webkit-search-results-button,
+.md-search__input::-webkit-search-results-decoration {
+  -webkit-appearance:none;
+}
+
+.md-search-result__article {
+  padding-bottom: .55em;
+}
+
+.ais-SearchBox-form {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.md-search-result mark.ais-Highlight-highlighted,
+.md-search-result mark.ais-Snippet-highlighted {
+  color: var(--md-primary-fg-color);
+}
