@@ -67,10 +67,11 @@ extra_javascript:
   - "javascripts/algolia-search.js"
 
 nav:
-  - Logfire:
+  - Getting Started:
       - Logfire: index.md
       - Why Logfire?: why.md
       - Concepts: concepts.md
+      - Join Slack: help.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -151,7 +152,6 @@ nav:
           - Propagate: reference/api/propagate.md
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
-  - Help: help.md
   - Roadmap: roadmap.md
   - Release Notes: release-notes.md
 
