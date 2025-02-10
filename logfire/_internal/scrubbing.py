@@ -24,7 +24,6 @@ from .constants import (
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
-    NULL_ARGS_KEY,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
 )
 from .stack_info import STACK_INFO_KEYS
@@ -112,7 +111,6 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SAMPLE_RATE_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
-        NULL_ARGS_KEY,
         RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
         *STACK_INFO_KEYS,
         SpanAttributes.EXCEPTION_STACKTRACE,  # See scrub_event_attributes
