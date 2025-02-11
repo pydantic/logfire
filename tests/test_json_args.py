@@ -1315,3 +1315,38 @@ def test_numpy_array_truncation(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_bad_getattr(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    class A:
+        def __getattr__(self, item: str):
+            raise RuntimeError
+
+        def __repr__(self):
+            return 'A()'
+
+    logfire.info('hello', a=A())
+
+    assert not caplog.messages
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_bad_getattr',
+                    'code.lineno': 123,
+                    'a': '"A()"',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
