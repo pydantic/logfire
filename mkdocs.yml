@@ -223,6 +223,8 @@ plugins:
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
+        # This is the source of truth for the slack join link!
+        "join-slack.md": "https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2war8jrjq-w_nWG6ZX7Zm~gnzY7cXSog"
         "guides/first_steps/index.md": "index.md"
         "guides/onboarding_checklist/index.md": "guides/onboarding-checklist/index.md"
         "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
