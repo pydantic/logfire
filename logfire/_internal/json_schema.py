@@ -105,7 +105,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         The JSON Schema.
     """
     if obj is None:
-        return {}
+        return {'type': 'null'}
 
     try:
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
@@ -219,7 +219,7 @@ def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
 
 # Schemas for values that are already JSON serializable, i.e. that don't need to be included
 # (except at the top level) because the frontend can just render them as plain JSON.
-PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'})
+PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'}, {'type': 'null'})
 
 
 def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:

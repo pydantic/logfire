@@ -183,10 +183,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return []
 
         file_location_raw = span.attributes.get('code.filepath')
-        file_location = None if file_location_raw is None else str(file_location_raw)
+        file_location = None if file_location_raw in (None, 'null') else str(file_location_raw)
         if file_location:
             lineno = span.attributes.get('code.lineno')
-            if lineno:  # pragma: no branch
+            if lineno not in (None, 'null'):
                 file_location += f':{lineno}'
 
         log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
