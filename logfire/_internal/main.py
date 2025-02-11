@@ -1437,7 +1437,7 @@ class Logfire:
         capture_headers: bool = False,
         enable_commenter: bool = True,
         commenter_options: FlaskCommenterOptions | None = None,
-        exclude_urls: str | None = None,
+        excluded_urls: str | None = None,
         request_hook: FlaskRequestHook | None = None,
         response_hook: FlaskResponseHook | None = None,
         **kwargs: Any,
@@ -1454,7 +1454,7 @@ class Logfire:
             enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
                 See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
-            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
@@ -1467,7 +1467,7 @@ class Logfire:
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
             commenter_options=commenter_options,
-            exclude_urls=exclude_urls,
+            excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
             **{
