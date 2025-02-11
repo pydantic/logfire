@@ -9,11 +9,11 @@ If you need help getting started with **Pydantic Logfire** or with advanced usag
 
 ## :simple-slack: Slack
 
-The [Pydantic Logfire Slack][join-slack/] is a great place to ask questions, and get help and chat about Logfire.
+The [Pydantic Logfire Slack](join-slack/index.html) is a great place to ask questions, and get help and chat about Logfire.
 
 ## :simple-github: GitHub Issues
 
-The [Logfire GitHub Issues][https://github.com/pydantic/logfire/issues] are a great place to ask questions, and give us feedback.
+The [Logfire GitHub Issues](https://github.com/pydantic/logfire/issues) are a great place to ask questions, and give us feedback.
 
 ## :material-help: Documentation
 
