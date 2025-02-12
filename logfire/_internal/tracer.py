@@ -356,11 +356,14 @@ def record_exception(
     escaped: bool = False,
 ) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+    if is_starlette_http_exception_400(exception):
+        span.set_attributes(log_level_attributes('warn'))
+
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
-    if escaped:
+    elif escaped:
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
@@ -392,3 +395,12 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
             description=f'{exception.__class__.__name__}: {exception}',
         )
     )
+
+
+def is_starlette_http_exception_400(exception: BaseException) -> bool:
+    if 'starlette.exceptions' not in sys.modules:  # pragma: no cover
+        return False
+
+    from starlette.exceptions import HTTPException
+
+    return isinstance(exception, HTTPException) and 400 <= exception.status_code < 500

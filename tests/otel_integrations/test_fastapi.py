@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 from dirty_equals import IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
 from fastapi.security import SecurityScopes
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +23,7 @@ import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
+from logfire._internal.constants import LEVEL_NUMBERS
 from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire.testing import TestExporter
 
@@ -74,6 +75,10 @@ async def echo_body(request: Request):
     return await request.body()
 
 
+async def bad_request_error():
+    raise HTTPException(400)
+
+
 async def websocket_endpoint(websocket: WebSocket, name: str):
     logfire.info('websocket_endpoint: {name}', name=name)
     await websocket.accept()
@@ -97,6 +102,7 @@ def app():
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
+    app.get('/bad_request_error')(bad_request_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.websocket('/ws/{name}')(websocket_endpoint)
@@ -190,6 +196,14 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_400(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/bad_request_error')
+    assert response.status_code == 400
+
+    [span] = [span for span in exporter.exported_spans if span.events]
+    assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
 
 
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
