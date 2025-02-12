@@ -1,5 +1,14 @@
 # Getting Started
 
+<p style="text-align: center;">
+  <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
+  <a href="https://codecov.io/gh/pydantic/logfire"><img src="https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD" alt="codecov" /></a>
+  <a href="https://pypi.python.org/pypi/logfire"><img src="https://img.shields.io/pypi/v/logfire.svg" alt="pypi" /></a>
+  <a href="https://github.com/pydantic/logfire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pydantic/logfire.svg" alt="license" /></a>
+  <a href="https://github.com/pydantic/logfire"><img src="https://img.shields.io/pypi/pyversions/logfire.svg" alt="versions" /></a>
+  <a href="join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
+</p>
+
 ## About Logfire
 
 From the team behind **Pydantic**, **Logfire** is a new type of observability platform built on

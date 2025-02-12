@@ -7,7 +7,7 @@ repo_name: pydantic/logfire
 repo_url: https://github.com/pydantic/logfire
 edit_uri: edit/main/docs/
 
-copyright: © Pydantic Services Inc. 2024
+copyright: © Pydantic Services Inc. 2024 to present
 extra:
   # hide the "Made with Material for MkDocs" message
   generator: false
@@ -71,7 +71,7 @@ nav:
       - Logfire: index.md
       - Why Logfire?: why.md
       - Concepts: concepts.md
-      - Join Slack: help.md
+      - Get Help: help.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
