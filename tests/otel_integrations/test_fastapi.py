@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 from dirty_equals import IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
 from fastapi.security import SecurityScopes
 from fastapi.staticfiles import StaticFiles
@@ -74,6 +74,10 @@ async def echo_body(request: Request):
     return await request.body()
 
 
+async def bad_request_error():
+    raise HTTPException(400)
+
+
 async def websocket_endpoint(websocket: WebSocket, name: str):
     logfire.info('websocket_endpoint: {name}', name=name)
     await websocket.accept()
@@ -97,6 +101,7 @@ def app():
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
+    app.get('/bad_request_error')(bad_request_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.websocket('/ws/{name}')(websocket_endpoint)
@@ -186,6 +191,129 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'client.port': 50000,
                     'http.status_code': 404,
                     'http.response.status_code': 404,
+                },
+            },
+        ]
+    )
+
+
+def test_400(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/bad_request_error')
+    assert response.status_code == 400
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'logfire.span_type': 'span',
+                    'http.method': 'GET',
+                    'http.route': '/bad_request_error',
+                    'fastapi.route.name': 'bad_request_error',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.level_num': 5,
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                },
+            },
+            {
+                'name': '{method} {http.route} ({code.function})',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'method': 'GET',
+                    'http.route': '/bad_request_error',
+                    'code.filepath': 'test_fastapi.py',
+                    'code.function': 'bad_request_error',
+                    'code.lineno': 123,
+                    'logfire.msg_template': '{method} {http.route} ({code.function})',
+                    'logfire.msg': 'GET /bad_request_error (bad_request_error)',
+                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 13,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 5000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '400: Bad Request',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 400: Bad Request',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /bad_request_error http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_request_error http send response.start',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.start',
+                    'http.status_code': 400,
+                    'http.response.status_code': 400,
+                },
+            },
+            {
+                'name': 'GET /bad_request_error http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_request_error http send response.body',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.body',
+                },
+            },
+            {
+                'name': 'GET /bad_request_error',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_request_error',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'client.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/bad_request_error',
+                    'url.path': '/bad_request_error',
+                    'http.url': 'http://testserver/bad_request_error',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/bad_request_error',
+                    'fastapi.route.name': 'bad_request_error',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'http.status_code': 400,
+                    'http.response.status_code': 400,
                 },
             },
         ]
