@@ -278,7 +278,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test span (pending)',
+                'name': 'test span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -340,7 +340,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test parent span (pending)',
+                'name': 'test parent span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -358,7 +358,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'test child span (pending)',
+                'name': 'test child span',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -430,7 +430,7 @@ def test_span_with_tags(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test span (pending)',
+                'name': 'test span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -494,7 +494,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {name=} {number} (pending)',
+                'name': 'test {name=} {number}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -669,7 +669,7 @@ def test_instrument(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
-                'name': 'hello-world {a=} (pending)',
+                'name': 'hello-world {a=}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1348,7 +1348,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter, config_kwargs: dict
     assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 5000000000,
@@ -1364,7 +1364,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 6000000000,
@@ -1467,7 +1467,7 @@ def test_span_in_executor(
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'main (pending)',
+                'name': 'main',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1483,7 +1483,7 @@ def test_span_in_executor(
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -1540,7 +1540,7 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'child {within} (pending)',
+                'name': 'child {within}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1625,7 +1625,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': '{present} {missing} (pending)',
+                'name': '{present} {missing}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1727,7 +1727,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': '{http.status} - {code.lineno} (pending)',
+                'name': '{http.status} - {code.lineno}',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 2000000000,
@@ -1809,7 +1809,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1854,7 +1854,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1898,7 +1898,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'start_time': 5000000000,
@@ -2140,7 +2140,7 @@ def test_span_level(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -2186,7 +2186,7 @@ def test_span_set_level_before_start(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -2263,7 +2263,7 @@ def test_span_links(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'start_time': 5000000000,
@@ -3089,7 +3089,7 @@ def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricR
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 3000000000,
