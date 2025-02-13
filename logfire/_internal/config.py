@@ -19,12 +19,14 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import trace
+from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
 from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
+from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -82,6 +84,7 @@ from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .integrations.executors import instrument_executors
+from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel
@@ -158,6 +161,8 @@ class AdvancedOptions:
 
     ns_timestamp_generator: Callable[[], int] = time.time_ns
     """Generator for nanosecond start and end timestamps of spans."""
+
+    log_record_processors: Sequence[LogRecordProcessor] = ()
 
 
 @dataclass
@@ -657,6 +662,7 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
+        self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -966,10 +972,21 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
+            logger_provider = SDKLoggerProvider()
+            for processor in self.advanced.log_record_processors:
+                logger_provider.add_log_record_processor(processor)
+
+            try:
+                self._logger_provider.shutdown(timeout_millis=200)
+            except Exception:  # pragma: no cover
+                pass
+            self._logger_provider.set_provider(logger_provider)
+
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
+                set_logger_provider(self._logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1029,6 +1046,7 @@ class LogfireConfig(_LogfireConfigData):
             Whether the flush of spans was successful.
         """
         self._meter_provider.force_flush(timeout_millis)
+        self._logger_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
@@ -1050,6 +1068,16 @@ class LogfireConfig(_LogfireConfigData):
             The meter provider.
         """
         return self._meter_provider
+
+    def get_logger_provider(self) -> ProxyLoggerProvider:
+        """Get a logger provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The logger provider.
+        """
+        return self._logger_provider
 
     def warn_if_not_initialized(self, message: str):
         if not self._initialized and not self.ignore_no_config:
@@ -1117,6 +1145,7 @@ class LogfireConfig(_LogfireConfigData):
     def suppress_scopes(self, *scopes: str) -> None:
         self._tracer_provider.suppress_scopes(*scopes)
         self._meter_provider.suppress_scopes(*scopes)
+        self._logger_provider.suppress_scopes(*scopes)
 
 
 # The global config is the single global object in logfire
