@@ -852,3 +852,23 @@ def test_console_exporter_hidden_debug_span(capsys: pytest.CaptureFixture[str], 
             '00:00:05.000   4',
         ]
     )
+
+    
+def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            'hi [my_tag]',
+        ]
+    )
