@@ -976,7 +976,7 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
-            logger_provider = SDKLoggerProvider()
+            logger_provider = SDKLoggerProvider(resource)
             for processor in self.advanced.log_record_processors:
                 logger_provider.add_log_record_processor(processor)
 
