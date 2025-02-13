@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import atexit
+import contextlib
 import dataclasses
 import functools
 import json
@@ -19,6 +20,7 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import trace
+from opentelemetry._events import EventLoggerProvider, set_event_logger_provider
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
 from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
@@ -26,6 +28,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
+from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
@@ -663,6 +666,7 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -976,10 +980,10 @@ class LogfireConfig(_LogfireConfigData):
             for processor in self.advanced.log_record_processors:
                 logger_provider.add_log_record_processor(processor)
 
-            try:
-                self._logger_provider.shutdown(timeout_millis=200)
-            except Exception:  # pragma: no cover
-                pass
+            with contextlib.suppress(Exception):
+                self._event_logger_provider.shutdown()
+            with contextlib.suppress(Exception):
+                self._logger_provider.shutdown()
             self._logger_provider.set_provider(logger_provider)
 
             if self is GLOBAL_CONFIG and not self._has_set_providers:
@@ -987,6 +991,7 @@ class LogfireConfig(_LogfireConfigData):
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
+                set_event_logger_provider(self._event_logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1047,6 +1052,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        self._event_logger_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
@@ -1078,6 +1084,16 @@ class LogfireConfig(_LogfireConfigData):
             The logger provider.
         """
         return self._logger_provider
+
+    def get_event_logger_provider(self) -> EventLoggerProvider:
+        """Get an event logger provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The event logger provider.
+        """
+        return self._event_logger_provider
 
     def warn_if_not_initialized(self, message: str):
         if not self._initialized and not self.ignore_no_config:
