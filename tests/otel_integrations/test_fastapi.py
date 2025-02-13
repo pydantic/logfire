@@ -216,7 +216,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     span_dicts = exporter.exported_spans_as_dict(_include_pending_spans=True)
 
     # Highlights of the below mega-assert:
-    assert span_dicts[0]['name'] == 'GET /with_path_param/{param} (pending)'
+    assert span_dicts[0]['name'] == 'GET /with_path_param/{param}'
     assert span_dicts[0]['attributes']['logfire.msg'] == 'GET /with_path_param/param_val'
     assert span_dicts[-1]['name'] == 'GET /with_path_param/{param}'
     assert span_dicts[-1]['attributes']['logfire.msg'] == 'GET /with_path_param/param_val'
@@ -226,7 +226,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     assert span_dicts == snapshot(
         [
             {
-                'name': 'GET /with_path_param/{param} (pending)',
+                'name': 'GET /with_path_param/{param}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -258,7 +258,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'FastAPI arguments (pending)',
+                'name': 'FastAPI arguments',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -289,7 +289,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': '{method} {http.route} ({code.function}) (pending)',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 4000000000,
@@ -328,7 +328,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'GET /with_path_param/{param} http send (pending)',
+                'name': 'GET /with_path_param/{param} http send',
                 'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 6000000000,
@@ -356,7 +356,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'GET /with_path_param/{param} http send (pending)',
+                'name': 'GET /with_path_param/{param} http send',
                 'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'start_time': 8000000000,
@@ -433,7 +433,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'outside request handler (pending)',
+                'name': 'outside request handler',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -449,7 +449,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': 'GET / (pending)',
+                'name': 'GET /',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -481,7 +481,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': 'FastAPI arguments (pending)',
+                'name': 'FastAPI arguments',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 3000000000,
@@ -512,7 +512,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': '{method} {http.route} ({code.function}) (pending)',
+                'name': '{method} {http.route} ({code.function})',
                 'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 5000000000,
@@ -567,7 +567,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': 'GET / http send (pending)',
+                'name': 'GET / http send',
                 'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
                 'start_time': 8000000000,
@@ -595,7 +595,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                 },
             },
             {
-                'name': 'GET / http send (pending)',
+                'name': 'GET / http send',
                 'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 12, 'is_remote': False},
                 'start_time': 10000000000,

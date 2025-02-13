@@ -80,7 +80,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -96,7 +96,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -192,7 +192,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 8, 'is_remote': False},
                 'start_time': 8000000000,
@@ -209,7 +209,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 10, 'is_remote': False},
                 'start_time': 9000000000,
@@ -308,7 +308,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 3, 'span_id': 16, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 15, 'is_remote': False},
                 'start_time': 15000000000,
@@ -325,7 +325,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 3, 'span_id': 18, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 17, 'is_remote': False},
                 'start_time': 16000000000,
