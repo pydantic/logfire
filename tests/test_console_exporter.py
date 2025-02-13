@@ -837,20 +837,18 @@ def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[st
 def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> None:
     logfire.configure(
         send_to_logfire=False,
-        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False, verbose=True),
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
     )
-    logfire.info('hi', _tags=['my_tag'], **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    logfire.info('hi', _tags=['my_tag'])
 
     logfire.configure(
         send_to_logfire=False,
-        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True, verbose=True),
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True),
     )
-    logfire.info('hi', _tags=['my_tag'], **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    logfire.info('hi', _tags=['my_tag'])
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             'hi',
-            '│ info',
             'hi [my_tag]',
-            '│ info',
         ]
     )
