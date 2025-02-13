@@ -15,7 +15,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
     This simple version does not indent spans based on their parent(s), instead spans are printed as a
     flat list.
     """
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
     def force_flush(self, timeout_millis: int = 0) -> bool:
@@ -27,7 +27,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
     Spans are intended based simply on how many parents they have. This will work well when spans don't overlap,
     but will be hard to understand when multiple spans are in progress at the same time.
     """
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
 
 class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
     '''The ConsoleSpanExporter exports spans to the console, indented with parents displayed where necessary.
@@ -36,4 +36,4 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
     the previously displayed span is not the parent or sibling of a span, parents are printed (with "dim" color)
     so it\'s easy (or as easy as possible in a terminal) to understand how nested spans are related.
     '''
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
