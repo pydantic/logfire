@@ -832,3 +832,25 @@ def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[st
             '│ info',
         ]
     )
+
+
+def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False, verbose=True),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True, verbose=True),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '│ test_console_exporter.py:842 info',
+            'hi [my_tag]',
+            '│ test_console_exporter.py:848 info',
+        ]
+    )

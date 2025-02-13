@@ -497,6 +497,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         project_name = "test"
         console_colors = "never"
         console_include_timestamp = false
+        console_include_tags = false
         data_dir = "{tmp_path}"
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
@@ -512,6 +513,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
+    assert GLOBAL_CONFIG.console.include_tags is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
     assert fresh_pydantic_plugin().record == 'metrics'
     assert fresh_pydantic_plugin().include == {'test1', 'test2'}

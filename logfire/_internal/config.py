@@ -129,6 +129,8 @@ class ConsoleOptions:
     """How spans are shown in the console."""
     include_timestamps: bool = True
     """Whether to include timestamps in the console output."""
+    include_tags: bool = True
+    """Whether to include tags in the console output."""
     verbose: bool = False
     """Whether to show verbose output.
 
@@ -272,7 +274,7 @@ def configure(  # noqa: D417
             Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
 
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
-            otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, verbose=False)`.
+            otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
 
         config_dir: Directory that contains the `pyproject.toml` file for this project. If `None` uses the
@@ -558,6 +560,7 @@ class _LogfireConfigData:
                 colors=param_manager.load_param('console_colors'),
                 span_style=param_manager.load_param('console_span_style'),
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
+                include_tags=param_manager.load_param('console_include_tags'),
                 verbose=param_manager.load_param('console_verbose'),
                 min_log_level=param_manager.load_param('console_min_log_level'),
                 show_project_link=param_manager.load_param('console_show_project_link'),
@@ -816,6 +819,7 @@ class LogfireConfig(_LogfireConfigData):
                         exporter_cls(
                             colors=self.console.colors,
                             include_timestamp=self.console.include_timestamps,
+                            include_tags=self.console.include_tags,
                             verbose=self.console.verbose,
                             min_log_level=self.console.min_log_level,
                         ),
