@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from dirty_equals import IsStr
+from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._events import Event, get_event_logger, get_event_logger_provider
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
@@ -57,7 +57,9 @@ def test_get_logger_provider() -> None:
     assert logger_provider is config.get_logger_provider()
     assert event_logger_provider is config.get_event_logger_provider()
     assert event_logger_provider._logger_provider is logger_provider  # type: ignore
-    assert isinstance(logger_provider.resource, Resource)  # type: ignore
+    resource = logger_provider.resource  # type: ignore
+    assert isinstance(resource, Resource)
+    assert get_logger('scope').resource is resource  # type: ignore
 
 
 def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
@@ -88,10 +90,16 @@ def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str,
             'trace_flags': 1,
             'resource': {
                 'attributes': {
+                    'service.instance.id': IsStr(),
                     'telemetry.sdk.language': 'python',
                     'telemetry.sdk.name': 'opentelemetry',
                     'telemetry.sdk.version': IsStr(),
                     'service.name': 'unknown_service',
+                    'process.pid': IsInt(),
+                    'process.runtime.name': 'cpython',
+                    'process.runtime.version': IsStr(),
+                    'process.runtime.description': IsStr(),
+                    'service.version': IsStr(),
                 },
                 'schema_url': '',
             },

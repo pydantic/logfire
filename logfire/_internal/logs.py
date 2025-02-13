@@ -74,3 +74,6 @@ class ProxyLogger(Logger):
 
     def set_logger(self, provider: LoggerProvider) -> None:
         self.logger = provider.get_logger(self.name, self.version, self.schema_url, self.attributes)
+
+    def __getattr__(self, item: str):
+        return getattr(self.logger, item)
