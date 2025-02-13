@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
+from typing import Any
+
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs.export import InMemoryLogExporter
+from opentelemetry.sdk.resources import Resource
 
 import logfire
 
 
-def test_otel_logs(logs_exporter: InMemoryLogExporter) -> None:
+def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
     record = LogRecord(
         timestamp=1,
         observed_timestamp=2,
@@ -21,6 +24,7 @@ def test_otel_logs(logs_exporter: InMemoryLogExporter) -> None:
     logger1 = get_logger('scope1')
     logger2 = get_logger('scope2')
     logger3 = get_logger('scope3')
+    logfire.configure(**config_kwargs)
     logfire.suppress_scopes('scope2')
     logger1.emit(record)
     logger2.emit(record)
@@ -29,3 +33,5 @@ def test_otel_logs(logs_exporter: InMemoryLogExporter) -> None:
     [log_data] = logs_exporter.get_finished_logs()
     assert log_data.log_record == record
     assert log_data.instrumentation_scope.name == 'scope3'
+
+    assert isinstance(get_logger_provider().resource, Resource)  # type: ignore
