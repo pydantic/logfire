@@ -839,18 +839,18 @@ def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> No
         send_to_logfire=False,
         console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False, verbose=True),
     )
-    logfire.info('hi', _tags=['my_tag'])
+    logfire.info('hi', _tags=['my_tag'], **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
 
     logfire.configure(
         send_to_logfire=False,
         console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True, verbose=True),
     )
-    logfire.info('hi', _tags=['my_tag'])
+    logfire.info('hi', _tags=['my_tag'], **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             'hi',
-            '│ test_console_exporter.py:842 info',
+            '│ info',
             'hi [my_tag]',
-            '│ test_console_exporter.py:848 info',
+            '│ info',
         ]
     )
