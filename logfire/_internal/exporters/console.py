@@ -58,6 +58,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
@@ -79,6 +80,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             self._console = None
 
         self._include_timestamp = include_timestamp
+        self._include_tags = include_tags
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
         self._verbose = verbose
@@ -134,7 +136,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         The following information is included:
         * timestamp
         * message (maybe indented)
-        * tags
+        * tags (if `self._include_tags` is True)
 
         The log level may be indicated by the color of the message.
         """
@@ -165,9 +167,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             parts += [(msg, '')]
 
-        if tags := span.attributes and span.attributes.get(ATTRIBUTES_TAGS_KEY):
-            tags_str = ','.join(cast('list[str]', tags))
-            parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
+        if self._include_tags:
+            if tags := span.attributes and span.attributes.get(ATTRIBUTES_TAGS_KEY):
+                tags_str = ','.join(cast('list[str]', tags))
+                parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
 
         return msg, parts
 
@@ -182,10 +185,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return []
 
         file_location_raw = span.attributes.get('code.filepath')
-        file_location = None if file_location_raw is None else str(file_location_raw)
+        file_location = None if file_location_raw in (None, 'null') else str(file_location_raw)
         if file_location:
             lineno = span.attributes.get('code.lineno')
-            if lineno:  # pragma: no branch
+            if lineno not in (None, 'null'):
                 file_location += f':{lineno}'
 
         log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
@@ -296,10 +299,11 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
@@ -341,10 +345,11 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
 
         # lookup from span_id to `(indent, span message, parent id)`
         self._span_history: dict[int, tuple[int, str, int]] = {}

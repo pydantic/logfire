@@ -78,6 +78,8 @@ CONSOLE_SPAN_STYLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SPAN_STYLE'], allow_
   give the best context."""
 CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'], allow_file_config=True, default=True, tp=bool)
 """Whether to include the timestamp in the console."""
+CONSOLE_INCLUDE_TAGS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TAGS'], allow_file_config=True, default=True, tp=bool)
+"""Whether to include tags in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
 """Whether to log in verbose mode in the console."""
 CONSOLE_MIN_LOG_LEVEL = ConfigParam(env_vars=['LOGFIRE_CONSOLE_MIN_LOG_LEVEL'], allow_file_config=True, default='info', tp=LevelName)
@@ -115,6 +117,7 @@ CONFIG_PARAMS = {
     'console_colors': CONSOLE_COLORS,
     'console_span_style': CONSOLE_SPAN_STYLE,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
+    'console_include_tags': CONSOLE_INCLUDE_TAGS,
     'console_verbose': CONSOLE_VERBOSE,
     'console_min_log_level': CONSOLE_MIN_LOG_LEVEL,
     'console_show_project_link': CONSOLE_SHOW_PROJECT_LINK,

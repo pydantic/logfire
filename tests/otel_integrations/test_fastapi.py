@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 from dirty_equals import IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
 from fastapi.security import SecurityScopes
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +23,7 @@ import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
+from logfire._internal.constants import LEVEL_NUMBERS
 from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire.testing import TestExporter
 
@@ -74,6 +75,10 @@ async def echo_body(request: Request):
     return await request.body()
 
 
+async def bad_request_error():
+    raise HTTPException(400)
+
+
 async def websocket_endpoint(websocket: WebSocket, name: str):
     logfire.info('websocket_endpoint: {name}', name=name)
     await websocket.accept()
@@ -97,6 +102,7 @@ def app():
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
+    app.get('/bad_request_error')(bad_request_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.websocket('/ws/{name}')(websocket_endpoint)
@@ -192,6 +198,14 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
     )
 
 
+def test_400(client: TestClient, exporter: TestExporter) -> None:
+    response = client.get('/bad_request_error')
+    assert response.status_code == 400
+
+    [span] = [span for span in exporter.exported_spans if span.events]
+    assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
+
+
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
     response = client.get('/with_path_param/param_val')
     assert response.status_code == 200
@@ -269,9 +283,9 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.method': 'GET',
                     'fastapi.route.name': 'with_path_param',
                     'http.route': '/with_path_param/{param}',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                 },
             },
             {
@@ -397,8 +411,8 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'client.port': 50000,
                     'http.route': '/with_path_param/{param}',
                     'fastapi.route.name': 'with_path_param',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -492,9 +506,9 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.method': 'GET',
                     'fastapi.route.name': 'homepage',
                     'http.route': '/',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                 },
             },
             {
@@ -636,8 +650,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'client.port': 50000,
                     'http.route': '/',
                     'fastapi.route.name': 'homepage',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1190,9 +1204,9 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'http.method': 'GET',
                     'fastapi.route.name': 'exception',
                     'http.route': '/exception',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                 },
             },
             {
@@ -1256,8 +1270,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'client.port': 50000,
                     'http.route': '/exception',
                     'fastapi.route.name': 'exception',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'logfire.level_num': 17,
                 },
                 'events': [
@@ -1298,9 +1312,9 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.method': 'GET',
                     'fastapi.route.name': 'validation_error',
                     'http.route': '/validation_error',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                 },
             },
             {
@@ -1392,8 +1406,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'client.port': 50000,
                     'http.route': '/validation_error',
                     'fastapi.route.name': 'validation_error',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{}}}',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'http.status_code': 422,
                     'http.response.status_code': 422,
                 },
@@ -1434,11 +1448,11 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     ),
                     'errors': '[]',
                     'custom_attr': 'custom_value',
+                    'fastapi.route.operation_id': 'null',
                     'http.method': 'GET',
                     'http.route': '/secret/{path_param}',
                     'fastapi.route.name': 'secret',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{},"values":{"type":"object"},"errors":{"type":"array"},"custom_attr":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"values":{"type":"object"},"errors":{"type":"array"},"custom_attr":{}}}',
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['attributes', 'values', 'path_param'], 'matched_substring': 'auth'},
@@ -1527,11 +1541,11 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/secret/{path_param}',
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                     'fastapi.route.name': 'secret',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'fastapi.arguments.values': '{"path_param": "[Scrubbed due to \'auth\']", "foo": "foo_val", "password": "[Scrubbed due to \'password\']", "testauthorization": "[Scrubbed due to \'auth\']"}',
                     'fastapi.arguments.errors': '[]',
                     'custom_attr': 'custom_value',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'logfire.scrubbed': IsJson(
@@ -1619,10 +1633,10 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'values': '{}',
                     'errors': '[]',
                     'http.method': 'POST',
+                    'fastapi.route.operation_id': 'null',
                     'http.route': '/echo_body',
                     'fastapi.route.name': 'echo_body',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{},"values":{"type":"object"},"errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"values":{"type":"object"},"errors":{"type":"array"}}}',
                 },
             },
             {
@@ -1723,10 +1737,10 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'http.route': '/echo_body',
                     'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1768,10 +1782,10 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'values': '{}',
                     'errors': '[]',
                     'http.method': 'POST',
+                    'fastapi.route.operation_id': 'null',
                     'http.route': '/echo_body',
                     'fastapi.route.name': 'echo_body',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{},"values":{"type":"object"},"errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"values":{"type":"object"},"errors":{"type":"array"}}}',
                 },
             },
             {
@@ -1913,10 +1927,10 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'http.route': '/echo_body',
                     'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
-                    'logfire.null_args': ('fastapi.route.operation_id',),
+                    'fastapi.route.operation_id': 'null',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
