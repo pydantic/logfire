@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
-from opentelemetry.sdk._logs.export import InMemoryLogExporter, SimpleLogRecordProcessor
-
-import logfire
+from opentelemetry.sdk._logs.export import InMemoryLogExporter
 
 
-def test_otel_logs(config_kwargs: dict[str, Any]):
-    exporter = InMemoryLogExporter()
-    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(exporter)]
-    logfire.configure(**config_kwargs)
+def test_otel_logs(logs_exporter: InMemoryLogExporter) -> None:
     record = LogRecord(
         timestamp=1,
         observed_timestamp=2,
@@ -23,5 +16,5 @@ def test_otel_logs(config_kwargs: dict[str, Any]):
         attributes={'key': 'value'},
     )
     get_logger(__name__).emit(record)
-    [log_data] = exporter.get_finished_logs()
+    [log_data] = logs_exporter.get_finished_logs()
     assert log_data.log_record == record

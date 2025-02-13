@@ -9,6 +9,7 @@ from typing import Any
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk._logs.export import InMemoryLogExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -54,8 +55,14 @@ def metrics_reader() -> InMemoryMetricReader:
 
 
 @pytest.fixture
+def logs_exporter() -> InMemoryLogExporter:
+    return InMemoryLogExporter()
+
+
+@pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
+    logs_exporter: InMemoryLogExporter,
     id_generator: IdGenerator,
     time_generator: TimeGenerator,
 ) -> dict[str, Any]:
@@ -70,6 +77,7 @@ def config_kwargs(
         advanced=logfire.AdvancedOptions(
             id_generator=id_generator,
             ns_timestamp_generator=time_generator,
+            log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things in most versions
