@@ -166,6 +166,7 @@ class AdvancedOptions:
     """Generator for nanosecond start and end timestamps of spans."""
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
+    """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
 
 
 @dataclass
