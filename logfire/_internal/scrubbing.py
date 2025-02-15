@@ -113,8 +113,9 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SCRUBBED_KEY,
         RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
         *STACK_INFO_KEYS,
-        SpanAttributes.EXCEPTION_STACKTRACE,  # See scrub_event_attributes
+        SpanAttributes.EXCEPTION_STACKTRACE,
         SpanAttributes.EXCEPTION_TYPE,
+        SpanAttributes.EXCEPTION_MESSAGE,
         SpanAttributes.SCHEMA_URL,
         SpanAttributes.HTTP_METHOD,
         SpanAttributes.HTTP_STATUS_CODE,
@@ -224,32 +225,7 @@ class SpanScrubber:
         attributes = event.attributes or {}
         path = ('otel_events', index, 'attributes')
         new_attributes = self.scrub(path, attributes)
-
-        # The traceback is likely to be full of false positives since it contains a lot of code and filenames.
-        # We want to keep all of it except maybe the exception message at the end,
-        # which may actually contain sensitive data.
-        # If `old_message != new_message` then that means it was redacted,
-        # so it needs to be replaced in the stacktrace.
-        # Note that EXCEPTION_STACKTRACE is in SAFE_KEYS, but EXCEPTION_MESSAGE is not.
-        # TODO this algorithm is not perfect. In particular it doesn't handle chained exceptions.
-        #   The best solution would probably be to intercept `Span.record_exception` and format the stacktrace manually.
-        if (stacktrace := attributes.get(SpanAttributes.EXCEPTION_STACKTRACE)) and (
-            (old_message := attributes.get(SpanAttributes.EXCEPTION_MESSAGE))
-            != (new_message := new_attributes.get(SpanAttributes.EXCEPTION_MESSAGE))
-            and isinstance(stacktrace, str)
-            and isinstance(old_message, str)
-            and isinstance(new_message, str)
-        ):
-            stacktrace = stacktrace.rstrip()
-            old_message = old_message.rstrip()
-            if stacktrace.endswith(old_message):
-                new_attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace[: -len(old_message)] + new_message
-            else:
-                # The stacktrace doesn't look like we expect, so scrub the whole thing.
-                new_attributes[SpanAttributes.EXCEPTION_STACKTRACE] = self.scrub(
-                    path + (SpanAttributes.EXCEPTION_STACKTRACE,), stacktrace
-                )
-
+        # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
     def scrub(self, path: JsonPath, value: Any) -> Any:
