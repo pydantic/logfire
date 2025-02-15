@@ -67,7 +67,7 @@ class ProxyMeterProvider(MeterProvider):
         with self.lock:
             self.provider = meter_provider
             for meter in self.meters:
-                meter.set_meter(meter_provider)
+                meter.set_meter(NoOpMeterProvider() if meter.name in self.suppressed_scopes else meter_provider)
 
     def shutdown(self, timeout_millis: float = 30_000) -> None:
         with self.lock:
