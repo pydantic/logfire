@@ -24,12 +24,14 @@ from opentelemetry._events import EventLoggerProvider, set_event_logger_provider
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
 from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -841,6 +843,8 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
+            log_record_processors = list(self.advanced.log_record_processors)
+
             if self.send_to_logfire:
                 credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
@@ -919,6 +923,16 @@ class LogfireConfig(_LogfireConfigData):
                             )
                         )
 
+                    log_record_processors.append(
+                        BatchLogRecordProcessor(
+                            OTLPLogExporter(
+                                endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
+                                session=session,
+                                compression=Compression.Gzip,
+                            )
+                        )
+                    )
+
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
                 for processor in processors_with_pending_spans:
@@ -967,6 +981,7 @@ class LogfireConfig(_LogfireConfigData):
                         new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
+                        logger_provider._resource = new_resource  # type: ignore
 
                 os.register_at_fork(after_in_child=fix_pid)
 
@@ -978,7 +993,7 @@ class LogfireConfig(_LogfireConfigData):
             self._meter_provider.set_meter_provider(meter_provider)
 
             logger_provider = SDKLoggerProvider(resource)
-            for processor in self.advanced.log_record_processors:
+            for processor in log_record_processors:
                 logger_provider.add_log_record_processor(processor)
 
             with contextlib.suppress(Exception):
