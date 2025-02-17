@@ -19,7 +19,7 @@ from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION
 
-DEFAULT_LOGFIRE_INSTANCE = Logfire()
+DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
