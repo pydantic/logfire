@@ -89,10 +89,6 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
-            if span.attributes:  # pragma: no branch
-                log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
-                if log_level < self._min_log_level_num:
-                    continue
             self._log_span(span)
 
         return SpanExportResult.SUCCESS
@@ -102,17 +98,20 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
         """
-        if span.attributes:  # pragma: no branch
-            span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-            # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-            if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
-                return
-
         self._print_span(span)
 
     def _print_span(self, span: ReadableSpan, indent: int = 0):
         """Build up a summary of the span, including formatting for rich, then print it."""
         _msg, parts = self._span_text_parts(span, indent)
+
+        if span.attributes:  # pragma: no branch
+            span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
+            # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
+            if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
+                return
+            log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
+            if log_level < self._min_log_level_num:
+                return
 
         indent_str = (self._timestamp_indent + indent * 2) * ' '
         details_parts = self._details_parts(span, indent_str)
@@ -318,9 +317,6 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
                 self._indent_level.pop(span.context.span_id, None)
             return
 
-        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
-            return
-
         if span_type == 'pending_span':
             parent_id = _pending_span_parent(attributes)
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
@@ -370,9 +366,6 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
                 self._span_history.pop(span.context.span_id, None)
                 if self._span_stack and self._span_stack[-1] == span.context.span_id:
                     self._span_stack.pop()
-            return
-
-        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
             return
 
         self._print_span(span)

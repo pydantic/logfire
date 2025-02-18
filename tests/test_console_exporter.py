@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import sys
+from typing import Any
 
 import pytest
 from dirty_equals import IsStr
@@ -830,6 +831,25 @@ def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[st
             '│ 3 info',
             'hi',
             '│ info',
+        ]
+    )
+
+
+def test_console_exporter_hidden_debug_span(capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]) -> None:
+    config_kwargs.update(console=None)
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('1'):
+        # TODO this span doesn't show, but it still adds to the indentation level
+        with logfire.span('2', _level='debug'):
+            logfire.info('3')
+        logfire.info('4')
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            '00:00:01.000 1',
+            '00:00:03.000     3',
+            '00:00:05.000   4',
         ]
     )
 
