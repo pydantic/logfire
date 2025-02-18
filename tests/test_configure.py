@@ -18,11 +18,14 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry._logs import get_logger_provider
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
+from opentelemetry.sdk._logs import LogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
@@ -1451,6 +1454,9 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(logfire_metric_reader._exporter, QuietMetricExporter)  # type: ignore
 
+    [logfire_log_processor] = get_log_record_processors()
+    assert isinstance(logfire_log_processor, BatchLogRecordProcessor)
+
 
 def test_custom_exporters():
     custom_span_processor = SimpleSpanProcessor(ConsoleSpanExporter())
@@ -1558,6 +1564,10 @@ def get_span_processors() -> Iterable[SpanProcessor]:
 
 def get_metric_readers() -> Iterable[SpanProcessor]:
     return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+
+
+def get_log_record_processors() -> Iterable[LogRecordProcessor]:
+    return get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
 
 
 def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
