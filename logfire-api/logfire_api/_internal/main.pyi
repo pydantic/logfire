@@ -14,7 +14,7 @@ from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
@@ -615,7 +615,7 @@ class Logfire:
     def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
     @overload
     def instrument_psycopg(self, conn_or_module: None | Literal['psycopg', 'psycopg2'] | ModuleType = None, enable_commenter: bool = False, commenter_options: PsycopgCommenterOptions | None = None, **kwargs: Any) -> None: ...
-    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: FlaskCommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: FlaskCommenterOptions | None = None, excluded_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -628,7 +628,7 @@ class Logfire:
             enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
                 See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
-            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
@@ -1110,12 +1110,8 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
     """
-def set_user_attribute(otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any) -> tuple[str, otel_types.AttributeValue]:
-    """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
-
-    Returns the final key and value that was added to the dictionary.
-    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
-    """
+def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
+    """Convert a user attribute to an OpenTelemetry compatible type."""
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None: ...
 P = ParamSpec('P')
 R = TypeVar('R')

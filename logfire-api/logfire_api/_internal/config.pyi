@@ -5,12 +5,14 @@ from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_l
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import LevelName as LevelName, OTLP_MAX_BODY_SIZE as OTLP_MAX_BODY_SIZE, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
-from .exporters.otlp import OTLPExporterHttpSession as OTLPExporterHttpSession, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter
+from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper
+from .exporters.otlp import OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
 from .integrations.executors import instrument_executors as instrument_executors
+from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
@@ -23,6 +25,8 @@ from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.version import VERSION as VERSION
+from opentelemetry._events import EventLoggerProvider
+from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -52,6 +56,7 @@ class AdvancedOptions:
     base_url: str = ...
     id_generator: IdGenerator = ...
     ns_timestamp_generator: Callable[[], int] = ...
+    log_record_processors: Sequence[LogRecordProcessor] = ...
 
 @dataclass
 class PydanticPlugin:
@@ -199,6 +204,22 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             The meter provider.
+        """
+    def get_logger_provider(self) -> ProxyLoggerProvider:
+        """Get a logger provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The logger provider.
+        """
+    def get_event_logger_provider(self) -> EventLoggerProvider:
+        """Get an event logger provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The event logger provider.
         """
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...

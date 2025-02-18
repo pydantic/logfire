@@ -1,6 +1,6 @@
 import opentelemetry.trace as trace_api
 from .config import LogfireConfig as LogfireConfig
-from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, PENDING_SPAN_NAME_SUFFIX as PENDING_SPAN_NAME_SUFFIX, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
 from .utils import handle_internal_errors as handle_internal_errors
 from _typeshed import Incomplete
 from dataclasses import dataclass
@@ -99,3 +99,4 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...
+def is_starlette_http_exception_400(exception: BaseException) -> bool: ...
