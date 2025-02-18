@@ -83,7 +83,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.otlp import OTLPExporterHttpSession, QuietSpanExporter, RetryFewerSpansSpanExporter
+from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -923,15 +923,13 @@ class LogfireConfig(_LogfireConfigData):
                             )
                         )
 
-                    log_record_processors.append(
-                        BatchLogRecordProcessor(
-                            OTLPLogExporter(
-                                endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
-                                session=session,
-                                compression=Compression.Gzip,
-                            )
-                        )
+                    log_exporter = OTLPLogExporter(
+                        endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
+                        session=session,
+                        compression=Compression.Gzip,
                     )
+                    log_exporter = QuietLogExporter(log_exporter)
+                    log_record_processors.append(BatchLogRecordProcessor(log_exporter))
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
