@@ -15,4 +15,4 @@ class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
         if is_instrumentation_suppressed():
             return
         with logfire.suppress_instrumentation():
-            return self.processor.emit(log_data)
+            return super().emit(log_data)
