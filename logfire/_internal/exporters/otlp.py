@@ -12,6 +12,8 @@ from threading import Lock, Thread
 from typing import Any, Mapping, Sequence
 
 import requests.exceptions
+from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs._internal.export import LogExportResult
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
@@ -20,7 +22,7 @@ import logfire
 
 from ..stack_info import STACK_INFO_KEYS
 from ..utils import logger, platform_is_emscripten, truncate_string
-from .wrapper import WrapperSpanExporter
+from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 
 class OTLPExporterHttpSession(Session):
@@ -243,3 +245,14 @@ class QuietSpanExporter(WrapperSpanExporter):
         except requests.exceptions.RequestException:
             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
             return SpanExportResult.FAILURE
+
+
+class QuietLogExporter(WrapperLogExporter):
+    """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+
+    def export(self, batch: Sequence[LogData]):
+        try:
+            return super().export(batch)
+        except requests.exceptions.RequestException:
+            # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+            return LogExportResult.FAILURE

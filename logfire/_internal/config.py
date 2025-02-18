@@ -22,17 +22,21 @@ import requests
 from opentelemetry import trace
 from opentelemetry._events import EventLoggerProvider, set_event_logger_provider
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
-from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
+from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_RESOURCE_ATTRIBUTES,
@@ -81,7 +85,8 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.otlp import OTLPExporterHttpSession, QuietSpanExporter, RetryFewerSpansSpanExporter
+from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper
+from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -841,6 +846,8 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
+            log_record_processors = list(self.advanced.log_record_processors)
+
             if self.send_to_logfire:
                 credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
@@ -919,6 +926,14 @@ class LogfireConfig(_LogfireConfigData):
                             )
                         )
 
+                    log_exporter = OTLPLogExporter(
+                        endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
+                        session=session,
+                        compression=Compression.Gzip,
+                    )
+                    log_exporter = QuietLogExporter(log_exporter)
+                    log_record_processors.append(BatchLogRecordProcessor(log_exporter))
+
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
                 for processor in processors_with_pending_spans:
@@ -933,8 +948,10 @@ class LogfireConfig(_LogfireConfigData):
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
             otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
+            otlp_logs_endpoint = os.getenv(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
             otlp_traces_exporter = os.getenv(OTEL_TRACES_EXPORTER, '').lower()
             otlp_metrics_exporter = os.getenv(OTEL_METRICS_EXPORTER, '').lower()
+            otlp_logs_exporter = os.getenv(OTEL_LOGS_EXPORTER, '').lower()
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
@@ -945,6 +962,9 @@ class LogfireConfig(_LogfireConfigData):
                 and metric_readers is not None
             ):
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
+
+            if (otlp_endpoint or otlp_logs_endpoint) and otlp_logs_exporter in ('otlp', ''):
+                log_record_processors += [BatchLogRecordProcessor(OTLPLogExporter())]
 
             if metric_readers is not None:
                 meter_provider = MeterProvider(
@@ -967,6 +987,7 @@ class LogfireConfig(_LogfireConfigData):
                         new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
+                        logger_provider._resource = new_resource  # type: ignore
 
                 os.register_at_fork(after_in_child=fix_pid)
 
@@ -977,9 +998,12 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
+            multi_log_processor = SynchronousMultiLogRecordProcessor()
+            for processor in log_record_processors:
+                multi_log_processor.add_log_record_processor(processor)
+            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(multi_log_processor)
             logger_provider = SDKLoggerProvider(resource)
-            for processor in self.advanced.log_record_processors:
-                logger_provider.add_log_record_processor(processor)
+            logger_provider.add_log_record_processor(root_log_processor)
 
             with contextlib.suppress(Exception):
                 self._event_logger_provider.shutdown()

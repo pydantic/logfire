@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 from opentelemetry import context
+from opentelemetry.sdk._logs import LogData, LogRecordProcessor
+from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -69,3 +71,32 @@ class WrapperSpanProcessor(SpanProcessor):
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with logfire.suppress_instrumentation():
             return self.processor.force_flush(timeout_millis)
+
+
+@dataclass
+class WrapperLogExporter(LogExporter):
+    """A base class for LogExporters that wrap another exporter."""
+
+    exporter: LogExporter
+
+    def export(self, batch: Sequence[LogData]) -> LogExportResult:  # type: ignore
+        return cast(LogExportResult, self.exporter.export(batch))
+
+    def shutdown(self):
+        return self.exporter.shutdown()
+
+
+@dataclass
+class WrapperLogProcessor(LogRecordProcessor):
+    """A base class for SpanProcessors that wrap another processor."""
+
+    processor: LogRecordProcessor
+
+    def emit(self, log_data: LogData):
+        return self.processor.emit(log_data)
+
+    def shutdown(self):
+        return self.processor.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000):
+        return self.processor.force_flush(timeout_millis)
