@@ -41,7 +41,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'outside request handler (pending)',
+                'name': 'outside request handler',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -57,7 +57,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                 },
             },
             {
-                'name': 'GET / (pending)',
+                'name': 'GET /',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,

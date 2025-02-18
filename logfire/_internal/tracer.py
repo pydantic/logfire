@@ -31,7 +31,6 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
-    PENDING_SPAN_NAME_SUFFIX,
     log_level_attributes,
 )
 from .utils import handle_internal_errors
@@ -315,7 +314,7 @@ class PendingSpanProcessor(SpanProcessor):
         }
         start_and_end_time = span.start_time
         pending_span = ReadableSpan(
-            name=span.name + PENDING_SPAN_NAME_SUFFIX,
+            name=span.name,
             context=span_context,
             parent=real_span_context,
             resource=span.resource,

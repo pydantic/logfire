@@ -70,7 +70,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span (pending)',
+                'name': 'span',
                 'context': {'trace_id': 5, 'span_id': 10, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 7, 'is_remote': False},
                 'start_time': 9000000000,
@@ -86,7 +86,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span2 (pending)',
+                'name': 'span2',
                 'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 8, 'is_remote': False},
                 'start_time': 10000000000,
@@ -148,7 +148,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span3 (pending)',
+                'name': 'span3',
                 'context': {'trace_id': 6, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 6, 'span_id': 12, 'is_remote': False},
                 'start_time': 14000000000,
@@ -281,7 +281,7 @@ def test_duration_threshold(
                 },
             },
             {
-                'name': 'span6 (pending)',
+                'name': 'span6',
                 'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
                 'start_time': 14000000000,

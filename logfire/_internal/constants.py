@@ -137,9 +137,6 @@ ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
 """Key in OTEL attributes with metadata about parts of a span that have been scrubbed."""
 
-PENDING_SPAN_NAME_SUFFIX = ' (pending)'
-"""Suffix added to the name of a pending span to indicate it's a pending span and avoid collisions with the real span while in flight."""
-
 LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
 """The Logfire API base URL."""
 

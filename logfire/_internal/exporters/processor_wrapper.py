@@ -15,9 +15,7 @@ from ..constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
-    ATTRIBUTES_SPAN_TYPE_KEY,
     LEVEL_NUMBERS,
-    PENDING_SPAN_NAME_SUFFIX,
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
@@ -189,9 +187,6 @@ def _tweak_http_spans(span: ReadableSpanDict):
         return
 
     name = span['name']
-    is_pending = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) == 'pending_span'
-    if is_pending:
-        name = name[: -len(PENDING_SPAN_NAME_SUFFIX)]
     if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):  # pragma: no cover
         return
 
@@ -235,8 +230,6 @@ def _tweak_http_spans(span: ReadableSpanDict):
     # For each of name and message, update to the best option, which is the last in the list.
     # Minor optimization: only do this if there's a change.
     if names and (new_name := names[-1]) != name:
-        if is_pending:
-            new_name += PENDING_SPAN_NAME_SUFFIX
         span['name'] = new_name
 
     if not messages:  # pragma: no cover

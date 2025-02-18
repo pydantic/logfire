@@ -130,14 +130,9 @@ def test_scrub_events(exporter: TestExporter):
 
     # We redact:
     # - The `password` event attribute.
-    # - The `exception.message` event attribute
-    # - The full `exception.stacktrace` event attribute in the second event, i.e. 'wrong and secret'.
-    # - The part of the `exception.stacktrace` event attribute in the third event that's the exception message.
     # We don't redact (despite containing "password"):
     # - The event name.
-    # - The exception type.
-    # - Most of the `exception.stacktrace` event attribute in the third event.
-    #     (although it's mostly been normalized away by the test exporter)
+    # - The exception stuff.
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -160,18 +155,6 @@ def test_scrub_events(exporter: TestExporter):
                                 'path': ['otel_events', 0, 'attributes', 'password'],
                                 'matched_substring': 'password',
                             },
-                            {
-                                'path': ['otel_events', 1, 'attributes', 'exception.message'],
-                                'matched_substring': 'Password',
-                            },
-                            {
-                                'path': ['otel_events', 1, 'attributes', 'exception.stacktrace'],
-                                'matched_substring': 'secret',
-                            },
-                            {
-                                'path': ['otel_events', 2, 'attributes', 'exception.message'],
-                                'matched_substring': 'Password',
-                            },
                         ]
                     ),
                 },
@@ -189,8 +172,8 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 3000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Scrubbed due to 'Password']",
-                            'exception.stacktrace': "[Scrubbed due to 'secret']",
+                            'exception.message': 'Password: hunter2',
+                            'exception.stacktrace': 'wrong and secret',
                             'exception.escaped': 'False',
                         },
                     },
@@ -199,10 +182,8 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 4000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Scrubbed due to 'Password']",
-                            'exception.stacktrace': (
-                                "tests.test_secret_scrubbing.PasswordError: [Scrubbed due to 'Password']"
-                            ),
+                            'exception.message': 'Password: hunter2',
+                            'exception.stacktrace': 'tests.test_secret_scrubbing.PasswordError: Password: hunter2',
                             'exception.escaped': 'True',
                         },
                     },

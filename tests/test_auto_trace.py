@@ -56,7 +56,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
-                'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.bar',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -73,7 +73,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
