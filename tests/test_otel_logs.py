@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Sequence
 
+import pytest
+import requests.exceptions
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._events import Event, get_event_logger, get_event_logger_provider
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
-from opentelemetry.sdk._logs.export import InMemoryLogExporter, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs.export import InMemoryLogExporter, LogExporter, LogExportResult, SimpleLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
 import logfire
+from logfire import suppress_instrumentation
+from logfire._internal.exporters.otlp import QuietLogExporter
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
@@ -45,6 +50,8 @@ def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwa
     assert not logs_exporter.get_finished_logs()
 
     logger3.emit(record)
+    with suppress_instrumentation():
+        logger3.emit(record)
     [log_data] = logs_exporter.get_finished_logs()
     assert log_data.log_record == record
     assert log_data.instrumentation_scope.name == 'scope3'
@@ -105,3 +112,17 @@ def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str,
             },
         }
     )
+
+
+def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
+    class ConnectionErrorExporter(LogExporter):
+        def shutdown(self):
+            pass
+
+        def export(self, batch: Sequence[LogData]):
+            raise requests.exceptions.ConnectionError()
+
+    exporter = QuietLogExporter(ConnectionErrorExporter())
+
+    assert exporter.export([]) == LogExportResult.FAILURE
+    assert not caplog.messages
