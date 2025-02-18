@@ -22,7 +22,7 @@ import requests
 from opentelemetry import trace
 from opentelemetry._events import EventLoggerProvider, set_event_logger_provider
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
-from opentelemetry.environment_variables import OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
+from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -36,6 +36,7 @@ from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_RESOURCE_ATTRIBUTES,
@@ -947,8 +948,10 @@ class LogfireConfig(_LogfireConfigData):
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
             otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
+            otlp_logs_endpoint = os.getenv(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
             otlp_traces_exporter = os.getenv(OTEL_TRACES_EXPORTER, '').lower()
             otlp_metrics_exporter = os.getenv(OTEL_METRICS_EXPORTER, '').lower()
+            otlp_logs_exporter = os.getenv(OTEL_LOGS_EXPORTER, '').lower()
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
@@ -959,6 +962,9 @@ class LogfireConfig(_LogfireConfigData):
                 and metric_readers is not None
             ):
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
+
+            if (otlp_endpoint or otlp_logs_endpoint) and otlp_logs_exporter in ('otlp', ''):
+                log_record_processors += [BatchLogRecordProcessor(OTLPLogExporter())]
 
             if metric_readers is not None:
                 meter_provider = MeterProvider(
