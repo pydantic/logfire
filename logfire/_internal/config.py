@@ -31,6 +31,7 @@ from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
@@ -83,6 +84,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper
 from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -990,9 +992,12 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
-            logger_provider = SDKLoggerProvider(resource)
+            multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
-                logger_provider.add_log_record_processor(processor)
+                multi_log_processor.add_log_record_processor(processor)
+            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(multi_log_processor)
+            logger_provider = SDKLoggerProvider(resource)
+            logger_provider.add_log_record_processor(root_log_processor)
 
             with contextlib.suppress(Exception):
                 self._event_logger_provider.shutdown()
