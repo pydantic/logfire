@@ -12,8 +12,11 @@ This is what Logfire uses internally to test itself as well.
 
 ## [`capfire`][logfire.testing.capfire] fixture
 
-This has two attributes [`exporter`][logfire.testing.CaptureLogfire.exporter] and
-[`metrics_reader`][logfire.testing.CaptureLogfire.metrics_reader].
+This has the following attributes:
+
+- [`exporter`][logfire.testing.CaptureLogfire.exporter] (a span exporter)
+- [`log_exporter`][logfire.testing.CaptureLogfire.log_exporter]
+- [`metrics_reader`][logfire.testing.CaptureLogfire.metrics_reader].
 
 ### [`exporter`][logfire.testing.CaptureLogfire.exporter]
 
