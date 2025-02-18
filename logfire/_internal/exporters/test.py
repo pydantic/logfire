@@ -210,13 +210,13 @@ class TestLogExporter(InMemoryLogExporter):
                 'trace_flags': log_record.trace_flags,
             }
 
-            if include_resources:
+            if include_resources:  # pragma: no branch
                 resource_attributes = _build_attributes(log_record.resource.attributes)
                 res['resource'] = {
                     'attributes': resource_attributes,
                 }
 
-            if include_instrumentation_scope:
+            if include_instrumentation_scope:  # pragma: no branch
                 res['instrumentation_scope'] = log_data.instrumentation_scope.name
 
             return res
