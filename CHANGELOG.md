@@ -1,5 +1,15 @@
 # Release Notes
 
+## [v3.6.0] (2025-02-18)
+
+* Set log level to warning instead of error for 4xx HTTPExceptions from FastAPI/Starlette by @alexmojaki in [#858](https://github.com/pydantic/logfire/pull/858)
+* Add option to disable printing tags to console by @dmontagu in [#860](https://github.com/pydantic/logfire/pull/860)
+* Experimental support for OTel logs by @alexmojaki in [#863](https://github.com/pydantic/logfire/pull/863), [#870](https://github.com/pydantic/logfire/pull/870), and [#871](https://github.com/pydantic/logfire/pull/871)
+* Fix `excluded_urls` typo in instrument_flask by @alexmojaki in [#852](https://github.com/pydantic/logfire/pull/852)
+* Catch more errors when checking for sqlalchemy objects by @alexmojaki in [#854](https://github.com/pydantic/logfire/pull/854)
+* Don't scrub exception message by @alexmojaki in [#865](https://github.com/pydantic/logfire/pull/865)
+* Only skip logging to console after updating span stack and indentation by @alexmojaki in [#844](https://github.com/pydantic/logfire/pull/844)
+
 ## [v3.5.3] (2025-02-05)
 
 * Fixes for capturing httpx bodies by @alexmojaki in [#842](https://github.com/pydantic/logfire/pull/842)
@@ -570,3 +580,4 @@ First release from new repo!
 [v3.5.1]: https://github.com/pydantic/logfire/compare/v3.5.0...v3.5.1
 [v3.5.2]: https://github.com/pydantic/logfire/compare/v3.5.1...v3.5.2
 [v3.5.3]: https://github.com/pydantic/logfire/compare/v3.5.2...v3.5.3
+[v3.6.0]: https://github.com/pydantic/logfire/compare/v3.5.3...v3.6.0

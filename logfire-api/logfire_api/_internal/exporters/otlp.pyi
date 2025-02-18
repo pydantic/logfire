@@ -1,9 +1,10 @@
 import requests
 from ..stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
 from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten, truncate_string as truncate_string
-from .wrapper import WrapperSpanExporter as WrapperSpanExporter
+from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
 from functools import cached_property
+from opentelemetry.sdk._logs import LogData as LogData
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
@@ -51,3 +52,7 @@ class BodyTooLargeError(Exception):
 class QuietSpanExporter(WrapperSpanExporter):
     """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult: ...
+
+class QuietLogExporter(WrapperLogExporter):
+    """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+    def export(self, batch: Sequence[LogData]): ...

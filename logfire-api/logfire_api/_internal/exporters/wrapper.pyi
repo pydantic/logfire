@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from opentelemetry import context
+from opentelemetry.sdk._logs import LogData, LogRecordProcessor
+from opentelemetry.sdk._logs.export import LogExportResult, LogExporter
 from opentelemetry.sdk.metrics.export import AggregationTemporality as AggregationTemporality, MetricExportResult, MetricExporter, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation as Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -31,3 +33,18 @@ class WrapperSpanProcessor(SpanProcessor):
     def on_end(self, span: ReadableSpan) -> None: ...
     def shutdown(self) -> None: ...
     def force_flush(self, timeout_millis: int = 30000) -> bool: ...
+
+@dataclass
+class WrapperLogExporter(LogExporter):
+    """A base class for LogExporters that wrap another exporter."""
+    exporter: LogExporter
+    def export(self, batch: Sequence[LogData]) -> LogExportResult: ...
+    def shutdown(self): ...
+
+@dataclass
+class WrapperLogProcessor(LogRecordProcessor):
+    """A base class for SpanProcessors that wrap another processor."""
+    processor: LogRecordProcessor
+    def emit(self, log_data: LogData): ...
+    def shutdown(self): ...
+    def force_flush(self, timeout_millis: int = 30000): ...
