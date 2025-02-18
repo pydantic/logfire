@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -12,7 +13,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 import logfire
 
 from ._internal.constants import ONE_SECOND_IN_NANOSECONDS
-from ._internal.exporters.test import TestExporter
+from ._internal.exporters.test import TestExporter, TestLogExporter
 from ._internal.utils import SeededRandomIdGenerator
 
 __all__ = [
@@ -76,15 +77,15 @@ class TimeGenerator:
 
 @dataclass
 class CaptureLogfire:
-    """A dataclass that is holds both span exporter and metric renderer.
+    """A dataclass that holds a span exporter, log exporter, and metric reader.
 
     This is used as the return type of `capfire` fixture.
     """
 
     exporter: TestExporter
-    """The `TestExporter` instance."""
+    """The span exporter."""
     metrics_reader: InMemoryMetricReader
-    """The `InMemoryMetricReader` instance."""
+    log_exporter: TestLogExporter
 
 
 @pytest.fixture
@@ -92,15 +93,18 @@ def capfire() -> CaptureLogfire:
     """A fixture that returns a CaptureLogfire instance."""
     exporter = TestExporter()
     metrics_reader = InMemoryMetricReader()
+    time_generator = TimeGenerator()
+    log_exporter = TestLogExporter(time_generator)
     logfire.configure(
         send_to_logfire=False,
         console=False,
         advanced=logfire.AdvancedOptions(
             id_generator=IncrementalIdGenerator(),
-            ns_timestamp_generator=TimeGenerator(),
+            ns_timestamp_generator=time_generator,
+            log_record_processors=[SimpleLogRecordProcessor(log_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
-    return CaptureLogfire(exporter=exporter, metrics_reader=metrics_reader)
+    return CaptureLogfire(exporter=exporter, metrics_reader=metrics_reader, log_exporter=log_exporter)

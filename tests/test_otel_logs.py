@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 import pytest
 import requests.exceptions
-from dirty_equals import IsInt, IsStr
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry._events import Event, get_event_logger, get_event_logger_provider
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
@@ -16,6 +15,9 @@ from opentelemetry.sdk.resources import Resource
 import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
+
+if TYPE_CHECKING:
+    from logfire._internal.exporters.test import TestLogExporter
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
@@ -69,7 +71,7 @@ def test_get_logger_provider() -> None:
     assert get_logger('scope').resource is resource  # type: ignore
 
 
-def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
+def test_log_events(logs_exporter: TestLogExporter) -> None:
     logger = get_event_logger('scope')
     record = Event(
         name='my_event',
@@ -81,36 +83,35 @@ def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str,
     with logfire.span('span'):
         logger.emit(record)
 
-    [log_data] = logs_exporter.get_finished_logs()
-    assert log_data.instrumentation_scope.name == 'scope'
-    assert json.loads(log_data.log_record.to_json()) == snapshot(
-        {
-            'body': 'body',
-            'severity_number': 9,
-            'severity_text': None,
-            'attributes': {'key': 'value', 'event.name': 'my_event'},
-            'dropped_attributes': 0,
-            'timestamp': '1970-01-01T00:00:00.000000Z',
-            'observed_timestamp': IsStr(),
-            'trace_id': '0x00000000000000000000000000000001',
-            'span_id': '0x0000000000000001',
-            'trace_flags': 1,
-            'resource': {
-                'attributes': {
-                    'service.instance.id': IsStr(),
-                    'telemetry.sdk.language': 'python',
-                    'telemetry.sdk.name': 'opentelemetry',
-                    'telemetry.sdk.version': IsStr(),
-                    'service.name': 'unknown_service',
-                    'process.pid': IsInt(),
-                    'process.runtime.name': 'cpython',
-                    'process.runtime.version': IsStr(),
-                    'process.runtime.description': IsStr(),
-                    'service.version': IsStr(),
+    assert logs_exporter.exported_logs_as_dicts(include_resources=True, include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'body': 'body',
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {'key': 'value', 'event.name': 'my_event'},
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 1,
+                'span_id': 1,
+                'trace_flags': 1,
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(),
+                        'process.runtime.description': IsStr(),
+                        'service.version': IsStr(),
+                    },
                 },
-                'schema_url': '',
-            },
-        }
+                'instrumentation_scope': 'scope',
+            }
+        ]
     )
 
 
