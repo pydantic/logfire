@@ -23,6 +23,7 @@ __all__ = [
     'SeededRandomIdGenerator',
     'TimeGenerator',
     'TestExporter',
+    'TestLogExporter',
 ]
 
 
@@ -85,7 +86,9 @@ class CaptureLogfire:
     exporter: TestExporter
     """The span exporter."""
     metrics_reader: InMemoryMetricReader
+    """The metric reader."""
     log_exporter: TestLogExporter
+    """The log exporter."""
 
 
 @pytest.fixture
