@@ -116,13 +116,20 @@ def test_log_events(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str,
 
 def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
     class ConnectionErrorExporter(LogExporter):
+        shutdown_called = False
+
         def shutdown(self):
-            pass
+            self.shutdown_called = True
 
         def export(self, batch: Sequence[LogData]):
             raise requests.exceptions.ConnectionError()
 
-    exporter = QuietLogExporter(ConnectionErrorExporter())
+    connection_error_exporter = ConnectionErrorExporter()
+    exporter = QuietLogExporter(connection_error_exporter)
 
     assert exporter.export([]) == LogExportResult.FAILURE
     assert not caplog.messages
+
+    assert not connection_error_exporter.shutdown_called
+    exporter.shutdown()
+    assert connection_error_exporter.shutdown_called
