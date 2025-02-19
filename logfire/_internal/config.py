@@ -32,7 +32,7 @@ from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -932,7 +932,13 @@ class LogfireConfig(_LogfireConfigData):
                         compression=Compression.Gzip,
                     )
                     log_exporter = QuietLogExporter(log_exporter)
-                    log_record_processors.append(BatchLogRecordProcessor(log_exporter))
+
+                    if emscripten:  # pragma: no cover
+                        # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
+                        logfire_log_processor = SimpleLogRecordProcessor(log_exporter)
+                    else:
+                        logfire_log_processor = BatchLogRecordProcessor(log_exporter)
+                    log_record_processors.append(logfire_log_processor)
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
@@ -964,7 +970,12 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
 
             if (otlp_endpoint or otlp_logs_endpoint) and otlp_logs_exporter in ('otlp', ''):
-                log_record_processors += [BatchLogRecordProcessor(OTLPLogExporter())]
+                if emscripten:  # pragma: no cover
+                    # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
+                    logfire_log_processor = SimpleLogRecordProcessor(OTLPLogExporter())
+                else:
+                    logfire_log_processor = BatchLogRecordProcessor(OTLPLogExporter())
+                log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
                 meter_provider = MeterProvider(
