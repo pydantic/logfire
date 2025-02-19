@@ -54,4 +54,4 @@ async function findWheel(dist_dir) {
   }
 }
 
-runTest().catch(console.error)
+runTest()
