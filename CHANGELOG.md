@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.6.1] (2025-02-19)
+
+* avoid `BatchLogRecordProcessor` use on pyodide/emscripten by @samuelcolvin in [#873](https://github.com/pydantic/logfire/pull/873)
+
 ## [v3.6.0] (2025-02-18)
 
 * Set log level to warning instead of error for 4xx HTTPExceptions from FastAPI/Starlette by @alexmojaki in [#858](https://github.com/pydantic/logfire/pull/858)
@@ -581,3 +585,4 @@ First release from new repo!
 [v3.5.2]: https://github.com/pydantic/logfire/compare/v3.5.1...v3.5.2
 [v3.5.3]: https://github.com/pydantic/logfire/compare/v3.5.2...v3.5.3
 [v3.6.0]: https://github.com/pydantic/logfire/compare/v3.5.3...v3.6.0
+[v3.6.1]: https://github.com/pydantic/logfire/compare/v3.6.0...v3.6.1
