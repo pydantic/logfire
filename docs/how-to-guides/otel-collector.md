@@ -5,25 +5,25 @@ It is designed to work with a wide range of data sources and can be easily confi
 It can be run in a multitude of topologies, including as a standalone service, as a sidecar in a container, or as an agent on a host.
 
 Although it is very powerful and versatile the Collector is also an advanced tool that is not required to use Logfire.
-If you don't need any of the Collectors features it is perfectly reasonable to send data from the Logfire SDK directly to our backend, and this is the default configuraiton for our SDK.
+If you don't need any of the Collectors features it is perfectly reasonable to send data from the Logfire SDK directly to our backend, and this is the default configuration for our SDK.
 
 Use cases for the OpenTelemetry Collector include:
 
 - **Centralized configuration**: keep Logfire credentials in a single place. Configure exporting to multiple backends (e.g. Logfire and audit logging) in a single place. All with the ability to update the configuration without needing to make changes to applications.
 - **Data transformation**: transform data before sending it to Logfire. For example, you can use the OpenTelemetry Collector to filter out sensitive information, extract structured data from logs or otherwise modify the data before sending it to Logfire.
 - **Data enrichment**: add additional context to your logs before sending them to Logfire. For example, you can use the OpenTelemetry Collector to add information about the host or container where the log was generated.
-- **Collecting existing data sources**: the Collector can be used to collect system logs (e.g. Kuberentes logs) or metrics from other formats. For example, you can use it to collect container logs from Kubernetes and scrape Prometheous metrics.
+- **Collecting existing data sources**: the Collector can be used to collect system logs (e.g. Kubernetes logs) or metrics from other formats. For example, you can use it to collect container logs from Kubernetes and scrape Prometheus metrics.
 
 As Logfire is a fully compliant OpenTelemetry SDK and backend it does not require any special configuration to be used with the OpenTelemetry collector.
-Below we include a couple of examples for using the OpenTelemetry collector, assuming the deployment is being done on Kuberentes, but you can deploy the collector in any system, see the [official documentation](https://opentelemetry.io/docs/collector/deployment/) for more information.
+Below we include a couple of examples for using the OpenTelemetry collector, assuming the deployment is being done on Kubernetes, but you can deploy the collector in any system, see the [official documentation](https://opentelemetry.io/docs/collector/deployment/) for more information.
 
-This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentel introduction along with some key examples.
+This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentle introduction along with some key examples.
 For more information on the collector please see the [official documentation](https://opentelemetry.io/docs/collector/).
 
 ## Collecting system logs
 
 This example shows how you can use the OpenTelemetry collector to collect systems logs (logs on stdoutt/stderr) from Kubernetes and send them to Logfire.
-This may be useful as part of a migraion to Logfire if you aren't able to immediately edit all of the applications to install the Logfire SDK, although the data you receive won't be as rich as it would be from tracing with the Logfire SDK.
+This may be useful as part of a migration to Logfire if you aren't able to immediately edit all of the applications to install the Logfire SDK, although the data you receive won't be as rich as it would be from tracing with the Logfire SDK.
 
 This relatively simple example is enough in many cases to replace existing systems like ElasticSearch, Loki or Splunk.
 
@@ -106,7 +106,7 @@ Deploy this application via `kubectl apply -f apps.yaml`.
 
 Now we will set up a collector that can scrape logs from these apps, process them and send them to logfire.
 
-We'll need to store Logfire credentials somehwere, a Kubernetes Secret is a reasonable choice, a better choice for a production environment would be to use [External Secrets Operator](https://external-secrets.io/latest/).
+We'll need to store Logfire credentials somewhere, a Kubernetes Secret is a reasonable choice, a better choice for a production environment would be to use [External Secrets Operator](https://external-secrets.io/latest/).
 
 First create a Logfire write token, see [Create Write Tokens](./create-write-tokens.md).
 
@@ -128,7 +128,7 @@ data:
   logfire-token: base64-encoded-logfire-token
 ```
 
-For the OTEL Collector to scrape logs it will need permissions into the Kubernetes API which Kubernetes does not give out by default (you wouldn't want random pods being able to see logs from other pods by default!).
+For the OTel Collector to scrape logs it will need permissions into the Kubernetes API which Kubernetes does not give out by default (you wouldn't want random pods being able to see logs from other pods by default!).
 
 To do this we'll create an `rbac.yaml` file with the following content:
 
@@ -168,7 +168,7 @@ subjects:
 Apply this configuration via `kubectl apply -f rbac.yaml`.
 
 Now we can create the deployment for the collector itself.
-There are several options for deploying the OTEL collector, including:
+There are several options for deploying the OTel collector, including:
 
 - As a sidecar container on each / some pods. This requires less permissions but implies manual configuration of each deployment with a sidecar. This option may work well if you want to bolt on **Logfire** to specific existing applications you control without modifying the application itself or deploying the collector cluster wide.
 - As a DaemonSet, this will deploy the collector on every node in the cluster. This is a good option if you want to collect logs from all pods in the cluster without modifying each deployment. Additionally DaemonSets can collect certain information that is not available to sidecars or services. This is the option we will use in this guide.
