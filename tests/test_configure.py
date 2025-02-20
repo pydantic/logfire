@@ -72,6 +72,11 @@ from logfire.testing import TestExporter
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
 
 
+@pytest.fixture(autouse=True)
+def no_log_on_config(config: None, caplog: pytest.LogCaptureFixture) -> None:
+    assert not caplog.messages
+
+
 def test_propagate_config_to_tags(exporter: TestExporter) -> None:
     tags1 = logfire.with_tags('tag1', 'tag2')
     tags2 = logfire.with_tags('tag3', 'tag4')
