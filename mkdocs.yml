@@ -95,6 +95,7 @@ nav:
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
+      - OpenTelemetry Collector: how-to-guides/otel-collector.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
