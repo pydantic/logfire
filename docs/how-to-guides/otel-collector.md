@@ -168,7 +168,7 @@ subjects:
 Apply this configuration via `kubectl apply -f rbac.yaml`.
 
 Now we can create the deployment for the collector itself.
-There are several options for deploying the OTel collector, including:
+There are [several options for deploying the OTel collector](https://opentelemetry.io/docs/platforms/kubernetes/collector/components) including:
 
 - As a sidecar container on each / some pods. This requires less permissions but implies manual configuration of each deployment with a sidecar. This option may work well if you want to bolt on **Logfire** to specific existing applications you control without modifying the application itself or deploying the collector cluster wide.
 - As a DaemonSet, this will deploy the collector on every node in the cluster. This is a good option if you want to collect logs from all pods in the cluster without modifying each deployment. Additionally DaemonSets can collect certain information that is not available to sidecars or services. This is the option we will use in this guide.
