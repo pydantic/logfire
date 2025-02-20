@@ -1,6 +1,6 @@
 # OpenTelemetry Collector
 
-The OpenTelemtry Collector is a powerful tool that can be used to collect, process, and export telemetry data from various sources.
+The OpenTelemetry Collector is a powerful tool that can be used to collect, process, and export telemetry data from various sources.
 It is designed to work with a wide range of data sources and can be easily configured to meet your specific needs.
 It can be run in a multitude of topologies, including as a standalone service, as a sidecar in a container, or as an agent on a host.
 
