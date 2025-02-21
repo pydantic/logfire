@@ -95,6 +95,7 @@ nav:
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
+      - OpenTelemetry Collector: how-to-guides/otel-collector.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -153,6 +154,7 @@ nav:
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
   - Roadmap: roadmap.md
+  - Compliance: compliance.md
   - Release Notes: release-notes.md
 
 markdown_extensions:
