@@ -55,16 +55,19 @@ class Record:
     events: Sequence[Event]
     span_id: int | None
     parent_span_id: int | None
+    kind: str
 
     @classmethod
     def from_span(cls, span: ReadableSpan) -> Record:
+        attributes = span.attributes or {}
         return cls(
-            attributes=span.attributes or {},
+            attributes=attributes,
             timestamp=span.start_time or 0,
             name=span.name,
             events=span.events,
             span_id=span.context and span.context.span_id,
             parent_span_id=span.parent and span.parent.span_id,
+            kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # type: ignore
         )
 
 
@@ -126,9 +129,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Build up a summary of the span, including formatting for rich, then print it."""
         _msg, parts = self._span_text_parts(span, indent)
 
-        span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-        if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
+        if span.kind == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
             return
         log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
         if log_level < self._min_log_level_num:
@@ -326,17 +328,15 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _log_span(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
-        attributes = span.attributes
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-        if span_type == 'span':
+        if span.kind == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
             if span.span_id is not None:  # pragma: no branch
                 self._indent_level.pop(span.span_id, None)
             return
 
         block_span_id = span.parent_span_id
-        if span_type == 'pending_span':
-            parent_id = _pending_span_parent(attributes)
+        if span.kind == 'pending_span':
+            parent_id = _pending_span_parent(span.attributes)
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
 
             # block_span_id will be the parent_id for all subsequent spans and logs in this block
@@ -375,9 +375,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _log_span(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
-        attributes = span.attributes
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-        if span_type == 'span':
+        if span.kind == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
             if span.span_id is not None:  # pragma: no branch
                 self._span_history.pop(span.span_id, None)
@@ -389,13 +387,10 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Parts for any parent spans which aren't in the current stack of displayed spans, then parts for this span."""
-        attributes = span.attributes
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-
         parts: TextParts = []
         block_span_id = span.parent_span_id
-        if span_type == 'pending_span':
-            parent_id = _pending_span_parent(attributes)
+        if span.kind == 'pending_span':
+            parent_id = _pending_span_parent(span.attributes)
             parts += self._parent_stack_text_parts(parent_id)
 
             indent = len(self._span_stack)
