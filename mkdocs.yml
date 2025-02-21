@@ -154,6 +154,7 @@ nav:
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
   - Roadmap: roadmap.md
+  - Compliance: compliance.md
   - Release Notes: release-notes.md
 
 markdown_extensions:
