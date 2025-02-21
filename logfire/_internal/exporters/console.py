@@ -58,6 +58,7 @@ class Record:
     span_id: int | None
     parent_span_id: int | None
     kind: str
+    level: int
 
     @classmethod
     def from_span(cls, span: ReadableSpan) -> Record:
@@ -70,6 +71,7 @@ class Record:
             span_id=span.context and span.context.span_id,
             parent_span_id=span.parent and span.parent.span_id,
             kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # type: ignore
+            level=attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL),  # type: ignore
         )
 
     @classmethod
@@ -94,6 +96,7 @@ class Record:
             span_id=None,
             parent_span_id=log.span_id,
             kind='log',
+            level=log.severity_number.value if log.severity_number else _INFO_LEVEL,
         )
 
 
@@ -158,8 +161,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
         if span.kind == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
             return
-        log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
-        if log_level < self._min_log_level_num:
+        if span.level < self._min_log_level_num:
             return
 
         indent_str = (self._timestamp_indent + indent * 2) * ' '
@@ -200,8 +202,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             parts += [(indent * '  ', '')]
 
         msg = span.message
-        level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
-
+        level = span.level
         if level >= _ERROR_LEVEL:
             # add the message in red if it's an error or worse
             parts += [(msg, 'red')]
