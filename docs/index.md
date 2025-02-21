@@ -150,3 +150,4 @@ More topics to explore...
 - Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
 - As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
 - Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}
+- Compliance requirements (e.g. SOC2)? [See Logfire's certifications](compliance.md)
