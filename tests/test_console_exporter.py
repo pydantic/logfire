@@ -9,6 +9,8 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry._events import Event, get_event_logger
+from opentelemetry._logs import SeverityNumber
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
@@ -870,5 +872,29 @@ def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> No
         [
             'hi',
             'hi [my_tag]',
+        ]
+    )
+
+
+def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
+    )
+
+    logger = get_event_logger('scope')
+    record = Event(
+        name='my_event',
+        severity_number=SeverityNumber.ERROR,
+        body='body',
+        attributes={'key': 'value'},
+    )
+    with logfire.span('span'):
+        logger.emit(record)
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'span',
+            '  my_event: body',
         ]
     )
