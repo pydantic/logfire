@@ -15,6 +15,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
 from logfire import ConsoleOptions
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
@@ -891,6 +892,12 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
                 attributes={'key': 'value'},
             )
         )
+        get_event_logger('events').emit(
+            Event(
+                name='my_event',
+                attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+            )
+        )
         get_logger('logs').emit(
             LogRecord(
                 severity_number=SeverityNumber.INFO,
@@ -902,6 +909,7 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
         [
             'span',
             '  my_event: body',
+            '  msg',
             "{'key': 'value'}",
         ]
     )
