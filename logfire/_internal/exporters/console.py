@@ -9,6 +9,7 @@ import json
 import os
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from textwrap import indent as indent_text
 from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
@@ -44,6 +45,27 @@ _ERROR_LEVEL = LEVEL_NUMBERS['error']
 # A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
 # When logging without colors, just the text is used in a plain `print`.
 TextParts = List[Tuple[str, str]]
+
+
+@dataclass
+class Record:
+    attributes: otel_types.Attributes
+    timestamp: int
+    name: str
+    events: Sequence[Event]
+    span_id: int | None
+    parent_span_id: int | None
+
+    @classmethod
+    def from_span(cls, span: ReadableSpan) -> Record:
+        return cls(
+            attributes=span.attributes,
+            timestamp=span.start_time or 0,
+            name=span.name,
+            events=span.events,
+            span_id=span.context and span.context.span_id,
+            parent_span_id=span.parent and span.parent.span_id,
+        )
 
 
 class SimpleConsoleSpanExporter(SpanExporter):
@@ -89,18 +111,18 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
-            self._log_span(span)
+            self._log_span(Record.from_span(span))
 
         return SpanExportResult.SUCCESS
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def _log_span(self, span: Record) -> None:
         """Print a summary of the span, this method can be overridden to customize how spans are displayed.
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
         """
         self._print_span(span)
 
-    def _print_span(self, span: ReadableSpan, indent: int = 0):
+    def _print_span(self, span: Record, indent: int = 0):
         """Build up a summary of the span, including formatting for rich, then print it."""
         _msg, parts = self._span_text_parts(span, indent)
 
@@ -130,7 +152,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         exc_event = next((event for event in span.events or [] if event.name == 'exception'), None)
         self._print_exc_info(exc_event, indent_str)
 
-    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+    def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Return the formatted message or span name and parts containing basic span information.
 
         The following information is included:
@@ -142,7 +164,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """
         parts: TextParts = []
         if self._include_timestamp:
-            ts = datetime.fromtimestamp((span.start_time or 0) / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
             parts += [(ts_str, 'green'), (' ', '')]
@@ -174,7 +196,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         return msg, parts
 
-    def _details_parts(self, span: ReadableSpan, indent_str: str) -> TextParts:
+    def _details_parts(self, span: Record, indent_str: str) -> TextParts:
         """Return parts containing details for the span if `self._verbose` is True.
 
         The following details are returned:
@@ -204,7 +226,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             return []
 
-    def _print_arguments(self, span: ReadableSpan, indent_str: str):
+    def _print_arguments(self, span: Record, indent_str: str):
         """Pretty-print formatted logfire arguments for the span if `self._verbose` is True."""
         if not self._verbose or not span.attributes:
             return
@@ -307,27 +329,27 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def _log_span(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
         attributes = span.attributes or {}
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
-            if span.context:  # pragma: no branch
-                self._indent_level.pop(span.context.span_id, None)
+            if span.span_id is not None:  # pragma: no branch
+                self._indent_level.pop(span.span_id, None)
             return
 
+        block_span_id = span.parent_span_id
         if span_type == 'pending_span':
             parent_id = _pending_span_parent(attributes)
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
 
             # block_span_id will be the parent_id for all subsequent spans and logs in this block
-            if block_span_id := span.parent.span_id if span.parent else None:  # pragma: no branch
+            if block_span_id is not None:  # pragma: no branch
                 self._indent_level[block_span_id] = indent + 1
         else:
             # this is a log, we just get the indent level from the parent span
-            parent_id = span.parent.span_id if span.parent else None
-            indent = self._indent_level.get(parent_id, 0) if parent_id else 0
+            indent = self._indent_level.get(block_span_id, 0) if block_span_id else 0
 
         self._print_span(span, indent)
 
@@ -356,26 +378,27 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         # current open span ids
         self._span_stack: list[int] = []
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def _log_span(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
         attributes = span.attributes or {}
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
-            if span.context:  # pragma: no branch
-                self._span_history.pop(span.context.span_id, None)
-                if self._span_stack and self._span_stack[-1] == span.context.span_id:
+            if span.span_id is not None:  # pragma: no branch
+                self._span_history.pop(span.span_id, None)
+                if self._span_stack and self._span_stack[-1] == span.span_id:
                     self._span_stack.pop()
             return
 
         self._print_span(span)
 
-    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+    def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Parts for any parent spans which aren't in the current stack of displayed spans, then parts for this span."""
         attributes = span.attributes or {}
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
 
         parts: TextParts = []
+        block_span_id = span.parent_span_id
         if span_type == 'pending_span':
             parent_id = _pending_span_parent(attributes)
             parts += self._parent_stack_text_parts(parent_id)
@@ -384,13 +407,12 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
             msg, span_parts = super()._span_text_parts(span, indent)
             parts += span_parts
 
-            if block_span_id := span.parent and span.parent.span_id:  # pragma: no branch
+            if block_span_id is not None:  # pragma: no branch
                 self._span_history[block_span_id] = (indent, msg, parent_id or 0)
                 self._span_stack.append(block_span_id)
         else:
             # this is a log
-            parent_id = span.parent.span_id if span.parent else None
-            parts += self._parent_stack_text_parts(parent_id)
+            parts += self._parent_stack_text_parts(block_span_id)
             msg, span_parts = super()._span_text_parts(span, indent=len(self._span_stack))
             parts += span_parts
         return msg, parts
