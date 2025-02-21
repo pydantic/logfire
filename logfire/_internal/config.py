@@ -81,6 +81,7 @@ from .constants import (
 )
 from .exporters.console import (
     ConsoleColorsValues,
+    ConsoleLogExporter,
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
@@ -822,6 +823,8 @@ class LogfireConfig(_LogfireConfigData):
                 for processor in self.additional_span_processors:
                     add_span_processor(processor)
 
+            log_record_processors = list(self.advanced.log_record_processors)
+
             if self.console:
                 if self.console.span_style == 'simple':  # pragma: no cover
                     exporter_cls = SimpleConsoleSpanExporter
@@ -830,23 +833,19 @@ class LogfireConfig(_LogfireConfigData):
                 else:
                     assert self.console.span_style == 'show-parents'
                     exporter_cls = ShowParentsConsoleSpanExporter
-                add_span_processor(
-                    SimpleSpanProcessor(
-                        exporter_cls(
-                            colors=self.console.colors,
-                            include_timestamp=self.console.include_timestamps,
-                            include_tags=self.console.include_tags,
-                            verbose=self.console.verbose,
-                            min_log_level=self.console.min_log_level,
-                        ),
-                    )
+                console_span_exporter = exporter_cls(
+                    colors=self.console.colors,
+                    include_timestamp=self.console.include_timestamps,
+                    include_tags=self.console.include_tags,
+                    verbose=self.console.verbose,
+                    min_log_level=self.console.min_log_level,
                 )
+                add_span_processor(SimpleSpanProcessor(console_span_exporter))
+                log_record_processors.append(SimpleLogRecordProcessor(ConsoleLogExporter(console_span_exporter)))
 
             metric_readers: list[MetricReader] | None = None
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
-
-            log_record_processors = list(self.advanced.log_record_processors)
 
             if self.send_to_logfire:
                 credentials: LogfireCredentials | None = None

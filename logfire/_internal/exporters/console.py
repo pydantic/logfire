@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 from textwrap import indent as indent_text
 from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
 
-from opentelemetry.sdk._logs import LogRecord
+from opentelemetry.sdk._logs import LogData, LogRecord
+from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util import types as otel_types
@@ -143,11 +144,11 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
-            self._log_span(Record.from_span(span))
+            self.export_record(Record.from_span(span))
 
         return SpanExportResult.SUCCESS
 
-    def _log_span(self, span: Record) -> None:
+    def export_record(self, span: Record) -> None:
         """Print a summary of the span, this method can be overridden to customize how spans are displayed.
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
@@ -352,7 +353,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
-    def _log_span(self, span: Record) -> None:
+    def export_record(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
         if span.kind == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
@@ -399,7 +400,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         # current open span ids
         self._span_stack: list[int] = []
 
-    def _log_span(self, span: Record) -> None:
+    def export_record(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
         if span.kind == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
@@ -484,3 +485,17 @@ def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) ->
     """
     if parent_id_str := attributes.get(ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY):
         return int(parent_id_str, 16)  # type: ignore
+
+
+@dataclass
+class ConsoleLogExporter(LogExporter):
+    span_exporter: SimpleConsoleSpanExporter
+
+    def export(self, batch: Sequence[LogData]) -> LogExportResult:  # type: ignore
+        for log_data in batch:
+            self.span_exporter.export_record(Record.from_log(log_data.log_record))
+
+        return LogExportResult.SUCCESS
+
+    def shutdown(self):
+        self.span_exporter.shutdown()
