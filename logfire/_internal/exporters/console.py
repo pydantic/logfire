@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from textwrap import indent as indent_text
 from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
 
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util import types as otel_types
@@ -36,6 +37,7 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
+from ..utils import truncate_string
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 _INFO_LEVEL = LEVEL_NUMBERS['info']
@@ -51,7 +53,7 @@ TextParts = List[Tuple[str, str]]
 class Record:
     attributes: Mapping[str, otel_types.AttributeValue]
     timestamp: int
-    name: str
+    message: str
     events: Sequence[Event]
     span_id: int | None
     parent_span_id: int | None
@@ -63,11 +65,35 @@ class Record:
         return cls(
             attributes=attributes,
             timestamp=span.start_time or 0,
-            name=span.name,
+            message=attributes.get(ATTRIBUTES_MESSAGE_KEY) or span.name,  # type: ignore
             events=span.events,
             span_id=span.context and span.context.span_id,
             parent_span_id=span.parent and span.parent.span_id,
             kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # type: ignore
+        )
+
+    @classmethod
+    def from_log(cls, log: LogRecord) -> Record:
+        attributes = log.attributes or {}
+        message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+        if not message:
+            parts: list[str] = []
+            if event_name := attributes.get('event.name'):
+                parts.append(str(event_name))
+            if body := log.body:
+                parts.append(truncate_string(str(body), max_length=100))
+            else:
+                other_attributes = {k: v for k, v in attributes.items() if k != 'event.name'}
+                parts.append(truncate_string(str(other_attributes), max_length=100))
+            message = ': '.join(parts)
+        return cls(
+            attributes=attributes,
+            timestamp=log.timestamp or log.observed_timestamp or 0,
+            message=message,
+            events=[],
+            span_id=None,
+            parent_span_id=log.span_id,
+            kind='log',
         )
 
 
@@ -173,8 +199,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if indent:
             parts += [(indent * '  ', '')]
 
-        formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
-        msg = formatted_message or span.name
+        msg = span.message
         level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
 
         if level >= _ERROR_LEVEL:
