@@ -49,7 +49,7 @@ TextParts = List[Tuple[str, str]]
 
 @dataclass
 class Record:
-    attributes: otel_types.Attributes
+    attributes: Mapping[str, otel_types.AttributeValue]
     timestamp: int
     name: str
     events: Sequence[Event]
@@ -59,7 +59,7 @@ class Record:
     @classmethod
     def from_span(cls, span: ReadableSpan) -> Record:
         return cls(
-            attributes=span.attributes,
+            attributes=span.attributes or {},
             timestamp=span.start_time or 0,
             name=span.name,
             events=span.events,
@@ -126,14 +126,13 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Build up a summary of the span, including formatting for rich, then print it."""
         _msg, parts = self._span_text_parts(span, indent)
 
-        if span.attributes:  # pragma: no branch
-            span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-            # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-            if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
-                return
-            log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
-            if log_level < self._min_log_level_num:
-                return
+        span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
+        # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
+        if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
+            return
+        log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
+        if log_level < self._min_log_level_num:
+            return
 
         indent_str = (self._timestamp_indent + indent * 2) * ' '
         details_parts = self._details_parts(span, indent_str)
@@ -172,13 +171,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if indent:
             parts += [(indent * '  ', '')]
 
-        if span.attributes:  # pragma: no branch
-            formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
-            msg = formatted_message or span.name
-            level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
-        else:  # pragma: no cover
-            msg = span.name
-            level = 0
+        formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+        msg = formatted_message or span.name
+        level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
 
         if level >= _ERROR_LEVEL:
             # add the message in red if it's an error or worse
@@ -190,7 +185,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             parts += [(msg, '')]
 
         if self._include_tags:
-            if tags := span.attributes and span.attributes.get(ATTRIBUTES_TAGS_KEY):
+            if tags := span.attributes.get(ATTRIBUTES_TAGS_KEY):
                 tags_str = ','.join(cast('list[str]', tags))
                 parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
 
@@ -331,7 +326,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _log_span(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
-        attributes = span.attributes or {}
+        attributes = span.attributes
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
@@ -380,7 +375,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _log_span(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
-        attributes = span.attributes or {}
+        attributes = span.attributes
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
         if span_type == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
@@ -394,7 +389,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
 
     def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Parts for any parent spans which aren't in the current stack of displayed spans, then parts for this span."""
-        attributes = span.attributes or {}
+        attributes = span.attributes
         span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
 
         parts: TextParts = []
