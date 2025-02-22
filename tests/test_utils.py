@@ -122,3 +122,9 @@ ValueError: inner1\
 """,
         ]
     )
+
+
+def test_internal_error_base_exception():
+    with pytest.raises(BaseException):
+        with handle_internal_errors:
+            raise BaseException('base exception')

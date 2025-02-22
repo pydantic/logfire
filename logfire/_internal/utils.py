@@ -349,10 +349,10 @@ class HandleInternalErrors:
     def __enter__(self):
         pass
 
-    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> bool:
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> bool | None:
         if isinstance(exc_val, Exception):
             log_internal_error()
-        return True
+            return True
 
     def __call__(self, func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
