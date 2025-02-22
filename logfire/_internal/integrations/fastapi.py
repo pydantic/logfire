@@ -167,7 +167,7 @@ class FastAPIInstrumentation:
             return await original
 
         with self.logfire_instance.span('FastAPI arguments') as span:
-            with handle_internal_errors():
+            with handle_internal_errors:
                 if isinstance(request, Request):  # pragma: no branch
                     span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
                 route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
@@ -181,7 +181,7 @@ class FastAPIInstrumentation:
 
             result: Any = await original
 
-            with handle_internal_errors():
+            with handle_internal_errors:
                 solved_values: dict[str, Any]
                 solved_errors: list[Any]
 

@@ -994,7 +994,7 @@ class LogfireConfig(_LogfireConfigData):
             if hasattr(os, 'register_at_fork'):  # pragma: no branch
 
                 def fix_pid():  # pragma: no cover
-                    with handle_internal_errors():
+                    with handle_internal_errors:
                         new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore

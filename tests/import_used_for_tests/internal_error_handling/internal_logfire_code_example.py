@@ -11,13 +11,13 @@ def inner2():
     inner1()
 
 
-@handle_internal_errors()
+@handle_internal_errors
 def using_decorator():
     inner2()
 
 
 def using_context_manager():
-    with handle_internal_errors():
+    with handle_internal_errors:
         inner2()
 
 

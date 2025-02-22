@@ -24,7 +24,7 @@ def test_raise_for_status() -> None:
 
 def test_reraise_internal_exception():
     with pytest.raises(ZeroDivisionError):
-        with handle_internal_errors():
+        with handle_internal_errors:
             str(1 / 0)
 
 

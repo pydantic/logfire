@@ -376,11 +376,11 @@ class HandleInternalErrors:
         return wrapper
 
 
-handle_internal_errors = HandleInternalErrors
+handle_internal_errors = HandleInternalErrors()
 
-_HANDLE_INTERNAL_ERRORS_CALL_CODE = inspect.unwrap(handle_internal_errors.__call__).__code__
+_HANDLE_INTERNAL_ERRORS_CALL_CODE = inspect.unwrap(HandleInternalErrors.__call__).__code__
 _HANDLE_INTERNAL_ERRORS_CODES = [
-    handle_internal_errors.__exit__.__code__,
+    HandleInternalErrors.__exit__.__code__,
     _HANDLE_INTERNAL_ERRORS_CALL_CODE,
     *[
         const

@@ -322,7 +322,7 @@ def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_b
         return None
 
     def new_hook(span: Span, request: RequestInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
 
@@ -338,7 +338,7 @@ def make_async_request_hook(
         return None
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
 
@@ -355,7 +355,7 @@ def make_response_hook(
         return None
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request, response = capture_response(
                 span,
                 request,
@@ -380,7 +380,7 @@ def make_async_response_hook(
         return None
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request, response = capture_response(
                 span,
                 request,
