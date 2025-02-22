@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import json
 import logging
@@ -12,7 +13,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    ParamSpec,
+    Sequence,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
 from opentelemetry import context, trace as trace_api
 from opentelemetry.sdk.resources import Resource
@@ -282,7 +296,7 @@ def _internal_error_exc_info() -> SysExcInfo:
     try:
         # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
-        if tb and tb.tb_frame and tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
+        while tb and tb.tb_frame and tb.tb_frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
             # Skip the 'yield' line in _handle_internal_errors
             tb = tb.tb_next
 
@@ -307,15 +321,16 @@ def _internal_error_exc_info() -> SysExcInfo:
             frame = frame.f_back
             assert frame
 
-            if frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
-                # Skip the line in _handle_internal_errors that calls log_internal_error
-                frame = frame.f_back
-                # Skip the frame defining the _handle_internal_errors context manager
-                assert frame and frame.f_code.co_name == '__exit__'
-                frame = frame.f_back
-                assert frame
-                # Skip the frame calling the context manager, on the `with` line.
-                frame = frame.f_back
+            if frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
+                while frame and frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
+                    if frame.f_code.co_name == '__exit__':
+                        frame = frame.f_back
+                        frame = frame.f_back  # type: ignore
+                        break
+                    else:
+                        frame = frame.f_back
+                else:
+                    frame = frame.f_back  # type: ignore
             else:
                 # `log_internal_error()` was called directly, so just skip that frame. No context manager stuff.
                 frame = frame.f_back
@@ -340,15 +355,40 @@ def _internal_error_exc_info() -> SysExcInfo:
         return original_exc_info
 
 
-@contextmanager
-def handle_internal_errors():
-    try:
-        yield
-    except Exception:
-        log_internal_error()
+P = ParamSpec('P')
 
 
-_HANDLE_INTERNAL_ERRORS_CODE = inspect.unwrap(handle_internal_errors).__code__
+class HandleInternalErrors:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> bool:
+        if isinstance(exc_val, Exception):
+            log_internal_error()
+        return True
+
+    def __call__(self, func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper
+
+
+handle_internal_errors = HandleInternalErrors
+
+_HANDLE_INTERNAL_ERRORS_CODES = list(
+    [
+        inspect.unwrap(handle_internal_errors.__call__).__code__,
+        handle_internal_errors.__exit__.__code__,
+    ]
+)
+_HANDLE_INTERNAL_ERRORS_CODES.append(
+    const
+    for const in _HANDLE_INTERNAL_ERRORS_CODES[0].co_consts
+    if isinstance(const, type(_HANDLE_INTERNAL_ERRORS_CODES[0]))
+)
 
 
 def maybe_capture_server_headers(capture: bool):
