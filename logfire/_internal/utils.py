@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from time import time
-from types import TracebackType
+from types import CodeType, TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -368,11 +368,7 @@ _HANDLE_INTERNAL_ERRORS_CALL_CODE = inspect.unwrap(HandleInternalErrors.__call__
 _HANDLE_INTERNAL_ERRORS_CODES = [
     HandleInternalErrors.__exit__.__code__,
     _HANDLE_INTERNAL_ERRORS_CALL_CODE,
-    *[
-        const
-        for const in _HANDLE_INTERNAL_ERRORS_CALL_CODE.co_consts
-        if isinstance(const, type(_HANDLE_INTERNAL_ERRORS_CALL_CODE))
-    ],
+    *[const for const in _HANDLE_INTERNAL_ERRORS_CALL_CODE.co_consts if isinstance(const, CodeType)],
 ]
 
 
