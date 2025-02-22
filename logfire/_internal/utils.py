@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from time import time
-from types import CodeType, TracebackType
+from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -299,7 +299,7 @@ def _internal_error_exc_info() -> SysExcInfo:
     try:
         # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
-        while tb and tb.tb_frame and tb.tb_frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
+        if tb and tb.tb_frame and tb.tb_frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
             tb = tb.tb_next
 
         # Now add useful outer frames that give context, but skipping frames that are just about handling the error.
@@ -314,15 +314,9 @@ def _internal_error_exc_info() -> SysExcInfo:
             assert frame
 
             if frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
-                while frame and frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
-                    is_exit = frame.f_code.co_name == '__exit__'
-                    frame = frame.f_back
-                    if is_exit and frame:
-                        # Skip the line that says `with handle_internal_errors:`
-                        frame = frame.f_back
-            else:
-                # `log_internal_error()` was called directly, so just skip that frame. No context manager stuff.
                 frame = frame.f_back
+                assert frame
+            frame = frame.f_back
 
         # Now add all remaining frames from internal logfire code.
         while frame and not is_user_code(frame.f_code):
@@ -364,12 +358,9 @@ class HandleInternalErrors:
 
 handle_internal_errors = HandleInternalErrors()
 
-_HANDLE_INTERNAL_ERRORS_CALL_CODE = inspect.unwrap(HandleInternalErrors.__call__).__code__
-_HANDLE_INTERNAL_ERRORS_CODES = [
-    HandleInternalErrors.__exit__.__code__,
-    _HANDLE_INTERNAL_ERRORS_CALL_CODE,
-    *[const for const in _HANDLE_INTERNAL_ERRORS_CALL_CODE.co_consts if isinstance(const, CodeType)],
-]
+_WRAPPER_CODE = handle_internal_errors(lambda: 0).__code__
+assert _WRAPPER_CODE.co_name == 'wrapper'
+_HANDLE_INTERNAL_ERRORS_CODES = [HandleInternalErrors.__exit__.__code__, _WRAPPER_CODE]
 
 
 def maybe_capture_server_headers(capture: bool):
