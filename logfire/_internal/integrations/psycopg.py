@@ -41,6 +41,7 @@ def instrument_psycopg(
                 instrument_psycopg(logfire_instance, package, **kwargs)
         return
     elif conn_or_module in PACKAGE_NAMES:
+        assert isinstance(conn_or_module, str)
         _instrument_psycopg(logfire_instance, name=conn_or_module, **kwargs)
         return
     elif isinstance(conn_or_module, ModuleType):

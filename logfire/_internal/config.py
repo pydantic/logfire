@@ -317,14 +317,14 @@ def configure(  # noqa: D417
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
 
-    processors = deprecated_kwargs.pop('processors', None)  # type: ignore
+    processors = deprecated_kwargs.pop('processors', None)
     if processors is not None:  # pragma: no cover
         raise ValueError(
             'The `processors` argument has been replaced by `additional_span_processors`. '
             'Set `send_to_logfire=False` to disable the default processor.'
         )
 
-    metric_readers = deprecated_kwargs.pop('metric_readers', None)  # type: ignore
+    metric_readers = deprecated_kwargs.pop('metric_readers', None)
     if metric_readers is not None:  # pragma: no cover
         raise ValueError(
             'The `metric_readers` argument has been replaced by '
@@ -332,7 +332,7 @@ def configure(  # noqa: D417
             'Set `send_to_logfire=False` to disable the default metric reader.'
         )
 
-    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)  # type: ignore
+    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)
     if collect_system_metrics is False:
         raise ValueError(
             'The `collect_system_metrics` argument has been removed. System metrics are no longer collected by default.'
@@ -343,8 +343,8 @@ def configure(  # noqa: D417
             'The `collect_system_metrics` argument has been removed. Use `logfire.instrument_system_metrics()` instead.'
         )
 
-    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)  # type: ignore
-    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)  # type: ignore
+    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)
+    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)
     if scrubbing_callback or scrubbing_patterns:
         if scrubbing is not None:
             raise ValueError(
@@ -357,7 +357,7 @@ def configure(  # noqa: D417
         )
         scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
 
-    project_name = deprecated_kwargs.pop('project_name', None)  # type: ignore
+    project_name = deprecated_kwargs.pop('project_name', None)
     if project_name is not None:
         warnings.warn(
             'The `project_name` argument is deprecated and not needed.',
@@ -377,7 +377,7 @@ def configure(  # noqa: D417
                 'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
             )
 
-    show_summary = deprecated_kwargs.pop('show_summary', None)  # type: ignore
+    show_summary = deprecated_kwargs.pop('show_summary', None)
     if show_summary is not None:  # pragma: no cover
         warnings.warn(
             'The `show_summary` argument is deprecated. '
@@ -385,7 +385,7 @@ def configure(  # noqa: D417
         )
 
     for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
-        value: Any = deprecated_kwargs.pop(key, None)  # type: ignore
+        value: Any = deprecated_kwargs.pop(key, None)
         if value is None:
             continue
         if advanced is not None:
@@ -397,7 +397,7 @@ def configure(  # noqa: D417
             stacklevel=2,
         )
 
-    additional_metric_readers: Any = deprecated_kwargs.pop('additional_metric_readers', None)  # type: ignore
+    additional_metric_readers: Any = deprecated_kwargs.pop('additional_metric_readers', None)
     if additional_metric_readers:
         if metrics is not None:
             raise ValueError(
@@ -410,7 +410,7 @@ def configure(  # noqa: D417
         )
         metrics = MetricsOptions(additional_readers=additional_metric_readers)
 
-    pydantic_plugin: Any = deprecated_kwargs.pop('pydantic_plugin', None)  # type: ignore
+    pydantic_plugin: Any = deprecated_kwargs.pop('pydantic_plugin', None)
     if pydantic_plugin is not None:
         warnings.warn(
             'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
@@ -994,7 +994,7 @@ class LogfireConfig(_LogfireConfigData):
             if hasattr(os, 'register_at_fork'):  # pragma: no branch
 
                 def fix_pid():  # pragma: no cover
-                    with handle_internal_errors():
+                    with handle_internal_errors:
                         new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
