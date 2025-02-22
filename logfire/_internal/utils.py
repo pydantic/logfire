@@ -41,12 +41,16 @@ from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
 if TYPE_CHECKING:
+    from typing import ParamSpec
+
     from packaging.version import Version
 
     SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """
+
+    P = ParamSpec('P')
 
 T = TypeVar('T')
 
@@ -339,9 +343,6 @@ def _internal_error_exc_info() -> SysExcInfo:
         return exc_type, exc_val, tb
     except Exception:  # pragma: no cover
         return original_exc_info
-
-
-P = ParamSpec('P')
 
 
 class HandleInternalErrors:
