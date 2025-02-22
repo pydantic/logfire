@@ -364,7 +364,7 @@ class HandleInternalErrors:
 
 handle_internal_errors = HandleInternalErrors()
 
-_HANDLE_INTERNAL_ERRORS_WRAPPER_CODE = handle_internal_errors(lambda: 0).__code__
+_HANDLE_INTERNAL_ERRORS_WRAPPER_CODE = handle_internal_errors(log_internal_error).__code__
 assert _HANDLE_INTERNAL_ERRORS_WRAPPER_CODE.co_name == 'wrapper'
 _HANDLE_INTERNAL_ERRORS_EXIT_CODE = HandleInternalErrors.__exit__.__code__
 
