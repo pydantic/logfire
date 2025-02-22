@@ -297,9 +297,9 @@ def _internal_error_exc_info() -> SysExcInfo:
     original_exc_info: SysExcInfo = sys.exc_info()
     exc_type, exc_val, original_tb = original_exc_info
     try:
-        # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
-        if tb and tb.tb_frame and tb.tb_frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
+        if tb and tb.tb_frame and tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_WRAPPER_CODE:
+            # Skip the redundant `with self:` line in the traceback about where the error was raised.
             tb = tb.tb_next
 
         # Now add useful outer frames that give context, but skipping frames that are just about handling the error.
@@ -313,9 +313,15 @@ def _internal_error_exc_info() -> SysExcInfo:
             frame = frame.f_back
             assert frame
 
-            if frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
+            if frame.f_code is _HANDLE_INTERNAL_ERRORS_EXIT_CODE:
+                # Skip the `log_internal_error()` call in `__exit__`.
                 frame = frame.f_back
                 assert frame
+
+            # Now skip the line that is either:
+            # - A direct call to `log_internal_error`
+            # - `with self:` in HandleInternalErrors.__call__.wrapper
+            # - `with handle_internal_errors:`
             frame = frame.f_back
 
         # Now add all remaining frames from internal logfire code.
@@ -358,9 +364,9 @@ class HandleInternalErrors:
 
 handle_internal_errors = HandleInternalErrors()
 
-_WRAPPER_CODE = handle_internal_errors(lambda: 0).__code__
-assert _WRAPPER_CODE.co_name == 'wrapper'
-_HANDLE_INTERNAL_ERRORS_CODES = [HandleInternalErrors.__exit__.__code__, _WRAPPER_CODE]
+_HANDLE_INTERNAL_ERRORS_WRAPPER_CODE = handle_internal_errors(lambda: 0).__code__
+assert _HANDLE_INTERNAL_ERRORS_WRAPPER_CODE.co_name == 'wrapper'
+_HANDLE_INTERNAL_ERRORS_EXIT_CODE = HandleInternalErrors.__exit__.__code__
 
 
 def maybe_capture_server_headers(capture: bool):
