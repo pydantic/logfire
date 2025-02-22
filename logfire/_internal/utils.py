@@ -297,17 +297,6 @@ def _internal_error_exc_info() -> SysExcInfo:
         # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
         while tb and tb.tb_frame and tb.tb_frame.f_code in _HANDLE_INTERNAL_ERRORS_CODES:
-            # Skip the 'yield' line in _handle_internal_errors
-            tb = tb.tb_next
-
-        if (
-            tb
-            and tb.tb_frame
-            and tb.tb_frame.f_code.co_filename == contextmanager.__code__.co_filename
-            and tb.tb_frame.f_code.co_name == 'inner'
-        ):
-            # Skip the 'inner' function frame when handle_internal_errors is used as a decorator.
-            # It looks like `return func(*args, **kwds)`
             tb = tb.tb_next
 
         # Now add useful outer frames that give context, but skipping frames that are just about handling the error.
