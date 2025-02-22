@@ -378,17 +378,16 @@ class HandleInternalErrors:
 
 handle_internal_errors = HandleInternalErrors
 
-_HANDLE_INTERNAL_ERRORS_CODES = list(
-    [
-        inspect.unwrap(handle_internal_errors.__call__).__code__,
-        handle_internal_errors.__exit__.__code__,
-    ]
-)
-_HANDLE_INTERNAL_ERRORS_CODES.append(
-    const
-    for const in _HANDLE_INTERNAL_ERRORS_CODES[0].co_consts
-    if isinstance(const, type(_HANDLE_INTERNAL_ERRORS_CODES[0]))
-)
+_HANDLE_INTERNAL_ERRORS_CALL_CODE = inspect.unwrap(handle_internal_errors.__call__).__code__
+_HANDLE_INTERNAL_ERRORS_CODES = [
+    handle_internal_errors.__exit__.__code__,
+    _HANDLE_INTERNAL_ERRORS_CALL_CODE,
+    *[
+        const
+        for const in _HANDLE_INTERNAL_ERRORS_CALL_CODE.co_consts
+        if isinstance(const, type(_HANDLE_INTERNAL_ERRORS_CALL_CODE))
+    ],
+]
 
 
 def maybe_capture_server_headers(capture: bool):
