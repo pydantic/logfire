@@ -326,6 +326,7 @@ def _internal_error_exc_info() -> SysExcInfo:
                     is_exit = frame.f_code.co_name == '__exit__'
                     frame = frame.f_back
                     if is_exit and frame:
+                        # Skip the line that says `with handle_internal_errors:`
                         frame = frame.f_back
             else:
                 # `log_internal_error()` was called directly, so just skip that frame. No context manager stuff.
