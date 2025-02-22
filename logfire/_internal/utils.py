@@ -20,7 +20,6 @@ from typing import (
     Dict,
     List,
     Mapping,
-    ParamSpec,
     Sequence,
     Tuple,
     TypedDict,
