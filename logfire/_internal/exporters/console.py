@@ -80,6 +80,8 @@ class Record:
         attributes = log.attributes or {}
         message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
         if not message:
+            # TODO: this message could be better, for now we just want to have *something*
+            # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
             parts: list[str] = []
             if event_name := attributes.get('event.name'):
                 parts.append(str(event_name))

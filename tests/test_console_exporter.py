@@ -910,6 +910,7 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
             'span',
             '  my_event: body',
             '  msg',
+            # Non-event logs don't get the parent span context by default, so no indentation for this line.
             "{'key': 'value'}",
         ]
     )
