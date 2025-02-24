@@ -662,7 +662,7 @@ class Logfire:
                 Set to `True` to use the currently handled exception.
             console_log: Whether to log to the console, defaults to `True`.
         """
-        with handle_internal_errors():
+        with handle_internal_errors:
             stack_info = get_user_stack_info()
 
             attributes = attributes or {}
@@ -2107,7 +2107,7 @@ class FastLogfireSpan:
     def __enter__(self) -> FastLogfireSpan:
         return self
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         context_api.detach(self._token)
         self._span.__exit__(exc_type, exc_value, traceback)
@@ -2139,7 +2139,7 @@ class LogfireSpan(ReadableSpan):
             return getattr(self._span, name)
 
     def __enter__(self) -> LogfireSpan:
-        with handle_internal_errors():
+        with handle_internal_errors:
             if self._span is None:  # pragma: no branch
                 self._span = self._tracer.start_span(
                     name=self._span_name,
@@ -2152,7 +2152,7 @@ class LogfireSpan(ReadableSpan):
 
         return self
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self._token is None:  # pragma: no cover
             return
@@ -2161,7 +2161,7 @@ class LogfireSpan(ReadableSpan):
         context_api.detach(self._token)
         self._token = None
         if self._span.is_recording():
-            with handle_internal_errors():
+            with handle_internal_errors:
                 if self._added_attributes:
                     self._span.set_attribute(
                         ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
@@ -2177,7 +2177,7 @@ class LogfireSpan(ReadableSpan):
         return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
 
     @tags.setter
-    @handle_internal_errors()
+    @handle_internal_errors
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
         if isinstance(new_tags, str):
@@ -2192,7 +2192,7 @@ class LogfireSpan(ReadableSpan):
     def message(self, message: str):
         self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -2247,7 +2247,7 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
         attributes = log_level_attributes(level)

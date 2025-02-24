@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import json
 import logging
@@ -12,7 +13,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Sequence, Tuple, TypedDict, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Sequence,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
 from opentelemetry import context, trace as trace_api
 from opentelemetry.sdk.resources import Resource
@@ -27,12 +40,16 @@ from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
 if TYPE_CHECKING:
+    from typing import ParamSpec
+
     from packaging.version import Version
 
     SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """
+
+    P = ParamSpec('P')
 
 T = TypeVar('T')
 
@@ -280,20 +297,9 @@ def _internal_error_exc_info() -> SysExcInfo:
     original_exc_info: SysExcInfo = sys.exc_info()
     exc_type, exc_val, original_tb = original_exc_info
     try:
-        # First remove redundant frames already in the traceback about where the error was raised.
         tb = original_tb
-        if tb and tb.tb_frame and tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
-            # Skip the 'yield' line in _handle_internal_errors
-            tb = tb.tb_next
-
-        if (
-            tb
-            and tb.tb_frame
-            and tb.tb_frame.f_code.co_filename == contextmanager.__code__.co_filename
-            and tb.tb_frame.f_code.co_name == 'inner'
-        ):
-            # Skip the 'inner' function frame when handle_internal_errors is used as a decorator.
-            # It looks like `return func(*args, **kwds)`
+        if tb and tb.tb_frame and tb.tb_frame.f_code is _HANDLE_INTERNAL_ERRORS_WRAPPER_CODE:
+            # Skip the redundant `with self:` line in the traceback about where the error was raised.
             tb = tb.tb_next
 
         # Now add useful outer frames that give context, but skipping frames that are just about handling the error.
@@ -307,18 +313,16 @@ def _internal_error_exc_info() -> SysExcInfo:
             frame = frame.f_back
             assert frame
 
-            if frame.f_code is _HANDLE_INTERNAL_ERRORS_CODE:
-                # Skip the line in _handle_internal_errors that calls log_internal_error
-                frame = frame.f_back
-                # Skip the frame defining the _handle_internal_errors context manager
-                assert frame and frame.f_code.co_name == '__exit__'
+            if frame.f_code is _HANDLE_INTERNAL_ERRORS_EXIT_CODE:
+                # Skip the `log_internal_error()` call in `__exit__`.
                 frame = frame.f_back
                 assert frame
-                # Skip the frame calling the context manager, on the `with` line.
-                frame = frame.f_back
-            else:
-                # `log_internal_error()` was called directly, so just skip that frame. No context manager stuff.
-                frame = frame.f_back
+
+            # Now skip the line that is either:
+            # - A direct call to `log_internal_error`
+            # - `with self:` in HandleInternalErrors.__call__.wrapper
+            # - `with handle_internal_errors:`
+            frame = frame.f_back
 
         # Now add all remaining frames from internal logfire code.
         while frame and not is_user_code(frame.f_code):
@@ -340,15 +344,29 @@ def _internal_error_exc_info() -> SysExcInfo:
         return original_exc_info
 
 
-@contextmanager
-def handle_internal_errors():
-    try:
-        yield
-    except Exception:
-        log_internal_error()
+class HandleInternalErrors:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> bool | None:
+        if isinstance(exc_val, Exception):
+            log_internal_error()
+            return True
+
+    def __call__(self, func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper
 
 
-_HANDLE_INTERNAL_ERRORS_CODE = inspect.unwrap(handle_internal_errors).__code__
+handle_internal_errors = HandleInternalErrors()
+
+_HANDLE_INTERNAL_ERRORS_WRAPPER_CODE = handle_internal_errors(log_internal_error).__code__
+assert _HANDLE_INTERNAL_ERRORS_WRAPPER_CODE.co_name == 'wrapper'
+_HANDLE_INTERNAL_ERRORS_EXIT_CODE = HandleInternalErrors.__exit__.__code__
 
 
 def maybe_capture_server_headers(capture: bool):

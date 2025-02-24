@@ -345,7 +345,7 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
     return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))
 
 
-@handle_internal_errors()
+@handle_internal_errors
 def record_exception(
     span: trace_api.Span,
     exception: BaseException,

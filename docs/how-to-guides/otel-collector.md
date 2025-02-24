@@ -210,7 +210,7 @@ data:
     exporters:
       debug:
       otlphttp:
-        endpoint: "https://logfire-api.pydantic.info"
+        endpoint: "https://logfire-api.pydantic.dev"
         headers:
           Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
     service:
