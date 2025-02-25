@@ -2120,6 +2120,7 @@ def test_exc_info(exporter: TestExporter):
 
     for span_dict in span_dicts[4:]:
         [event] = span_dict['events']
+        event['attributes'].pop('logfire.exception_first_recorded', None)
         assert event['attributes'] == {
             'exception.type': 'ValueError',
             'exception.message': 'an error',
