@@ -1552,6 +1552,19 @@ def test_otel_metrics_exporter_env_var():
     assert len(list(get_metric_readers())) == 0
 
 
+def test_otel_logs_exporter_env_var():
+    # Setting OTEL_LOGS_EXPORTER to something other than otlp prevents creating an OTLPLogExporter
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint4', 'OTEL_LOGS_EXPORTER': 'none'}):
+        logfire.configure(send_to_logfire=False, console=False)
+
+    [otel_processor] = get_span_processors()
+    assert isinstance(otel_processor, BatchSpanProcessor)
+    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
+    assert otel_processor.span_exporter._endpoint == 'otel_endpoint4/v1/traces'  # type: ignore
+
+    assert len(list(get_log_record_processors())) == 0
+
+
 def test_otel_exporter_otlp_traces_endpoint_env_var():
     # Setting just OTEL_EXPORTER_OTLP_TRACES_ENDPOINT only creates an OTLPSpanExporter
     with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT': 'otel_traces_endpoint'}):

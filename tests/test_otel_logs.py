@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Sequence
+from unittest import mock
 
 import pytest
 import requests.exceptions
@@ -134,3 +135,12 @@ def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
     assert not connection_error_exporter.shutdown_called
     exporter.shutdown()
     assert connection_error_exporter.shutdown_called
+
+
+def test_no_events_sdk():
+    assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_event_logger_provider() is not None
+    with mock.patch.dict('sys.modules', {'opentelemetry.sdk._events': None}):
+        logfire_instance = logfire.configure(send_to_logfire=False, local=True)
+        assert logfire_instance.config.get_event_logger_provider() is None
+        logfire_instance.force_flush()
+        logfire_instance.shutdown()
