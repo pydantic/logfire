@@ -384,6 +384,18 @@ def record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
 
+    if not getattr(exception, '_logfire_recorded', False):
+        # This exception has already been recorded, mark it as such in attributes so that
+        # our backend can replicate the behavior of exceptions as OTEL logs, see
+        # https://github.com/open-telemetry/opentelemetry-specification/pull/4430#issue-2876146448
+        # and linked issues.
+        attributes['logfire.exception_first_recorded'] = True
+        try:
+            setattr(exception, '_logfire_recorded', True)
+        except Exception:  # pragma: no cover
+            # immutable exception objects, etc.
+            pass
+
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 
