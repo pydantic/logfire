@@ -224,6 +224,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                             'exception.message': 'test exception',
                             'exception.stacktrace': 'ValueError: test exception',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

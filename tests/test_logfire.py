@@ -1194,6 +1194,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                                     }
                                 ]
                             ),
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
@@ -1265,6 +1266,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                                     }
                                 ]
                             ),
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
@@ -2108,6 +2110,7 @@ def test_exc_info(exporter: TestExporter):
 
     for span_dict in span_dicts[2:4]:
         [event] = span_dict['events']
+        event['attributes'].pop('logfire.exception_first_recorded', None)
         assert event['attributes'] == {
             'exception.type': 'TypeError',
             'exception.message': 'other error',
@@ -2117,6 +2120,7 @@ def test_exc_info(exporter: TestExporter):
 
     for span_dict in span_dicts[4:]:
         [event] = span_dict['events']
+        event['attributes'].pop('logfire.exception_first_recorded', None)
         assert event['attributes'] == {
             'exception.type': 'ValueError',
             'exception.message': 'an error',
@@ -3242,3 +3246,22 @@ def test_default_id_generator(exporter: TestExporter) -> None:
         export['attributes']['i'] for export in sorted(exported, key=lambda span: span['start_time'])
     ]
     assert sorted_by_trace_id == sorted_by_start_timestamp
+
+
+def test_exception_duplication_marker_attribute(exporter: TestExporter) -> None:
+    """Tests that `logfire.exception_first_recorded` is set on a span event the first time we record an exception
+    and not on subsequent spans with the same exception.
+    """
+
+    with pytest.raises(RuntimeError):
+        with logfire.span('outer'):
+            with logfire.span('inner'):
+                raise RuntimeError('error')
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 2
+
+    outer_span_event = next(s['events'][0] for s in spans if s['name'] == 'outer')
+    inner_span_event = next(s['events'][0] for s in spans if s['name'] == 'inner')
+    assert inner_span_event['attributes']['logfire.exception_first_recorded'] is True
+    assert 'logfire.exception_first_recorded' not in outer_span_event['attributes']

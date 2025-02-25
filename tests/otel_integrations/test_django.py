@@ -195,6 +195,7 @@ def test_error_route(client: Client, exporter: TestExporter):
                             'exception.message': 'bad request',
                             'exception.stacktrace': 'django.core.exceptions.BadRequest: bad request',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

@@ -728,6 +728,7 @@ def test_exception(exporter: TestExporter) -> None:
                             'exception.message': 'division by zero',
                             'exception.stacktrace': 'ZeroDivisionError: division by zero',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

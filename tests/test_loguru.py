@@ -94,6 +94,7 @@ def test_loguru(exporter: TestExporter) -> None:
                             'exception.message': 'This is a test exception',
                             'exception.stacktrace': 'ValueError: This is a test exception',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

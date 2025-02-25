@@ -895,6 +895,7 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                             'exception.message': 'My error',
                             'exception.stacktrace': 'TypeError: My error',
                             'exception.escaped': 'True',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
@@ -943,6 +944,7 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                             'exception.message': 'My error',
                             'exception.stacktrace': 'TypeError: My error',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
@@ -1054,6 +1056,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                                 'exception.message': 'My error',
                                 'exception.stacktrace': 'TypeError: My error',
                                 'exception.escaped': 'True',
+                                'logfire.exception_first_recorded': True,
                             },
                         }
                     ],

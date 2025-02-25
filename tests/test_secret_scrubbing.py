@@ -175,6 +175,7 @@ def test_scrub_events(exporter: TestExporter):
                             'exception.message': 'Password: hunter2',
                             'exception.stacktrace': 'wrong and secret',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     },
                     {

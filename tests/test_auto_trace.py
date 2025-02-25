@@ -130,6 +130,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                             'exception.message': 'list index out of range',
                             'exception.stacktrace': 'IndexError: list index out of range',
                             'exception.escaped': 'True',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
