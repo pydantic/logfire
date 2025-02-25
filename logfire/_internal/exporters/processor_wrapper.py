@@ -7,7 +7,7 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
 
@@ -214,7 +214,17 @@ def _tweak_http_spans(span: ReadableSpanDict):
         names.append(method)
         messages.append(method)
     if target and isinstance(target, str):  # pragma: no branch
-        messages.append(target)
+        message_target = target
+        if span['kind'] == SpanKind.CLIENT:
+            # For outgoing requests, we also want the domain, not just the path.
+            server_name = (
+                attributes.get(SpanAttributes.SERVER_ADDRESS)
+                or attributes.get(SpanAttributes.HTTP_SERVER_NAME)
+                or attributes.get(SpanAttributes.HTTP_HOST)
+            )
+            if server_name and isinstance(server_name, str):
+                message_target = server_name + message_target
+        messages.append(message_target)
     if route and isinstance(route, str):
         names.append(route)
 

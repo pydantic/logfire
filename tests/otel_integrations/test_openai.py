@@ -1125,7 +1125,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'server.address': 'api.openai.com',
                     'network.peer.address': 'api.openai.com',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /v1/completions',
+                    'logfire.msg': 'POST api.openai.com/v1/completions',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
