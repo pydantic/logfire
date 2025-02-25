@@ -12,13 +12,14 @@ from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
 from typing import Any, Iterator, List, Mapping
+from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
 import numpy
 import pandas
 import pytest
 from attrs import define
-from dirty_equals import IsJson
+from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -1346,6 +1347,77 @@ def test_bad_getattr(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
                     'code.lineno': 123,
                     'a': '"A()"',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_to_dict(exporter: TestExporter):
+    class Foo:
+        def to_dict(self):
+            return {'x': 1}
+
+    logfire.info('hi', foo=Foo())
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_to_dict',
+                    'code.lineno': 123,
+                    'foo': '{"x":1}',
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_mock(exporter: TestExporter):
+    class Mixin:
+        def __repr__(self):
+            return f'{self.__class__.__name__}()'
+
+    class Foo(Mixin, Mock):
+        pass
+
+    class Bar(Mixin, MagicMock):
+        pass
+
+    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock())
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_mock',
+                    'code.lineno': 123,
+                    'foo': '"Foo()"',
+                    'bar': '"Bar()"',
+                    'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
+                    'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
         ]
