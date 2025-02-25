@@ -279,9 +279,12 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         try:
             # Some VertexAI classes have this method. They have no common base class.
             # Seems like a sensible thing to try in general.
-            return to_json_value(o.to_dict(), seen)
+            to_dict = type(o).to_dict(o)  # type: ignore
         except Exception:  # currently redundant, but future-proof
             pass
+        else:
+            return to_json_value(to_dict, seen)
+
     except Exception:  # pragma: no cover
         pass
 
