@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import atexit
-import contextlib
 import dataclasses
 import functools
 import json
@@ -1021,12 +1020,11 @@ class LogfireConfig(_LogfireConfigData):
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
 
-            with contextlib.suppress(Exception):
-                if self._event_logger_provider:
-                    # This also shuts down the underlying self._logger_provider
-                    self._event_logger_provider.shutdown()
-                else:
-                    self._logger_provider.shutdown()
+            if self._event_logger_provider:
+                # This also shuts down the underlying self._logger_provider
+                self._event_logger_provider.shutdown()
+            else:
+                self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
 
