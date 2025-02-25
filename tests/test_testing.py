@@ -73,6 +73,7 @@ def test_capfire_fixture(capfire: CaptureLogfire) -> None:
                             'exception.message': 'an exception!',
                             'exception.stacktrace': 'Exception: an exception!',
                             'exception.escaped': 'True',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

@@ -99,6 +99,7 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                             'exception.message': 'division by zero',
                             'exception.stacktrace': 'ZeroDivisionError: division by zero',
                             'exception.escaped': 'False',
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],

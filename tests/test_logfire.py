@@ -1194,6 +1194,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                                     }
                                 ]
                             ),
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
@@ -1265,6 +1266,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                                     }
                                 ]
                             ),
+                            'logfire.exception_first_recorded': True,
                         },
                     }
                 ],
