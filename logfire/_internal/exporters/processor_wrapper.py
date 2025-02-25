@@ -222,7 +222,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
                 or attributes.get(SpanAttributes.HTTP_SERVER_NAME)
                 or attributes.get(SpanAttributes.HTTP_HOST)
             )
-            if server_name and isinstance(server_name, str):
+            if server_name and isinstance(server_name, str):  # pragma: no branch
                 message_target = server_name + message_target
         messages.append(message_target)
     if route and isinstance(route, str):
