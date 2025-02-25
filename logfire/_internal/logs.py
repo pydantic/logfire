@@ -47,8 +47,15 @@ class ProxyLoggerProvider(LoggerProvider):
             for logger in self.loggers:
                 logger.set_logger(NoOpLoggerProvider() if logger.name in self.suppressed_scopes else logger_provider)
 
-    def __getattr__(self, item: str):
-        result = getattr(self.provider, item)
+    def __getattr__(self, item: str) -> Any:
+        try:
+            result = getattr(self.provider, item)
+        except AttributeError:
+            if item in ['shutdown', 'force_flush']:
+                # These methods don't exist on the default NoOpLoggerProvider
+                return lambda *_, **__: None  # type: ignore
+            raise
+
         if callable(result):
 
             @functools.wraps(result)
