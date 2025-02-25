@@ -54,7 +54,7 @@ class ProxyLoggerProvider(LoggerProvider):
             if item in ['shutdown', 'force_flush']:
                 # These methods don't exist on the default NoOpLoggerProvider
                 return lambda *_, **__: None  # type: ignore
-            raise
+            raise  # pragma: no cover
 
         if callable(result):
 
