@@ -158,7 +158,7 @@ class ConsoleOptions:
 class AdvancedOptions:
     """Options primarily used for testing by Logfire developers."""
 
-    base_url: str = 'https://logfire-api.pydantic.dev'
+    base_url: str | None = None
     """Root URL for the Logfire API."""
 
     id_generator: IdGenerator = dataclasses.field(default_factory=lambda: SeededRandomIdGenerator(None))
@@ -172,6 +172,19 @@ class AdvancedOptions:
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
+
+    def generate_base_url(self, token: str | None) -> str:
+        if token and '-' in token:
+            region, _ = token.split('-', maxsplit=1)
+        else:
+            region = None
+        if self.base_url is not None:
+            return self.base_url
+        if region:
+            return f'https://api-{region}.pydantic.dev'
+        else:
+            # default to us region for tokens that were created before regions were added
+            return 'https://logfire-api.pydantic.dev'
 
 
 @dataclass
@@ -864,7 +877,9 @@ class LogfireConfig(_LogfireConfigData):
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
                         credentials = LogfireCredentials.initialize_project(
-                            logfire_api_url=self.advanced.base_url,
+                            # TODO: what happens here? Seems like we need to assume a region to create the new project?
+                            # Should the SDK have the region from when the user logged in to the SDK?
+                            logfire_api_url=self.advanced.generate_base_url(None),
                             session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
@@ -891,7 +906,7 @@ class LogfireConfig(_LogfireConfigData):
                     session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                     session.headers.update(headers)
                     span_exporter = OTLPSpanExporter(
-                        endpoint=urljoin(self.advanced.base_url, '/v1/traces'),
+                        endpoint=urljoin(self.advanced.generate_base_url(self.token), '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
                     )
@@ -915,7 +930,7 @@ class LogfireConfig(_LogfireConfigData):
                             PeriodicExportingMetricReader(
                                 QuietMetricExporter(
                                     OTLPMetricExporter(
-                                        endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
+                                        endpoint=urljoin(self.advanced.generate_base_url(self.token), '/v1/metrics'),
                                         headers=headers,
                                         session=session,
                                         compression=Compression.Gzip,
@@ -930,7 +945,7 @@ class LogfireConfig(_LogfireConfigData):
                         )
 
                     log_exporter = OTLPLogExporter(
-                        endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
+                        endpoint=urljoin(self.advanced.generate_base_url(self.token), '/v1/logs'),
                         session=session,
                         compression=Compression.Gzip,
                     )
@@ -1151,7 +1166,7 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.base_url)
+        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.

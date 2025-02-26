@@ -13,7 +13,7 @@ from typing_extensions import get_args, get_origin
 from logfire.exceptions import LogfireConfigError
 
 from . import config
-from .constants import LOGFIRE_BASE_URL, LevelName
+from .constants import LevelName
 from .exporters.console import ConsoleColorsValues
 from .utils import read_toml_file
 
@@ -98,7 +98,9 @@ INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_fi
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
 """Whether to show a warning message if logfire if used without calling logfire.configure()"""
-BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
+BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=None, tp=Union[str, None])
+REGION = ConfigParam(env_vars=['LOGFIRE_REGION'], allow_file_config=True, default='us')
+"""The region of the Logfire backend."""
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
@@ -205,6 +207,8 @@ class ParamManager:
             return float(value)  # type: ignore
         if tp is Path:
             return Path(value)  # type: ignore
+        if tp in (None, type(None)) and value in (None, ''):
+            return None
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
