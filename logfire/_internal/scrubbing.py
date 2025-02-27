@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import typing_extensions
+from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
@@ -135,12 +136,18 @@ class BaseScrubber(ABC):
     def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
 
     @abstractmethod
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...  # pragma: no cover
+
+    @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
 
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
         pass
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        return log
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
@@ -157,6 +164,11 @@ class Scrubber(BaseScrubber):
         patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        span_scrubber = SpanScrubber(self)
+        # TODO scrubbing hints
+        return span_scrubber.scrub_log(log)
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
@@ -220,6 +232,21 @@ class SpanScrubber:
             )
             for i, link in enumerate(span['links'])
         ]
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        new_attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
+        new_body = self.scrub(('log_body',), log.body)
+        return LogRecord(
+            timestamp=log.timestamp,
+            observed_timestamp=log.observed_timestamp,
+            trace_id=log.trace_id,
+            span_id=log.span_id,
+            trace_flags=log.trace_flags,
+            severity_text=log.severity_text,
+            severity_number=log.severity_number,
+            body=new_body,
+            attributes=new_attributes,
+        )
 
     def scrub_event_attributes(self, event: Event, index: int):
         attributes = event.attributes or {}
