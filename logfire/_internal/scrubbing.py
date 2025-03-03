@@ -169,13 +169,7 @@ class Scrubber(BaseScrubber):
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
-        result = span_scrubber.scrub_log(log)
-        if span_scrubber.scrubbed:
-            result.attributes = {
-                **(result.attributes or {}),
-                ATTRIBUTES_SCRUBBED_KEY: json.dumps(span_scrubber.scrubbed),
-            }
-        return result
+        return span_scrubber.scrub_log(log)
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
@@ -213,6 +207,7 @@ class SpanScrubber:
         self._pattern = parent._pattern  # type: ignore
         self._callback = parent._callback  # type: ignore
         self.scrubbed: list[ScrubbedNote] = []
+        self.did_scrub = False
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -241,9 +236,19 @@ class SpanScrubber:
         ]
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
+        new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
+        new_body = self.scrub(('log_body',), log.body)
+
+        if not self.did_scrub:
+            return log
+
+        if self.scrubbed:
+            new_attributes = new_attributes or {}
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+
         result = copy.copy(log)
-        result.attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
-        result.body = self.scrub(('log_body',), log.body)
+        result.attributes = BoundedAttributes(attributes=new_attributes)
+        result.body = new_body
         return result
 
     def scrub_event_attributes(self, event: Event, index: int):
@@ -290,7 +295,9 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
+            self.did_scrub = self.did_scrub or result is not match.value
             return result
+        self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
