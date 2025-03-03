@@ -53,7 +53,7 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
-from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper
+from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
@@ -1625,11 +1625,14 @@ def get_metric_readers() -> Iterable[SpanProcessor]:
 
 
 def get_log_record_processors() -> Iterable[LogRecordProcessor]:
-    [root] = get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
-    assert isinstance(root, CheckSuppressInstrumentationLogProcessorWrapper)
-    assert isinstance(root.processor, SynchronousMultiLogRecordProcessor)
+    [processor] = get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
+    assert isinstance(processor, CheckSuppressInstrumentationLogProcessorWrapper)
+    processor = processor.processor
+    assert isinstance(processor, MainLogProcessorWrapper)
+    processor = processor.processor
+    assert isinstance(processor, SynchronousMultiLogRecordProcessor)
 
-    return root.processor._log_record_processors  # type: ignore
+    return processor._log_record_processors  # type: ignore
 
 
 def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
