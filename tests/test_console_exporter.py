@@ -9,10 +9,13 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry._events import Event, get_event_logger
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
 from logfire import ConsoleOptions
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
@@ -870,5 +873,44 @@ def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> No
         [
             'hi',
             'hi [my_tag]',
+        ]
+    )
+
+
+def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
+    )
+
+    with logfire.span('span'):
+        get_event_logger('events').emit(
+            Event(
+                name='my_event',
+                severity_number=SeverityNumber.ERROR,
+                body='body',
+                attributes={'key': 'value'},
+            )
+        )
+        get_event_logger('events').emit(
+            Event(
+                name='my_event',
+                attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+            )
+        )
+        get_logger('logs').emit(
+            LogRecord(
+                severity_number=SeverityNumber.INFO,
+                attributes={'key': 'value'},
+            )
+        )
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'span',
+            '  my_event: body',
+            '  msg',
+            # Non-event logs don't get the parent span context by default, so no indentation for this line.
+            "{'key': 'value'}",
         ]
     )
