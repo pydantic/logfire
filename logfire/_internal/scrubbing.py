@@ -216,7 +216,11 @@ class SpanScrubber:
         # 2. The callback might return a value that isn't of the type required by OTEL,
         #      in which case BoundAttributes will discard it to prevent an error.
         # TODO silently throwing away the result is bad, and BoundedAttributes might be bad for performance.
-        span['attributes'] = BoundedAttributes(attributes=self.scrub(('attributes',), span['attributes']))
+        new_attributes = self.scrub(('attributes',), span['attributes'])
+        if self.did_scrub:
+            # Only created another BoundedAttributes if we actually scrubbed something.
+            span['attributes'] = BoundedAttributes(attributes=new_attributes)
+
         span['events'] = [
             Event(
                 # We don't scrub the event name because in theory it should be a low-cardinality general description,
