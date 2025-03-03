@@ -171,6 +171,9 @@ def build_attributes(
 class TestLogExporter(InMemoryLogExporter):
     """A LogExporter that stores exported logs in a list for asserting in tests."""
 
+    # NOTE: Avoid test discovery by pytest.
+    __test__ = False
+
     def __init__(self, ns_timestamp_generator: typing.Callable[[], int]) -> None:
         super().__init__()
         self.ns_timestamp_generator = ns_timestamp_generator

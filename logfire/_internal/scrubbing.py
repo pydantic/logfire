@@ -131,6 +131,7 @@ class BaseScrubber(ABC):
         SpanAttributes.URL_FULL,
         SpanAttributes.URL_PATH,
         SpanAttributes.URL_QUERY,
+        'event.name',
     }
 
     @abstractmethod
@@ -236,8 +237,8 @@ class SpanScrubber:
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         result = copy.copy(log)
-        log.attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
-        log.body = self.scrub(('log_body',), log.body)
+        result.attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
+        result.body = self.scrub(('log_body',), log.body)
         return result
 
     def scrub_event_attributes(self, event: Event, index: int):

@@ -7,12 +7,13 @@ from typing import Any
 import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
+from opentelemetry._events import Event, get_event_logger
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.scrubbing import NoopScrubber
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 
 
 def test_scrub_attribute(exporter: TestExporter):
@@ -71,6 +72,55 @@ def test_scrub_attribute(exporter: TestExporter):
                         ]
                     ),
                 },
+            }
+        ]
+    )
+
+
+def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
+    get_event_logger(__name__).emit(
+        Event(
+            name='Password: {user_password}',
+            attributes=dict(
+                user_password=['hunter2'],
+                mode='password',
+                modes='passwords',
+                Author='Alice1',
+                authors='Alice2',
+                authr='Alice3',
+                authorization='Alice4',
+            ),
+        )
+    )
+    # We redact:
+    # - The `user_password` attribute.
+    # - The `modes` attribute.
+    # - `authr` and `authorization` because they contain 'auth' but don't look like 'author(s)'.
+    # Things intentionally not redacted even though they contain "password":
+    # - The `mode` attribute, because the value 'password' is a full match.
+    # - 'Author' and 'authors': special cases in the regex that looks for 'auth'.
+    # - event.name
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'user_password': ("[Scrubbed due to 'password']",),
+                    'mode': 'password',
+                    'modes': "[Scrubbed due to 'password']",
+                    'Author': 'Alice1',
+                    'authors': 'Alice2',
+                    'authr': "[Scrubbed due to 'auth']",
+                    'authorization': "[Scrubbed due to 'auth']",
+                    'event.name': 'Password: {user_password}',
+                },
+                'timestamp': 1000000000,
+                'observed_timestamp': 2000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
             }
         ]
     )
