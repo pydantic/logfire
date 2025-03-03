@@ -27,7 +27,7 @@ from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
@@ -52,7 +52,7 @@ from logfire._internal.config import (
     LogfireCredentials,
     sanitize_project_name,
 )
-from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
@@ -1442,10 +1442,10 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     logfire.configure(send_to_logfire=True, token='foo')
     wait_for_check_token_thread()
 
-    [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
-    assert isinstance(console_processor, SimpleSpanProcessor)
-    assert isinstance(console_processor.span_exporter, ShowParentsConsoleSpanExporter)
+    assert isinstance(console_span_processor, SimpleSpanProcessor)
+    assert isinstance(console_span_processor.span_exporter, ShowParentsConsoleSpanExporter)
 
     assert isinstance(send_to_logfire_processor, BatchSpanProcessor)
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
@@ -1454,7 +1454,7 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
     assert isinstance(pending_span_processor.processor.processor, SynchronousMultiSpanProcessor)
     assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
-        console_processor,
+        console_span_processor,
         send_to_logfire_processor,
     )
 
@@ -1462,7 +1462,12 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(logfire_metric_reader._exporter, QuietMetricExporter)  # type: ignore
 
-    [logfire_log_processor] = get_log_record_processors()
+    [console_log_processor, logfire_log_processor] = get_log_record_processors()
+
+    assert isinstance(console_log_processor, SimpleLogRecordProcessor)
+    assert isinstance(console_log_processor._exporter, ConsoleLogExporter)  # type: ignore
+    assert console_log_processor._exporter.span_exporter is console_span_processor.span_exporter  # type: ignore
+
     assert isinstance(logfire_log_processor, BatchLogRecordProcessor)
     assert isinstance(logfire_log_processor._exporter, QuietLogExporter)  # type: ignore
     assert isinstance(logfire_log_processor._exporter.exporter, OTLPLogExporter)  # type: ignore

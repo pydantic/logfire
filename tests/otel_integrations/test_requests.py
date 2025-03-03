@@ -37,7 +37,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
     with logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
-        response = requests.get('https://example.org/')
+        response = requests.get('https://example.org:8080/foo')
         # Validation of context propagation: ensure that the traceparent header contains the trace ID
         traceparent_header = response.headers['traceparent']
         assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
@@ -53,16 +53,19 @@ async def test_requests_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'GET',
                     'http.request.method': 'GET',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /',
+                    'logfire.msg': 'GET example.org/foo',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             },
             {
