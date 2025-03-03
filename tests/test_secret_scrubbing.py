@@ -8,6 +8,7 @@ import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry._events import Event, get_event_logger
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
@@ -309,7 +310,8 @@ def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, An
     )
 
 
-def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]):
+def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(**config_kwargs, scrubbing=False)
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
@@ -317,7 +319,9 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
     assert isinstance(config.scrubber, NoopScrubber)
 
     logfire.info('Password: {user_password}', user_password='my secret password')
-
+    get_event_logger(__name__).emit(
+        Event(name='Password: {user_password}', attributes=dict(user_password='my secret password'))
+    )
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -337,6 +341,24 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
                     'user_password': 'my secret password',
                     'logfire.json_schema': '{"type":"object","properties":{"user_password":{}}}',
                 },
+            }
+        ]
+    )
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'user_password': 'my secret password',
+                    'event.name': 'Password: {user_password}',
+                },
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
             }
         ]
     )

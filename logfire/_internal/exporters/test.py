@@ -225,3 +225,6 @@ class TestLogExporter(InMemoryLogExporter):
             return res
 
         return [build_log(log) for log in self.get_finished_logs()]
+
+    def shutdown(self) -> None:
+        self.clear()
