@@ -116,6 +116,16 @@ def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
                     'authr': "[Scrubbed due to 'auth']",
                     'authorization': "[Scrubbed due to 'auth']",
                     'event.name': 'Password: {user_password}',
+                    'logfire.scrubbed': IsJson(
+                        snapshot(
+                            [
+                                {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
+                                {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
+                                {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
+                                {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
+                            ]
+                        )
+                    ),
                 },
                 'timestamp': 1000000000,
                 'observed_timestamp': 2000000000,

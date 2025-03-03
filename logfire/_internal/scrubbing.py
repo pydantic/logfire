@@ -169,8 +169,13 @@ class Scrubber(BaseScrubber):
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
-        # TODO scrubbing hints
-        return span_scrubber.scrub_log(log)
+        result = span_scrubber.scrub_log(log)
+        if span_scrubber.scrubbed:
+            result.attributes = {
+                **(result.attributes or {}),
+                ATTRIBUTES_SCRUBBED_KEY: json.dumps(span_scrubber.scrubbed),
+            }
+        return result
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
