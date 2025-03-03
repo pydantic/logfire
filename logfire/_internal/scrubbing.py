@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from abc import ABC, abstractmethod
@@ -7,8 +8,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import typing_extensions
-from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link
@@ -234,19 +235,10 @@ class SpanScrubber:
         ]
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
-        new_attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
-        new_body = self.scrub(('log_body',), log.body)
-        return LogRecord(
-            timestamp=log.timestamp,
-            observed_timestamp=log.observed_timestamp,
-            trace_id=log.trace_id,
-            span_id=log.span_id,
-            trace_flags=log.trace_flags,
-            severity_text=log.severity_text,
-            severity_number=log.severity_number,
-            body=new_body,
-            attributes=new_attributes,
-        )
+        result = copy.copy(log)
+        log.attributes = BoundedAttributes(attributes=self.scrub(('attributes',), log.attributes))
+        log.body = self.scrub(('log_body',), log.body)
+        return result
 
     def scrub_event_attributes(self, event: Event, index: int):
         attributes = event.attributes or {}
