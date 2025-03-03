@@ -213,7 +213,7 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             The logger provider.
         """
-    def get_event_logger_provider(self) -> EventLoggerProvider:
+    def get_event_logger_provider(self) -> EventLoggerProvider | None:
         """Get an event logger provider from this `LogfireConfig`.
 
         This is used internally and should not be called by users of the SDK.

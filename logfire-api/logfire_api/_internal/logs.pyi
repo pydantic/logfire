@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from opentelemetry._logs import LogRecord, Logger, LoggerProvider
 from opentelemetry.util.types import Attributes
 from threading import Lock
+from typing import Any
 from weakref import WeakSet
 
 @dataclass
@@ -14,7 +15,7 @@ class ProxyLoggerProvider(LoggerProvider):
     def get_logger(self, name: str, version: str | None = None, schema_url: str | None = None, attributes: Attributes | None = None) -> Logger: ...
     def suppress_scopes(self, *scopes: str) -> None: ...
     def set_provider(self, logger_provider: LoggerProvider) -> None: ...
-    def __getattr__(self, item: str): ...
+    def __getattr__(self, item: str) -> Any: ...
 
 @dataclass(eq=False)
 class ProxyLogger(Logger):
