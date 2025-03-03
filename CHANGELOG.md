@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v3.6.4] (2025-02-25)
+
+* Handle mocks by calling `to_dict` on type by @alexmojaki in [#897](https://github.com/pydantic/logfire/pull/897)
+
+## [v3.6.3] (2025-02-25)
+
+* Handle missing `shutdown` and `force_flush` on `NoOpLoggerProvider` better by @alexmojaki in [#895](https://github.com/pydantic/logfire/pull/895)
+* Handle missing events SDK by @alexmojaki in [#893](https://github.com/pydantic/logfire/pull/893)
+
 ## [v3.6.2] (2025-02-22)
 
 * Fix typing errors involving `handle_internal_errors` by @alexmojaki in [#885](https://github.com/pydantic/logfire/pull/885)
@@ -592,3 +601,5 @@ First release from new repo!
 [v3.6.0]: https://github.com/pydantic/logfire/compare/v3.5.3...v3.6.0
 [v3.6.1]: https://github.com/pydantic/logfire/compare/v3.6.0...v3.6.1
 [v3.6.2]: https://github.com/pydantic/logfire/compare/v3.6.1...v3.6.2
+[v3.6.3]: https://github.com/pydantic/logfire/compare/v3.6.2...v3.6.3
+[v3.6.4]: https://github.com/pydantic/logfire/compare/v3.6.3...v3.6.4
