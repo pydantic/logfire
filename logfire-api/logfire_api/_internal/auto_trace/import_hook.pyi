@@ -33,5 +33,6 @@ class LogfireLoader(Loader):
         This is called by the import system.
         """
     def create_module(self, spec: ModuleSpec): ...
+    def get_code(self, _name: str): ...
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""
