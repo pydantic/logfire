@@ -254,7 +254,7 @@ def test_scrub_events(exporter: TestExporter):
     )
 
 
-def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
+def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path[-1] == 'my_password':
             return str(match)
@@ -262,6 +262,7 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
             # This is not a valid OTEL attribute value, so it will be removed completely.
             return match
 
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(
         scrubbing=logfire.ScrubbingOptions(
             extra_patterns=['my_pattern'],
@@ -272,6 +273,8 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
 
     # Note the values (or lack thereof) of each of these attributes in the exported span.
     logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
+
+    get_event_logger(__name__).emit(Event(name='hi', attributes=dict(my_password='hunter2', bad_value='the_password')))
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -300,6 +303,31 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
                     'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
                 },
+            }
+        ]
+    )
+
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'my_password': (
+                        'ScrubMatch('
+                        "path=('attributes', 'my_password'), "
+                        "value='hunter2', "
+                        "pattern_match=<re.Match object; span=(3, 11), match='password'>"
+                        ')'
+                    ),
+                    'event.name': 'hi',
+                },
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
             }
         ]
     )
