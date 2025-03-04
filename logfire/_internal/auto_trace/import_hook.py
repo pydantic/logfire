@@ -126,6 +126,6 @@ class LogfireLoader(Loader):
 
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""
-        if item in {'get_filename', 'is_package'}:
+        if item in {'get_filename', 'is_package', 'get_code'}:
             return getattr(self.plain_spec.loader, item)
         raise AttributeError(item)
