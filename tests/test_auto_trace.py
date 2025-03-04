@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import runpy
 import sys
 from importlib.machinery import SourceFileLoader
 from typing import Any, Callable, ContextManager
@@ -50,6 +51,9 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
 
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
+
+    # Simulate `python -m tests.auto_trace_samples`
+    runpy.run_module('tests.auto_trace_samples')
 
     assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
 
@@ -133,6 +137,37 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                         },
                     }
                 ],
+            },
+            {
+                'name': 'Calling tests.auto_trace_samples.__main__.main',
+                'context': {'trace_id': 2, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': '__main__.py',
+                    'code.lineno': 123,
+                    'code.function': 'main',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'Calling tests.auto_trace_samples.__main__.main',
+                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': '__main__.py',
+                    'code.lineno': 123,
+                    'code.function': 'main',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.__main__.main',
+                },
             },
         ]
     )
