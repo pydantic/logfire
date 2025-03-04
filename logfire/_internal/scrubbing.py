@@ -215,10 +215,9 @@ class SpanScrubber:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
         # 2. The callback might return a value that isn't of the type required by OTEL,
         #      in which case BoundAttributes will discard it to prevent an error.
-        # TODO silently throwing away the result is bad, and BoundedAttributes might be bad for performance.
+        # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:
-            # Only created another BoundedAttributes if we actually scrubbed something.
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
         span['events'] = [
