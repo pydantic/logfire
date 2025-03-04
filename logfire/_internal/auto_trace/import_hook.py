@@ -124,6 +124,13 @@ class LogfireLoader(Loader):
     def create_module(self, spec: ModuleSpec):
         return None
 
+    def get_code(self, _name: str):
+        # `python -m` uses the `runpy` module which calls this method instead of going through the normal protocol.
+        # So return some code which can be executed with the module namespace.
+        # Here `__loader__` will be this object, i.e. `self`.
+        source = '__loader__.execute(globals())'
+        return compile(source, '<string>', 'exec', dont_inherit=True)
+
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""
         if item in {'get_filename', 'is_package'}:
