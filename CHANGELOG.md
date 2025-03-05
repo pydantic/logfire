@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.7.1] (2025-03-05)
+
+* Handle errors in OpenAI response by @alexmojaki in [#910](https://github.com/pydantic/logfire/pull/910)
+* Include domain in message for outgoing HTTP requests: fix for old semconv by @alexmojaki in [#909](https://github.com/pydantic/logfire/pull/909)
+
 ## [v3.7.0] (2025-03-04)
 
 * Include domain in message for outgoing requests by @alexmojaki in [#892](https://github.com/pydantic/logfire/pull/892)
@@ -610,3 +615,4 @@ First release from new repo!
 [v3.6.3]: https://github.com/pydantic/logfire/compare/v3.6.2...v3.6.3
 [v3.6.4]: https://github.com/pydantic/logfire/compare/v3.6.3...v3.6.4
 [v3.7.0]: https://github.com/pydantic/logfire/compare/v3.6.4...v3.7.0
+[v3.7.1]: https://github.com/pydantic/logfire/compare/v3.7.0...v3.7.1
