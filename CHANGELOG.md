@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v3.7.0] (2025-03-04)
+
+* Include domain in message for outgoing requests by @alexmojaki in [#892](https://github.com/pydantic/logfire/pull/892)
+* Console logging for OTel logs by @alexmojaki in [#882](https://github.com/pydantic/logfire/pull/882)
+* Fix auto-tracing with `python -m` by @alexmojaki in [#905](https://github.com/pydantic/logfire/pull/905)
+
 ## [v3.6.4] (2025-02-25)
 
 * Handle mocks by calling `to_dict` on type by @alexmojaki in [#897](https://github.com/pydantic/logfire/pull/897)
@@ -603,3 +609,4 @@ First release from new repo!
 [v3.6.2]: https://github.com/pydantic/logfire/compare/v3.6.1...v3.6.2
 [v3.6.3]: https://github.com/pydantic/logfire/compare/v3.6.2...v3.6.3
 [v3.6.4]: https://github.com/pydantic/logfire/compare/v3.6.3...v3.6.4
+[v3.7.0]: https://github.com/pydantic/logfire/compare/v3.6.4...v3.7.0
