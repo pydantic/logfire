@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from opentelemetry import context
@@ -217,11 +218,17 @@ def _tweak_http_spans(span: ReadableSpanDict):
         message_target = target
         if span['kind'] == SpanKind.CLIENT:
             # For outgoing requests, we also want the domain, not just the path.
-            server_name = (
+            server_name: Any = (
                 attributes.get(SpanAttributes.SERVER_ADDRESS)
                 or attributes.get(SpanAttributes.HTTP_SERVER_NAME)
                 or attributes.get(SpanAttributes.HTTP_HOST)
             )
+            if not server_name:
+                try:
+                    server_name = urlparse(url).hostname  # type: ignore
+                except Exception:  # pragma: no cover
+                    pass
+            server_name = server_name or url
             if server_name and isinstance(server_name, str):  # pragma: no branch
                 message_target = server_name + message_target
         messages.append(message_target)

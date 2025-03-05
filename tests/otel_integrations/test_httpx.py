@@ -10,6 +10,7 @@ import pytest
 from dirty_equals import IsStr
 from httpx import Request
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
 from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
 from opentelemetry.trace.span import Span
 
@@ -94,6 +95,39 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'test span',
                 },
             },
+        ]
+    )
+
+
+def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
+    with mock.patch.dict('os.environ', {'OTEL_SEMCONV_STABILITY_OPT_IN': ''}):
+        with httpx.Client(transport=create_transport()) as client:
+            # Pick up the new value of OTEL_SEMCONV_STABILITY_OPT_IN
+            _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+
+            logfire.instrument_httpx(client)
+            client.get('https://example.org:8080/foo')
+
+            # Now let other tests get the original value set in conftest.py
+            _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.url': 'https://example.org:8080/foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET example.org/foo',
+                    'http.status_code': 200,
+                    'http.target': '/foo',
+                },
+            }
         ]
     )
 
