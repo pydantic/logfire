@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import Any, Sequence
 from unittest import mock
 
 import pytest
@@ -16,9 +16,7 @@ from opentelemetry.sdk.resources import Resource
 import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
-
-if TYPE_CHECKING:
-    from logfire._internal.exporters.test import TestLogExporter
+from logfire.testing import TestLogExporter
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
