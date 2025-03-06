@@ -14,9 +14,8 @@ logfire.configure()
 Agent.instrument_all()
 ```
 
-Note:
-
-* You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
+!!! note
+    You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
 
 With that you get:
 
