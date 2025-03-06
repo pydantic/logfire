@@ -6,6 +6,27 @@ integration: logfire
 
 Logfire supports instrumenting [PydanticAI](https://ai.pydantic.dev/).
 
+```python hl_lines="5"
+import logfire
+from pydantic_ai import Agent, RunContext
+
+logfire.configure()
+Agent.instrument_all()
+```
+
+Note:
+
+* You will need to install the logfire SDK extra for your LLM provider, e.g. `pip install "logifre[openai]"`
+* You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
+
+With that you get:
+
+* A span around all LLM calls your agent makes which records duration and captures any exceptions that might occur
+* Human-readable display of the conversation with the agent
+* Details of the request/response, including the number of tokens used
+
+You can also instrument **specific** agents with this approach:
+
 ```python hl_lines="15"
 import logfire
 from pydantic_ai import Agent, RunContext
@@ -42,19 +63,7 @@ print(result.data)
 #> False
 ```
 
-Note:
-
-- We pass `instrument=True` to the agent.
-- You will need to install the logfire SDK extra for your LLM provider, e.g. `pip install "logifre[openai]"`
-- You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
-
-With that you get:
-
-* A span around all LLM calls your agent makes which records duration and captures any exceptions that might occur
-* Human-readable display of the conversation with the agent
-* Details of the request/response, including the number of tokens used
-
-Shows up like this in Logfire:
+The above example displays like this in Logfire:
 
 <figure markdown="span">
   ![Logfire PydanticAI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
