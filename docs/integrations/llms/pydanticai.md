@@ -16,7 +16,6 @@ Agent.instrument_all()
 
 Note:
 
-* You will need to install the logfire SDK extra for your LLM provider, e.g. `pip install "logifre[openai]"`
 * You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
 
 With that you get:
