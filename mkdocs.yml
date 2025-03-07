@@ -99,6 +99,7 @@ nav:
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
+          - PydanticAI: integrations/llms/pydanticai.md
           - LLamaIndex: integrations/llms/llamaindex.md
           - OpenAI: integrations/llms/openai.md
           - Anthropic: integrations/llms/anthropic.md

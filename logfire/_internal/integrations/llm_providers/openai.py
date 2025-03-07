@@ -10,6 +10,7 @@ from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 
+from ...utils import handle_internal_errors
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -113,18 +114,19 @@ except ImportError:  # pragma: no cover
     OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # type: ignore
 
 
+@handle_internal_errors
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    if isinstance(response, ChatCompletion):
+    if isinstance(response, ChatCompletion) and response.choices:
         span.set_attribute(
             'response_data',
             {'message': response.choices[0].message, 'usage': response.usage},
         )
-    elif isinstance(response, Completion):
+    elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
         span.set_attribute(
             'response_data',
