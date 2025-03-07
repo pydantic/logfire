@@ -83,7 +83,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
-from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper
+from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -1015,7 +1015,9 @@ class LogfireConfig(_LogfireConfigData):
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
-            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(multi_log_processor)
+            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(
+                MainLogProcessorWrapper(multi_log_processor, self.scrubber)
+            )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
 
