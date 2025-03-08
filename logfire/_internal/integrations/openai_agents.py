@@ -11,7 +11,7 @@ from agents.tracing.spans import NoOpSpan, TSpanData
 from agents.tracing.traces import NoOpTrace
 from opentelemetry import context as context_api
 from opentelemetry.trace import (
-    _SPAN_KEY,  #  type: ignore
+    _SPAN_KEY,  # type: ignore
     Span as OtelSpan,
     TracerProvider,
     get_tracer_provider,
