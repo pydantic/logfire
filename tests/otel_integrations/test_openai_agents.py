@@ -1,8 +1,9 @@
-from agents import agent_span, trace
+from agents import agent_span, get_current_span, get_current_trace, trace
 from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.integrations.openai_agents import OpenTelemetrySpanWrapper, OpenTelemetryTraceWrapper
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
@@ -10,10 +11,19 @@ def test_openai_agent_tracing(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
     with logfire.span('logfire span 1'):
-        with trace('trace_name'):
+        assert get_current_trace() is None
+        with trace('trace_name') as t:
+            assert isinstance(t, OpenTelemetryTraceWrapper)
+            assert get_current_trace() is t
             with logfire.span('logfire span 2'):
-                with agent_span('agent_name'):
+                assert get_current_span() is None
+                with agent_span('agent_name') as s:
+                    assert get_current_trace() is t
+                    assert get_current_span() is s
+                    assert isinstance(s, OpenTelemetrySpanWrapper)
                     logfire.info('Hi')
+                assert get_current_span() is None
+        assert get_current_trace() is None
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -89,13 +99,22 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
 
     with logfire.span('logfire span 1'):
         t = trace('trace_name')
+        assert isinstance(t, OpenTelemetryTraceWrapper)
+        assert get_current_trace() is None
         t.start(mark_as_current=True)
+        assert get_current_trace() is t
         with logfire.span('logfire span 2'):
             s = agent_span('agent_name')
+            assert isinstance(s, OpenTelemetrySpanWrapper)
+            assert get_current_span() is None
             s.start(mark_as_current=True)
+            assert get_current_span() is s
             logfire.info('Hi')
             s.finish(reset_current=True)
+            assert get_current_span() is None
+        assert get_current_trace() is t
         t.finish(reset_current=True)
+        assert get_current_trace() is None
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

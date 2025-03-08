@@ -106,20 +106,23 @@ class OpenTelemetrySpanHelper:
 
 @dataclass
 class OpenTelemetryTraceWrapper(Trace):
+    __slots__ = ('wrapped', 'span_helper')
+
     wrapped: Trace
     span_helper: OpenTelemetrySpanHelper
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
-        return self.wrapped.start(mark_as_current)
+        return type(self.wrapped).start(self, mark_as_current)
 
     def finish(self, reset_current: bool = False):
         self.span_helper.end(reset_current)
-        return self.wrapped.finish(reset_current)
+        return type(self.wrapped).finish(self, reset_current)
 
     def __enter__(self) -> Trace:
         self.span_helper.__enter__()
-        return self.wrapped.__enter__()
+        type(self.wrapped).__enter__(self)
+        return self
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
@@ -135,6 +138,14 @@ class OpenTelemetryTraceWrapper(Trace):
 
     def export(self) -> dict[str, Any] | None:
         return self.wrapped.export()
+
+    def __getattr__(self, item: str):
+        return getattr(self.wrapped, item)
+
+    def __setattr__(self, key: str, value: Any):
+        if key in self.__slots__:
+            return super().__setattr__(key, value)
+        return setattr(self.wrapped, key, value)
 
 
 @dataclass
@@ -158,15 +169,16 @@ class OpenTelemetrySpanWrapper(Span[TSpanData]):
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
-        return self.wrapped.start(mark_as_current)
+        return type(self.wrapped).start(self, mark_as_current)
 
     def finish(self, reset_current: bool = False) -> None:
         self.span_helper.end(reset_current)
-        return self.wrapped.finish(reset_current)
+        return type(self.wrapped).finish(self, reset_current)
 
     def __enter__(self) -> Span[TSpanData]:
         self.span_helper.__enter__()
-        return type(self.wrapped).__enter__(self)
+        type(self.wrapped).__enter__(self)
+        return self
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
