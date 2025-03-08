@@ -6,6 +6,10 @@ integration: logfire
 
 Logfire supports instrumenting calls to OpenAI with one extra line of code.
 
+We support instrumenting both the [standard OpenAI SDK](https://pypi.org/project/openai/) package and [OpenAI "agents" framework](https://pypi.org/project/openai-agents/) clients.
+
+### OpenAI SDK
+
 ```python hl_lines="7"
 import openai
 import logfire
@@ -45,7 +49,7 @@ With that you get:
   <figcaption>Span arguments including response details</figcaption>
 </figure>
 
-## Methods covered
+### Methods covered
 
 The following OpenAI methods are covered:
 
@@ -87,7 +91,7 @@ Gives:
   <figcaption>OpenAI image generation span</figcaption>
 </figure>
 
-## Streaming Responses
+### Streaming Responses
 
 When instrumenting streaming responses, Logfire creates two spans — one around the initial request and one
 around the streamed response.
@@ -134,3 +138,7 @@ Shows up like this in Logfire:
   ![Logfire OpenAI Streaming](../../images/logfire-screenshot-openai-stream.png){ width="500" }
   <figcaption>OpenAI streaming response</figcaption>
 </figure>
+
+## OpenAI Agents
+
+TODO
