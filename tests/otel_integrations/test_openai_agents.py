@@ -8,7 +8,6 @@ from logfire._internal.integrations.openai_agents import OpenTelemetrySpanWrappe
 
 def test_openai_agent_tracing(exporter: TestExporter):
     logfire.instrument_openai_agents()
-    logfire.instrument_openai_agents()
 
     with logfire.span('logfire span 1'):
         assert get_current_trace() is None
@@ -94,7 +93,6 @@ def test_openai_agent_tracing(exporter: TestExporter):
 
 
 def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
-    logfire.instrument_openai_agents()
     logfire.instrument_openai_agents()
 
     with logfire.span('logfire span 1'):
