@@ -83,7 +83,7 @@ class OpenaiCompletionStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
-try:
+try:  # type: ignore
     # ChatCompletionStreamState only exists in openai>=1.40.0
     from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 

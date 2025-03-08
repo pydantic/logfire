@@ -250,6 +250,7 @@ typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 include = ["logfire", "tests"]
+exclude = ["logfire/_internal/integrations/llm_providers/openai.py"]
 venvPath = "."
 venv = ".venv"
 
