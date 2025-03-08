@@ -126,7 +126,7 @@ class OpenTelemetryTraceWrapper(Trace):
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        return self.wrapped.__exit__(exc_type, exc_val, exc_tb)  # type: ignore
+        return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)  # type: ignore
 
     @property
     def trace_id(self) -> str:
