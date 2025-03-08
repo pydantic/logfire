@@ -1796,7 +1796,7 @@ class Logfire:
 
         from .integrations.openai_agents import OpenTelemetryTraceProviderWrapper
 
-        OpenTelemetryTraceProviderWrapper.install()
+        OpenTelemetryTraceProviderWrapper.install(self.config.get_tracer_provider())
 
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'

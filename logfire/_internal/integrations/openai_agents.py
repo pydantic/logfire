@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable
 
 import agents
@@ -9,7 +10,12 @@ from agents import Span, SpanError, Trace
 from agents.tracing.spans import NoOpSpan, TSpanData
 from agents.tracing.traces import NoOpTrace
 from opentelemetry import context as context_api
-from opentelemetry.trace import _SPAN_KEY, Span as OtelSpan, TracerProvider, get_tracer_provider
+from opentelemetry.trace import (
+    _SPAN_KEY,  #  type: ignore
+    Span as OtelSpan,
+    TracerProvider,
+    get_tracer_provider,
+)
 
 if TYPE_CHECKING:
     from agents.tracing.setup import TraceProvider
@@ -51,10 +57,10 @@ class OpenTelemetryTraceProviderWrapper:
         return getattr(self.wrapped, item)
 
     @classmethod
-    def install(cls) -> None:
+    def install(cls, tracer_provider: TracerProvider | None = None) -> None:
         name = 'GLOBAL_TRACE_PROVIDER'
         original = getattr(agents.tracing, name)
-        wrapper = cls(original)
+        wrapper = cls(original, tracer_provider)
         for mod in sys.modules.values():
             try:
                 if getattr(mod, name, None) is original:
@@ -89,7 +95,7 @@ class OpenTelemetrySpanHelper:
     def __enter__(self):
         self.start(True)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         if self.span:
             self.span.__exit__(exc_type, exc_val, exc_tb)
             self.span = None
@@ -113,9 +119,9 @@ class OpenTelemetryTraceWrapper(Trace):
         self.span_helper.__enter__()
         return self.wrapped.__enter__()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        return self.wrapped.__exit__(exc_type, exc_val, exc_tb)
+        return self.wrapped.__exit__(exc_type, exc_val, exc_tb)  # type: ignore
 
     @property
     def trace_id(self) -> str:
@@ -130,10 +136,10 @@ class OpenTelemetryTraceWrapper(Trace):
 
 
 @dataclass
-class OpenTelemetrySpanWrapper(Span):
+class OpenTelemetrySpanWrapper(Span[TSpanData]):
     __slots__ = ('wrapped', 'span_helper')
 
-    wrapped: Span
+    wrapped: Span[TSpanData]
     span_helper: OpenTelemetrySpanHelper
 
     @property
@@ -160,9 +166,9 @@ class OpenTelemetrySpanWrapper(Span):
         self.span_helper.__enter__()
         return type(self.wrapped).__enter__(self)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)
+        return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)  # type: ignore
 
     @property
     def parent_id(self) -> str | None:
@@ -187,10 +193,10 @@ class OpenTelemetrySpanWrapper(Span):
     def ended_at(self) -> str | None:
         return self.wrapped.ended_at
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str):
         return getattr(self.wrapped, item)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any):
         if key in self.__slots__:
             return super().__setattr__(key, value)
         return setattr(self.wrapped, key, value)
