@@ -1794,9 +1794,9 @@ class Logfire:
         """Instrument the `agents` library from OpenAI."""
         self._warn_if_not_initialized_for_instrumentation()
 
-        from .integrations.openai_agents import OpenTelemetryTraceProviderWrapper
+        from .integrations.openai_agents import LogfireTraceProviderWrapper
 
-        OpenTelemetryTraceProviderWrapper.install(self)
+        LogfireTraceProviderWrapper.install(self)
 
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'

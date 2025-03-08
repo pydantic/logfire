@@ -3,7 +3,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.integrations.openai_agents import OpenTelemetrySpanWrapper, OpenTelemetryTraceWrapper
+from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
@@ -12,14 +12,14 @@ def test_openai_agent_tracing(exporter: TestExporter):
     with logfire.span('logfire span 1'):
         assert get_current_trace() is None
         with trace('trace_name') as t:
-            assert isinstance(t, OpenTelemetryTraceWrapper)
+            assert isinstance(t, LogfireTraceWrapper)
             assert get_current_trace() is t
             with logfire.span('logfire span 2'):
                 assert get_current_span() is None
                 with agent_span('agent_name') as s:
                     assert get_current_trace() is t
                     assert get_current_span() is s
-                    assert isinstance(s, OpenTelemetrySpanWrapper)
+                    assert isinstance(s, LogfireSpanWrapper)
                     logfire.info('Hi')
                 assert get_current_span() is None
         assert get_current_trace() is None
@@ -111,7 +111,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
 
     with logfire.span('logfire span 1'):
         t = trace('trace_name')
-        assert isinstance(t, OpenTelemetryTraceWrapper)
+        assert isinstance(t, LogfireTraceWrapper)
         assert not t.span_helper.span.is_recording()
         assert get_current_trace() is None
         t.start(mark_as_current=True)
@@ -119,13 +119,13 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
         assert get_current_trace() is t
         with logfire.span('logfire span 2'):
             s = agent_span('agent_name')
-            assert isinstance(s, OpenTelemetrySpanWrapper)
+            assert isinstance(s, LogfireSpanWrapper)
             assert get_current_span() is None
             s.start(mark_as_current=True)
             assert get_current_span() is s
 
             s2 = agent_span('agent_name2')
-            assert isinstance(s2, OpenTelemetrySpanWrapper)
+            assert isinstance(s2, LogfireSpanWrapper)
             assert get_current_span() is s
             s2.start()
             assert get_current_span() is s

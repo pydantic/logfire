@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from logfire import Logfire, LogfireSpan
 
 
-class OpenTelemetryTraceProviderWrapper:
+class LogfireTraceProviderWrapper:
     def __init__(self, wrapped: TraceProvider, logfire_instance: Logfire):
         self.wrapped = wrapped
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='openai_agents')
@@ -31,8 +31,8 @@ class OpenTelemetryTraceProviderWrapper:
         trace = self.wrapped.create_trace(name, trace_id, session_id, disabled)
         if isinstance(trace, NoOpTrace):
             return trace
-        helper = OpenTelemetrySpanHelper(self.logfire_instance.span(name))
-        return OpenTelemetryTraceWrapper(trace, helper)
+        helper = LogfireSpanHelper(self.logfire_instance.span(name))
+        return LogfireTraceWrapper(trace, helper)
 
     def create_span(
         self,
@@ -44,8 +44,8 @@ class OpenTelemetryTraceProviderWrapper:
         span = self.wrapped.create_span(span_data, span_id, parent, disabled)
         if isinstance(span, NoOpSpan):
             return span
-        helper = OpenTelemetrySpanHelper(self.logfire_instance.span(span_data.type))
-        return OpenTelemetrySpanWrapper(span, helper)
+        helper = LogfireSpanHelper(self.logfire_instance.span(span_data.type))
+        return LogfireSpanWrapper(span, helper)
 
     def __getattr__(self, item: Any) -> Any:
         return getattr(self.wrapped, item)
@@ -66,7 +66,7 @@ class OpenTelemetryTraceProviderWrapper:
 
 
 @dataclass
-class OpenTelemetrySpanHelper:
+class LogfireSpanHelper:
     span: LogfireSpan
 
     def start(self, mark_as_current: bool):
@@ -91,11 +91,11 @@ class OpenTelemetrySpanHelper:
 
 
 @dataclass
-class OpenTelemetryTraceWrapper(Trace):
+class LogfireTraceWrapper(Trace):
     __slots__ = ('wrapped', 'span_helper')
 
     wrapped: Trace
-    span_helper: OpenTelemetrySpanHelper
+    span_helper: LogfireSpanHelper
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
@@ -135,11 +135,11 @@ class OpenTelemetryTraceWrapper(Trace):
 
 
 @dataclass
-class OpenTelemetrySpanWrapper(Span[TSpanData]):
+class LogfireSpanWrapper(Span[TSpanData]):
     __slots__ = ('wrapped', 'span_helper')
 
     wrapped: Span[TSpanData]
-    span_helper: OpenTelemetrySpanHelper
+    span_helper: LogfireSpanHelper
 
     @property
     def trace_id(self) -> str:
