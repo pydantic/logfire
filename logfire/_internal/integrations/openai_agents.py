@@ -17,7 +17,7 @@ from agents import (
     SpanError,
     Trace,
 )
-from agents.tracing.spans import NoOpSpan, TSpanData
+from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class LogfireTraceProviderWrapper:
         trace = self.wrapped.create_trace(name, trace_id, session_id, disabled)
         if isinstance(trace, NoOpTrace):
             return trace
-        helper = LogfireSpanHelper(
+        helper = LogfireTraceHelper(
             self.logfire_instance.span(
                 'OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, agent_session_id=session_id
             )
@@ -58,27 +58,25 @@ class LogfireTraceProviderWrapper:
         span = self.wrapped.create_span(span_data, span_id, parent, disabled)
         if isinstance(span, NoOpSpan):
             return span
-        known_span = True
         if isinstance(span_data, AgentSpanData):
-            span_name = 'Agent {agent_name}'
+            msg_template = 'Agent {agent_name}'
         elif isinstance(span_data, FunctionSpanData):
-            span_name = 'Function {name}'
+            msg_template = 'Function {name}'
         elif isinstance(span_data, GenerationSpanData):
-            span_name = 'Generation {response_id=} {input=}'
+            msg_template = 'Generation {response_id=} {input=}'
         elif isinstance(span_data, GuardrailSpanData):
-            span_name = 'Guardrail {name} {triggered=}'
+            msg_template = 'Guardrail {name} {triggered=}'
         elif isinstance(span_data, HandoffSpanData):
-            span_name = 'Handoff {from_agent} -> {to_agent}'
+            msg_template = 'Handoff {from_agent} -> {to_agent}'
         elif isinstance(span_data, CustomSpanData):
-            span_name = 'Custom span: {display_name}'
+            msg_template = 'Custom span: {display_name}'
         else:
-            span_name = 'OpenAI agents {type} span'
-            known_span = False
-        attributes = span_data.export()
-        if known_span and attributes.get('type') == span_data.type:
-            del attributes['type']
-        logfire_span = self.logfire_instance.span(span_name, **attributes)
-        helper = LogfireSpanHelper(logfire_span)
+            msg_template = 'OpenAI agents {type} span'
+        logfire_span = self.logfire_instance.span(
+            msg_template,
+            **attributes_from_span_data(span_data, msg_template),
+        )
+        helper = LogfireTraceHelper(logfire_span)
         return LogfireSpanWrapper(span, helper)
 
     def __getattr__(self, item: Any) -> Any:
@@ -100,7 +98,7 @@ class LogfireTraceProviderWrapper:
 
 
 @dataclass
-class LogfireSpanHelper:
+class LogfireTraceHelper:
     span: LogfireSpan
 
     def start(self, mark_as_current: bool):
@@ -125,11 +123,16 @@ class LogfireSpanHelper:
 
 
 @dataclass
+class LogfireSpanHelper:
+    span_data: SpanData
+
+
+@dataclass
 class LogfireTraceWrapper(Trace):
     __slots__ = ('wrapped', 'span_helper')
 
     wrapped: Trace
-    span_helper: LogfireSpanHelper
+    span_helper: LogfireTraceHelper
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
@@ -173,7 +176,7 @@ class LogfireSpanWrapper(Span[TSpanData]):
     __slots__ = ('wrapped', 'span_helper')
 
     wrapped: Span[TSpanData]
-    span_helper: LogfireSpanHelper
+    span_helper: LogfireTraceHelper
 
     @property
     def trace_id(self) -> str:
@@ -234,3 +237,10 @@ class LogfireSpanWrapper(Span[TSpanData]):
         if key in self.__slots__:
             return super().__setattr__(key, value)
         return setattr(self.wrapped, key, value)
+
+
+def attributes_from_span_data(span_data: SpanData, msg_template: str):
+    attributes = span_data.export()
+    if '{type}' not in msg_template and attributes.get('type') == span_data.type:
+        del attributes['type']
+    return attributes
