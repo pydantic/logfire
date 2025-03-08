@@ -3,29 +3,23 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import agents
 from agents import Span, SpanError, Trace
 from agents.tracing.spans import NoOpSpan, TSpanData
 from agents.tracing.traces import NoOpTrace
-from opentelemetry import context as context_api
-from opentelemetry.trace import (
-    _SPAN_KEY,  # type: ignore
-    Span as OtelSpan,
-    TracerProvider,
-    get_tracer_provider,
-)
 
 if TYPE_CHECKING:
     from agents.tracing.setup import TraceProvider
 
+    from logfire import Logfire, LogfireSpan
+
 
 class OpenTelemetryTraceProviderWrapper:
-    def __init__(self, wrapped: TraceProvider, tracer_provider: TracerProvider | None = None):
-        tracer_provider = tracer_provider or get_tracer_provider()
-        self.tracer = tracer_provider.get_tracer('openai.agents')
+    def __init__(self, wrapped: TraceProvider, logfire_instance: Logfire):
         self.wrapped = wrapped
+        self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='openai_agents')
 
     def create_trace(
         self,
@@ -37,7 +31,7 @@ class OpenTelemetryTraceProviderWrapper:
         trace = self.wrapped.create_trace(name, trace_id, session_id, disabled)
         if isinstance(trace, NoOpTrace):
             return trace
-        helper = OpenTelemetrySpanHelper(lambda: self.tracer.start_span(name))
+        helper = OpenTelemetrySpanHelper(self.logfire_instance.span(name))
         return OpenTelemetryTraceWrapper(trace, helper)
 
     def create_span(
@@ -50,19 +44,19 @@ class OpenTelemetryTraceProviderWrapper:
         span = self.wrapped.create_span(span_data, span_id, parent, disabled)
         if isinstance(span, NoOpSpan):
             return span
-        helper = OpenTelemetrySpanHelper(lambda: self.tracer.start_span(span_data.type))
+        helper = OpenTelemetrySpanHelper(self.logfire_instance.span(span_data.type))
         return OpenTelemetrySpanWrapper(span, helper)
 
     def __getattr__(self, item: Any) -> Any:
         return getattr(self.wrapped, item)
 
     @classmethod
-    def install(cls, tracer_provider: TracerProvider | None = None) -> None:
+    def install(cls, logfire_instance: Logfire) -> None:
         name = 'GLOBAL_TRACE_PROVIDER'
         original = getattr(agents.tracing, name)
         if isinstance(original, cls):
             return
-        wrapper = cls(original, tracer_provider)
+        wrapper = cls(original, logfire_instance)
         for mod in sys.modules.values():
             try:
                 if getattr(mod, name, None) is original:
@@ -73,34 +67,26 @@ class OpenTelemetryTraceProviderWrapper:
 
 @dataclass
 class OpenTelemetrySpanHelper:
-    start_span: Callable[[], OtelSpan]
-    span: OtelSpan | None = None
-    token: object = None
+    span: LogfireSpan
 
     def start(self, mark_as_current: bool):
-        if self.span:
-            return
-        self.span = self.start_span()
+        self.span.start()
         if mark_as_current:
-            self.token = context_api.attach(context_api.set_value(_SPAN_KEY, self.span))
+            self.span.attach()
 
     def end(self, reset_current: bool):
-        if self.span:
-            self.span.end()
-            self.span = None
+        self.span.end()
         self.maybe_detach(reset_current)
 
     def maybe_detach(self, reset_current: bool):
-        if reset_current and self.token:
-            context_api.detach(self.token)
+        if reset_current:
+            self.span.detach()
 
     def __enter__(self):
         self.start(True)
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
-        if self.span:
-            self.span.__exit__(exc_type, exc_val, exc_tb)
-            self.span = None
+        self.span.__exit__(exc_type, exc_val, exc_tb)
         self.maybe_detach(exc_type is not GeneratorExit)
 
 

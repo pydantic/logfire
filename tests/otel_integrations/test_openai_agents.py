@@ -48,7 +48,14 @@ def test_openai_agent_tracing(exporter: TestExporter):
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 6000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'agent'},
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'agent',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'agent',
+                },
             },
             {
                 'name': 'logfire span 2',
@@ -71,7 +78,14 @@ def test_openai_agent_tracing(exporter: TestExporter):
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 8000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'trace_name'},
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'trace_name',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'trace_name',
+                },
             },
             {
                 'name': 'logfire span 1',
@@ -98,9 +112,10 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
     with logfire.span('logfire span 1'):
         t = trace('trace_name')
         assert isinstance(t, OpenTelemetryTraceWrapper)
-        assert t.span_helper.span is None
+        assert not t.span_helper.span.is_recording()
         assert get_current_trace() is None
         t.start(mark_as_current=True)
+        assert t.span_helper.span.is_recording()
         assert get_current_trace() is t
         with logfire.span('logfire span 2'):
             s = agent_span('agent_name')
@@ -150,7 +165,14 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 5000000000,
                 'end_time': 7000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'agent'},
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'agent',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'agent',
+                },
             },
             {
                 'name': 'agent',
@@ -158,7 +180,14 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 8000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'agent'},
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'agent',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'agent',
+                },
             },
             {
                 'name': 'logfire span 2',
@@ -181,7 +210,14 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 10000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'trace_name'},
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'trace_name',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'trace_name',
+                },
             },
             {
                 'name': 'logfire span 1',
