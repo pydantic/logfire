@@ -63,9 +63,9 @@ class LogfireTraceProviderWrapper:
         elif isinstance(span_data, FunctionSpanData):
             msg_template = 'Function {name}'
         elif isinstance(span_data, GenerationSpanData):
-            msg_template = 'Generation {response_id=} {input=}'
+            msg_template = 'Generation response_id={response_id} input={input}'
         elif isinstance(span_data, GuardrailSpanData):
-            msg_template = 'Guardrail {name} {triggered=}'
+            msg_template = 'Guardrail {name} triggered={triggered}'
         elif isinstance(span_data, HandoffSpanData):
             msg_template = 'Handoff {from_agent} -> {to_agent}'
         elif isinstance(span_data, CustomSpanData):
@@ -195,8 +195,18 @@ class LogfireSpanWrapper(Span[TSpanData]):
         return type(self.wrapped).start(self, mark_as_current)
 
     def finish(self, reset_current: bool = False) -> None:
+        self.on_ending()
         self.span_helper.end(reset_current)
         return type(self.wrapped).finish(self, reset_current)
+
+    def on_ending(self):
+        logfire_span = self.span_helper.span
+        if logfire_span.is_recording():
+            template = logfire_span.message_template
+            assert template
+            new_attrs = attributes_from_span_data(self.span_data, template)
+            logfire_span.message = template.format(**new_attrs)
+            logfire_span.set_attributes(new_attrs)
 
     def __enter__(self) -> Span[TSpanData]:
         self.span_helper.__enter__()
@@ -204,6 +214,7 @@ class LogfireSpanWrapper(Span[TSpanData]):
         return self
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
+        self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
         return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)  # type: ignore
 
