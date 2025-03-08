@@ -1703,7 +1703,7 @@ dev = [
     { name = "mysql-connector-python", specifier = "~=8.0" },
     { name = "numpy", marker = "python_full_version < '3.9'", specifier = "<1.24.4" },
     { name = "numpy", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">=2.0" },
-    { name = "openai", specifier = ">=1.58.1" },
+    { name = "openai", specifier = "==1.30.1" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
@@ -2352,22 +2352,21 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.61.0"
+version = "1.30.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "distro" },
     { name = "httpx" },
-    { name = "jiter" },
     { name = "pydantic", version = "2.10.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pydantic", version = "2.11.0a1", source = { git = "https://github.com/pydantic/pydantic#929e8f47ede2f895290714a6de96e6fb7b4c926c" }, marker = "python_full_version >= '3.9'" },
     { name = "sniffio" },
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/2a/b3fa8790be17d632f59d4f50257b909a3f669036e5195c1ae55737274620/openai-1.61.0.tar.gz", hash = "sha256:216f325a24ed8578e929b0f1b3fb2052165f3b04b0461818adaa51aa29c71f8a", size = 350174 }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/9e/108827f9a558335f07d7ad1f22b733a0e48990337cfbf923c49cd78f8f78/openai-1.30.1.tar.gz", hash = "sha256:4f85190e577cba0b066e1950b8eb9b11d25bc7ebcc43a86b326ce1bfa564ec74", size = 178128 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/76/70c5ad6612b3e4c89fa520266bbf2430a89cae8bd87c1e2284698af5927e/openai-1.61.0-py3-none-any.whl", hash = "sha256:e8c512c0743accbdbe77f3429a1490d862f8352045de8dc81969301eb4a4f666", size = 460623 },
+    { url = "https://files.pythonhosted.org/packages/16/35/10bb93c51c446370cf760ea0e722c78755bbe0572aeb4663bf8c19c9b082/openai-1.30.1-py3-none-any.whl", hash = "sha256:c9fb3c3545c118bbce8deb824397b9433a66d0d0ede6a96f7009c95b76de4a46", size = 320650 },
 ]
 
 [[package]]

@@ -108,7 +108,7 @@ dev = [
     "pandas>=2.1.2; python_version >= '3.9'",
     "pandas<2.1.2; python_version < '3.9'",
     "attrs >= 23.1.0",
-    "openai >= 1.58.1",
+    "openai==1.30.1",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
     "opentelemetry-instrumentation-wsgi>=0.42b0",
