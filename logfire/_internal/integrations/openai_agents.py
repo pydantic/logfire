@@ -6,7 +6,17 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
 import agents
-from agents import Span, SpanError, Trace
+from agents import (
+    AgentSpanData,
+    CustomSpanData,
+    FunctionSpanData,
+    GenerationSpanData,
+    GuardrailSpanData,
+    HandoffSpanData,
+    Span,
+    SpanError,
+    Trace,
+)
 from agents.tracing.spans import NoOpSpan, TSpanData
 from agents.tracing.traces import NoOpTrace
 
@@ -31,7 +41,11 @@ class LogfireTraceProviderWrapper:
         trace = self.wrapped.create_trace(name, trace_id, session_id, disabled)
         if isinstance(trace, NoOpTrace):
             return trace
-        helper = LogfireSpanHelper(self.logfire_instance.span(name))
+        helper = LogfireSpanHelper(
+            self.logfire_instance.span(
+                'OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, agent_session_id=session_id
+            )
+        )
         return LogfireTraceWrapper(trace, helper)
 
     def create_span(
@@ -44,7 +58,27 @@ class LogfireTraceProviderWrapper:
         span = self.wrapped.create_span(span_data, span_id, parent, disabled)
         if isinstance(span, NoOpSpan):
             return span
-        helper = LogfireSpanHelper(self.logfire_instance.span(span_data.type))
+        known_span = True
+        if isinstance(span_data, AgentSpanData):
+            span_name = 'Agent {agent_name}'
+        elif isinstance(span_data, FunctionSpanData):
+            span_name = 'Function {name}'
+        elif isinstance(span_data, GenerationSpanData):
+            span_name = 'Generation {response_id=} {input=}'
+        elif isinstance(span_data, GuardrailSpanData):
+            span_name = 'Guardrail {name} {triggered=}'
+        elif isinstance(span_data, HandoffSpanData):
+            span_name = 'Handoff {from_agent} -> {to_agent}'
+        elif isinstance(span_data, CustomSpanData):
+            span_name = 'Custom span: {display_name}'
+        else:
+            span_name = 'OpenAI agents {type} span'
+            known_span = False
+        attributes = span_data.export()
+        if known_span and attributes.get('type') == span_data.type:
+            del attributes['type']
+        logfire_span = self.logfire_instance.span(span_name, **attributes)
+        helper = LogfireSpanHelper(logfire_span)
         return LogfireSpanWrapper(span, helper)
 
     def __getattr__(self, item: Any) -> Any:
