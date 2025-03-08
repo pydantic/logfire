@@ -7,6 +7,7 @@ from logfire._internal.exporters.test import TestExporter
 
 def test_openai_agent_tracing(exporter: TestExporter):
     logfire.instrument_openai_agents()
+    logfire.instrument_openai_agents()
 
     with logfire.span('logfire span 1'):
         with trace('trace_name'):

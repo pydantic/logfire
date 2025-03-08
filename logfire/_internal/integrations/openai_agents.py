@@ -60,6 +60,8 @@ class OpenTelemetryTraceProviderWrapper:
     def install(cls, tracer_provider: TracerProvider | None = None) -> None:
         name = 'GLOBAL_TRACE_PROVIDER'
         original = getattr(agents.tracing, name)
+        if isinstance(original, cls):
+            return
         wrapper = cls(original, tracer_provider)
         for mod in sys.modules.values():
             try:
