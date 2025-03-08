@@ -98,6 +98,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
     with logfire.span('logfire span 1'):
         t = trace('trace_name')
         assert isinstance(t, OpenTelemetryTraceWrapper)
+        assert t.span_helper.span is None
         assert get_current_trace() is None
         t.start(mark_as_current=True)
         assert get_current_trace() is t
@@ -107,9 +108,20 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
             assert get_current_span() is None
             s.start(mark_as_current=True)
             assert get_current_span() is s
+
+            s2 = agent_span('agent_name2')
+            assert isinstance(s2, OpenTelemetrySpanWrapper)
+            assert get_current_span() is s
+            s2.start()
+            assert get_current_span() is s
+
             logfire.info('Hi')
+
+            s2.finish(reset_current=True)
+            assert get_current_span() is s
             s.finish(reset_current=True)
             assert get_current_span() is None
+
         assert get_current_trace() is t
         t.finish(reset_current=True)
         assert get_current_trace() is None
@@ -118,10 +130,10 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
         [
             {
                 'name': 'Hi',
-                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'start_time': 5000000000,
-                'end_time': 5000000000,
+                'start_time': 6000000000,
+                'end_time': 6000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -134,10 +146,18 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
             },
             {
                 'name': 'agent',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 7000000000,
+                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'agent'},
+            },
+            {
+                'name': 'agent',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 4000000000,
-                'end_time': 6000000000,
+                'end_time': 8000000000,
                 'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'agent'},
             },
             {
@@ -145,7 +165,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
-                'end_time': 7000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_openai_agent_tracing_manual_start_end',
@@ -160,7 +180,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 8000000000,
+                'end_time': 10000000000,
                 'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'trace_name'},
             },
             {
@@ -168,7 +188,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 9000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_openai_agent_tracing_manual_start_end',
