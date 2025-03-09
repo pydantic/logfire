@@ -66,7 +66,7 @@ class LogfireTraceProviderWrapper:
         elif isinstance(span_data, FunctionSpanData):
             msg_template = 'Function {name}'
         elif isinstance(span_data, GenerationSpanData):
-            msg_template = 'Generation response_id={response_id} input={input}'
+            msg_template = 'Generation'
         elif isinstance(span_data, GuardrailSpanData):
             msg_template = 'Guardrail {name} triggered={triggered}'
         elif isinstance(span_data, HandoffSpanData):
@@ -239,19 +239,24 @@ class LogfireSpanWrapper(Span[TSpanData]):
 
     def on_ending(self):
         logfire_span = self.span_helper.span
-        if logfire_span.is_recording():
-            template = logfire_span.message_template
-            assert template
-            new_attrs = attributes_from_span_data(self.span_data, template)
-            logfire_span.message = template.format(**new_attrs)
-            logfire_span.set_attributes(new_attrs)
+        if not logfire_span.is_recording():
+            return
+        template = logfire_span.message_template
+        assert template
+        new_attrs = attributes_from_span_data(self.span_data, template)
+        message = template.format(**new_attrs)
+        if error := self.error:
+            new_attrs['error'] = error
+            message += f' failed: {error["message"]}'
+            logfire_span.set_level('error')
+        logfire_span.message = message
+        logfire_span.set_attributes(new_attrs)
 
     @property
     def parent_id(self) -> str | None:
         return self.wrapped.parent_id
 
     def set_error(self, error: SpanError) -> None:
-        # TODO
         return self.wrapped.set_error(error)
 
     @property
