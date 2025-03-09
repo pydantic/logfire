@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import sys
 from dataclasses import dataclass
 from types import TracebackType
@@ -17,8 +18,10 @@ from agents import (
     SpanError,
     Trace,
 )
+from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
+from typing_extensions import Self
 
 if TYPE_CHECKING:
     from agents.tracing.setup import TraceProvider
@@ -129,27 +132,41 @@ class LogfireSpanHelper:
 
 @dataclass
 class LogfireTraceWrapper(Trace):
-    __slots__ = ('wrapped', 'span_helper')
-
     wrapped: Trace
     span_helper: LogfireTraceHelper
+    token: contextvars.Token[Trace | None] | None = None
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
-        return type(self.wrapped).start(self, mark_as_current)
+        if mark_as_current:
+            self.attach()
+        return self.wrapped.start()
 
     def finish(self, reset_current: bool = False):
         self.span_helper.end(reset_current)
-        return type(self.wrapped).finish(self, reset_current)
+        if reset_current:
+            self.detach()
+        return self.wrapped.finish()
 
     def __enter__(self) -> Trace:
         self.span_helper.__enter__()
-        type(self.wrapped).__enter__(self)
+        self.wrapped.start()
+        self.attach()
         return self
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)  # type: ignore
+        self.wrapped.finish()
+        if exc_type is not GeneratorExit:
+            self.detach()
+
+    def attach(self):
+        self.token = Scope.set_current_trace(self)
+
+    def detach(self):
+        if self.token:
+            Scope.reset_current_trace(self.token)
+            self.token = None
 
     @property
     def trace_id(self) -> str:
@@ -165,11 +182,6 @@ class LogfireTraceWrapper(Trace):
     def __getattr__(self, item: str):
         return getattr(self.wrapped, item)
 
-    def __setattr__(self, key: str, value: Any):
-        if key in self.__slots__:
-            return super().__setattr__(key, value)
-        return setattr(self.wrapped, key, value)
-
 
 @dataclass
 class LogfireSpanWrapper(Span[TSpanData]):
@@ -177,6 +189,7 @@ class LogfireSpanWrapper(Span[TSpanData]):
 
     wrapped: Span[TSpanData]
     span_helper: LogfireTraceHelper
+    token: contextvars.Token[Span[TSpanData] | None] | None = None
 
     @property
     def trace_id(self) -> str:
@@ -192,12 +205,37 @@ class LogfireSpanWrapper(Span[TSpanData]):
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
-        return type(self.wrapped).start(self, mark_as_current)
+        if mark_as_current:
+            self.attach()
+        return self.wrapped.start()
 
     def finish(self, reset_current: bool = False) -> None:
         self.on_ending()
         self.span_helper.end(reset_current)
-        return type(self.wrapped).finish(self, reset_current)
+        if reset_current:
+            self.detach()
+        return self.wrapped.finish()
+
+    def __enter__(self) -> Self:
+        self.span_helper.__enter__()
+        self.wrapped.start()
+        self.attach()
+        return self
+
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
+        self.on_ending()
+        self.span_helper.__exit__(exc_type, exc_val, exc_tb)
+        self.wrapped.finish()
+        if exc_type is not GeneratorExit:
+            self.detach()
+
+    def attach(self):
+        self.token = Scope.set_current_span(self)
+
+    def detach(self):
+        if self.token:
+            Scope.reset_current_span(self.token)
+            self.token = None
 
     def on_ending(self):
         logfire_span = self.span_helper.span
@@ -207,16 +245,6 @@ class LogfireSpanWrapper(Span[TSpanData]):
             new_attrs = attributes_from_span_data(self.span_data, template)
             logfire_span.message = template.format(**new_attrs)
             logfire_span.set_attributes(new_attrs)
-
-    def __enter__(self) -> Span[TSpanData]:
-        self.span_helper.__enter__()
-        type(self.wrapped).__enter__(self)
-        return self
-
-    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
-        self.on_ending()
-        self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        return type(self.wrapped).__exit__(self, exc_type, exc_val, exc_tb)  # type: ignore
 
     @property
     def parent_id(self) -> str | None:
@@ -243,11 +271,6 @@ class LogfireSpanWrapper(Span[TSpanData]):
 
     def __getattr__(self, item: str):
         return getattr(self.wrapped, item)
-
-    def __setattr__(self, key: str, value: Any):
-        if key in self.__slots__:
-            return super().__setattr__(key, value)
-        return setattr(self.wrapped, key, value)
 
 
 def attributes_from_span_data(span_data: SpanData, msg_template: str):
