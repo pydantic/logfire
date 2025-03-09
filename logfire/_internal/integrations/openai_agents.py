@@ -15,10 +15,12 @@ from agents import (
     GenerationSpanData,
     GuardrailSpanData,
     HandoffSpanData,
+    ModelSettings,
     Span,
     SpanError,
     Trace,
 )
+from agents.models.openai_responses import OpenAIResponsesModel
 from agents.tracing import ResponseSpanData
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
@@ -316,7 +318,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
         if isinstance(span_data, ResponseDataWrapper):
-            attributes['response'] = span_data.response
+            attributes.update(span_data.extra_attributes)
         return attributes
     except Exception:
         log_internal_error()
@@ -325,7 +327,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
 
 class ResponseDataWrapper(ResponseSpanData):
     _response_id: str | None = None
-    response: Response | None = None
+    extra_attributes: dict[str, Any] = {}
 
     @property
     def response_id(self):
@@ -339,7 +341,14 @@ class ResponseDataWrapper(ResponseSpanData):
             assert frame
             frame = frame.f_back
             assert frame
-            for var in frame.f_locals.values():
-                if isinstance(var, Response) and var.id == value:
-                    self.response = var
-                    break
+            self.extra_attributes = extra_attributes = {}
+            for name, var in frame.f_locals.items():
+                if name in ('input', 'system_instructions') or (
+                    name == 'model_settings' and isinstance(var, ModelSettings)
+                ):
+                    extra_attributes[name] = var
+                elif name == 'self' and isinstance(var, OpenAIResponsesModel):
+                    extra_attributes['gen_ai.request.model'] = var.model
+                elif isinstance(var, Response) and var.id == value:
+                    extra_attributes['response'] = var
+                    extra_attributes['gen_ai.response.model'] = var.model
