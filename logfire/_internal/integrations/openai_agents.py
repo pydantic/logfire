@@ -162,6 +162,7 @@ class LogfireTraceWrapper(Trace):
         return self.wrapped.start()
 
     def finish(self, reset_current: bool = False):
+        self.on_ending()
         self.span_helper.end(reset_current)
         if reset_current:
             self.detach()
@@ -174,10 +175,20 @@ class LogfireTraceWrapper(Trace):
         return self
 
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
+        self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
         self.wrapped.finish()
         if exc_type is not GeneratorExit:
             self.detach()
+
+    def on_ending(self):
+        logfire_span = self.span_helper.span
+        if not logfire_span.is_recording():
+            return
+        new_attrs = dict(agent_trace_id=self.trace_id)
+        if group_id := getattr(self, 'group_id', None):
+            new_attrs['group_id'] = group_id
+        logfire_span.set_attributes(new_attrs)
 
     def attach(self):
         self.token = Scope.set_current_trace(self)

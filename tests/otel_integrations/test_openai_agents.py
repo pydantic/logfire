@@ -1,4 +1,5 @@
 from agents import agent_span, get_current_span, get_current_trace, trace
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -88,11 +89,11 @@ def test_openai_agent_tracing(exporter: TestExporter):
                     'code.function': 'trace',
                     'code.lineno': 123,
                     'name': 'trace_name',
-                    'agent_trace_id': 'null',
+                    'agent_trace_id': IsStr(),
                     'group_id': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{"type":"null"},"group_id":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"}}}',
                     'logfire.msg': 'OpenAI Agents trace trace_name',
                 },
             },
@@ -234,11 +235,11 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'code.function': 'trace',
                     'code.lineno': 123,
                     'name': 'trace_name',
-                    'agent_trace_id': 'null',
+                    'agent_trace_id': IsStr(),
                     'group_id': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{"type":"null"},"group_id":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"}}}',
                     'logfire.msg': 'OpenAI Agents trace trace_name',
                 },
             },
