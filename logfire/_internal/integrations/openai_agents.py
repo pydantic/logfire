@@ -88,7 +88,7 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, HandoffSpanData):
                 msg_template = 'Handoff {from_agent} -> {to_agent}'
             elif isinstance(span_data, CustomSpanData):
-                msg_template = 'Custom span: {display_name}'
+                msg_template = 'Custom span: {name}'
             else:
                 msg_template = 'OpenAI agents {type} span'
             logfire_span = self.logfire_instance.span(
@@ -181,6 +181,7 @@ class LogfireTraceWrapper(Trace):
         if exc_type is not GeneratorExit:
             self.detach()
 
+    @handle_internal_errors
     def on_ending(self):
         logfire_span = self.span_helper.span
         if not logfire_span.is_recording():
@@ -267,6 +268,7 @@ class LogfireSpanWrapper(Span[TSpanData]):
             Scope.reset_current_span(self.token)
             self.token = None
 
+    @handle_internal_errors
     def on_ending(self):
         logfire_span = self.span_helper.span
         if not logfire_span.is_recording():
