@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import inspect
 import sys
 from dataclasses import dataclass
 from types import TracebackType
@@ -18,12 +19,14 @@ from agents import (
     SpanError,
     Trace,
 )
+from agents.tracing import ResponseSpanData
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
+from openai.types.responses import Response
 from typing_extensions import Self
 
-from logfire._internal.utils import log_internal_error
+from logfire._internal.utils import handle_internal_errors, log_internal_error
 
 if TYPE_CHECKING:
     from agents.tracing.setup import TraceProvider
@@ -76,6 +79,10 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Function {name}'
             elif isinstance(span_data, GenerationSpanData):
                 msg_template = 'Generation'
+            elif isinstance(span_data, ResponseSpanData):
+                msg_template = 'Response {response_id}'
+                if span_data.response_id is None:
+                    span_data.__class__ = ResponseDataWrapper
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name} triggered={triggered}'
             elif isinstance(span_data, HandoffSpanData):
@@ -295,7 +302,31 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
+        if isinstance(span_data, ResponseDataWrapper):
+            attributes['response'] = span_data.response
         return attributes
     except Exception:
         log_internal_error()
         return {}
+
+
+class ResponseDataWrapper(ResponseSpanData):
+    _response_id: str | None = None
+    response: Response | None = None
+
+    @property
+    def response_id(self):
+        return self._response_id
+
+    @response_id.setter
+    def response_id(self, value: str):
+        self._response_id = value
+        with handle_internal_errors:
+            frame = inspect.currentframe()
+            assert frame
+            frame = frame.f_back
+            assert frame
+            for var in frame.f_locals.values():
+                if isinstance(var, Response) and var.id == value:
+                    self.response = var
+                    break
