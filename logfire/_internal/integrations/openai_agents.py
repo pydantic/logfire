@@ -26,15 +26,12 @@ from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
 from openai.types.responses import Response
-from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
-from openai.types.responses.response_output_message import ResponseOutputMessage
 from typing_extensions import Self
 
 from logfire._internal.utils import handle_internal_errors, log_internal_error
 
 if TYPE_CHECKING:  # pragma: no cover
     from agents.tracing.setup import TraceProvider
-    from openai.types.responses.response_input_item_param import ResponseInputItemParam
 
     from logfire import Logfire, LogfireSpan
 
@@ -368,47 +365,23 @@ class ResponseDataWrapper(ResponseSpanData):
                         'role': 'system',
                     }
                 ]
-            inputs: str | None | list[ResponseInputItemParam] = frame.f_locals.get('input')
+            inputs: str | None | list[dict[str, Any]] = frame.f_locals.get('input')
             if inputs and isinstance(inputs, str):  # pragma: no cover
                 inputs = [{'role': 'user', 'content': inputs}]
             if inputs:
-                for inp in inputs:  # type: ignore
-                    inp: dict[str, Any]
+                for inp in inputs:
                     events += input_to_events(inp)
             if response and response.output:
-                messages: list[dict[str, Any]] = []
                 for out in response.output:
-                    if isinstance(out, ResponseOutputMessage):
-                        content = out.content
-                        for content_item in content:
-                            if content_item.type == 'output_text':
-                                event_content = content_item.text
-                            else:  # pragma: no cover
-                                # TODO avoid raw content
-                                event_content = content_item
-                            messages += [{'content': event_content}]
-                    elif isinstance(out, ResponseFunctionToolCall):
-                        messages += [
+                    for message in input_to_events(out.model_dump()):
+                        message.pop('event.name', None)
+                        events.append(
                             {
-                                'tool_calls': [
-                                    {
-                                        'id': out.call_id,
-                                        'type': 'function',
-                                        'function': {'name': out.name, 'arguments': out.arguments},
-                                    },
-                                ]
-                            }
-                        ]
-                    else:
-                        messages += [{'content': f'{out.type}\n\nSee JSON for details', 'data': out}]
-                for message in messages:
-                    events.append(
-                        {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'role': 'assistant', **message},
-                        },
-                    )
+                                'event.name': 'gen_ai.choice',
+                                'index': 0,
+                                'message': {**message, 'role': 'assistant'},
+                            },
+                        )
             if events:
                 extra_attributes['events'] = events
 

@@ -2061,28 +2061,7 @@ See JSON for details\
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
-                            'events': {
-                                'type': 'array',
-                                'prefixItems': [
-                                    {'type': 'object'},
-                                    {
-                                        'type': 'object',
-                                        'properties': {
-                                            'message': {
-                                                'type': 'object',
-                                                'properties': {
-                                                    'data': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseFileSearchToolCall',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    }
-                                                },
-                                            }
-                                        },
-                                    },
-                                    {'type': 'object'},
-                                ],
-                            },
+                            'events': {'type': 'array'},
                         },
                     },
                 },
