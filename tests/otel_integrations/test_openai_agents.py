@@ -8,6 +8,7 @@ from agents import (
     OpenAIChatCompletionsModel,
     Runner,
     agent_span,
+    custom_span,
     function_tool,
     get_current_span,
     get_current_trace,
@@ -1243,6 +1244,102 @@ async def test_chat_completions(exporter: TestExporter):
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                    },
+                },
+            },
+        ]
+    )
+
+
+def test_custom_span(exporter: TestExporter):
+    logfire.instrument_openai_agents()
+
+    with trace('my_trace', trace_id='trace_123', group_id='456'):
+        with custom_span('my_span') as s:
+            s.span_data.name = 'my_span2'
+            s.span_data.data = {'foo': 'bar'}
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True, _include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'OpenAI Agents trace {name}',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'name': 'my_trace',
+                    'agent_trace_id': 'trace_123',
+                    'group_id': '456',
+                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}},
+                    },
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'Custom span: {name}',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'custom_span',
+                    'code.lineno': 123,
+                    'name': 'my_span',
+                    'data': {},
+                    'logfire.msg_template': 'Custom span: {name}',
+                    'logfire.msg': 'Custom span: my_span',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'name': {}, 'data': {'type': 'object'}}},
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                },
+            },
+            {
+                'name': 'Custom span: {name}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'custom_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Custom span: {name}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Custom span: my_span2',
+                    'name': 'my_span2',
+                    'data': {'foo': 'bar'},
+                    'logfire.json_schema': {'type': 'object', 'properties': {'name': {}, 'data': {'type': 'object'}}},
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'name': 'my_trace',
+                    'group_id': '456',
+                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': 'trace_123',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}},
                     },
                 },
             },
