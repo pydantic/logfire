@@ -398,11 +398,9 @@ def input_to_events(inp: dict[str, Any]):
         else:
             for content_item in content:
                 if content_item['type'] == 'output_text':
-                    event_content = content_item['text']
+                    events.append({'event.name': event_name, 'content': (content_item['text']), 'role': role})
                 else:  # pragma: no cover
-                    # TODO avoid raw content
-                    event_content = content_item
-                events.append({'event.name': event_name, 'content': event_content, 'role': role})
+                    events.append(unknown_event(content_item))
     elif typ == 'function_call':
         events.append(
             {
@@ -427,12 +425,14 @@ def input_to_events(inp: dict[str, Any]):
             }
         )
     else:
-        events.append(
-            {
-                'event.name': 'gen_ai.unknown',
-                'role': role or 'unknown',
-                'content': f'{typ or "unknown"}\n\nSee JSON for details',
-                'data': inp,
-            }
-        )
+        events.append(unknown_event(inp))
     return events
+
+
+def unknown_event(inp: dict[str, Any]):
+    return {
+        'event.name': 'gen_ai.unknown',
+        'role': inp.get('role') or 'unknown',
+        'content': f'{inp.get("type")}\n\nSee JSON for details',
+        'data': inp,
+    }
