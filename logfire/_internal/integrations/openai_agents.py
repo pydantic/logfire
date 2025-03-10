@@ -366,10 +366,11 @@ class ResponseDataWrapper(ResponseSpanData):
                         'role': 'system',
                     }
                 ]
-            inputs: str | None | list[dict[str, Any]] = frame.f_locals.get('input')
-            if inputs and isinstance(inputs, str):  # pragma: no cover
-                inputs = [{'role': 'user', 'content': inputs}]
+            inputs: str | list[dict[str, Any]] = frame.f_locals.get('input', [])
             if inputs:
+                extra_attributes['raw_input'] = inputs
+                if isinstance(inputs, str):  # pragma: no cover
+                    inputs = [{'role': 'user', 'content': inputs}]
                 for inp in inputs:
                     events += input_to_events(inp)
             if response and response.output:

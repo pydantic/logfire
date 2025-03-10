@@ -401,6 +401,7 @@ async def test_responses(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'}],
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -501,6 +502,7 @@ async def test_responses(exporter: TestExporter):
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -644,6 +646,31 @@ async def test_responses(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [
+                        {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
+                        {
+                            'id': 'fc_67ced68352a48191aca3872f9376de86',
+                            'arguments': '{}',
+                            'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
+                            'name': 'random_number',
+                            'type': 'function_call',
+                            'status': 'completed',
+                        },
+                        {
+                            'id': 'fc_67ced683c8d88191b21be486e163e815',
+                            'arguments': '{}',
+                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                            'name': 'transfer_to_agent2',
+                            'type': 'function_call',
+                            'status': 'completed',
+                        },
+                        {'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY', 'output': '4', 'type': 'function_call_output'},
+                        {
+                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                            'output': "{'assistant': 'agent2'}",
+                            'type': 'function_call_output',
+                        },
+                    ],
                     'events': [
                         {
                             'event.name': 'gen_ai.system.message',
@@ -765,6 +792,7 @@ async def test_responses(exporter: TestExporter):
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -935,6 +963,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'content': '1+1?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '1+1?', 'role': 'user'},
                         {
@@ -1010,6 +1039,7 @@ async def test_input_guardrails(exporter: TestExporter):
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -1513,6 +1543,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'content': '2+2?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {
@@ -1588,6 +1619,7 @@ async def test_responses_simple(exporter: TestExporter):
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -1688,6 +1720,17 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [
+                        {'content': '2+2?', 'role': 'user'},
+                        {
+                            'id': 'msg_67ceee05a83c8191a2e1e19ceb63495e',
+                            'content': [{'annotations': [], 'text': '2 + 2 equals 4.', 'type': 'output_text'}],
+                            'role': 'assistant',
+                            'status': 'completed',
+                            'type': 'message',
+                        },
+                        {'role': 'user', 'content': '4?'},
+                    ],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
@@ -1765,6 +1808,7 @@ async def test_responses_simple(exporter: TestExporter):
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -1935,6 +1979,7 @@ async def test_file_search(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'content': 'Who made Logfire?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
                         {
@@ -2061,6 +2106,7 @@ See JSON for details\
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
@@ -2169,6 +2215,37 @@ See JSON for details\
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'raw_input': [
+                        {'content': 'Who made Logfire?', 'role': 'user'},
+                        {
+                            'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                            'queries': ['Who made Logfire?'],
+                            'status': 'completed',
+                            'type': 'file_search_call',
+                            'results': None,
+                        },
+                        {
+                            'id': 'msg_67ceff3bede881918dd73f17abeefdf4',
+                            'content': [
+                                {
+                                    'annotations': [
+                                        {
+                                            'file_id': 'file-CmKZQn5qLRRgcAjS61GSqv',
+                                            'index': 27,
+                                            'type': 'file_citation',
+                                            'filename': 'test.txt',
+                                        }
+                                    ],
+                                    'text': 'Logfire is made by Pydantic.',
+                                    'type': 'output_text',
+                                }
+                            ],
+                            'role': 'assistant',
+                            'status': 'completed',
+                            'type': 'message',
+                        },
+                        {'role': 'user', 'content': '2+2?'},
+                    ],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
                         {
@@ -2281,6 +2358,7 @@ See JSON for details\
                             'gen_ai.response.model': {},
                             'gen_ai.system': {},
                             'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
                         },
                     },
