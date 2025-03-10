@@ -1,5 +1,7 @@
 import pytest
 from agents import Agent, Runner, agent_span, function_tool, get_current_span, get_current_trace, trace
+from agents.tracing.spans import NoOpSpan
+from agents.tracing.traces import NoOpTrace
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
@@ -802,3 +804,12 @@ async def test_responses(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_tracing_disabled(exporter: TestExporter):
+    with trace('my_trace', disabled=True) as t:
+        assert isinstance(t, NoOpTrace)
+        with agent_span('my_agent') as s:
+            assert isinstance(s, NoOpSpan)
+
+    assert not exporter.exported_spans

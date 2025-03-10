@@ -62,7 +62,7 @@ class LogfireTraceProviderWrapper:
                 )
             )
             return LogfireTraceWrapper(trace, helper)
-        except Exception:
+        except Exception:  # pragma: no cover
             log_internal_error()
             return trace or NoOpTrace()
 
