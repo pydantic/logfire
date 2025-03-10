@@ -1369,8 +1369,21 @@ def test_unknown_span(exporter: TestExporter):
             assert s.parent_id is None
         s.finish()
     t.finish()
+
     assert t.export() == snapshot(
         {'object': 'trace', 'id': 'trace_123', 'workflow_name': 'my_trace', 'group_id': '456'}
+    )
+    assert s.export() == snapshot(
+        {
+            'object': 'trace.span',
+            'id': 'span_789',
+            'trace_id': 'trace_123',
+            'parent_id': None,
+            'started_at': s.started_at,
+            'ended_at': s.ended_at,
+            'span_data': {'foo': 'bar', 'type': 'my_span'},
+            'error': None,
+        }
     )
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(

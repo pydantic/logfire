@@ -326,7 +326,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         if isinstance(span_data, ResponseDataWrapper):
             attributes.update(span_data.extra_attributes)
         return attributes
-    except Exception:
+    except Exception:  # pragma: no cover
         log_internal_error()
         return {}
 
@@ -369,7 +369,7 @@ class ResponseDataWrapper(ResponseSpanData):
                     }
                 ]
             inputs: str | None | list[ResponseInputItemParam] = frame.f_locals.get('input')
-            if inputs and isinstance(inputs, str):
+            if inputs and isinstance(inputs, str):  # pragma: no cover
                 inputs = [{'role': 'user', 'content': inputs}]
             if inputs:
                 for inp in inputs:  # type: ignore
