@@ -138,4 +138,4 @@ def default_credentials(tmp_path: Path) -> Path:
 
 @pytest.fixture(scope='module')
 def vcr_config():
-    return {'filter_headers': ['authorization']}
+    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie']}
