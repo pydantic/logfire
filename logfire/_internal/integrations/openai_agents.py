@@ -104,7 +104,7 @@ class LogfireTraceProviderWrapper:
             )
             helper = LogfireTraceHelper(logfire_span)
             return LogfireSpanWrapper(span, helper)
-        except Exception:
+        except Exception:  # pragma: no cover
             log_internal_error()
             return span or NoOpSpan(span_data)
 
@@ -118,12 +118,13 @@ class LogfireTraceProviderWrapper:
         if isinstance(original, cls):
             return
         wrapper = cls(original, logfire_instance)
-        for mod in sys.modules.values():
-            try:
-                if getattr(mod, name, None) is original:
-                    setattr(mod, name, wrapper)
-            except Exception:
-                pass
+        for module_name, mod in sys.modules.items():
+            if module_name.startswith('agents'):
+                try:
+                    if getattr(mod, name, None) is original:
+                        setattr(mod, name, wrapper)
+                except Exception:  # pragma: no cover
+                    pass
 
 
 @dataclass
