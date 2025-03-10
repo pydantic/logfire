@@ -1363,8 +1363,10 @@ def test_unknown_span(exporter: TestExporter):
 
     with trace('my_trace', trace_id='trace_123', group_id='456') as t:
         assert t.name == 'my_trace'
-        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData()) as s:
-            pass
+        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData(), span_id='span_789') as s:
+            assert s.trace_id == 'trace_123'
+            assert s.span_id == 'span_789'
+            assert s.parent_id is None
         s.finish()
     t.finish()
     assert t.export() == snapshot(
