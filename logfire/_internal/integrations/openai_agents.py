@@ -26,6 +26,8 @@ from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
 from openai.types.responses import Response
+from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
+from openai.types.responses.response_output_message import ResponseOutputMessage
 from typing_extensions import Self
 
 from logfire._internal.utils import handle_internal_errors, log_internal_error
@@ -415,5 +417,33 @@ class ResponseDataWrapper(ResponseSpanData):
                                 **inp,
                             }
                         )
+            if response and response.output:
+                for out in response.output:
+                    if isinstance(out, ResponseOutputMessage):
+                        content = out.content
+                        if len(content) == 1 and content[0].type == 'output_text' and not content[0].annotations:
+                            event_content = content[0].text
+                        else:
+                            event_content = content
+                        message = {'content': event_content}
+                    elif isinstance(out, ResponseFunctionToolCall):
+                        message = {
+                            'tool_calls': [
+                                {
+                                    'id': out.call_id,
+                                    'type': 'function',
+                                    'function': {'name': out.name, 'arguments': out.arguments},
+                                },
+                            ]
+                        }
+                    else:
+                        message = out.model_dump()
+                    events.append(
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {'role': 'assistant', **message},
+                        },
+                    )
             if events:
                 extra_attributes['events'] = events
