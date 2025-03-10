@@ -388,47 +388,51 @@ class ResponseDataWrapper(ResponseSpanData):
 
 
 def input_to_events(inp: dict[str, Any]):
-    events: list[dict[str, Any]] = []
-    role: str | None = inp.get('role')
-    typ = inp.get('type')
-    content = inp.get('content')
-    if role and typ in (None, 'message') and content:
-        event_name = f'gen_ai.{role}.message'
-        if isinstance(content, str):
-            events.append({'event.name': event_name, 'content': content, 'role': role})
+    try:
+        events: list[dict[str, Any]] = []
+        role: str | None = inp.get('role')
+        typ = inp.get('type')
+        content = inp.get('content')
+        if role and typ in (None, 'message') and content:
+            event_name = f'gen_ai.{role}.message'
+            if isinstance(content, str):
+                events.append({'event.name': event_name, 'content': content, 'role': role})
+            else:
+                for content_item in content:
+                    with contextlib.suppress(KeyError):
+                        if content_item['type'] == 'output_text':  # pragma: no branch
+                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
+                            continue
+                    events.append(unknown_event(content_item))  # pragma: no cover
+        elif typ == 'function_call':
+            events.append(
+                {
+                    'event.name': 'gen_ai.assistant.message',
+                    'role': 'assistant',
+                    'tool_calls': [
+                        {
+                            'id': inp['call_id'],
+                            'type': 'function',
+                            'function': {'name': inp['name'], 'arguments': inp['arguments']},
+                        },
+                    ],
+                }
+            )
+        elif typ == 'function_call_output':
+            events.append(
+                {
+                    'event.name': 'gen_ai.tool.message',
+                    'role': 'tool',
+                    'id': inp['call_id'],
+                    'content': inp['output'],
+                }
+            )
         else:
-            for content_item in content:
-                with contextlib.suppress(KeyError):
-                    if content_item['type'] == 'output_text':  # pragma: no branch
-                        events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
-                        continue
-                events.append(unknown_event(content_item))  # pragma: no cover
-    elif typ == 'function_call':
-        events.append(
-            {
-                'event.name': 'gen_ai.assistant.message',
-                'role': 'assistant',
-                'tool_calls': [
-                    {
-                        'id': inp['call_id'],
-                        'type': 'function',
-                        'function': {'name': inp['name'], 'arguments': inp['arguments']},
-                    },
-                ],
-            }
-        )
-    elif typ == 'function_call_output':
-        events.append(
-            {
-                'event.name': 'gen_ai.tool.message',
-                'role': 'tool',
-                'id': inp['call_id'],
-                'content': inp['output'],
-            }
-        )
-    else:
-        events.append(unknown_event(inp))
-    return events
+            events.append(unknown_event(inp))
+        return events
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return [unknown_event(inp)]
 
 
 def unknown_event(inp: dict[str, Any]):
