@@ -32,7 +32,7 @@ from typing_extensions import Self
 
 from logfire._internal.utils import handle_internal_errors, log_internal_error
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from agents.tracing.setup import TraceProvider
     from openai.types.responses.response_input_item_param import ResponseInputItemParam
 
