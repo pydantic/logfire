@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from agents import (
     Agent,
+    FileSearchTool,
     GuardrailFunctionOutput,
     InputGuardrailTripwireTriggered,
     OpenAIChatCompletionsModel,
@@ -1785,6 +1786,543 @@ async def test_responses_simple(exporter: TestExporter):
                     'name': 'agent1',
                     'handoffs': [],
                     'tools': [],
+                    'output_type': 'str',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'handoffs': {'type': 'array'},
+                            'tools': {'type': 'array'},
+                            'output_type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'name': 'my_trace',
+                    'group_id': 'null',
+                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': 'trace_123',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                    },
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+@pytest.mark.anyio
+async def test_file_search(exporter: TestExporter):
+    logfire.instrument_openai_agents()
+
+    agent = Agent(
+        name='agent',
+        tools=[FileSearchTool(max_num_results=1, vector_store_ids=['vs_67cd9e6afeb4819198cbffafab95d8ba'])],
+    )
+
+    with trace('my_trace', trace_id='trace_123'):
+        result = await Runner.run(agent, 'Who made Logfire?')
+        await Runner.run(agent, input=result.to_input_list() + [{'role': 'user', 'content': '2+2?'}])
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Response {response_id}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'response_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Response resp_67ceff39d5e88191885004de76d26e43',
+                    'response_id': 'resp_67ceff39d5e88191885004de76d26e43',
+                    'gen_ai.request.model': 'gpt-4o',
+                    'model_settings': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                    },
+                    'response': {
+                        'id': 'resp_67ceff39d5e88191885004de76d26e43',
+                        'created_at': 1741619001.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4o-2024-08-06',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                'queries': ['Who made Logfire?'],
+                                'status': 'completed',
+                                'type': 'file_search_call',
+                                'results': None,
+                            },
+                            {
+                                'id': 'msg_67ceff3bede881918dd73f17abeefdf4',
+                                'content': [
+                                    {
+                                        'annotations': [
+                                            {
+                                                'file_id': 'file-CmKZQn5qLRRgcAjS61GSqv',
+                                                'index': 27,
+                                                'type': 'file_citation',
+                                                'filename': 'test.txt',
+                                            }
+                                        ],
+                                        'text': 'Logfire is made by Pydantic.',
+                                        'type': 'output_text',
+                                    }
+                                ],
+                                'role': 'assistant',
+                                'status': 'completed',
+                                'type': 'message',
+                            },
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [
+                            {
+                                'type': 'file_search',
+                                'vector_store_ids': ['vs_67cd9e6afeb4819198cbffafab95d8ba'],
+                                'max_num_results': 1,
+                                'ranking_options': {'ranker': 'auto', 'score_threshold': 0.0},
+                                'filters': None,
+                            }
+                        ],
+                        'top_p': 1.0,
+                        'max_output_tokens': None,
+                        'output_text': 'Logfire is made by Pydantic.',
+                        'previous_response_id': None,
+                        'reasoning': {'effort': None, 'summary': None},
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}},
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 1974,
+                            'output_tokens': 38,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 2012,
+                            'input_tokens_details': {'cached_tokens': 0},
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {
+                                'role': 'assistant',
+                                'content': """\
+file_search_call
+
+See JSON for details\
+""",
+                                'data': {
+                                    'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                    'queries': ['Who made Logfire?'],
+                                    'status': 'completed',
+                                    'type': 'file_search_call',
+                                    'results': None,
+                                },
+                            },
+                        },
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {'role': 'assistant', 'content': 'Logfire is made by Pydantic.'},
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response_id': {},
+                            'gen_ai.request.model': {},
+                            'model_settings': {
+                                'type': 'object',
+                                'title': 'ModelSettings',
+                                'x-python-datatype': 'dataclass',
+                            },
+                            'response': {
+                                'type': 'object',
+                                'title': 'Response',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'prefixItems': [
+                                            {
+                                                'type': 'object',
+                                                'title': 'ResponseFileSearchToolCall',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                            {
+                                                'type': 'object',
+                                                'title': 'ResponseOutputMessage',
+                                                'x-python-datatype': 'PydanticModel',
+                                                'properties': {
+                                                    'content': {
+                                                        'type': 'array',
+                                                        'items': {
+                                                            'type': 'object',
+                                                            'title': 'ResponseOutputText',
+                                                            'x-python-datatype': 'PydanticModel',
+                                                            'properties': {
+                                                                'annotations': {
+                                                                    'type': 'array',
+                                                                    'items': {
+                                                                        'type': 'object',
+                                                                        'title': 'AnnotationFileCitation',
+                                                                        'x-python-datatype': 'PydanticModel',
+                                                                    },
+                                                                }
+                                                            },
+                                                        },
+                                                    }
+                                                },
+                                            },
+                                        ],
+                                    },
+                                    'tools': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'FileSearchTool',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'ranking_options': {
+                                                    'type': 'object',
+                                                    'title': 'RankingOptions',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseFormatText',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.system': {},
+                            'gen_ai.operation.name': {},
+                            'events': {
+                                'type': 'array',
+                                'prefixItems': [
+                                    {'type': 'object'},
+                                    {
+                                        'type': 'object',
+                                        'properties': {
+                                            'message': {
+                                                'type': 'object',
+                                                'properties': {
+                                                    'data': {
+                                                        'type': 'object',
+                                                        'title': 'ResponseFileSearchToolCall',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    }
+                                                },
+                                            }
+                                        },
+                                    },
+                                    {'type': 'object'},
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Agent {name}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Agent {name}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Agent agent',
+                    'name': 'agent',
+                    'handoffs': [],
+                    'tools': ['file_search'],
+                    'output_type': 'str',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'handoffs': {'type': 'array'},
+                            'tools': {'type': 'array'},
+                            'output_type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Response {response_id}',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'response_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Response resp_67ceff3c84548191b620a2cf4c2e37f2',
+                    'response_id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
+                    'gen_ai.request.model': 'gpt-4o',
+                    'model_settings': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                    },
+                    'response': {
+                        'id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
+                        'created_at': 1741619004.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4o-2024-08-06',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'msg_67ceff3d201481918300b33fb2968fb5',
+                                'content': [{'annotations': [], 'text': 'The answer is 4.', 'type': 'output_text'}],
+                                'role': 'assistant',
+                                'status': 'completed',
+                                'type': 'message',
+                            }
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [
+                            {
+                                'type': 'file_search',
+                                'vector_store_ids': ['vs_67cd9e6afeb4819198cbffafab95d8ba'],
+                                'max_num_results': 1,
+                                'ranking_options': {'ranker': 'auto', 'score_threshold': 0.0},
+                                'filters': None,
+                            }
+                        ],
+                        'top_p': 1.0,
+                        'max_output_tokens': None,
+                        'output_text': 'The answer is 4.',
+                        'previous_response_id': None,
+                        'reasoning': {'effort': None, 'summary': None},
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}},
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 923,
+                            'output_tokens': 8,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 931,
+                            'input_tokens_details': {'cached_tokens': 0},
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.unknown',
+                            'role': 'unknown',
+                            'content': """\
+file_search_call
+
+See JSON for details\
+""",
+                            'data': {
+                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                'queries': ['Who made Logfire?'],
+                                'status': 'completed',
+                                'type': 'file_search_call',
+                                'results': None,
+                            },
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Logfire is made by Pydantic.',
+                            'role': 'assistant',
+                        },
+                        {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {'role': 'assistant', 'content': 'The answer is 4.'},
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response_id': {},
+                            'gen_ai.request.model': {},
+                            'model_settings': {
+                                'type': 'object',
+                                'title': 'ModelSettings',
+                                'x-python-datatype': 'dataclass',
+                            },
+                            'response': {
+                                'type': 'object',
+                                'title': 'Response',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'ResponseOutputMessage',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'content': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'ResponseOutputText',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    },
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'tools': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'FileSearchTool',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'ranking_options': {
+                                                    'type': 'object',
+                                                    'title': 'RankingOptions',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseFormatText',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.system': {},
+                            'gen_ai.operation.name': {},
+                            'events': {'type': 'array'},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Agent {name}',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Agent {name}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Agent agent',
+                    'name': 'agent',
+                    'handoffs': [],
+                    'tools': ['file_search'],
                     'output_type': 'str',
                     'logfire.json_schema': {
                         'type': 'object',

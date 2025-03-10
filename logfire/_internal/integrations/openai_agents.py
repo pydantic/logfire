@@ -379,17 +379,17 @@ class ResponseDataWrapper(ResponseSpanData):
                     typ = inp.get('type')
                     content = inp.get('content')
                     if role and typ in (None, 'message') and content:
-                        assert role in ('user', 'system', 'assistant')  # TODO
                         event_name = f'gen_ai.{role}.message'
-                        if isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict):  # type: ignore
-                            content_text = content[0].get('text')  # type: ignore
-                            if (
-                                content_text
-                                and isinstance(content_text, str)
-                                and content == [{'annotations': [], 'text': content_text, 'type': 'output_text'}]
-                            ):
-                                content = content_text
-                        events.append({'event.name': event_name, 'content': content, 'role': role})
+                        if isinstance(content, str):
+                            events.append({'event.name': event_name, 'content': content, 'role': role})
+                        else:
+                            for content_item in content:
+                                if content_item['type'] == 'output_text':
+                                    event_content = content_item['text']
+                                else:  # pragma: no cover
+                                    # TODO avoid raw content
+                                    event_content = content_item
+                                events.append({'event.name': event_name, 'content': event_content, 'role': role})
                     elif typ == 'function_call':
                         events.append(
                             {
@@ -417,30 +417,38 @@ class ResponseDataWrapper(ResponseSpanData):
                         events.append(
                             {
                                 'event.name': 'gen_ai.unknown',
-                                **inp,
+                                'role': 'unknown',
+                                'content': f'{inp.get("type", "unknown")}\n\nSee JSON for details',
+                                'data': inp,
                             }
                         )
             if response and response.output:
+                messages: list[dict[str, Any]] = []
                 for out in response.output:
                     if isinstance(out, ResponseOutputMessage):
                         content = out.content
-                        if len(content) == 1 and content[0].type == 'output_text' and not content[0].annotations:
-                            event_content = content[0].text
-                        else:
-                            event_content = content
-                        message = {'content': event_content}
+                        for content_item in content:
+                            if content_item.type == 'output_text':
+                                event_content = content_item.text
+                            else:  # pragma: no cover
+                                # TODO avoid raw content
+                                event_content = content_item
+                            messages += [{'content': event_content}]
                     elif isinstance(out, ResponseFunctionToolCall):
-                        message = {
-                            'tool_calls': [
-                                {
-                                    'id': out.call_id,
-                                    'type': 'function',
-                                    'function': {'name': out.name, 'arguments': out.arguments},
-                                },
-                            ]
-                        }
+                        messages += [
+                            {
+                                'tool_calls': [
+                                    {
+                                        'id': out.call_id,
+                                        'type': 'function',
+                                        'function': {'name': out.name, 'arguments': out.arguments},
+                                    },
+                                ]
+                            }
+                        ]
                     else:
-                        message = out.model_dump()
+                        messages += [{'content': f'{out.type}\n\nSee JSON for details', 'data': out}]
+                for message in messages:
                     events.append(
                         {
                             'event.name': 'gen_ai.choice',

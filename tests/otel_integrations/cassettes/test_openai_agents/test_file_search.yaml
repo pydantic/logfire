@@ -1,0 +1,183 @@
+interactions:
+- request:
+    body: '{"input":[{"content":"Who made Logfire?","role":"user"}],"model":"gpt-4o","include":[],"stream":false,"tools":[{"type":"file_search","vector_store_ids":["vs_67cd9e6afeb4819198cbffafab95d8ba"],"max_num_results":1}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      content-length:
+      - '214'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.0.0
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.65.4
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA4xVTW/bMAy991cIOjeFnTqJncsw7LDDetjaw4AVhUFLdKJVllyJLloU+e+D5e+0
+        BXYJIj4+USQf6bcLxriSfM+4Q1/n253AsrzO5AbTNM7iNN1EUSJxt5XrLSbX/LIl2OIvChpI1njs
+        7MIhEMocWizeJfE2zqIoDpgnoMa3HGGrWiOh7EjonHV8z0yjdTAoM3jkEgmU9kvUk2sEKWsW9gpe
+        cttQ3VBO9hHPQCtRt7EPNa0Su1pH62QVpato2ycUiHzP7i8YY+wt/DLG6bXGllYqjblHcOKYC9A6
+        sIJHV7vSD5WDYlNEbeWyLNlAXGwgjtNNlmQT5bNKBPCpQafQj08Jxt9HyyqQyG7soVQOv/Aeexh5
+        Dn2jaUg6WE+XHydTofdwwPMcKn8YkihQ9u2XcnddxjsoEEtZJv+ZhLM6RALvlScwNEHCGkJDi/ze
+        xn+zVw69xJeJ3Tm0lj3jfS2Y8l1tilf281WCISWulgwwxhIMirmfQcvY71suVMdb3NfVzEh84Xu2
+        3r2DArPXhdK4+lb9+PPLbJ5ubm8P4uvfu238/e7pmX/IM1CF6ISeruiF+MLpNDs9XJxbO0t7CrLg
+        NTjQGnVO1uog2zZ9cg12sMNnZRufDzPcvXmcGYfgrVHmwPd9lTiWpXU0c2qF0FQVuNdJeKd+3K3D
+        eTjCqkYH1ARzfBX11tDM/v7Sugqm86wbwW/MrwvRpXW0SnRia8jyEfD/NcyTLkulCZ1f5NZvFdNU
+        +TRe8aRyMI/KHHJbD9KaxBRAdIt3DZMjrMOcjg790eq25NFV1MOn8fJnFGRdHsqYK3m2EJ7DvpEZ
+        bqHEIgn7JhVFWUIJRbaRaQH8E1WQrfN63gHXGNGJfM+4VB4KPazmJuyJsT3KLLZrnO2Sy/fIbGmP
+        pRcgjignajRfUPx8bV+nHwEf3Ttq9LOryRLoCVxH8XrUT+Nx8d2pkEACQRvgdHH6BwAA//8DAHw7
+        N1YbBwAA
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 91e3b2c61ecb0718-CPT
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 10 Mar 2025 15:03:24 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=trVy0eNazrhk.Sk35YNPa0TPesgTmlzLs7FsN3e6TRo-1741619004-1.0.1.1-lxjJ6YUEJkgpcg07AGIeCQDNRm_5_jRrrX10ipsPi8vhjD6chwn3GNzm_X46f3SNgo4Dz6tE5.Dxf.8XcTiqV16xjdXEq65xj_eEhznxRyU;
+        path=/; expires=Mon, 10-Mar-25 15:33:24 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=PcTJaRzVHd76Pbp1SaCeKKlzsVJmcnsdq.j5e4kwgy0-1741619004311-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '2401'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_f8ba043afd640f73beb8fb41d7235165
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"input":[{"content":"Who made Logfire?","role":"user"},{"id":"fs_67ceff3ab5b081919945a1b5a1185949","queries":["Who
+      made Logfire?"],"status":"completed","type":"file_search_call","results":null},{"id":"msg_67ceff3bede881918dd73f17abeefdf4","content":[{"annotations":[{"file_id":"file-CmKZQn5qLRRgcAjS61GSqv","index":27,"type":"file_citation","filename":"test.txt"}],"text":"Logfire
+      is made by Pydantic.","type":"output_text"}],"role":"assistant","status":"completed","type":"message"},{"role":"user","content":"2+2?"}],"model":"gpt-4o","include":[],"stream":false,"tools":[{"type":"file_search","vector_store_ids":["vs_67cd9e6afeb4819198cbffafab95d8ba"],"max_num_results":1}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      content-length:
+      - '676'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.0.0
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.65.4
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3RUy27jMAy85ysEn5vCr6Z2vqO3ohBomUq0lSVDorotivz7wvK721yCmENSnOFI
+        3wfGEtUmZ5Y49D0/PQuUshBV+VRWWZ01pzyFXMhS5Fg8yzx5GAps8wcFzUXWeBzjwiEQthwGLHsu
+        s1NWp2kZMU9AwQ81wna9RsJ2LELnrEvOzAStY0CZOYO3SKC036OeXBCkrNnFO/jkNlAfiJN9xx+g
+        bVEPZ196Opb2mKd5eUyrY3qaCMXC5MxeD4wx9h1/GUvoq8ehrEPv4TKyjMAoWecvs2JtnmZRsapI
+        06YoZJPXp0o2T2vNPQUi6KyOJ4H3yhMYWiFhDaFZp9tOuJtypo+fa/WYMETOLHm5IgPj/6JjyrPy
+        cZ8FxliCWdjXtwW7Tf/GyPD1FlXrwYHWqDlZq7kAHTdFLuAIO/xQNng+m4RH1ZalOARvjTKX5Dzx
+        SVBK62iTNMgWug7c1xQ8MHab/GQdbo8j7Hp0QCGGs8d0ikbqU39pXQfr90a7mLfwG48YaV2tEuNq
+        AtlkAfx9t0ilkXsEJ67rFqXShM7vuE22NaEbNAqaBjhbPQHmXZkLt/28lHXtEUS3m2v2mbAOOV0d
+        +qvVg+TpYzrBt6X5BwqyjkcZuWr9zl7Jhx+M3dZ4AolNNHZdiUZKkNDUT23VQHLHFWR73m834IIR
+        0VbDsK3y0Oj57od4q5b1KLO7vnVePPwPbB6FRXkB4ortWjnSncgmP5+F6rf4b20Xh97rTJZAbwYu
+        ssU8wePuVeuQoAWCof/tcPsHAAD//wMA75EjhnkFAAA=
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 91e3b2d94adb0718-CPT
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 10 Mar 2025 15:03:25 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '761'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_fe894dee95fca269db385295214bf1eb
+    status:
+      code: 200
+      message: OK
+version: 1
