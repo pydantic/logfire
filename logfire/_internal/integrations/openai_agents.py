@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import inspect
 import sys
@@ -397,10 +398,11 @@ def input_to_events(inp: dict[str, Any]):
             events.append({'event.name': event_name, 'content': content, 'role': role})
         else:
             for content_item in content:
-                if content_item['type'] == 'output_text':
-                    events.append({'event.name': event_name, 'content': (content_item['text']), 'role': role})
-                else:  # pragma: no cover
-                    events.append(unknown_event(content_item))
+                with contextlib.suppress(KeyError):
+                    if content_item['type'] == 'output_text':  # pragma: no branch
+                        events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
+                        continue
+                events.append(unknown_event(content_item))  # pragma: no cover
     elif typ == 'function_call':
         events.append(
             {
