@@ -374,54 +374,7 @@ class ResponseDataWrapper(ResponseSpanData):
             if inputs:
                 for inp in inputs:  # type: ignore
                     inp: dict[str, Any]
-                    assert isinstance(inp, dict)
-                    role: str | None = inp.get('role')
-                    typ = inp.get('type')
-                    content = inp.get('content')
-                    if role and typ in (None, 'message') and content:
-                        event_name = f'gen_ai.{role}.message'
-                        if isinstance(content, str):
-                            events.append({'event.name': event_name, 'content': content, 'role': role})
-                        else:
-                            for content_item in content:
-                                if content_item['type'] == 'output_text':
-                                    event_content = content_item['text']
-                                else:  # pragma: no cover
-                                    # TODO avoid raw content
-                                    event_content = content_item
-                                events.append({'event.name': event_name, 'content': event_content, 'role': role})
-                    elif typ == 'function_call':
-                        events.append(
-                            {
-                                'event.name': 'gen_ai.assistant.message',
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': inp['call_id'],
-                                        'type': 'function',
-                                        'function': {'name': inp['name'], 'arguments': inp['arguments']},
-                                    },
-                                ],
-                            }
-                        )
-                    elif typ == 'function_call_output':
-                        events.append(
-                            {
-                                'event.name': 'gen_ai.tool.message',
-                                'role': 'tool',
-                                'id': inp['call_id'],
-                                'content': inp['output'],
-                            }
-                        )
-                    else:
-                        events.append(
-                            {
-                                'event.name': 'gen_ai.unknown',
-                                'role': 'unknown',
-                                'content': f'{inp.get("type", "unknown")}\n\nSee JSON for details',
-                                'data': inp,
-                            }
-                        )
+                    events += input_to_events(inp)
             if response and response.output:
                 messages: list[dict[str, Any]] = []
                 for out in response.output:
@@ -458,3 +411,55 @@ class ResponseDataWrapper(ResponseSpanData):
                     )
             if events:
                 extra_attributes['events'] = events
+
+
+def input_to_events(inp: dict[str, Any]):
+    events: list[dict[str, Any]] = []
+    role: str | None = inp.get('role')
+    typ = inp.get('type')
+    content = inp.get('content')
+    if role and typ in (None, 'message') and content:
+        event_name = f'gen_ai.{role}.message'
+        if isinstance(content, str):
+            events.append({'event.name': event_name, 'content': content, 'role': role})
+        else:
+            for content_item in content:
+                if content_item['type'] == 'output_text':
+                    event_content = content_item['text']
+                else:  # pragma: no cover
+                    # TODO avoid raw content
+                    event_content = content_item
+                events.append({'event.name': event_name, 'content': event_content, 'role': role})
+    elif typ == 'function_call':
+        events.append(
+            {
+                'event.name': 'gen_ai.assistant.message',
+                'role': 'assistant',
+                'tool_calls': [
+                    {
+                        'id': inp['call_id'],
+                        'type': 'function',
+                        'function': {'name': inp['name'], 'arguments': inp['arguments']},
+                    },
+                ],
+            }
+        )
+    elif typ == 'function_call_output':
+        events.append(
+            {
+                'event.name': 'gen_ai.tool.message',
+                'role': 'tool',
+                'id': inp['call_id'],
+                'content': inp['output'],
+            }
+        )
+    else:
+        events.append(
+            {
+                'event.name': 'gen_ai.unknown',
+                'role': role or 'unknown',
+                'content': f'{typ or "unknown"}\n\nSee JSON for details',
+                'data': inp,
+            }
+        )
+    return events
