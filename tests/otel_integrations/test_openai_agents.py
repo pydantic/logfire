@@ -5,6 +5,7 @@ from agents import (
     Agent,
     GuardrailFunctionOutput,
     InputGuardrailTripwireTriggered,
+    OpenAIChatCompletionsModel,
     Runner,
     agent_span,
     function_tool,
@@ -17,6 +18,7 @@ from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -1115,6 +1117,119 @@ async def test_input_guardrails(exporter: TestExporter):
                 'parent': None,
                 'start_time': 9000000000,
                 'end_time': 15000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'trace',
+                    'code.lineno': 123,
+                    'name': 'Agent workflow',
+                    'group_id': 'null',
+                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg': 'OpenAI Agents trace Agent workflow',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': IsStr(),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                    },
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+@pytest.mark.anyio
+async def test_chat_completions(exporter: TestExporter):
+    logfire.instrument_openai_agents()
+
+    model = OpenAIChatCompletionsModel('gpt-4o', AsyncOpenAI())
+    agent = Agent[str](name='my_agent', model=model)
+    await Runner.run(agent, '1+1?')
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Generation',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'generation_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Generation',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Generation',
+                    'input': [{'role': 'user', 'content': '1+1?'}],
+                    'output': [
+                        {
+                            'content': '1 + 1 = 2',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                            'annotations': [],
+                        }
+                    ],
+                    'model': 'gpt-4o',
+                    'model_config': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                        'base_url': 'https://api.openai.com/v1/',
+                    },
+                    'usage': {'input_tokens': 11, 'output_tokens': 8},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'input': {'type': 'array'},
+                            'output': {'type': 'array'},
+                            'model': {},
+                            'model_config': {'type': 'object'},
+                            'usage': {'type': 'object'},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Agent {name}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'create.py',
+                    'code.function': 'agent_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Agent {name}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Agent my_agent',
+                    'name': 'my_agent',
+                    'handoffs': [],
+                    'tools': [],
+                    'output_type': 'str',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'handoffs': {'type': 'array'},
+                            'tools': {'type': 'array'},
+                            'output_type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
                 'attributes': {
                     'code.filepath': 'create.py',
                     'code.function': 'trace',
