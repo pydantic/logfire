@@ -78,6 +78,7 @@ class LogfireTraceProviderWrapper:
             span = self.wrapped.create_span(span_data, span_id, parent, disabled)
             if isinstance(span, NoOpSpan):
                 return span
+
             if isinstance(span_data, AgentSpanData):
                 msg_template = 'Agent {name}'
             elif isinstance(span_data, FunctionSpanData):
@@ -96,6 +97,7 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Custom span: {name}'
             else:
                 msg_template = 'OpenAI agents {type} span'
+
             logfire_span = self.logfire_instance.span(
                 msg_template,
                 **attributes_from_span_data(span_data, msg_template),
