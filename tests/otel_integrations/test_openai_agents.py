@@ -1361,9 +1361,15 @@ def test_unknown_span(exporter: TestExporter):
         def type(self) -> str:
             return 'my_span'
 
-    with trace('my_trace', trace_id='trace_123', group_id='456'):
-        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData()):
+    with trace('my_trace', trace_id='trace_123', group_id='456') as t:
+        assert t.name == 'my_trace'
+        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData()) as s:
             pass
+        s.finish()
+    t.finish()
+    assert t.export() == snapshot(
+        {'object': 'trace', 'id': 'trace_123', 'workflow_name': 'my_trace', 'group_id': '456'}
+    )
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
