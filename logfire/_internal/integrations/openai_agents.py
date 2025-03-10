@@ -32,6 +32,7 @@ from logfire._internal.utils import handle_internal_errors, log_internal_error
 
 if TYPE_CHECKING:
     from agents.tracing.setup import TraceProvider
+    from openai.types.responses.response_input_item_param import ResponseInputItemParam
 
     from logfire import Logfire, LogfireSpan
 
@@ -342,13 +343,77 @@ class ResponseDataWrapper(ResponseSpanData):
             frame = frame.f_back
             assert frame
             self.extra_attributes = extra_attributes = {}
+            response: Response | None = None
             for name, var in frame.f_locals.items():
-                if name in ('input', 'system_instructions') or (
-                    name == 'model_settings' and isinstance(var, ModelSettings)
-                ):
+                if name == 'model_settings' and isinstance(var, ModelSettings):
                     extra_attributes[name] = var
                 elif name == 'self' and isinstance(var, OpenAIResponsesModel):
                     extra_attributes['gen_ai.request.model'] = var.model
                 elif isinstance(var, Response) and var.id == value:
-                    extra_attributes['response'] = var
+                    extra_attributes['response'] = response = var
                     extra_attributes['gen_ai.response.model'] = var.model
+            extra_attributes['gen_ai.system'] = 'openai'
+            extra_attributes['gen_ai.operation.name'] = 'chat'
+            events: list[dict[str, Any]] = []
+            if response and response.instructions:
+                events += [
+                    {
+                        'event.name': 'gen_ai.system.message',
+                        'content': response.instructions,
+                        'role': 'system',
+                    }
+                ]
+            inputs: str | None | list[ResponseInputItemParam] = frame.f_locals.get('input')
+            if inputs and isinstance(inputs, str):
+                inputs = [{'role': 'user', 'content': inputs}]
+            if inputs:
+                for inp in inputs:  # type: ignore
+                    inp: dict[str, Any]
+                    assert isinstance(inp, dict)
+                    role: str | None = inp.get('role')
+                    typ = inp.get('type')
+                    content = inp.get('content')
+                    if role and typ in (None, 'message') and content:
+                        assert role in ('user', 'system', 'assistant')  # TODO
+                        event_name = f'gen_ai.{role}.message'
+                        if isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict):  # type: ignore
+                            content_text = content[0].get('text')  # type: ignore
+                            if (
+                                content_text
+                                and isinstance(content_text, str)
+                                and content == [{'annotations': [], 'text': content_text, 'type': 'output_text'}]
+                            ):
+                                content = content_text
+                        events.append({'event.name': event_name, 'content': content, 'role': role})
+                    elif typ == 'function_call':
+                        events.append(
+                            {
+                                'event.name': 'gen_ai.assistant.message',
+                                'role': 'assistant',
+                                'tool_calls': [
+                                    {
+                                        'id': inp['call_id'],
+                                        'type': 'function',
+                                        'function': {'name': inp['name'], 'arguments': inp['arguments']},
+                                    },
+                                ],
+                            }
+                        )
+                    elif typ == 'function_call_output':
+                        events.append(
+                            {
+                                'event.name': 'gen_ai.tool.message',
+                                'role': 'tool',
+                                'id': inp['call_id'],
+                                'content': inp['output'],
+                            }
+                        )
+                    else:
+                        events.append(
+                            {
+                                'event.name': 'gen_ai.unknown',
+                                **inp,
+                            }
+                        )
+            if events:
+                extra_attributes['events'] = events
