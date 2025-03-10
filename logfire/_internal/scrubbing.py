@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from abc import ABC, abstractmethod
@@ -8,6 +9,7 @@ from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link
@@ -129,10 +131,14 @@ class BaseScrubber(ABC):
         SpanAttributes.URL_FULL,
         SpanAttributes.URL_PATH,
         SpanAttributes.URL_QUERY,
+        'event.name',
     }
 
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
+
+    @abstractmethod
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...  # pragma: no cover
 
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
@@ -141,6 +147,9 @@ class BaseScrubber(ABC):
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
         pass
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        return log
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
@@ -157,6 +166,10 @@ class Scrubber(BaseScrubber):
         patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        span_scrubber = SpanScrubber(self)
+        return span_scrubber.scrub_log(log)
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
@@ -194,6 +207,7 @@ class SpanScrubber:
         self._pattern = parent._pattern  # type: ignore
         self._callback = parent._callback  # type: ignore
         self.scrubbed: list[ScrubbedNote] = []
+        self.did_scrub = False
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -201,8 +215,11 @@ class SpanScrubber:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
         # 2. The callback might return a value that isn't of the type required by OTEL,
         #      in which case BoundAttributes will discard it to prevent an error.
-        # TODO silently throwing away the result is bad, and BoundedAttributes might be bad for performance.
-        span['attributes'] = BoundedAttributes(attributes=self.scrub(('attributes',), span['attributes']))
+        # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
+        new_attributes = self.scrub(('attributes',), span['attributes'])
+        if self.did_scrub:
+            span['attributes'] = BoundedAttributes(attributes=new_attributes)
+
         span['events'] = [
             Event(
                 # We don't scrub the event name because in theory it should be a low-cardinality general description,
@@ -220,6 +237,22 @@ class SpanScrubber:
             )
             for i, link in enumerate(span['links'])
         ]
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
+        new_body = self.scrub(('log_body',), log.body)
+
+        if not self.did_scrub:
+            return log
+
+        if self.scrubbed:
+            new_attributes = new_attributes or {}
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+
+        result = copy.copy(log)
+        result.attributes = BoundedAttributes(attributes=new_attributes)
+        result.body = new_body
+        return result
 
     def scrub_event_attributes(self, event: Event, index: int):
         attributes = event.attributes or {}
@@ -265,7 +298,9 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
+            self.did_scrub = self.did_scrub or result is not match.value
             return result
+        self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
