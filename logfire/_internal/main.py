@@ -59,7 +59,7 @@ from .json_schema import (
 )
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
-from .tracer import ProxyTracerProvider, record_exception, set_exception_status
+from .tracer import ProxyTracerProvider, _LogfireWrappedSpan, record_exception, set_exception_status  # type: ignore
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
@@ -2257,8 +2257,11 @@ class LogfireSpan(ReadableSpan):
         if not self._span.is_recording():
             return
 
+        span = self._span
+        while isinstance(span, _LogfireWrappedSpan):
+            span = span.span
         record_exception(
-            self._span,
+            span,
             exception,
             attributes=attributes,
             timestamp=timestamp,
