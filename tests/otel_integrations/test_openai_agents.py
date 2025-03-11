@@ -1206,7 +1206,7 @@ async def test_chat_completions(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Chat completion with {model}',
+                'name': 'Chat completion with {gen_ai.request.model!r}',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1215,10 +1215,10 @@ async def test_chat_completions(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'generation_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Chat completion with {model}',
+                    'logfire.msg_template': 'Chat completion with {gen_ai.request.model!r}',
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Chat completion with gpt-4o',
+                    'logfire.msg': "Chat completion with 'gpt-4o'",
                     'input': [{'role': 'user', 'content': '1+1?'}],
                     'output': [
                         {
@@ -1231,7 +1231,6 @@ async def test_chat_completions(exporter: TestExporter):
                             'annotations': [],
                         }
                     ],
-                    'model': 'gpt-4o',
                     'model_config': {
                         'temperature': None,
                         'top_p': None,
@@ -1243,6 +1242,11 @@ async def test_chat_completions(exporter: TestExporter):
                         'base_url': 'https://api.openai.com/v1/',
                     },
                     'usage': {'input_tokens': 11, 'output_tokens': 8},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.response.model': 'gpt-4o',
+                    'gen_ai.usage.input_tokens': 11,
+                    'gen_ai.usage.output_tokens': 8,
                     'request_data': {
                         'messages': [
                             {'role': 'user', 'content': '1+1?'},
@@ -1263,10 +1267,14 @@ async def test_chat_completions(exporter: TestExporter):
                         'properties': {
                             'input': {'type': 'array'},
                             'output': {'type': 'array'},
-                            'model': {},
                             'model_config': {'type': 'object'},
                             'usage': {'type': 'object'},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
