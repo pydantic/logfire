@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.8.0] (2025-03-11)
+
+* OpenAI Agents Framework instrumentation by @alexmojaki in [#917](https://github.com/pydantic/logfire/pull/917)
+* OTel log scrubbing by @alexmojaki in [#903](https://github.com/pydantic/logfire/pull/903)
+
 ## [v3.7.1] (2025-03-05)
 
 * Handle errors in OpenAI response by @alexmojaki in [#910](https://github.com/pydantic/logfire/pull/910)
@@ -616,3 +621,4 @@ First release from new repo!
 [v3.6.4]: https://github.com/pydantic/logfire/compare/v3.6.3...v3.6.4
 [v3.7.0]: https://github.com/pydantic/logfire/compare/v3.6.4...v3.7.0
 [v3.7.1]: https://github.com/pydantic/logfire/compare/v3.7.0...v3.7.1
+[v3.8.0]: https://github.com/pydantic/logfire/compare/v3.7.1...v3.8.0
