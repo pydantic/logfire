@@ -324,6 +324,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
 
 
 class ResponseDataWrapper(ResponseSpanData):
+    # TODO reduce the magic here
     _response: Response | None = None
     extra_attributes: dict[str, Any] = {}
 
