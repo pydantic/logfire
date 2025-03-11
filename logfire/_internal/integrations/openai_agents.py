@@ -80,9 +80,9 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, FunctionSpanData):
                 msg_template = 'Function {name}'
             elif isinstance(span_data, GenerationSpanData):
-                msg_template = 'Generation'
+                msg_template = 'Chat completion with {model}'
             elif isinstance(span_data, ResponseSpanData):
-                msg_template = 'OpenAI Responses API'
+                msg_template = 'Responses API'
                 span_data.__class__ = ResponseDataWrapper
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name} triggered={triggered}'
@@ -96,6 +96,7 @@ class LogfireTraceProviderWrapper:
             logfire_span = self.logfire_instance.span(
                 msg_template,
                 **attributes_from_span_data(span_data, msg_template),
+                _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
             )
             helper = LogfireSpanHelper(logfire_span)
             return LogfireSpanWrapper(span, helper)
@@ -323,6 +324,10 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             if (usage := getattr(span_data.response, 'usage', None)) and getattr(usage, 'total_tokens', None):
                 attributes['gen_ai.usage.input_tokens'] = usage.input_tokens
                 attributes['gen_ai.usage.output_tokens'] = usage.output_tokens
+        elif isinstance(span_data, GenerationSpanData):
+            attributes['request_data'] = dict(
+                messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
+            )
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
