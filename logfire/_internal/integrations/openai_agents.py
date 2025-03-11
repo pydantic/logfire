@@ -87,7 +87,7 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
                 extra_attributes = get_magic_response_attributes()
-                if 'gen_ai.request.model' in extra_attributes:
+                if 'gen_ai.request.model' in extra_attributes:  # pragma: no branch
                     msg_template += ' with {gen_ai.request.model!r}'
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
@@ -352,18 +352,18 @@ def get_magic_response_attributes() -> dict[str, Any]:
             frame = frame.f_back
         if frame:
             frame = frame.f_back
-        else:
+        else:  # pragma: no cover
             return {}
         assert frame
 
         result: dict[str, Any] = {}
 
         model_settings = frame.f_locals.get('model_settings')
-        if isinstance(model_settings, ModelSettings):
+        if isinstance(model_settings, ModelSettings):  # pragma: no branch
             result['model_settings'] = model_settings
 
         model = frame.f_locals.get('self')
-        if isinstance(model, OpenAIResponsesModel):
+        if isinstance(model, OpenAIResponsesModel):  # pragma: no branch
             result['gen_ai.request.model'] = model.model
         return result
     except Exception:  # pragma: no cover
