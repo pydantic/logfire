@@ -315,7 +315,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             attributes.update(span_data.extra_attributes)
             if span_data.input:
                 attributes['raw_input'] = span_data.input
-            if events := span_data.get_events():
+            if events := get_response_span_events(span_data):
                 attributes['events'] = events
         return attributes
     except Exception:  # pragma: no cover
@@ -351,37 +351,38 @@ class ResponseDataWrapper(ResponseSpanData):
                 elif name == 'self' and isinstance(var, OpenAIResponsesModel):
                     self.extra_attributes['gen_ai.request.model'] = var.model
 
-    @handle_internal_errors
-    def get_events(self):
-        events: list[dict[str, Any]] = []
-        response = self.response
-        inputs = self.input
-        if response and (instructions := getattr(response, 'instructions', None)):
-            events += [
-                {
-                    'event.name': 'gen_ai.system.message',
-                    'content': instructions,
-                    'role': 'system',
-                }
-            ]
-        if inputs:
-            if isinstance(inputs, str):  # pragma: no cover
-                inputs = [{'role': 'user', 'content': inputs}]
-            for inp in inputs:  # type: ignore
-                inp: dict[str, Any]
-                events += input_to_events(inp)
-        if response and response.output:
-            for out in response.output:
-                for message in input_to_events(out.model_dump()):
-                    message.pop('event.name', None)
-                    events.append(
-                        {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {**message, 'role': 'assistant'},
-                        },
-                    )
-        return events
+
+@handle_internal_errors
+def get_response_span_events(span: ResponseSpanData):
+    events: list[dict[str, Any]] = []
+    response = span.response
+    inputs = span.input
+    if response and (instructions := getattr(response, 'instructions', None)):
+        events += [
+            {
+                'event.name': 'gen_ai.system.message',
+                'content': instructions,
+                'role': 'system',
+            }
+        ]
+    if inputs:
+        if isinstance(inputs, str):  # pragma: no cover
+            inputs = [{'role': 'user', 'content': inputs}]
+        for inp in inputs:  # type: ignore
+            inp: dict[str, Any]
+            events += input_to_events(inp)
+    if response and response.output:
+        for out in response.output:
+            for message in input_to_events(out.model_dump()):
+                message.pop('event.name', None)
+                events.append(
+                    {
+                        'event.name': 'gen_ai.choice',
+                        'index': 0,
+                        'message': {**message, 'role': 'assistant'},
+                    },
+                )
+    return events
 
 
 def input_to_events(inp: dict[str, Any]):
