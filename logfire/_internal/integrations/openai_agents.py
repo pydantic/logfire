@@ -80,7 +80,7 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, FunctionSpanData):
                 msg_template = 'Function {name}'
             elif isinstance(span_data, GenerationSpanData):
-                msg_template = 'Chat completion with {model}'
+                msg_template = 'Chat completion with {gen_ai.request.model!r}'
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
                 span_data.__class__ = ResponseDataWrapper
@@ -328,6 +328,19 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
             )
+            attributes.update(
+                {
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': span_data.model,
+                    'gen_ai.response.model': span_data.model,
+                    # Having this makes it try to generate the new chat panel and fail
+                    # 'gen_ai.operation.name': 'chat',
+                }
+            )
+            del attributes['model']
+            if usage := span_data.usage:
+                attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
+                attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
