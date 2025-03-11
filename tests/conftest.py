@@ -24,6 +24,13 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
+try:
+    import agents.tracing
+
+    agents.tracing.GLOBAL_TRACE_PROVIDER.set_processors([])
+except ImportError:
+    pass
+
 
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
