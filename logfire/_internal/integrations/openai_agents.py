@@ -128,17 +128,17 @@ class LogfireSpanHelper:
     span: LogfireSpan
 
     def start(self, mark_as_current: bool):
-        self.span.start()
+        self.span._start()  # type: ignore
         if mark_as_current:
-            self.span.attach()
+            self.span._attach()  # type: ignore
 
     def end(self, reset_current: bool):
-        self.span.end()
+        self.span._end()  # type: ignore
         self.maybe_detach(reset_current)
 
     def maybe_detach(self, reset_current: bool):
         if reset_current:
-            self.span.detach()
+            self.span._detach()  # type: ignore
 
     def __enter__(self):
         self.start(True)
