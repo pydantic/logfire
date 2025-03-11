@@ -22,7 +22,7 @@ from agents import (
     Trace,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
-from agents.tracing import ResponseSpanData
+from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
@@ -77,6 +77,7 @@ class LogfireTraceProviderWrapper:
             if isinstance(span, NoOpSpan):
                 return span
 
+            extra_attributes: dict[str, Any] = {}
             if isinstance(span_data, AgentSpanData):
                 msg_template = 'Agent run: {name!r}'
             elif isinstance(span_data, FunctionSpanData):
@@ -85,7 +86,9 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Chat completion with {gen_ai.request.model!r}'
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
-                span_data.__class__ = ResponseDataWrapper
+                extra_attributes = get_magic_response_attributes()
+                if 'gen_ai.request.model' in extra_attributes:
+                    msg_template += ' with {gen_ai.request.model!r}'
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
             elif isinstance(span_data, HandoffSpanData):
@@ -98,6 +101,7 @@ class LogfireTraceProviderWrapper:
             logfire_span = self.logfire_instance.span(
                 msg_template,
                 **attributes_from_span_data(span_data, msg_template),
+                **extra_attributes,
                 _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
             )
             helper = LogfireSpanHelper(logfire_span)
@@ -248,8 +252,6 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         template = logfire_span.message_template
         assert template
         new_attrs = attributes_from_span_data(self.span_data, template)  # type: ignore
-        if 'gen_ai.request.model' not in template and 'gen_ai.request.model' in new_attrs:
-            template += ' with {gen_ai.request.model!r}'
         try:
             message = logfire_format(template, new_attrs, NOOP_SCRUBBER)
         except Exception:  # pragma: no cover
@@ -301,8 +303,9 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
-        if isinstance(span_data, ResponseDataWrapper):
-            attributes.update(span_data.extra_attributes)
+        if isinstance(span_data, ResponseSpanData):
+            if span_data.response:
+                attributes.update(get_basic_response_attributes(span_data.response))
             if span_data.input:
                 attributes['raw_input'] = span_data.input
             if events := get_response_span_events(span_data):
@@ -333,34 +336,39 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         return {}
 
 
-class ResponseDataWrapper(ResponseSpanData):
-    # TODO reduce the magic here
-    _response: Response | None = None
-    extra_attributes: dict[str, Any] = {}
+def get_basic_response_attributes(response: Response):
+    return {
+        'gen_ai.response.model': getattr(response, 'model', None),
+        'response': response,
+        'gen_ai.system': 'openai',
+        'gen_ai.operation.name': 'chat',
+    }
 
-    @property
-    def response(self):
-        return self._response
 
-    @response.setter
-    def response(self, response: Response):
-        self._response = response
-        with handle_internal_errors:
-            frame = inspect.currentframe()
-            assert frame
+def get_magic_response_attributes() -> dict[str, Any]:
+    try:
+        frame = inspect.currentframe()
+        while frame and frame.f_code != response_span.__code__:
             frame = frame.f_back
-            assert frame
-            self.extra_attributes = {
-                'gen_ai.response.model': getattr(response, 'model', None),
-                'response': response,
-                'gen_ai.system': 'openai',
-                'gen_ai.operation.name': 'chat',
-            }
-            for name, var in frame.f_locals.items():
-                if name == 'model_settings' and isinstance(var, ModelSettings):
-                    self.extra_attributes[name] = var
-                elif name == 'self' and isinstance(var, OpenAIResponsesModel):
-                    self.extra_attributes['gen_ai.request.model'] = var.model
+        if frame:
+            frame = frame.f_back
+        else:
+            return {}
+        assert frame
+
+        result: dict[str, Any] = {}
+
+        model_settings = frame.f_locals.get('model_settings')
+        if isinstance(model_settings, ModelSettings):
+            result['model_settings'] = model_settings
+
+        model = frame.f_locals.get('self')
+        if isinstance(model, OpenAIResponsesModel):
+            result['gen_ai.request.model'] = model.model
+        return result
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return {}
 
 
 @handle_internal_errors
