@@ -132,6 +132,7 @@ class BaseScrubber(ABC):
         SpanAttributes.URL_PATH,
         SpanAttributes.URL_QUERY,
         'event.name',
+        'agent_session_id',
     }
 
     @abstractmethod

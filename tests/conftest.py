@@ -24,6 +24,14 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
+try:
+    from agents.tracing import GLOBAL_TRACE_PROVIDER
+
+    GLOBAL_TRACE_PROVIDER.shutdown()
+    GLOBAL_TRACE_PROVIDER.set_processors([])
+except ImportError:
+    pass
+
 
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
@@ -138,4 +146,4 @@ def default_credentials(tmp_path: Path) -> Path:
 
 @pytest.fixture(scope='module')
 def vcr_config():
-    return {'filter_headers': ['authorization']}
+    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie']}

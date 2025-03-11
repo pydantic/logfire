@@ -1021,6 +1021,9 @@ class Logfire:
     ) -> ContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
+        This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
+        of the OpenAI "agents" framework, see [`instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents].
+
         The following methods are instrumented for both the sync and the async clients:
 
         - [`client.chat.completions.create`](https://platform.openai.com/docs/guides/text-generation/chat-completions-api) — with and without `stream=True`
@@ -1082,6 +1085,18 @@ class Logfire:
             on_response,
             is_async_client,
         )
+
+    def instrument_openai_agents(self) -> None:
+        """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
+
+        For instrumentation of the standard OpenAI SDK package,
+        see [`instrument_openai()`][logfire.Logfire.instrument_openai].
+        """
+        self._warn_if_not_initialized_for_instrumentation()
+
+        from .integrations.openai_agents import LogfireTraceProviderWrapper
+
+        LogfireTraceProviderWrapper.install(self)
 
     def instrument_anthropic(
         self,

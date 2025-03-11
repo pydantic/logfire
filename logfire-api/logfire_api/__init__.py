@@ -139,6 +139,8 @@ except ImportError:
             def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
+            def instrument_openai_agents(self, *args, **kwargs) -> None: ...
+
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
             def instrument_system_metrics(self, *args, **kwargs) -> None: ...
@@ -168,6 +170,7 @@ except ImportError:
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
+        instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 import typing
 from collections.abc import Sequence
 from functools import partial
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Mapping, cast
 
@@ -47,6 +49,7 @@ class TestExporter(SpanExporter):
         include_instrumentation_scope: bool = False,
         _include_pending_spans: bool = False,
         _strip_function_qualname: bool = True,
+        parse_json_attributes: bool = False,
     ) -> list[dict[str, Any]]:
         """The exported spans as a list of dicts.
 
@@ -55,6 +58,7 @@ class TestExporter(SpanExporter):
             strip_filepaths: Whether to strip the filepaths from the exported spans.
             include_resources: Whether to include the resource attributes in the exported spans.
             include_instrumentation_scope: Whether to include the instrumentation scope in the exported spans.
+            parse_json_attributes: Whether to parse strings containing JSON arrays/objects.
 
         Returns:
             A list of dicts representing the exported spans.
@@ -64,6 +68,7 @@ class TestExporter(SpanExporter):
             fixed_line_number=fixed_line_number,
             strip_filepaths=strip_filepaths,
             strip_function_qualname=_strip_function_qualname,
+            parse_json_attributes=parse_json_attributes,
         )
 
         def build_context(context: trace.SpanContext) -> dict[str, Any]:
@@ -131,6 +136,7 @@ def process_attribute(
     strip_filepaths: bool,
     fixed_line_number: int | None,
     strip_function_qualname: bool,
+    parse_json_attributes: bool = False,
 ) -> Any:
     if name == 'code.filepath' and strip_filepaths:
         try:
@@ -148,6 +154,11 @@ def process_attribute(
     if name == ResourceAttributes.SERVICE_INSTANCE_ID:
         if re.match(r'^[0-9a-f]{32}$', value):
             return '0' * 32
+    if parse_json_attributes and isinstance(value, str) and (value.startswith('{') or value.startswith('[')):
+        try:
+            return json.loads(value)
+        except JSONDecodeError:  # pragma: no cover
+            pass
     return value
 
 
@@ -156,11 +167,12 @@ def build_attributes(
     strip_filepaths: bool,
     fixed_line_number: int | None,
     strip_function_qualname: bool,
+    parse_json_attributes: bool,
 ) -> dict[str, Any] | None:
     if attributes is None:  # pragma: no cover
         return None
     attributes = {
-        k: process_attribute(k, v, strip_filepaths, fixed_line_number, strip_function_qualname)
+        k: process_attribute(k, v, strip_filepaths, fixed_line_number, strip_function_qualname, parse_json_attributes)
         for k, v in attributes.items()
     }
     if 'telemetry.sdk.version' in attributes:
@@ -191,12 +203,14 @@ class TestLogExporter(InMemoryLogExporter):
         include_resources: bool = False,
         include_instrumentation_scope: bool = False,
         _strip_function_qualname: bool = True,
+        parse_json_attributes: bool = False,
     ) -> list[dict[str, Any]]:
         _build_attributes = partial(
             build_attributes,
             fixed_line_number=fixed_line_number,
             strip_filepaths=strip_filepaths,
             strip_function_qualname=_strip_function_qualname,
+            parse_json_attributes=parse_json_attributes,
         )
 
         def build_log(log_data: LogData) -> dict[str, Any]:

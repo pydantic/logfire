@@ -4,7 +4,12 @@ integration: logfire
 
 ## Introduction
 
-Logfire supports instrumenting calls to OpenAI with one extra line of code.
+We support instrumenting both the [standard OpenAI SDK](https://github.com/openai/openai-python) package and [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
+
+### OpenAI SDK
+
+Logfire supports instrumenting calls to OpenAI with one extra line of code, here's an example of instrumenting
+the OpenAI SDK:
 
 ```python hl_lines="7"
 import openai
@@ -45,7 +50,7 @@ With that you get:
   <figcaption>Span arguments including response details</figcaption>
 </figure>
 
-## Methods covered
+### Methods covered
 
 The following OpenAI methods are covered:
 
@@ -53,6 +58,7 @@ The following OpenAI methods are covered:
 - [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api) — with and without `stream=True`
 - [`client.embeddings.create`](https://platform.openai.com/docs/guides/embeddings/how-to-get-embeddings)
 - [`client.images.generate`](https://platform.openai.com/docs/guides/images/generations)
+- [`client.responses.create`](https://platform.openai.com/docs/api-reference/responses)
 
 All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 
@@ -87,7 +93,7 @@ Gives:
   <figcaption>OpenAI image generation span</figcaption>
 </figure>
 
-## Streaming Responses
+### Streaming Responses
 
 When instrumenting streaming responses, Logfire creates two spans — one around the initial request and one
 around the streamed response.
@@ -133,4 +139,82 @@ Shows up like this in Logfire:
 <figure markdown="span">
   ![Logfire OpenAI Streaming](../../images/logfire-screenshot-openai-stream.png){ width="500" }
   <figcaption>OpenAI streaming response</figcaption>
+</figure>
+
+## OpenAI Agents
+
+We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
+
+```python hl_lines="5"
+import logfire
+from agents import Agent, Runner
+
+logfire.configure()
+logfire.instrument_openai_agents()
+
+agent = Agent(name="Assistant", instructions="You are a helpful assistant")
+
+result = Runner.run_sync(agent, "Write a haiku about recursion in programming.")
+print(result.final_output)
+```
+
+_For more information, see the [`instrument_openai_agents()` API reference][logfire.Logfire.instrument_openai_agents]._
+
+Which shows up like this in Logfire:
+
+<figure markdown="span">
+  ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents.png){ width="500" }
+  <figcaption>OpenAI Agents</figcaption>
+</figure>
+
+In this example we add a function tool to the agents:
+
+```python
+from typing_extensions import TypedDict
+
+import logfire
+from httpx import AsyncClient
+from agents import RunContextWrapper, Agent, function_tool, Runner
+
+logfire.configure()
+logfire.instrument_openai_agents()
+
+
+class Location(TypedDict):
+    lat: float
+    long: float
+
+
+@function_tool
+async def fetch_weather(ctx: RunContextWrapper[AsyncClient], location: Location) -> str:
+    """Fetch the weather for a given location.
+
+    Args:
+        ctx: Run context object.
+        location: The location to fetch the weather for.
+    """
+    r = await ctx.context.get('https://httpbin.org/get', params=location)
+    return 'sunny' if r.status_code == 200 else 'rainy'
+
+
+agent = Agent(name='weather agent', tools=[fetch_weather])
+
+
+async def main():
+    async with AsyncClient() as client:
+        logfire.instrument_httpx(client)
+        result = await Runner.run(agent, 'Get the weather at lat=51 lng=0.2', context=client)
+    print(result.final_output)
+
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
+```
+
+We see spans from within the function call nested within the agent spans:
+
+<figure markdown="span">
+  ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents-tools.png){ width="500" }
+  <figcaption>OpenAI Agents</figcaption>
 </figure>
