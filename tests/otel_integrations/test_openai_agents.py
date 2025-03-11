@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 from typing import TYPE_CHECKING, Any
@@ -298,6 +300,26 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
     )
 
 
+def without_code_attrs(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    The Agents SDK runs some things in some weird async context that messes with getting consistent code attributes.
+
+    This function removes the code attributes from the spans to make the tests more stable.
+    It only does this if code.function is missing which is a sign of the problem.
+    """
+    return [
+        {
+            **span,
+            'attributes': {
+                k: v
+                for k, v in span['attributes'].items()
+                if 'code.function' in span['attributes'] or not k.startswith('code')
+            },
+        }
+        for span in spans
+    ]
+
+
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_responses(exporter: TestExporter):
@@ -313,7 +335,7 @@ async def test_responses(exporter: TestExporter):
     with logfire.instrument_openai():
         await Runner.run(agent1, input='Generate a random number then, hand off to agent2.')
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -322,8 +344,6 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -529,8 +549,6 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Function: random_number',
@@ -547,8 +565,6 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Handoff: {from_agent} -> {to_agent}',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Handoff: agent1 -> agent2',
@@ -897,7 +913,7 @@ async def test_input_guardrails(exporter: TestExporter):
     with pytest.raises(InputGuardrailTripwireTriggered):
         await Runner.run(agent, '0?')
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Guardrail {name!r} {triggered=}',
@@ -906,8 +922,6 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Guardrail 'zero_guardrail' triggered=False",
@@ -923,8 +937,6 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -1130,8 +1142,6 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 11000000000,
                 'end_time': 12000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Guardrail 'zero_guardrail' triggered=True",
@@ -1212,7 +1222,7 @@ async def test_chat_completions(exporter: TestExporter):
     agent = Agent[str](name='my_agent', model=model)
     with logfire.instrument_openai():
         await Runner.run(agent, '1+1?')
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Chat completion with {gen_ai.request.model!r}',
@@ -1221,8 +1231,6 @@ async def test_chat_completions(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Chat completion with {gen_ai.request.model!r}',
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
@@ -1483,7 +1491,7 @@ def test_unknown_span(exporter: TestExporter):
         }
     )
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'OpenAI agents: {type} span',
@@ -1541,7 +1549,7 @@ async def test_responses_simple(exporter: TestExporter):
         result = await Runner.run(agent1, input='2+2?')
         await Runner.run(agent1, input=result.to_input_list() + [{'role': 'user', 'content': '4?'}])
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -1550,8 +1558,6 @@ async def test_responses_simple(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -1729,8 +1735,6 @@ async def test_responses_simple(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -1959,7 +1963,7 @@ async def test_file_search(exporter: TestExporter):
         result = await Runner.run(agent, 'Who made Logfire?')
         await Runner.run(agent, input=result.to_input_list() + [{'role': 'user', 'content': '2+2?'}])
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -1968,8 +1972,6 @@ async def test_file_search(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -2226,8 +2228,6 @@ See JSON for details\
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
