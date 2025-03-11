@@ -347,7 +347,7 @@ class ResponseDataWrapper(ResponseSpanData):
             frame = frame.f_back
             assert frame
             self.extra_attributes = {
-                'gen_ai.response.model': response.model,
+                'gen_ai.response.model': getattr(response, 'model', None),
                 'response': response,
                 'gen_ai.system': 'openai',
                 'gen_ai.operation.name': 'chat',
@@ -363,11 +363,11 @@ class ResponseDataWrapper(ResponseSpanData):
         events: list[dict[str, Any]] = []
         response = self.response
         inputs = self.input
-        if response and response.instructions:
+        if response and (instructions := getattr(response, 'instructions', None)):
             events += [
                 {
                     'event.name': 'gen_ai.system.message',
-                    'content': response.instructions,
+                    'content': instructions,
                     'role': 'system',
                 }
             ]
