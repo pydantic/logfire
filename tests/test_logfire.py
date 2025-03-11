@@ -3165,7 +3165,7 @@ def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricR
     )
 
 
-def test_logfire_span_records_exceptions_once():
+def test_logfire_span_records_exceptions_once(exporter: TestExporter):
     n_calls_to_record_exception = 0
 
     def patched_record_exception(*args: Any, **kwargs: Any) -> Any:
@@ -3182,6 +3182,87 @@ def test_logfire_span_records_exceptions_once():
                 raise RuntimeError('error')
 
     assert n_calls_to_record_exception == 1
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_logfire_span_records_exceptions_once',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': 'error',
+                            'exception.stacktrace': 'RuntimeError: error',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
+    n_calls_to_record_exception = 0
+
+    def patched_record_exception(*args: Any, **kwargs: Any) -> Any:
+        nonlocal n_calls_to_record_exception
+        n_calls_to_record_exception += 1
+
+        return record_exception(*args, **kwargs)
+
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
+        'logfire._internal.main.record_exception', patched_record_exception
+    ):
+        with logfire.span('foo') as span:
+            span.record_exception(RuntimeError('error'))
+
+    assert n_calls_to_record_exception == 1
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_logfire_span_records_exceptions_manually_once',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': IsInt(),
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': 'error',
+                            'exception.stacktrace': 'RuntimeError: error',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
 
 
 def test_exit_ended_span(exporter: TestExporter):
