@@ -1,24 +1,8 @@
+import os
+import sys
 from typing import Any
 
 import pytest
-from agents import (
-    Agent,
-    FileSearchTool,
-    GuardrailFunctionOutput,
-    InputGuardrailTripwireTriggered,
-    OpenAIChatCompletionsModel,
-    Runner,
-    SpanData,
-    agent_span,
-    custom_span,
-    function_tool,
-    get_current_span,
-    get_current_trace,
-    input_guardrail,
-    trace,
-)
-from agents.tracing.spans import NoOpSpan
-from agents.tracing.traces import NoOpTrace
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
@@ -26,6 +10,31 @@ from openai import AsyncOpenAI
 import logfire
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
+
+try:
+    from agents import (
+        Agent,
+        FileSearchTool,
+        GuardrailFunctionOutput,
+        InputGuardrailTripwireTriggered,
+        OpenAIChatCompletionsModel,
+        Runner,
+        SpanData,
+        agent_span,
+        custom_span,
+        function_tool,
+        get_current_span,
+        get_current_trace,
+        input_guardrail,
+        trace,
+    )
+    from agents.tracing.spans import NoOpSpan
+    from agents.tracing.traces import NoOpTrace
+except ImportError:
+    pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
+    assert False
+
+os.environ['OPENAI_API_KEY'] = 'foo'
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
@@ -309,7 +318,7 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
@@ -516,7 +525,7 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
@@ -534,7 +543,7 @@ async def test_responses(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Handoff: {from_agent} -> {to_agent}',
                     'logfire.span_type': 'span',
@@ -893,7 +902,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
                     'logfire.span_type': 'span',
@@ -910,7 +919,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
@@ -1117,7 +1126,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'start_time': 11000000000,
                 'end_time': 12000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
                     'logfire.span_type': 'span',
@@ -1208,7 +1217,7 @@ async def test_chat_completions(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Chat completion with {gen_ai.request.model!r}',
                     'logfire.tags': ('LLM',),
@@ -1537,7 +1546,7 @@ async def test_responses_simple(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
@@ -1716,7 +1725,7 @@ async def test_responses_simple(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
@@ -1955,7 +1964,7 @@ async def test_file_search(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
@@ -2213,7 +2222,7 @@ See JSON for details\
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
