@@ -166,3 +166,55 @@ Which shows up like this in Logfire:
   ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents.png){ width="500" }
   <figcaption>OpenAI Agents</figcaption>
 </figure>
+
+In this example we add a function tool to the agents:
+
+```python
+from typing_extensions import TypedDict
+
+import logfire
+from httpx import AsyncClient
+from agents import RunContextWrapper, Agent, function_tool, Runner
+
+logfire.configure()
+logfire.instrument_openai_agents()
+
+
+class Location(TypedDict):
+    lat: float
+    long: float
+
+
+@function_tool
+async def fetch_weather(ctx: RunContextWrapper[AsyncClient], location: Location) -> str:
+    """Fetch the weather for a given location.
+
+    Args:
+        ctx: Run context object.
+        location: The location to fetch the weather for.
+    """
+    r = await ctx.context.get('https://httpbin.org/get', params=location)
+    return 'sunny' if r.status_code == 200 else 'rainy'
+
+
+agent = Agent(name='weather agent', tools=[fetch_weather])
+
+
+async def main():
+    async with AsyncClient() as client:
+        logfire.instrument_httpx(client)
+        result = await Runner.run(agent, 'Get the weather at lat=51 lng=0.2', context=client)
+    print(result.final_output)
+
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
+```
+
+We see spans from within the function call nested within the agent spans:
+
+<figure markdown="span">
+  ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents-tools.png){ width="500" }
+  <figcaption>OpenAI Agents</figcaption>
+</figure>
