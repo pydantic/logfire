@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from dirty_equals import IsStr
@@ -32,7 +32,8 @@ try:
     from agents.tracing.traces import NoOpTrace
 except ImportError:
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
-    assert False
+    if TYPE_CHECKING:
+        assert False
 
 os.environ['OPENAI_API_KEY'] = 'foo'
 
