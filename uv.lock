@@ -1703,7 +1703,7 @@ dev = [
     { name = "mysql-connector-python", specifier = "~=8.0" },
     { name = "numpy", marker = "python_full_version < '3.9'", specifier = "<1.24.4" },
     { name = "numpy", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">=2.0" },
-    { name = "openai", specifier = "==1.65.4" },
+    { name = "openai", specifier = "==1.65.5" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
@@ -2352,7 +2352,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.65.4"
+version = "1.65.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -2365,9 +2365,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/8d/1f7aace801afbbe4d6b8c7fa89b76eb9a3a8eeff38b84d4005d47b226b30/openai-1.65.4.tar.gz", hash = "sha256:0b08c58625d556f5c6654701af1023689c173eb0989ce8f73c7fd0eb22203c76", size = 359365 }
+sdist = { url = "https://files.pythonhosted.org/packages/56/cf/e02fb2c5a834803e6f29f43fd3dfe010303282d1ea450a5b95e28608860a/openai-1.65.5.tar.gz", hash = "sha256:17d39096bbcaf6c86580244b493a59e16613460147f0ba5ab6e608cdb6628149", size = 359548 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/db/7bab832be24631a793492c1c61ecbf029018b99696f435db3b63d690bf1c/openai-1.65.4-py3-none-any.whl", hash = "sha256:15566d46574b94eae3d18efc2f9a4ebd1366d1d44bfc1bdafeea7a5cf8271bcb", size = 473523 },
+    { url = "https://files.pythonhosted.org/packages/fc/8f/a178d73277bf2d838617fa20ba4ae6952e26074664aacb53ae4532a69588/openai-1.65.5-py3-none-any.whl", hash = "sha256:5948a504e7b4003d921cfab81273813793a31c25b1d7b605797c01757e0141f1", size = 474468 },
 ]
 
 [[package]]

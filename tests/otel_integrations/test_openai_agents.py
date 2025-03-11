@@ -111,10 +111,11 @@ def test_openai_agent_tracing(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'trace_name',
                     'agent_trace_id': IsStr(),
+                    'metadata': 'null',
                     'group_id': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"},"metadata":{"type":"null"}}}',
                     'logfire.msg': 'OpenAI Agents trace trace_name',
                 },
             },
@@ -257,10 +258,11 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'trace_name',
                     'agent_trace_id': IsStr(),
+                    'metadata': 'null',
                     'group_id': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"},"metadata":{"type":"null"}}}',
                     'logfire.msg': 'OpenAI Agents trace trace_name',
                 },
             },
@@ -300,7 +302,7 @@ async def test_responses(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -309,9 +311,9 @@ async def test_responses(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ced68228748191b31ea5d9172a7b4b',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ced68228748191b31ea5d9172a7b4b',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -382,9 +384,8 @@ async def test_responses(exporter: TestExporter):
                         ],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': '',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -475,7 +476,7 @@ async def test_responses(exporter: TestExporter):
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -574,7 +575,7 @@ async def test_responses(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'start_time': 11000000000,
@@ -583,9 +584,9 @@ async def test_responses(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ced68425f48191a5fb0c2b61cb27dd',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -627,9 +628,8 @@ async def test_responses(exporter: TestExporter):
                         'tools': [],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': "The random number generated is 4, and it's been handed off to agent2.",
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -765,7 +765,7 @@ async def test_responses(exporter: TestExporter):
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -838,13 +838,19 @@ async def test_responses(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'Agent workflow',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },
@@ -867,7 +873,7 @@ async def test_input_guardrails(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
     @input_guardrail
-    async def zero_guardrail(_agent: Agent[Any], inp: Any, _context: Any) -> GuardrailFunctionOutput:
+    async def zero_guardrail(_context: Any, _agent: Agent[Any], inp: Any) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info={'input': inp}, tripwire_triggered='0' in str(inp))
 
     agent = Agent[str](name='my_agent', input_guardrails=[zero_guardrail])
@@ -897,7 +903,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 5000000000,
@@ -906,9 +912,9 @@ async def test_input_guardrails(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67cee263c6e0819184efdc0fe2624cc8',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -944,9 +950,8 @@ async def test_input_guardrails(exporter: TestExporter):
                         'tools': [],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': '1 + 1 equals 2.',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -969,7 +974,7 @@ async def test_input_guardrails(exporter: TestExporter):
                         {
                             'event.name': 'gen_ai.choice',
                             'index': 0,
-                            'message': {'role': 'assistant', 'content': '1 + 1 equals 2.'},
+                            'message': {'content': '1 + 1 equals 2.', 'role': 'assistant'},
                         },
                     ],
                     'logfire.json_schema': {
@@ -1012,7 +1017,7 @@ async def test_input_guardrails(exporter: TestExporter):
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -1085,13 +1090,19 @@ async def test_input_guardrails(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'Agent workflow',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },
@@ -1156,13 +1167,19 @@ async def test_input_guardrails(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'Agent workflow',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },
@@ -1269,13 +1286,19 @@ async def test_chat_completions(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'Agent workflow',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },
@@ -1306,11 +1329,12 @@ def test_custom_span(exporter: TestExporter):
                     'name': 'my_trace',
                     'agent_trace_id': 'trace_123',
                     'group_id': '456',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace my_trace',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}},
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
                     },
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
@@ -1364,6 +1388,7 @@ def test_custom_span(exporter: TestExporter):
                     'code.function': 'trace',
                     'code.lineno': 123,
                     'name': 'my_trace',
+                    'metadata': 'null',
                     'group_id': '456',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace my_trace',
@@ -1371,7 +1396,7 @@ def test_custom_span(exporter: TestExporter):
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}},
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
                     },
                 },
             },
@@ -1402,7 +1427,7 @@ def test_unknown_span(exporter: TestExporter):
     t.finish()
 
     assert t.export() == snapshot(
-        {'object': 'trace', 'id': 'trace_123', 'workflow_name': 'my_trace', 'group_id': '456'}
+        {'object': 'trace', 'id': 'trace_123', 'workflow_name': 'my_trace', 'group_id': '456', 'metadata': None}
     )
     assert s.export() == snapshot(
         {
@@ -1448,6 +1473,7 @@ def test_unknown_span(exporter: TestExporter):
                     'code.function': 'trace',
                     'code.lineno': 123,
                     'name': 'my_trace',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace my_trace',
                     'logfire.span_type': 'span',
@@ -1455,7 +1481,7 @@ def test_unknown_span(exporter: TestExporter):
                     'group_id': '456',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}},
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
                     },
                 },
             },
@@ -1477,7 +1503,7 @@ async def test_responses_simple(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1486,9 +1512,9 @@ async def test_responses_simple(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ceee053cdc81919f39173ee02cb88e',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ceee053cdc81919f39173ee02cb88e',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1524,9 +1550,8 @@ async def test_responses_simple(exporter: TestExporter):
                         'tools': [],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': '2 + 2 equals 4.',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -1549,7 +1574,7 @@ async def test_responses_simple(exporter: TestExporter):
                         {
                             'event.name': 'gen_ai.choice',
                             'index': 0,
-                            'message': {'role': 'assistant', 'content': '2 + 2 equals 4.'},
+                            'message': {'content': '2 + 2 equals 4.', 'role': 'assistant'},
                         },
                     ],
                     'logfire.json_schema': {
@@ -1592,7 +1617,7 @@ async def test_responses_simple(exporter: TestExporter):
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -1654,7 +1679,7 @@ async def test_responses_simple(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 7000000000,
@@ -1663,9 +1688,9 @@ async def test_responses_simple(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ceee0623ac819190454bc7af968938',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ceee0623ac819190454bc7af968938',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1701,9 +1726,8 @@ async def test_responses_simple(exporter: TestExporter):
                         'tools': [],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': 'Yes, 2 + 2 equals 4.',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -1738,7 +1762,7 @@ async def test_responses_simple(exporter: TestExporter):
                         {
                             'event.name': 'gen_ai.choice',
                             'index': 0,
-                            'message': {'role': 'assistant', 'content': 'Yes, 2 + 2 equals 4.'},
+                            'message': {'content': 'Yes, 2 + 2 equals 4.', 'role': 'assistant'},
                         },
                     ],
                     'logfire.json_schema': {
@@ -1781,7 +1805,7 @@ async def test_responses_simple(exporter: TestExporter):
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -1854,13 +1878,19 @@ async def test_responses_simple(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'my_trace',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },
@@ -1885,7 +1915,7 @@ async def test_file_search(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1894,9 +1924,9 @@ async def test_file_search(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ceff39d5e88191885004de76d26e43',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ceff39d5e88191885004de76d26e43',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1960,9 +1990,8 @@ async def test_file_search(exporter: TestExporter):
                         ],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': 'Logfire is made by Pydantic.',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -2004,7 +2033,7 @@ See JSON for details\
                         {
                             'event.name': 'gen_ai.choice',
                             'index': 0,
-                            'message': {'role': 'assistant', 'content': 'Logfire is made by Pydantic.'},
+                            'message': {'content': 'Logfire is made by Pydantic.', 'role': 'assistant'},
                         },
                     ],
                     'logfire.json_schema': {
@@ -2079,7 +2108,7 @@ See JSON for details\
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -2141,7 +2170,7 @@ See JSON for details\
                 },
             },
             {
-                'name': 'Response {response_id}',
+                'name': 'OpenAI Responses API',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 7000000000,
@@ -2150,9 +2179,9 @@ See JSON for details\
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Response {response_id}',
+                    'logfire.msg_template': 'OpenAI Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Response resp_67ceff3c84548191b620a2cf4c2e37f2',
+                    'logfire.msg': 'OpenAI Responses API',
                     'response_id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -2196,9 +2225,8 @@ See JSON for details\
                         ],
                         'top_p': 1.0,
                         'max_output_tokens': None,
-                        'output_text': 'The answer is 4.',
                         'previous_response_id': None,
-                        'reasoning': {'effort': None, 'summary': None},
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
                         'status': 'completed',
                         'text': {'format': {'type': 'text'}},
                         'truncation': 'disabled',
@@ -2273,7 +2301,7 @@ See JSON for details\
                         {
                             'event.name': 'gen_ai.choice',
                             'index': 0,
-                            'message': {'role': 'assistant', 'content': 'The answer is 4.'},
+                            'message': {'content': 'The answer is 4.', 'role': 'assistant'},
                         },
                     ],
                     'logfire.json_schema': {
@@ -2331,7 +2359,7 @@ See JSON for details\
                                     },
                                     'text': {
                                         'type': 'object',
-                                        'title': 'ResponseFormatText',
+                                        'title': 'ResponseTextConfig',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
                                             'format': {
@@ -2404,13 +2432,19 @@ See JSON for details\
                     'code.lineno': 123,
                     'name': 'my_trace',
                     'group_id': 'null',
+                    'metadata': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace {name}',
                     'logfire.msg': 'OpenAI Agents trace my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {'type': 'null'}},
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
                     },
                 },
             },

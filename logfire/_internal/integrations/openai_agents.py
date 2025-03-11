@@ -46,18 +46,16 @@ class LogfireTraceProviderWrapper:
         self,
         name: str,
         trace_id: str | None = None,
-        group_id: str | None = None,
         disabled: bool = False,
+        **kwargs: Any,
     ) -> Trace:
         trace: Trace | None = None
         try:
-            trace = self.wrapped.create_trace(name, trace_id, group_id, disabled)
+            trace = self.wrapped.create_trace(name, trace_id=trace_id, disabled=disabled, **kwargs)
             if isinstance(trace, NoOpTrace):
                 return trace
             helper = LogfireTraceHelper(
-                self.logfire_instance.span(
-                    'OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, group_id=group_id
-                )
+                self.logfire_instance.span('OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, **kwargs)
             )
             return LogfireTraceWrapper(trace, helper)
         except Exception:  # pragma: no cover
@@ -84,9 +82,8 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, GenerationSpanData):
                 msg_template = 'Generation'
             elif isinstance(span_data, ResponseSpanData):
-                msg_template = 'Response {response_id}'
-                if span_data.response_id is None:
-                    span_data.__class__ = ResponseDataWrapper
+                msg_template = 'OpenAI Responses API'
+                span_data.__class__ = ResponseDataWrapper
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name} triggered={triggered}'
             elif isinstance(span_data, HandoffSpanData):
@@ -323,6 +320,10 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             del attributes['type']
         if isinstance(span_data, ResponseDataWrapper):
             attributes.update(span_data.extra_attributes)
+            if span_data.input:
+                attributes['raw_input'] = span_data.input
+            if events := span_data.get_events():
+                attributes['events'] = events
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
@@ -330,62 +331,64 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
 
 
 class ResponseDataWrapper(ResponseSpanData):
-    _response_id: str | None = None
+    _response: Response | None = None
     extra_attributes: dict[str, Any] = {}
 
     @property
-    def response_id(self):
-        return self._response_id
+    def response(self):
+        return self._response
 
-    @response_id.setter
-    def response_id(self, value: str):
-        self._response_id = value
+    @response.setter
+    def response(self, response: Response):
+        self._response = response
         with handle_internal_errors:
             frame = inspect.currentframe()
             assert frame
             frame = frame.f_back
             assert frame
-            self.extra_attributes = extra_attributes = {}
-            response: Response | None = None
+            self.extra_attributes = {
+                'gen_ai.response.model': response.model,
+                'response': response,
+                'gen_ai.system': 'openai',
+                'gen_ai.operation.name': 'chat',
+            }
             for name, var in frame.f_locals.items():
                 if name == 'model_settings' and isinstance(var, ModelSettings):
-                    extra_attributes[name] = var
+                    self.extra_attributes[name] = var
                 elif name == 'self' and isinstance(var, OpenAIResponsesModel):
-                    extra_attributes['gen_ai.request.model'] = var.model
-                elif isinstance(var, Response) and var.id == value:
-                    extra_attributes['response'] = response = var
-                    extra_attributes['gen_ai.response.model'] = var.model
-            extra_attributes['gen_ai.system'] = 'openai'
-            extra_attributes['gen_ai.operation.name'] = 'chat'
-            events: list[dict[str, Any]] = []
-            if response and response.instructions:
-                events += [
-                    {
-                        'event.name': 'gen_ai.system.message',
-                        'content': response.instructions,
-                        'role': 'system',
-                    }
-                ]
-            inputs: str | list[dict[str, Any]] = frame.f_locals.get('input', [])
-            if inputs:
-                extra_attributes['raw_input'] = inputs
-                if isinstance(inputs, str):  # pragma: no cover
-                    inputs = [{'role': 'user', 'content': inputs}]
-                for inp in inputs:
-                    events += input_to_events(inp)
-            if response and response.output:
-                for out in response.output:
-                    for message in input_to_events(out.model_dump()):
-                        message.pop('event.name', None)
-                        events.append(
-                            {
-                                'event.name': 'gen_ai.choice',
-                                'index': 0,
-                                'message': {**message, 'role': 'assistant'},
-                            },
-                        )
-            if events:
-                extra_attributes['events'] = events
+                    self.extra_attributes['gen_ai.request.model'] = var.model
+
+    @handle_internal_errors
+    def get_events(self):
+        events: list[dict[str, Any]] = []
+        response = self.response
+        inputs = self.input
+        if response and response.instructions:
+            events += [
+                {
+                    'event.name': 'gen_ai.system.message',
+                    'content': response.instructions,
+                    'role': 'system',
+                }
+            ]
+        if inputs:
+            if isinstance(inputs, str):  # pragma: no cover
+                inputs = [{'role': 'user', 'content': inputs}]
+            for inp in inputs:  # type: ignore
+                inp: dict[str, Any]
+                events += input_to_events(inp)
+        if response and response.output:
+            for out in response.output:
+                for message in input_to_events(out.model_dump()):
+                    message.pop('event.name', None)
+                    events.append(
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {**message, 'role': 'assistant'},
+                        },
+                    )
+        return events
 
 
 def input_to_events(inp: dict[str, Any]):
