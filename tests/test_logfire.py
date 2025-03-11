@@ -3331,24 +3331,24 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
     assert not exporter.exported_spans
     assert get_current_span() is INVALID_SPAN
 
-    span.start()
-    span.start()
+    span._start()  # type: ignore
+    span._start()  # type: ignore
     assert span.is_recording()
     assert len(exporter.exported_spans) == 1
     assert get_current_span() is INVALID_SPAN
 
-    span.attach()
-    span.attach()
+    span._attach()  # type: ignore
+    span._attach()  # type: ignore
     assert get_current_span() is span._span  # type: ignore
 
-    span.detach()
-    span.detach()
+    span._detach()  # type: ignore
+    span._detach()  # type: ignore
     assert span.is_recording()
     assert len(exporter.exported_spans) == 1
     assert get_current_span() is INVALID_SPAN
 
-    span.end()
-    span.end()
+    span._end()  # type: ignore
+    span._end()  # type: ignore
     assert not span.is_recording()
     assert len(exporter.exported_spans) == 2
     assert get_current_span() is INVALID_SPAN

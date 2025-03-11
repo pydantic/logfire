@@ -2139,7 +2139,7 @@ class LogfireSpan(ReadableSpan):
             return getattr(self._span, name)
 
     @handle_internal_errors
-    def start(self):
+    def _start(self):
         if self._span is not None:
             return
         self._span = self._tracer.start_span(
@@ -2149,26 +2149,26 @@ class LogfireSpan(ReadableSpan):
         )
 
     @handle_internal_errors
-    def attach(self):
+    def _attach(self):
         if self._token is not None:
             return
         assert self._span is not None
         self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
     def __enter__(self) -> LogfireSpan:
-        self.start()
-        self.attach()
+        self._start()
+        self._attach()
         return self
 
     @handle_internal_errors
-    def end(self):
+    def _end(self):
         if not self._span or not self._span.is_recording():
             return
         if self._added_attributes:
             self._span.set_attribute(ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties))
         self._span.end()
 
-    def detach(self):
+    def _detach(self):
         if self._token is None:
             return
         context_api.detach(self._token)
@@ -2176,10 +2176,10 @@ class LogfireSpan(ReadableSpan):
 
     @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        self.detach()
+        self._detach()
         if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
             self._span.record_exception(exc_value, escaped=True)
-        self.end()
+        self._end()
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
