@@ -302,7 +302,7 @@ async def test_responses(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -311,9 +311,9 @@ async def test_responses(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ced68228748191b31ea5d9172a7b4b',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -575,7 +575,7 @@ async def test_responses(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'start_time': 11000000000,
@@ -584,9 +584,9 @@ async def test_responses(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -907,7 +907,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 5000000000,
@@ -916,9 +916,9 @@ async def test_input_guardrails(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1206,7 +1206,7 @@ async def test_chat_completions(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Generation',
+                'name': 'Chat completion with {model}',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1215,9 +1215,10 @@ async def test_chat_completions(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'generation_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Generation',
+                    'logfire.msg_template': 'Chat completion with {model}',
+                    'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Generation',
+                    'logfire.msg': 'Chat completion with gpt-4o',
                     'input': [{'role': 'user', 'content': '1+1?'}],
                     'output': [
                         {
@@ -1242,6 +1243,21 @@ async def test_chat_completions(exporter: TestExporter):
                         'base_url': 'https://api.openai.com/v1/',
                     },
                     'usage': {'input_tokens': 11, 'output_tokens': 8},
+                    'request_data': {
+                        'messages': [
+                            {'role': 'user', 'content': '1+1?'},
+                            {
+                                'content': '1 + 1 = 2',
+                                'refusal': None,
+                                'role': 'assistant',
+                                'annotations': [],
+                                'audio': None,
+                                'function_call': None,
+                                'tool_calls': None,
+                            },
+                        ],
+                        'model': 'gpt-4o',
+                    },
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1250,6 +1266,7 @@ async def test_chat_completions(exporter: TestExporter):
                             'model': {},
                             'model_config': {'type': 'object'},
                             'usage': {'type': 'object'},
+                            'request_data': {'type': 'object'},
                         },
                     },
                 },
@@ -1511,7 +1528,7 @@ async def test_responses_simple(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1520,9 +1537,9 @@ async def test_responses_simple(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ceee053cdc81919f39173ee02cb88e',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1691,7 +1708,7 @@ async def test_responses_simple(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 7000000000,
@@ -1700,9 +1717,9 @@ async def test_responses_simple(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ceee0623ac819190454bc7af968938',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -1931,7 +1948,7 @@ async def test_file_search(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1940,9 +1957,9 @@ async def test_file_search(exporter: TestExporter):
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ceff39d5e88191885004de76d26e43',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
@@ -2190,7 +2207,7 @@ See JSON for details\
                 },
             },
             {
-                'name': 'OpenAI Responses API',
+                'name': 'Responses API',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 7000000000,
@@ -2199,9 +2216,9 @@ See JSON for details\
                     'code.filepath': 'create.py',
                     'code.function': 'response_span',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'OpenAI Responses API',
+                    'logfire.msg_template': 'Responses API',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'OpenAI Responses API',
+                    'logfire.msg': 'Responses API',
                     'response_id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
                     'gen_ai.request.model': 'gpt-4o',
                     'model_settings': {
