@@ -4,7 +4,7 @@ integration: logfire
 
 ## Introduction
 
-We support instrumenting both the [standard OpenAI SDK](https://pypi.org/project/openai/) package and [OpenAI "agents"](https://pypi.org/project/openai-agents/) framework.
+We support instrumenting both the [standard OpenAI SDK](https://github.com/openai/openai-python) package and [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
 ### OpenAI SDK
 
@@ -143,7 +143,7 @@ Shows up like this in Logfire:
 
 ## OpenAI Agents
 
-We also support instrumenting the OpenAI "agents" framework.
+We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
 ```python hl_lines="5"
 import logfire

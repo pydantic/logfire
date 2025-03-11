@@ -1087,10 +1087,10 @@ class Logfire:
         )
 
     def instrument_openai_agents(self) -> None:
-        """Instrument the [`agents`](https://pypi.org/project/openai-agents/) framework from OpenAI.
+        """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
 
-        This instruments the [OpenAI "agents"](https://pypi.org/project/openai-agents/) framework, for instrumentation
-        of the standard OpenAI SDK package, see [`instrument_openai()`][logfire.Logfire.instrument_openai],
+        For instrumentation of the standard OpenAI SDK package,
+        see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
         self._warn_if_not_initialized_for_instrumentation()
 
