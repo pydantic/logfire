@@ -157,7 +157,7 @@ def process_attribute(
     if parse_json_attributes and isinstance(value, str) and (value.startswith('{') or value.startswith('[')):
         try:
             return json.loads(value)
-        except JSONDecodeError:
+        except JSONDecodeError:  # pragma: no cover
             pass
     return value
 

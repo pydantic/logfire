@@ -182,17 +182,17 @@ class LogfireWrapperBase(Generic[T]):
         self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
         self.wrapped.finish()
-        if exc_type is not GeneratorExit:
+        if exc_type is not GeneratorExit:  # pragma: no branch
             self.detach()
 
     @abstractmethod
-    def on_ending(self): ...
+    def on_ending(self): ...  # pragma: no cover
 
     @abstractmethod
-    def attach(self): ...
+    def attach(self): ...  # pragma: no cover
 
     @abstractmethod
-    def detach(self): ...
+    def detach(self): ...  # pragma: no cover
 
     def __getattr__(self, item: str):
         return getattr(self.wrapped, item)
@@ -214,7 +214,7 @@ class LogfireTraceWrapper(LogfireWrapperBase[Trace], Trace):
         self.token = Scope.set_current_trace(self)
 
     def detach(self):
-        if self.token:
+        if self.token:  # pragma: no branch
             Scope.reset_current_trace(self.token)
             self.token = None
 
