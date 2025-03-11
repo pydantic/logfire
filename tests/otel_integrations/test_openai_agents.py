@@ -100,7 +100,7 @@ def test_openai_agent_tracing(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -113,10 +113,10 @@ def test_openai_agent_tracing(exporter: TestExporter):
                     'agent_trace_id': IsStr(),
                     'metadata': 'null',
                     'group_id': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.span_type': 'span',
                     'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"},"metadata":{"type":"null"}}}',
-                    'logfire.msg': 'OpenAI Agents trace trace_name',
+                    'logfire.msg': 'OpenAI Agents trace: trace_name',
                 },
             },
             {
@@ -247,7 +247,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -260,10 +260,10 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'agent_trace_id': IsStr(),
                     'metadata': 'null',
                     'group_id': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.span_type': 'span',
                     'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"},"metadata":{"type":"null"}}}',
-                    'logfire.msg': 'OpenAI Agents trace trace_name',
+                    'logfire.msg': 'OpenAI Agents trace: trace_name',
                 },
             },
             {
@@ -831,7 +831,7 @@ async def test_responses(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -843,8 +843,8 @@ async def test_responses(exporter: TestExporter):
                     'name': 'Agent workflow',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace Agent workflow',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
@@ -1087,7 +1087,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1099,8 +1099,8 @@ async def test_input_guardrails(exporter: TestExporter):
                     'name': 'Agent workflow',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace Agent workflow',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
@@ -1164,7 +1164,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'parent': None,
                 'start_time': 9000000000,
@@ -1176,8 +1176,8 @@ async def test_input_guardrails(exporter: TestExporter):
                     'name': 'Agent workflow',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace Agent workflow',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
@@ -1308,7 +1308,7 @@ async def test_chat_completions(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1320,8 +1320,8 @@ async def test_chat_completions(exporter: TestExporter):
                     'name': 'Agent workflow',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace Agent workflow',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
@@ -1350,7 +1350,7 @@ def test_custom_span(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(parse_json_attributes=True, _include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1363,8 +1363,8 @@ def test_custom_span(exporter: TestExporter):
                     'agent_trace_id': 'trace_123',
                     'group_id': '456',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
@@ -1411,7 +1411,7 @@ def test_custom_span(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1423,8 +1423,8 @@ def test_custom_span(exporter: TestExporter):
                     'name': 'my_trace',
                     'metadata': 'null',
                     'group_id': '456',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {
@@ -1496,7 +1496,7 @@ def test_unknown_span(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1507,8 +1507,8 @@ def test_unknown_span(exporter: TestExporter):
                     'code.lineno': 123,
                     'name': 'my_trace',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'group_id': '456',
@@ -1908,7 +1908,7 @@ async def test_responses_simple(exporter: TestExporter):
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1920,8 +1920,8 @@ async def test_responses_simple(exporter: TestExporter):
                     'name': 'my_trace',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {
@@ -2470,7 +2470,7 @@ See JSON for details\
                 },
             },
             {
-                'name': 'OpenAI Agents trace {name}',
+                'name': 'OpenAI Agents trace: {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -2482,8 +2482,8 @@ See JSON for details\
                     'name': 'my_trace',
                     'group_id': 'null',
                     'metadata': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace {name}',
-                    'logfire.msg': 'OpenAI Agents trace my_trace',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'logfire.json_schema': {

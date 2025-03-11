@@ -57,7 +57,7 @@ class LogfireTraceProviderWrapper:
             if isinstance(trace, NoOpTrace):
                 return trace
             helper = LogfireSpanHelper(
-                self.logfire_instance.span('OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, **kwargs)
+                self.logfire_instance.span('OpenAI Agents trace: {name}', name=name, agent_trace_id=trace_id, **kwargs)
             )
             return LogfireTraceWrapper(trace, helper)
         except Exception:  # pragma: no cover
