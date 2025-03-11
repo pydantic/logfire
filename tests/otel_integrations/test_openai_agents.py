@@ -297,7 +297,8 @@ async def test_responses(exporter: TestExporter):
     agent2 = Agent(name='agent2', instructions='Return double the number')
     agent1 = Agent(name='agent1', tools=[random_number], handoffs=[agent2])
 
-    await Runner.run(agent1, input='Generate a random number then, hand off to agent2.')
+    with logfire.instrument_openai():
+        await Runner.run(agent1, input='Generate a random number then, hand off to agent2.')
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -1202,7 +1203,8 @@ async def test_chat_completions(exporter: TestExporter):
 
     model = OpenAIChatCompletionsModel('gpt-4o', AsyncOpenAI())
     agent = Agent[str](name='my_agent', model=model)
-    await Runner.run(agent, '1+1?')
+    with logfire.instrument_openai():
+        await Runner.run(agent, '1+1?')
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {

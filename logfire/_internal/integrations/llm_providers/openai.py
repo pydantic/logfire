@@ -9,6 +9,8 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import get_current_span
 
 from ...utils import handle_internal_errors
 from .types import EndpointConfig, StreamState
@@ -36,10 +38,21 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         json_data = {}
 
     if url == '/chat/completions':
+        if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
+            return EndpointConfig(message_template='', span_data={})
+
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
             span_data={'request_data': json_data},
             stream_state_cls=OpenaiChatCompletionStreamState,
+        )
+    elif url == '/responses':
+        if is_current_agent_span('Responses API'):
+            return EndpointConfig(message_template='', span_data={})
+
+        return EndpointConfig(  # pragma: no cover
+            message_template='Responses API with {request_data[model]!r}',
+            span_data={'request_data': json_data},
         )
     elif url == '/completions':
         return EndpointConfig(
@@ -62,6 +75,15 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             message_template='OpenAI API call to {url!r}',
             span_data={'request_data': json_data, 'url': url},
         )
+
+
+def is_current_agent_span(span_name: str):
+    current_span = get_current_span()
+    return (
+        isinstance(current_span, ReadableSpan)
+        and current_span.instrumentation_scope.name == 'logfire.openai_agents'
+        and current_span.name == span_name
+    )
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:

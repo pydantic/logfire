@@ -77,6 +77,8 @@ def instrument_llm_provider(
             return None, None, kwargs
 
         message_template, span_data, stream_state_cls = get_endpoint_config_fn(kwargs['options'])
+        if not message_template:
+            return None, None, kwargs
 
         span_data['async'] = is_async
 
