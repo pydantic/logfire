@@ -27,10 +27,14 @@ try:
         input_guardrail,
         trace,
     )
+    from agents.tracing import GLOBAL_TRACE_PROVIDER as ORIGINAL_GLOBAL_TRACE_PROVIDER
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
 
     from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
+
+    ORIGINAL_GLOBAL_TRACE_PROVIDER.set_processors([])
+
 except ImportError:
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
     if TYPE_CHECKING:
