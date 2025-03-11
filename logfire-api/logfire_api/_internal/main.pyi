@@ -458,7 +458,10 @@ class Logfire:
                 i.e. it's not necessary to use this as a context manager.
         """
     def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
-        """Instrument an OpenAI client so that spans are automatically created for each request.
+        '''Instrument an OpenAI client so that spans are automatically created for each request.
+
+        This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
+        of the OpenAI "agents" framework, see [`instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents].
 
         The following methods are instrumented for both the sync and the async clients:
 
@@ -480,13 +483,13 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model='gpt-4',
+            model=\'gpt-4\',
             messages=[
-                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                {'role': 'user', 'content': 'What is four plus five?'},
+                {\'role\': \'system\', \'content\': \'You are a helpful assistant.\'},
+                {\'role\': \'user\', \'content\': \'What is four plus five?\'},
             ],
         )
-        print('answer:', response.choices[0].message.content)
+        print(\'answer:\', response.choices[0].message.content)
         ```
 
         Args:
@@ -505,6 +508,12 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
+        '''
+    def instrument_openai_agents(self) -> None:
+        """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
+
+        For instrumentation of the standard OpenAI SDK package,
+        see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
     def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
