@@ -1791,7 +1791,7 @@ class Logfire:
         )
 
     def instrument_openai_agents(self) -> None:
-        """Instrument the `agents` library from OpenAI."""
+        """Instrument the [`agents`](https://pypi.org/project/openai-agents/) framework from OpenAI."""
         self._warn_if_not_initialized_for_instrumentation()
 
         from .integrations.openai_agents import LogfireTraceProviderWrapper

@@ -4,11 +4,12 @@ integration: logfire
 
 ## Introduction
 
-Logfire supports instrumenting calls to OpenAI with one extra line of code.
-
-We support instrumenting both the [standard OpenAI SDK](https://pypi.org/project/openai/) package and [OpenAI "agents" framework](https://pypi.org/project/openai-agents/) clients.
+We support instrumenting both the [standard OpenAI SDK](https://pypi.org/project/openai/) package and [OpenAI "agents"](https://pypi.org/project/openai-agents/) framework.
 
 ### OpenAI SDK
+
+Logfire supports instrumenting calls to OpenAI with one extra line of code, here's an example of instrumenting
+the OpenAI SDK:
 
 ```python hl_lines="7"
 import openai
@@ -57,6 +58,7 @@ The following OpenAI methods are covered:
 - [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api) — with and without `stream=True`
 - [`client.embeddings.create`](https://platform.openai.com/docs/guides/embeddings/how-to-get-embeddings)
 - [`client.images.generate`](https://platform.openai.com/docs/guides/images/generations)
+- [`client.responses.create`](https://platform.openai.com/docs/api-reference/responses)
 
 All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 
@@ -141,4 +143,26 @@ Shows up like this in Logfire:
 
 ## OpenAI Agents
 
-TODO
+We also support instrumenting the OpenAI "agents" framework.
+
+```python hl_lines="5"
+import logfire
+from agents import Agent, Runner
+
+logfire.configure()
+logfire.instrument_openai_agents()
+
+agent = Agent(name="Assistant", instructions="You are a helpful assistant")
+
+result = Runner.run_sync(agent, "Write a haiku about recursion in programming.")
+print(result.final_output)
+```
+
+_For more information, see the [`instrument_openai_agents()` API reference][logfire.Logfire.instrument_openai_agents]._
+
+Which shows up like this in Logfire:
+
+<figure markdown="span">
+  ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents.png){ width="500" }
+  <figcaption>OpenAI Agents</figcaption>
+</figure>
