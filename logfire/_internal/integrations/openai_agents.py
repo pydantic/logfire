@@ -252,16 +252,14 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         template = logfire_span.message_template
         assert template
         new_attrs = attributes_from_span_data(self.span_data, template)  # type: ignore
-        try:
-            message = logfire_format(template, new_attrs, NOOP_SCRUBBER)
-        except Exception:  # pragma: no cover
-            message = logfire_span.message
         if error := self.error:
             new_attrs['error'] = error
-            message += f' failed: {error["message"]}'
             logfire_span.set_level('error')
-        logfire_span.message = message
         logfire_span.set_attributes(new_attrs)
+        message = logfire_format(template, dict(logfire_span.attributes or {}), NOOP_SCRUBBER)
+        if error:
+            message += f' failed: {error["message"]}'
+        logfire_span.message = message
 
     @property
     def trace_id(self) -> str:
