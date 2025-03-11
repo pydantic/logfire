@@ -47,7 +47,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
-        if is_current_agent_span('Responses API'):
+        if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
         return EndpointConfig(  # pragma: no cover
@@ -77,13 +77,13 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         )
 
 
-def is_current_agent_span(span_name: str):
+def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
         isinstance(current_span, ReadableSpan)
         and current_span.instrumentation_scope
         and current_span.instrumentation_scope.name == 'logfire.openai_agents'
-        and current_span.name == span_name
+        and current_span.name in span_names
     )
 
 
