@@ -4,9 +4,10 @@ import contextlib
 import contextvars
 import inspect
 import sys
+from abc import abstractmethod
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import agents
 from agents import (
@@ -18,13 +19,12 @@ from agents import (
     HandoffSpanData,
     ModelSettings,
     Span,
-    SpanError,
     Trace,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
 from agents.tracing import ResponseSpanData
 from agents.tracing.scope import Scope
-from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
+from agents.tracing.spans import NoOpSpan, SpanData, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
 from typing_extensions import Self
 
@@ -150,11 +150,14 @@ class LogfireSpanHelper:
         self.maybe_detach(exc_type is not GeneratorExit)
 
 
+T = TypeVar('T', Trace, Span[TSpanData])  # type: ignore
+
+
 @dataclass
-class LogfireTraceWrapper(Trace):
-    wrapped: Trace
+class LogfireWrapperBase(Generic[T]):
+    wrapped: Any
     span_helper: LogfireSpanHelper
-    token: contextvars.Token[Trace | None] | None = None
+    token: contextvars.Token[T | None] | None = None
 
     def start(self, mark_as_current: bool = False):
         self.span_helper.start(mark_as_current)
@@ -169,7 +172,7 @@ class LogfireTraceWrapper(Trace):
             self.detach()
         return self.wrapped.finish()
 
-    def __enter__(self) -> Trace:
+    def __enter__(self) -> Self:
         self.span_helper.__enter__()
         self.wrapped.start()
         self.attach()
@@ -182,6 +185,21 @@ class LogfireTraceWrapper(Trace):
         if exc_type is not GeneratorExit:
             self.detach()
 
+    @abstractmethod
+    def on_ending(self): ...
+
+    @abstractmethod
+    def attach(self): ...
+
+    @abstractmethod
+    def detach(self): ...
+
+    def __getattr__(self, item: str):
+        return getattr(self.wrapped, item)
+
+
+@dataclass
+class LogfireTraceWrapper(LogfireWrapperBase[Trace], Trace):
     @handle_internal_errors
     def on_ending(self):
         logfire_span = self.span_helper.span
@@ -211,54 +229,9 @@ class LogfireTraceWrapper(Trace):
     def export(self) -> dict[str, Any] | None:
         return self.wrapped.export()
 
-    def __getattr__(self, item: str):
-        return getattr(self.wrapped, item)
-
 
 @dataclass
-class LogfireSpanWrapper(Span[TSpanData]):
-    wrapped: Span[TSpanData]
-    span_helper: LogfireSpanHelper
-    token: contextvars.Token[Span[TSpanData] | None] | None = None
-
-    @property
-    def trace_id(self) -> str:
-        return self.wrapped.trace_id
-
-    @property
-    def span_id(self) -> str:
-        return self.wrapped.span_id
-
-    @property
-    def span_data(self) -> TSpanData:
-        return self.wrapped.span_data
-
-    def start(self, mark_as_current: bool = False):
-        self.span_helper.start(mark_as_current)
-        if mark_as_current:
-            self.attach()
-        return self.wrapped.start()
-
-    def finish(self, reset_current: bool = False) -> None:
-        self.on_ending()
-        self.span_helper.end(reset_current)
-        if reset_current:
-            self.detach()
-        return self.wrapped.finish()
-
-    def __enter__(self) -> Self:
-        self.span_helper.__enter__()
-        self.wrapped.start()
-        self.attach()
-        return self
-
-    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
-        self.on_ending()
-        self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        self.wrapped.finish()
-        if exc_type is not GeneratorExit:
-            self.detach()
-
+class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
     def attach(self):
         self.token = Scope.set_current_span(self)
 
@@ -274,7 +247,7 @@ class LogfireSpanWrapper(Span[TSpanData]):
             return
         template = logfire_span.message_template
         assert template
-        new_attrs = attributes_from_span_data(self.span_data, template)
+        new_attrs = attributes_from_span_data(self.span_data, template)  # type: ignore
         if 'gen_ai.request.model' not in template and 'gen_ai.request.model' in new_attrs:
             template += ' with {gen_ai.request.model!r}'
         try:
@@ -287,6 +260,18 @@ class LogfireSpanWrapper(Span[TSpanData]):
             logfire_span.set_level('error')
         logfire_span.message = message
         logfire_span.set_attributes(new_attrs)
+
+    @property
+    def trace_id(self) -> str:
+        return self.wrapped.trace_id
+
+    @property
+    def span_id(self) -> str:
+        return self.wrapped.span_id
+
+    @property
+    def span_data(self) -> TSpanData:  # type: ignore
+        return self.wrapped.span_data
 
     @property
     def parent_id(self) -> str | None:
@@ -309,9 +294,6 @@ class LogfireSpanWrapper(Span[TSpanData]):
     @property
     def ended_at(self) -> str | None:
         return self.wrapped.ended_at
-
-    def __getattr__(self, item: str):
-        return getattr(self.wrapped, item)
 
 
 def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[str, Any]:
