@@ -78,22 +78,22 @@ class LogfireTraceProviderWrapper:
                 return span
 
             if isinstance(span_data, AgentSpanData):
-                msg_template = 'Agent {name}'
+                msg_template = 'Agent run: {name!r}'
             elif isinstance(span_data, FunctionSpanData):
-                msg_template = 'Function {name}'
+                msg_template = 'Function: {name}'
             elif isinstance(span_data, GenerationSpanData):
                 msg_template = 'Chat completion with {gen_ai.request.model!r}'
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
                 span_data.__class__ = ResponseDataWrapper
             elif isinstance(span_data, GuardrailSpanData):
-                msg_template = 'Guardrail {name} triggered={triggered}'
+                msg_template = 'Guardrail {name!r} {triggered=}'
             elif isinstance(span_data, HandoffSpanData):
-                msg_template = 'Handoff {from_agent} -> {to_agent}'
+                msg_template = 'Handoff: {from_agent} -> {to_agent}'
             elif isinstance(span_data, CustomSpanData):
                 msg_template = 'Custom span: {name}'
             else:
-                msg_template = 'OpenAI agents {type} span'
+                msg_template = 'OpenAI agents: {type} span'
 
             logfire_span = self.logfire_instance.span(
                 msg_template,
