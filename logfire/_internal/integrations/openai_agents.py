@@ -28,6 +28,8 @@ from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
 from typing_extensions import Self
 
+from logfire._internal.formatter import logfire_format
+from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -273,9 +275,11 @@ class LogfireSpanWrapper(Span[TSpanData]):
         template = logfire_span.message_template
         assert template
         new_attrs = attributes_from_span_data(self.span_data, template)
+        if 'gen_ai.request.model' not in template and 'gen_ai.request.model' in new_attrs:
+            template += ' with {gen_ai.request.model!r}'
         try:
-            message = template.format(**new_attrs)
-        except Exception:  # pragma: no cover  # in case attributes_from_span_data fails and returns {}
+            message = logfire_format(template, new_attrs, NOOP_SCRUBBER)
+        except Exception:  # pragma: no cover
             message = logfire_span.message
         if error := self.error:
             new_attrs['error'] = error
