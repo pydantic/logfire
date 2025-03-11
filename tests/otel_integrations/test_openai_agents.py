@@ -9,7 +9,6 @@ from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 try:
     from agents import (
@@ -30,6 +29,8 @@ try:
     )
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
+
+    from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 except ImportError:
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
     if TYPE_CHECKING:
