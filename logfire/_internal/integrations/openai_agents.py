@@ -54,7 +54,7 @@ class LogfireTraceProviderWrapper:
             trace = self.wrapped.create_trace(name, trace_id=trace_id, disabled=disabled, **kwargs)
             if isinstance(trace, NoOpTrace):
                 return trace
-            helper = LogfireTraceHelper(
+            helper = LogfireSpanHelper(
                 self.logfire_instance.span('OpenAI Agents trace {name}', name=name, agent_trace_id=trace_id, **kwargs)
             )
             return LogfireTraceWrapper(trace, helper)
@@ -97,7 +97,7 @@ class LogfireTraceProviderWrapper:
                 msg_template,
                 **attributes_from_span_data(span_data, msg_template),
             )
-            helper = LogfireTraceHelper(logfire_span)
+            helper = LogfireSpanHelper(logfire_span)
             return LogfireSpanWrapper(span, helper)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -123,7 +123,7 @@ class LogfireTraceProviderWrapper:
 
 
 @dataclass
-class LogfireTraceHelper:
+class LogfireSpanHelper:
     span: LogfireSpan
 
     def start(self, mark_as_current: bool):
@@ -148,14 +148,9 @@ class LogfireTraceHelper:
 
 
 @dataclass
-class LogfireSpanHelper:
-    span_data: SpanData
-
-
-@dataclass
 class LogfireTraceWrapper(Trace):
     wrapped: Trace
-    span_helper: LogfireTraceHelper
+    span_helper: LogfireSpanHelper
     token: contextvars.Token[Trace | None] | None = None
 
     def start(self, mark_as_current: bool = False):
@@ -219,10 +214,8 @@ class LogfireTraceWrapper(Trace):
 
 @dataclass
 class LogfireSpanWrapper(Span[TSpanData]):
-    __slots__ = ('wrapped', 'span_helper')
-
     wrapped: Span[TSpanData]
-    span_helper: LogfireTraceHelper
+    span_helper: LogfireSpanHelper
     token: contextvars.Token[Span[TSpanData] | None] | None = None
 
     @property
