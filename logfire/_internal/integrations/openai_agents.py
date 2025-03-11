@@ -26,13 +26,13 @@ from agents.tracing import ResponseSpanData
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, TSpanData
 from agents.tracing.traces import NoOpTrace
-from openai.types.responses import Response
 from typing_extensions import Self
 
 from logfire._internal.utils import handle_internal_errors, log_internal_error
 
 if TYPE_CHECKING:  # pragma: no cover
     from agents.tracing.setup import TraceProvider
+    from openai.types.responses import Response
 
     from logfire import Logfire, LogfireSpan
 
