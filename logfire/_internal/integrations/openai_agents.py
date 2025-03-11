@@ -272,7 +272,10 @@ class LogfireSpanWrapper(Span[TSpanData]):
         template = logfire_span.message_template
         assert template
         new_attrs = attributes_from_span_data(self.span_data, template)
-        message = template.format(**new_attrs)
+        try:
+            message = template.format(**new_attrs)
+        except Exception:  # pragma: no cover  # in case attributes_from_span_data fails and returns {}
+            message = logfire_span.message
         if error := self.error:
             new_attrs['error'] = error
             message += f' failed: {error["message"]}'
@@ -317,6 +320,9 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 attributes['raw_input'] = span_data.input
             if events := get_response_span_events(span_data):
                 attributes['events'] = events
+            if (usage := getattr(span_data.response, 'usage', None)) and getattr(usage, 'total_tokens', None):
+                attributes['gen_ai.usage.input_tokens'] = usage.input_tokens
+                attributes['gen_ai.usage.output_tokens'] = usage.output_tokens
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()

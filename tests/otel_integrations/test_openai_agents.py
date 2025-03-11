@@ -725,6 +725,8 @@ async def test_responses(exporter: TestExporter):
                             },
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 89,
+                    'gen_ai.usage.output_tokens': 18,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -794,6 +796,8 @@ async def test_responses(exporter: TestExporter):
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
@@ -977,6 +981,8 @@ async def test_input_guardrails(exporter: TestExporter):
                             'message': {'content': '1 + 1 equals 2.', 'role': 'assistant'},
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 29,
+                    'gen_ai.usage.output_tokens': 9,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1046,6 +1052,8 @@ async def test_input_guardrails(exporter: TestExporter):
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
@@ -1577,6 +1585,8 @@ async def test_responses_simple(exporter: TestExporter):
                             'message': {'content': '2 + 2 equals 4.', 'role': 'assistant'},
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 29,
+                    'gen_ai.usage.output_tokens': 9,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1646,6 +1656,8 @@ async def test_responses_simple(exporter: TestExporter):
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
@@ -1765,6 +1777,8 @@ async def test_responses_simple(exporter: TestExporter):
                             'message': {'content': 'Yes, 2 + 2 equals 4.', 'role': 'assistant'},
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 47,
+                    'gen_ai.usage.output_tokens': 12,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1834,6 +1848,8 @@ async def test_responses_simple(exporter: TestExporter):
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
@@ -2036,6 +2052,8 @@ See JSON for details\
                             'message': {'content': 'Logfire is made by Pydantic.', 'role': 'assistant'},
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 1974,
+                    'gen_ai.usage.output_tokens': 38,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2137,6 +2155,8 @@ See JSON for details\
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
@@ -2304,6 +2324,8 @@ See JSON for details\
                             'message': {'content': 'The answer is 4.', 'role': 'assistant'},
                         },
                     ],
+                    'gen_ai.usage.input_tokens': 923,
+                    'gen_ai.usage.output_tokens': 8,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2388,6 +2410,8 @@ See JSON for details\
                             'gen_ai.operation.name': {},
                             'raw_input': {'type': 'array'},
                             'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                 },
