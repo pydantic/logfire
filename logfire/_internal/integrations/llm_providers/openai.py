@@ -81,6 +81,7 @@ def is_current_agent_span(span_name: str):
     current_span = get_current_span()
     return (
         isinstance(current_span, ReadableSpan)
+        and current_span.instrumentation_scope
         and current_span.instrumentation_scope.name == 'logfire.openai_agents'
         and current_span.name == span_name
     )
