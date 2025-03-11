@@ -19,7 +19,7 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import StatusCode, get_tracer
+from opentelemetry.trace import INVALID_SPAN, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -3323,3 +3323,70 @@ def test_default_id_generator(exporter: TestExporter) -> None:
         export['attributes']['i'] for export in sorted(exported, key=lambda span: span['start_time'])
     ]
     assert sorted_by_trace_id == sorted_by_start_timestamp
+
+
+def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    span = logfire.span('test')
+    assert not span.is_recording()
+    assert not exporter.exported_spans
+    assert get_current_span() is INVALID_SPAN
+
+    span._start()  # type: ignore
+    span._start()  # type: ignore
+    assert span.is_recording()
+    assert len(exporter.exported_spans) == 1
+    assert get_current_span() is INVALID_SPAN
+
+    span._attach()  # type: ignore
+    span._attach()  # type: ignore
+    assert get_current_span() is span._span  # type: ignore
+
+    span._detach()  # type: ignore
+    span._detach()  # type: ignore
+    assert span.is_recording()
+    assert len(exporter.exported_spans) == 1
+    assert get_current_span() is INVALID_SPAN
+
+    span._end()  # type: ignore
+    span._end()  # type: ignore
+    assert not span.is_recording()
+    assert len(exporter.exported_spans) == 2
+    assert get_current_span() is INVALID_SPAN
+
+    assert not caplog.messages
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_start_end_attach_detach',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_start_end_attach_detach',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
