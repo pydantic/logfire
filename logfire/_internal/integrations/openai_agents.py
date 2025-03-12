@@ -278,6 +278,13 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         return self.wrapped.parent_id
 
     def set_error(self, error: SpanError) -> None:
+        _typ, exc, _tb = sys.exc_info()
+        if (
+            exc
+            and error['message'] == 'Error running tool (non-fatal)'
+            and (error['data'] or {}).get('error') == str(exc)
+        ):
+            self.span_helper.span.record_exception(exc)
         return self.wrapped.set_error(error)
 
     @property
