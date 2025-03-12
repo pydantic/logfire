@@ -84,6 +84,7 @@ nav:
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
   - How To - Guides:
+      - Connect to the MCP Server: how-to-guides/mcp-server.md
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
       - Link to Code Source: how-to-guides/link-to-code-source.md
