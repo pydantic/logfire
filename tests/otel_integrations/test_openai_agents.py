@@ -5,7 +5,7 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
@@ -40,7 +40,7 @@ except ImportError:
     if TYPE_CHECKING:
         assert False
 
-os.environ['OPENAI_API_KEY'] = 'foo'
+os.environ.setdefault('OPENAI_API_KEY', 'foo')
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
@@ -2490,6 +2490,502 @@ See JSON for details\
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'agent_trace_id': {},
+                            'group_id': {'type': 'null'},
+                            'metadata': {'type': 'null'},
+                        },
+                    },
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+@pytest.mark.anyio
+async def test_function_tool_exception(exporter: TestExporter):
+    logfire.instrument_openai_agents()
+
+    @function_tool
+    def tool():
+        raise RuntimeError("Ouch, don't do that again!")
+
+    agent = Agent(name='Start Agent', tools=[tool])
+    await Runner.run(agent, input='Call the tool.')
+
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'model_settings': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                    },
+                    'gen_ai.request.model': 'gpt-4o',
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.span_type': 'span',
+                    'response_id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
+                    'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'response': {
+                        'id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
+                        'created_at': 1741780021.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4o-2024-08-06',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'fc_67d1743683b4819192c2f0487f38fa280273f8a636c82b58',
+                                'arguments': '{}',
+                                'call_id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                                'name': 'tool',
+                                'type': 'function_call',
+                                'status': 'completed',
+                            }
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [
+                            {
+                                'name': 'tool',
+                                'parameters': {
+                                    'properties': {},
+                                    'title': 'tool_args',
+                                    'type': 'object',
+                                    'additionalProperties': False,
+                                    'required': [],
+                                },
+                                'strict': True,
+                                'type': 'function',
+                                'description': None,
+                            }
+                        ],
+                        'top_p': 1.0,
+                        'max_output_tokens': None,
+                        'previous_response_id': None,
+                        'reasoning': {'effort': None, 'generate_summary': None},
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}},
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 244,
+                            'output_tokens': 10,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 254,
+                            'input_tokens_details': {'cached_tokens': 0},
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'gen_ai.system': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'content': 'Call the tool.', 'role': 'user'}],
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {
+                                'role': 'assistant',
+                                'tool_calls': [
+                                    {
+                                        'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                                        'type': 'function',
+                                        'function': {'name': 'tool', 'arguments': '{}'},
+                                    }
+                                ],
+                            },
+                        },
+                    ],
+                    'gen_ai.usage.input_tokens': 244,
+                    'gen_ai.usage.output_tokens': 10,
+                    'logfire.msg': "Responses API with 'gpt-4o'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response_id': {},
+                            'model_settings': {
+                                'type': 'object',
+                                'title': 'ModelSettings',
+                                'x-python-datatype': 'dataclass',
+                            },
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response': {
+                                'type': 'object',
+                                'title': 'Response',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'ResponseFunctionToolCall',
+                                            'x-python-datatype': 'PydanticModel',
+                                        },
+                                    },
+                                    'tools': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'FunctionTool',
+                                            'x-python-datatype': 'PydanticModel',
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseTextConfig',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.system': {},
+                            'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
+                            'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Function: {name}',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.msg_template': 'Function: {name}',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'name': 'tool',
+                    'input': {},
+                    'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                    'error': {
+                        'message': 'Error running tool (non-fatal)',
+                        'data': {'tool_name': 'tool', 'error': "Ouch, don't do that again!"},
+                    },
+                    'logfire.msg': 'Function: tool failed: Error running tool (non-fatal)',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'input': {}, 'output': {}, 'error': {'type': 'object'}},
+                    },
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': IsInt(),
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': "Ouch, don't do that again!",
+                            'exception.stacktrace': "RuntimeError: Ouch, don't do that again!",
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_function_tool_exception',
+                    'code.lineno': 123,
+                    'model_settings': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                    },
+                    'gen_ai.request.model': 'gpt-4o',
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.span_type': 'span',
+                    'response_id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
+                    'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'response': {
+                        'id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
+                        'created_at': 1741780022.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4o-2024-08-06',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'msg_67d174373e2c81918c8b92e4a39381c70273f8a636c82b58',
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
+                                        'type': 'output_text',
+                                    }
+                                ],
+                                'role': 'assistant',
+                                'status': 'completed',
+                                'type': 'message',
+                            }
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [
+                            {
+                                'name': 'tool',
+                                'parameters': {
+                                    'properties': {},
+                                    'title': 'tool_args',
+                                    'type': 'object',
+                                    'additionalProperties': False,
+                                    'required': [],
+                                },
+                                'strict': True,
+                                'type': 'function',
+                                'description': None,
+                            }
+                        ],
+                        'top_p': 1.0,
+                        'max_output_tokens': None,
+                        'previous_response_id': None,
+                        'reasoning': {'effort': None, 'generate_summary': None},
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}},
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 283,
+                            'output_tokens': 30,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 313,
+                            'input_tokens_details': {'cached_tokens': 0},
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'gen_ai.system': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'raw_input': [
+                        {'content': 'Call the tool.', 'role': 'user'},
+                        {
+                            'id': 'fc_67d1743683b4819192c2f0487f38fa280273f8a636c82b58',
+                            'arguments': '{}',
+                            'call_id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                            'name': 'tool',
+                            'type': 'function_call',
+                            'status': 'completed',
+                        },
+                        {
+                            'call_id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                            'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                            'type': 'function_call_output',
+                        },
+                    ],
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                                    'type': 'function',
+                                    'function': {'name': 'tool', 'arguments': '{}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                            'content': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                        },
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {
+                                'content': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
+                                'role': 'assistant',
+                            },
+                        },
+                    ],
+                    'gen_ai.usage.input_tokens': 283,
+                    'gen_ai.usage.output_tokens': 30,
+                    'logfire.msg': "Responses API with 'gpt-4o'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response_id': {},
+                            'model_settings': {
+                                'type': 'object',
+                                'title': 'ModelSettings',
+                                'x-python-datatype': 'dataclass',
+                            },
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response': {
+                                'type': 'object',
+                                'title': 'Response',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'ResponseOutputMessage',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'content': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'ResponseOutputText',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    },
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'tools': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'FunctionTool',
+                                            'x-python-datatype': 'PydanticModel',
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseTextConfig',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.system': {},
+                            'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
+                            'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Agent run: {name!r}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_function_tool_exception',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Agent run: {name!r}',
+                    'logfire.span_type': 'span',
+                    'name': 'Start Agent',
+                    'handoffs': [],
+                    'tools': ['tool'],
+                    'output_type': 'str',
+                    'logfire.msg': "Agent run: 'Start Agent'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'handoffs': {'type': 'array'},
+                            'tools': {'type': 'array'},
+                            'output_type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace: {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_function_tool_exception',
+                    'code.lineno': 123,
+                    'name': 'Agent workflow',
+                    'group_id': 'null',
+                    'metadata': 'null',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
