@@ -3,7 +3,7 @@ from .config import LogfireConfig as LogfireConfig
 from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
 from .utils import handle_internal_errors as handle_internal_errors
 from _typeshed import Incomplete
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
@@ -23,9 +23,9 @@ class ProxyTracerProvider(TracerProvider):
     """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned."""
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = ...
-    lock: Lock = ...
-    suppressed_scopes: set[str] = ...
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    lock: Lock = field(default_factory=Lock)
+    suppressed_scopes: set[str] = field(default_factory=set)
     def set_provider(self, provider: SDKTracerProvider) -> None: ...
     def suppress_scopes(self, *scopes: str) -> None: ...
     def get_tracer(self, instrumenting_module_name: str, *args: Any, is_span_tracer: bool = True, **kwargs: Any) -> _ProxyTracer: ...

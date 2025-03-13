@@ -328,7 +328,7 @@ def _numpy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return {
         'type': 'array',
         'x-python-datatype': 'ndarray',
-        'x-shape': to_json_value(obj.shape, seen),
+        'x-shape': to_json_value(obj.shape, seen),  # type: ignore
         'x-dtype': str(obj.dtype),  # type: ignore
     }
 

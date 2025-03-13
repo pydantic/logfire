@@ -1273,7 +1273,7 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
     logfire.instrument_pydantic()
 
     class Hero(sqlmodel.SQLModel, table=True):
-        id: int = sqlmodel.Field(default=1, primary_key=True)  # type: ignore
+        id: int = sqlmodel.Field(default=1, primary_key=True)
 
     Hero.model_validate({})
 
