@@ -164,6 +164,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
+    assert hasattr(logfire_api, 'instrument_pydantic_ai')
+    if sys.version_info >= (3, 9):
+        logfire_api.instrument_pydantic_ai()
+    logfire__all__.remove('instrument_pydantic_ai')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if not (get_version(pydantic_version) < get_version('2.5.0') and member == 'instrument_pydantic'):
