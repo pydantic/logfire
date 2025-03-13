@@ -12,7 +12,7 @@ try:
     from pydantic_ai.models.instrumented import InstrumentationSettings, InstrumentedModel
     from pydantic_ai.models.test import TestModel
 
-except ImportError:
+except (ImportError, AttributeError):
     pytestmark = pytest.mark.skipif(
         sys.version_info < (3, 9) or pydantic.__version__.startswith('2.4'),
         reason='Requires Python 3.9 or higher and Pydantic 2.5 or higher',
