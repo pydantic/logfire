@@ -167,6 +167,7 @@ dev = [
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents >= 0.0.2; python_full_version >= '3.9'",
+    "pydantic-ai>=0.0.38 ; python_full_version >= '3.9'",
 ]
 docs = [
     "black>=23.12.0",
