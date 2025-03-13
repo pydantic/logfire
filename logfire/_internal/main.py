@@ -962,7 +962,7 @@ class Logfire:
         obj: pydantic_ai.Agent | pydantic_ai.models.Model | None = None,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] = 'attributes',
+        event_mode: Literal['attributes', 'logs'] | None = None,
     ) -> pydantic_ai.models.Model | None:
         """Instrument PydanticAI.
 
@@ -972,6 +972,7 @@ class Logfire:
                 You can also pass a specific model or agent.
                 If you pass a model, a new instrumented model will be returned.
             event_mode: See https://ai.pydantic.dev/logfire/#data-format.
+                The default is whatever the default is in your version of PydanticAI.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
 
