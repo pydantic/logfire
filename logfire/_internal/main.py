@@ -5,6 +5,7 @@ import inspect
 import json
 import sys
 import warnings
+from contextvars import Token
 from functools import cached_property
 from time import time
 from typing import (
@@ -2145,7 +2146,7 @@ class LogfireSpan(ReadableSpan):
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
 
         self._added_attributes = False
-        self._token: None | object = None
+        self._token: None | Token[Context] = None
         self._span: None | trace_api.Span = None
 
     if not TYPE_CHECKING:  # pragma: no branch
