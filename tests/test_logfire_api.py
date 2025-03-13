@@ -22,6 +22,7 @@ def import_logfire_api_without_logfire() -> ModuleType:
     logfire = sys.modules['logfire']
     try:
         sys.modules['logfire'] = None  # type: ignore
+        sys.modules.pop('logfire_api', None)
         return importlib.import_module('logfire_api')
     finally:
         sys.modules['logfire'] = logfire
