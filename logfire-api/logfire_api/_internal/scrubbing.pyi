@@ -60,7 +60,7 @@ class SpanScrubber:
     This class is separate from Scrubber so that it can be instantiated more regularly
     and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
     """
-    scrubbed: Incomplete
+    scrubbed: list[ScrubbedNote]
     did_scrub: bool
     def __init__(self, parent: Scrubber) -> None: ...
     def scrub_span(self, span: ReadableSpanDict): ...
