@@ -41,6 +41,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
             'process.context_switches',
+            'process.cpu.core_utilization',
             'process.cpu.time',
             'process.cpu.utilization',
             'process.memory.usage',
@@ -73,8 +74,23 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
-    logfire.instrument_system_metrics({'system.memory.utilization': ['available']}, base=None)
-    assert get_collected_metric_names(metrics_reader) == ['system.memory.utilization']
+    logfire.instrument_system_metrics(
+        {
+            'system.memory.utilization': ['available'],
+            'process.cpu.core_utilization': None,
+            'process.runtime.cpu.utilization': None,
+            'process.cpu.utilization': None,
+        },
+        base=None,
+    )
+    assert get_collected_metric_names(metrics_reader) == snapshot(
+        [
+            'process.cpu.core_utilization',
+            'process.cpu.utilization',
+            'process.runtime.cpython.cpu.utilization',
+            'system.memory.utilization',
+        ]
+    )
 
 
 def test_basic_base():
@@ -147,6 +163,7 @@ def test_full_base():
         'process.cpu.utilization': ['user', 'system'],
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
+        'process.cpu.core_utilization': None,
         # These are deprecated:
         'process.runtime.memory': ['rss', 'vms'],
         'process.runtime.cpu.time': ['user', 'system'],
