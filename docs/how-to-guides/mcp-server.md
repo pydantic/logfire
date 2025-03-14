@@ -1,16 +1,33 @@
 # Logfire MCP Server
 
 **Logfire** has its own [MCP server](https://modelcontextprotocol.io/introduction), which
-you can use on [Claude Desktop](https://claude.ai/download),
-[Cursor](https://www.cursor.com/), and any other software that supports MCP Servers.
+you can use on any software that supports MCP Servers.
 
-## Connect to the MCP server
+## Usage
 
-Here's how to connect different clients to the MCP server:
+The MCP server is a CLI tool that you can run from the command line.
 
-### Cursor
+You'll need a read token to use the MCP server. See
+[Create Read Token](./query-api.md#how-to-create-a-read-token) for more information.
 
-You can configure Cursor by creating a `.cursor/mcp.json` file in your project root:
+You can then start the MCP server with the following command:
+
+```bash
+LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp
+```
+
+!!! note
+    The `uvx` command will download the PyPI package [`logfire-mcp`](https://pypi.org/project/logfire-mcp/),
+    and run the `logfire-mcp` command.
+
+### Configuration
+
+The way to configure the MCP server depends on the software you're using.
+
+#### Cursor
+
+[Cursor](https://www.cursor.com/) is a popular IDE that supports MCP servers. You can configure
+it by creating a `.cursor/mcp.json` file in your project root:
 
 ```json
 {
@@ -24,7 +41,7 @@ You can configure Cursor by creating a `.cursor/mcp.json` file in your project r
 ```
 
 !!! note
-    You need to pass the token via the `--logfire-read-token` flag, because Cursor doesn't
+    You need to pass the token via the `--read-token` flag, because Cursor doesn't
     support the `env` field in the MCP configuration.
 
 For more detailed information, you can check the
@@ -32,13 +49,24 @@ For more detailed information, you can check the
 
 ### Claude Desktop
 
-In Claude Desktop, go to Settings → Advanced and add the following MCP configuration:
+[Claude Desktop](https://claude.ai/download) is a desktop application for the popular
+LLM Claude.
+
+You can configure it to use the MCP server by adding the following configuration to the
+`~/claude_desktop_config.json` file:
+
 ```json
 {
-  "command": ["logfire-mcp"],
-  "type": "stdio",
-  "env": {
-    "LOGFIRE_READ_TOKEN": "your_token"
+  "mcpServers": {
+    "logfire": {
+      "command": "uvx",
+      "args": [
+        "logfire-mcp",
+      ],
+      "env": {
+        "LOGFIRE_READ_TOKEN": "your_token"
+      }
+    }
   }
 }
 ```
@@ -48,8 +76,10 @@ for more information.
 
 ### Cline
 
-When using [Cline](https://docs.cline.bot/), you can configure the
-`cline_mcp_settings.json` file to connect to the MCP server:
+[Cline](https://docs.cline.bot/) is a popular chatbot platform that supports MCP servers.
+
+You can configure it to use the MCP server by adding the following configuration to the
+`cline_mcp_settings.json` file:
 
 ```json
 {
