@@ -68,8 +68,10 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
-    logfire.instrument_system_metrics({'system.memory.utilization': ['available']}, base=None)
-    assert get_collected_metric_names(metrics_reader) == ['system.memory.utilization']
+    # This metric is now deprecated by OTEL, but there isn't a strong reason to stop allowing it when requested,
+    # and I also want to test measure_process_runtime_cpu_utilization.
+    logfire.instrument_system_metrics({'process.runtime.cpu.utilization': None}, base=None)  # type: ignore
+    assert get_collected_metric_names(metrics_reader) == ['process.runtime.cpython.cpu.utilization']
 
 
 def test_basic_base():
