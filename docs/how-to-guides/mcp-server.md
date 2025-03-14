@@ -1,7 +1,7 @@
 # Logfire MCP Server
 
 **Logfire** has its own [MCP server](https://modelcontextprotocol.io/introduction), which
-you can use on [Claude Desktop](https://www.anthropic.com/news/claude-desktop),
+you can use on [Claude Desktop](https://claude.ai/download),
 [Cursor](https://www.cursor.com/), and any other software that supports MCP Servers.
 
 ## Connect to the MCP server
