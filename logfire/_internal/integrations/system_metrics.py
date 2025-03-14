@@ -43,13 +43,20 @@ MetricName: type[
         'system.network.io',
         'system.network.connections',
         'system.thread_count',
+        'process.open_file_descriptor.count',
+        'process.context_switches',
+        'process.cpu.time',
+        'process.cpu.utilization',
+        'process.memory.usage',
+        'process.memory.virtual',
+        'process.thread.count',
+        'process.runtime.gc_count',
+        # ##### These are deprecated:
         'process.runtime.memory',
         'process.runtime.cpu.time',
-        'process.runtime.gc_count',
         'process.runtime.thread_count',
         'process.runtime.cpu.utilization',
         'process.runtime.context_switches',
-        'process.open_file_descriptor.count',
     ]
 ] = Literal[  # type: ignore  # but pyright doesn't like it
     'system.cpu.simple_utilization',
@@ -68,13 +75,20 @@ MetricName: type[
     'system.network.io',
     'system.network.connections',
     'system.thread_count',
+    'process.open_file_descriptor.count',
+    'process.context_switches',
+    'process.cpu.time',
+    'process.cpu.utilization',
+    'process.memory.usage',
+    'process.memory.virtual',
+    'process.thread.count',
+    'process.runtime.gc_count',
+    # ##### These are deprecated:
     'process.runtime.memory',
     'process.runtime.cpu.time',
-    'process.runtime.gc_count',
     'process.runtime.thread_count',
     'process.runtime.cpu.utilization',
     'process.runtime.context_switches',
-    'process.open_file_descriptor.count',
 ]
 
 Config = Dict[MetricName, Optional[Iterable[str]]]

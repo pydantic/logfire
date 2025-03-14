@@ -36,12 +36,15 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     )
 
 
-# TODO FIX THIS
-@pytest.mark.xfail
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics(base='full')
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
+            'process.context_switches',
+            'process.cpu.time',
+            'process.cpu.utilization',
+            'process.memory.usage',
+            'process.memory.virtual',
             'process.open_file_descriptor.count',
             'process.runtime.cpython.context_switches',
             'process.runtime.cpython.cpu.utilization',
@@ -49,6 +52,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.runtime.cpython.gc_count',
             'process.runtime.cpython.memory',
             'process.runtime.cpython.thread_count',
+            'process.thread.count',
             'system.cpu.simple_utilization',
             'system.cpu.time',
             'system.cpu.utilization',
@@ -82,8 +86,6 @@ def test_basic_base():
     }, 'Docs need to be updated if this test fails'
 
 
-# TODO FIX THIS
-@pytest.mark.xfail
 def test_full_base():
     config = get_base_config('full')
     config.pop('system.network.connections', None)
@@ -137,13 +139,20 @@ def test_full_base():
         'system.network.errors': ['transmit', 'receive'],
         'system.network.io': ['transmit', 'receive'],
         'system.thread_count': None,
+        'process.runtime.gc_count': None,
+        'process.open_file_descriptor.count': None,
+        'process.memory.usage': None,
+        'process.memory.virtual': None,
+        'process.cpu.time': ['user', 'system'],
+        'process.cpu.utilization': ['user', 'system'],
+        'process.thread.count': None,
+        'process.context_switches': ['involuntary', 'voluntary'],
+        # These are deprecated:
         'process.runtime.memory': ['rss', 'vms'],
         'process.runtime.cpu.time': ['user', 'system'],
-        'process.runtime.gc_count': None,
-        'process.runtime.thread_count': None,
         'process.runtime.cpu.utilization': None,
+        'process.runtime.thread_count': None,
         'process.runtime.context_switches': ['involuntary', 'voluntary'],
-        'process.open_file_descriptor.count': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
