@@ -28,14 +28,14 @@ By default, `instrument_system_metrics` collects only the metrics it needs to di
 
 ```py
 logfire.instrument_system_metrics({
-    'process.runtime.cpu.utilization': None,  # (1)!
+    'process.cpu.utilization': None,  # (1)!
     'system.cpu.simple_utilization': None,  # (2)!
     'system.memory.utilization': ['available'],  # (3)!
     'system.swap.utilization': ['used'],  # (4)!
 })
 ```
 
-1. `process.runtime.cpu.utilization` will lead to exporting a metric that is actually named `process.runtime.cpython.cpu.utilization` or a similar name depending on the Python implementation used. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.Process().cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent)`/100`, i.e. the fraction of CPU time used by this process, where 1 means using 100% of a single CPU core. The value can be greater than 1 if the process uses multiple cores. In the next major release, the default will instead emit `'process.cpu.utilization'`, which is the same metric but with a simpler name.
+1. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.Process().cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent)`/100`, i.e. the fraction of CPU time used by this process, where 1 means using 100% of a single CPU core. The value can be greater than 1 if the process uses multiple cores.
 2. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.cpu_percent)`/100`, i.e. the fraction of CPU time used by the whole system, where 1 means using 100% of all CPU cores.
 3. The value here is a list of 'modes' of memory. The full list can be seen in the [`psutil` documentation](https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory). `available` is "the memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory metrics that vary depending on the platform. It is supposed to be used to monitor actual memory usage in a cross platform fashion." The value of the metric is a number between 0 and 1, and subtracting the value from 1 gives the fraction of memory used.
 4. This is the fraction of available swap used. The value is a number between 0 and 1.
@@ -77,13 +77,6 @@ logfire.instrument_system_metrics({
     'process.memory.usage': None,
     'process.memory.virtual': None,
     'process.thread.count': None,
-    # These are deprecated and equivalent to some of the above.
-    # base='full' will stop including them in the next major release.
-    'process.runtime.memory': ['rss', 'vms'],
-    'process.runtime.cpu.time': ['user', 'system'],
-    'process.runtime.thread_count': None,
-    'process.runtime.cpu.utilization': None,
-    'process.runtime.context_switches': ['involuntary', 'voluntary'],
 })
 ```
 

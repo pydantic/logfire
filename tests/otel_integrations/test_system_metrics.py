@@ -28,7 +28,7 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     logfire.instrument_system_metrics()
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
-            'process.runtime.cpython.cpu.utilization',
+            'process.cpu.utilization',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
             'system.swap.utilization',
@@ -46,12 +46,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.memory.usage',
             'process.memory.virtual',
             'process.open_file_descriptor.count',
-            'process.runtime.cpython.context_switches',
-            'process.runtime.cpython.cpu.utilization',
-            'process.runtime.cpython.cpu_time',
             'process.runtime.cpython.gc_count',
-            'process.runtime.cpython.memory',
-            'process.runtime.cpython.thread_count',
             'process.thread.count',
             'system.cpu.simple_utilization',
             'system.cpu.time',
@@ -79,7 +74,7 @@ def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) 
 
 def test_basic_base():
     assert get_base_config('basic') == {
-        'process.runtime.cpu.utilization': None,
+        'process.cpu.utilization': None,
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
@@ -147,12 +142,6 @@ def test_full_base():
         'process.cpu.utilization': ['user', 'system'],
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
-        # These are deprecated:
-        'process.runtime.memory': ['rss', 'vms'],
-        'process.runtime.cpu.time': ['user', 'system'],
-        'process.runtime.cpu.utilization': None,
-        'process.runtime.thread_count': None,
-        'process.runtime.context_switches': ['involuntary', 'voluntary'],
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
