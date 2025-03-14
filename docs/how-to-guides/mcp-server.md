@@ -3,7 +3,7 @@
 **Logfire** has its own [MCP server](https://modelcontextprotocol.io/introduction), which
 you can use on any software that supports MCP Servers.
 
-You can check the [Logfire MCP server](https://github.com/logfire-ai/logfire-mcp) repository
+You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
 for more information.
 
 ## Usage
