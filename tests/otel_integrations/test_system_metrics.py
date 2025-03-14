@@ -160,10 +160,11 @@ def test_full_base():
         'process.memory.usage': None,
         'process.memory.virtual': None,
         'process.cpu.time': ['user', 'system'],
+        # There's no reason for OTel to give a value here, so the docs say `None`
         'process.cpu.utilization': ['user', 'system'],
+        'process.cpu.core_utilization': None,
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
-        'process.cpu.core_utilization': None,
         # These are deprecated:
         'process.runtime.memory': ['rss', 'vms'],
         'process.runtime.cpu.time': ['user', 'system'],
