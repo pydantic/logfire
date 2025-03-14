@@ -2226,6 +2226,7 @@ dev = [
     { name = "pyarrow", version = "19.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pydantic", version = "2.10.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pydantic", version = "2.11.0b1", source = { git = "https://github.com/pydantic/pydantic#10af6a808c81f15eaac98eb6affe415b726dccb1" }, marker = "python_full_version >= '3.9'" },
+    { name = "pydantic-ai-slim", marker = "python_full_version >= '3.9'" },
     { name = "pymongo", version = "4.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pymongo", version = "4.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pymysql" },
@@ -2361,6 +2362,7 @@ dev = [
     { name = "pyarrow", marker = "python_full_version >= '3.13'", specifier = ">=18.1.0" },
     { name = "pydantic", marker = "python_full_version < '3.9'", specifier = "==2.10.5" },
     { name = "pydantic", marker = "python_full_version >= '3.9'", git = "https://github.com/pydantic/pydantic" },
+    { name = "pydantic-ai-slim", marker = "python_full_version >= '3.9'", specifier = ">=0.0.39" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = ">=1.1.360" },
@@ -4561,6 +4563,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pydantic-ai-slim"
+version = "0.0.39"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "eval-type-backport", marker = "python_full_version >= '3.9'" },
+    { name = "exceptiongroup", marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
+    { name = "griffe", version = "1.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "httpx", marker = "python_full_version >= '3.9'" },
+    { name = "opentelemetry-api", marker = "python_full_version >= '3.9'" },
+    { name = "pydantic", version = "2.11.0b1", source = { git = "https://github.com/pydantic/pydantic#10af6a808c81f15eaac98eb6affe415b726dccb1" }, marker = "python_full_version >= '3.9'" },
+    { name = "pydantic-graph", marker = "python_full_version >= '3.9'" },
+    { name = "typing-inspection", marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/05/89/b13b971bed40d82a37e45b997c8f9501a866631ea4b5f0efa15c0f18f32c/pydantic_ai_slim-0.0.39.tar.gz", hash = "sha256:021eb42e59ad3a69af994c3fab086433246567b10e296300ca6fc2508b7342ce", size = 101740 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/c6/0079a2e477e91aba21c349e4e749d99cbd29f7762635c1fd1d2988449a0d/pydantic_ai_slim-0.0.39-py3-none-any.whl", hash = "sha256:3666a55f68910cf10dec9424f6b6f6bc4980d3373153867a3f10d2a6e7ecaae7", size = 132851 },
+]
+
+[[package]]
 name = "pydantic-core"
 version = "2.27.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4793,6 +4814,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/96/90/f89fa309568151da52da8af71686f5ff8fb2bf8113b76137a42a26b3612c/pydantic_core-2.31.1-pp39-pypy39_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:457d959e81ab2f2742cea7622e613a184652bdf2222fa8aad17c8497bbb61320", size = 2211492 },
     { url = "https://files.pythonhosted.org/packages/5f/7b/fc32c89ba57a106751cc304adea13490e7d3f8f3b444a1bd477ac751a7bb/pydantic_core-2.31.1-pp39-pypy39_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:d54f9908799261266954179bb3e45c2c1752657a6d6eb5f03e3f973f1bafcc42", size = 2215006 },
     { url = "https://files.pythonhosted.org/packages/5a/4e/948f996bfbbe2eba00e6402421a31fe26bbd3431892fec9075f3f2367c5f/pydantic_core-2.31.1-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:c85682c0347723c1279ef3c541e17f00f07dd0dee56fe9787b427d66567dae43", size = 2032356 },
+]
+
+[[package]]
+name = "pydantic-graph"
+version = "0.0.39"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx", marker = "python_full_version >= '3.9'" },
+    { name = "logfire-api", marker = "python_full_version >= '3.9'" },
+    { name = "pydantic", version = "2.11.0b1", source = { git = "https://github.com/pydantic/pydantic#10af6a808c81f15eaac98eb6affe415b726dccb1" }, marker = "python_full_version >= '3.9'" },
+    { name = "typing-inspection", marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/3e/10d578060fb45a59d89bee8a8cae8e1923186bfeef5bfe43bbc50fe389b8/pydantic_graph-0.0.39.tar.gz", hash = "sha256:a79a77912a99e77ee31d2f66b952a8706706d2bb805d7f43069f6376c625130c", size = 16132 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/b1/fdaa29f0c41f5073068491f175dae6bf75dc7c4d747049d4ce390e9f2f12/pydantic_graph-0.0.39-py3-none-any.whl", hash = "sha256:826d431532854d943041fdda9687fa39fa6534ac2be5883524742aff5df83e2c", size = 19343 },
 ]
 
 [[package]]

@@ -12,6 +12,8 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
 
+pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+
 
 def logfire_dunder_all() -> set[str]:
     logfire = importlib.import_module('logfire')
@@ -22,6 +24,7 @@ def import_logfire_api_without_logfire() -> ModuleType:
     logfire = sys.modules['logfire']
     try:
         sys.modules['logfire'] = None  # type: ignore
+        sys.modules.pop('logfire_api', None)
         return importlib.import_module('logfire_api')
     finally:
         sys.modules['logfire'] = logfire
@@ -163,9 +166,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
+    assert hasattr(logfire_api, 'instrument_pydantic_ai')
+    if sys.version_info >= (3, 9) and not pydantic_pre_2_5:
+        logfire_api.instrument_pydantic_ai()
+    logfire__all__.remove('instrument_pydantic_ai')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if not (get_version(pydantic_version) < get_version('2.5.0') and member == 'instrument_pydantic'):
+        if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
             # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
