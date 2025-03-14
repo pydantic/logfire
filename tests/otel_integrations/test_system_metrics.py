@@ -78,7 +78,6 @@ def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) 
         {
             'system.memory.utilization': ['available'],
             'process.cpu.core_utilization': None,
-            'process.runtime.cpu.utilization': None,
             'process.cpu.utilization': None,
         },
         base=None,
@@ -87,7 +86,6 @@ def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) 
         [
             'process.cpu.core_utilization',
             'process.cpu.utilization',
-            'process.runtime.cpython.cpu.utilization',
             'system.memory.utilization',
         ]
     )
