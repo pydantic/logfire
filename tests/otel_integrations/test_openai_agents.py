@@ -357,6 +357,7 @@ async def test_responses(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ced68228748191b31ea5d9172a7b4b',
@@ -624,6 +625,7 @@ async def test_responses(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
@@ -950,6 +952,7 @@ async def test_input_guardrails(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
@@ -1255,6 +1258,7 @@ async def test_chat_completions(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                         'base_url': 'https://api.openai.com/v1/',
                     },
                     'usage': {'input_tokens': 11, 'output_tokens': 8},
@@ -1571,6 +1575,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ceee053cdc81919f39173ee02cb88e',
@@ -1748,6 +1753,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ceee0623ac819190454bc7af968938',
@@ -1985,6 +1991,7 @@ async def test_file_search(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ceff39d5e88191885004de76d26e43',
@@ -2241,6 +2248,7 @@ See JSON for details\
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'response': {
                         'id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
@@ -2534,6 +2542,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -2744,6 +2753,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'tool_choice': None,
                         'parallel_tool_calls': False,
                         'truncation': None,
+                        'max_tokens': None,
                     },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
