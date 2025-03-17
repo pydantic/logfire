@@ -2,35 +2,16 @@
 integration: logfire
 ---
 
-## Introduction
+**Logfire** supports instrumenting [PydanticAI](https://ai.pydantic.dev/) with the
+[`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 
-Logfire supports instrumenting [PydanticAI](https://ai.pydantic.dev/).
 
 ```python hl_lines="5"
 import logfire
 from pydantic_ai import Agent, RunContext
 
 logfire.configure()
-Agent.instrument_all()
-```
-
-!!! note
-    You will need to provide your `LOGFIRE_TOKEN` and LLM-appropriate API key environment variables.
-
-With that you get:
-
-* A span around all LLM calls your agent makes which records duration and captures any exceptions that might occur
-* Human-readable display of the conversation with the agent
-* Details of the request/response, including the number of tokens used
-
-You can also instrument **specific** agents with this approach:
-
-```python hl_lines="15"
-import logfire
-from pydantic_ai import Agent, RunContext
-
-logfire.configure()
-
+logfire.instrument_pydantic_ai()
 
 roulette_agent = Agent(
     'openai:gpt-4o',
@@ -40,7 +21,6 @@ roulette_agent = Agent(
         'Use the `roulette_wheel` function to see if the '
         'customer has won based on the number they provide.'
     ),
-    instrument=True
 )
 
 
@@ -63,11 +43,8 @@ print(result.data)
 
 The above example displays like this in Logfire:
 
-<figure markdown="span">
-  ![Logfire PydanticAI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
+![Logfire PydanticAI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
 png)
-  <figcaption>PydanticAI instrumented and displayed in Logfire</figcaption>
-</figure>
 
 You can use PydanticAI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
 just happens to show `gpt-4o`.

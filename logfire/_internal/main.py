@@ -972,7 +972,7 @@ class Logfire:
                 By default, all agents are instrumented.
                 You can also pass a specific model or agent.
                 If you pass a model, a new instrumented model will be returned.
-            event_mode: See https://ai.pydantic.dev/logfire/#data-format.
+            event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
                 The default is whatever the default is in your version of PydanticAI.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
