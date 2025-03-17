@@ -41,7 +41,7 @@ print(result.data)
 #> False
 ```
 
-The above example displays like this in Logfire:
+The above example displays like this in **Logfire**:
 
 ![Logfire PydanticAI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
 png)
@@ -49,4 +49,5 @@ png)
 You can use PydanticAI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
 just happens to show `gpt-4o`.
 
-For more information, see the [PydanticAI docs on instrumenting](https://ai.pydantic.dev/#instrumentation-with-pydantic-logfire) with Logfire.
+For more information, see the [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]
+reference or the [PydanticAI docs on instrumenting](https://ai.pydantic.dev/logfire/) with **Logfire**.
