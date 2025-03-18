@@ -96,6 +96,7 @@ nav:
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
       - OpenTelemetry Collector: how-to-guides/otel-collector.md
+      - Connect to the MCP Server: how-to-guides/mcp-server.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
