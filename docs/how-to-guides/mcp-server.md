@@ -1,6 +1,6 @@
 # Logfire MCP Server
 
-A [MCP (Model Context Protocol) server](https://modelcontextprotocol.io/introduction) that provides
+An [MCP (Model Context Protocol) server](https://modelcontextprotocol.io/introduction) that provides
 access to OpenTelemetry traces and metrics through Logfire. This server enables LLMs to query your
 application's telemetry data, analyze distributed traces, and perform custom queries using
 **Logfire**'s OpenTelemetry-native API.
