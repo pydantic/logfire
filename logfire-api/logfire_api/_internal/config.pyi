@@ -20,7 +20,7 @@ from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
@@ -54,7 +54,7 @@ class ConsoleOptions:
 class AdvancedOptions:
     """Options primarily used for testing by Logfire developers."""
     base_url: str = ...
-    id_generator: IdGenerator = ...
+    id_generator: IdGenerator = dataclasses.field(default_factory=Incomplete)
     ns_timestamp_generator: Callable[[], int] = ...
     log_record_processors: Sequence[LogRecordProcessor] = ...
 
@@ -65,8 +65,8 @@ class PydanticPlugin:
     This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
     """
     record: PydanticPluginRecordValues = ...
-    include: set[str] = ...
-    exclude: set[str] = ...
+    include: set[str] = field(default_factory=set)
+    exclude: set[str] = field(default_factory=set)
 
 @dataclass
 class MetricsOptions:

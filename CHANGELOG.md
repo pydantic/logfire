@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v3.9.0] (2025-03-18)
+
+* Add `logfire.instrument_pydantic_ai()` by @alexmojaki in [#926](https://github.com/pydantic/logfire/pull/926)
+
+## [v3.8.1] (2025-03-13)
+
+* Upgrade to OpenTelemetry 1.31.0 by @alexmojaki in [#927](https://github.com/pydantic/logfire/pull/927)
+* Record exception with traceback for non-fatal function tool errors in OpenAI agents SDK by @alexmojaki in [#924](https://github.com/pydantic/logfire/pull/924)
+
 ## [v3.8.0] (2025-03-11)
 
 * OpenAI Agents Framework instrumentation by @alexmojaki in [#917](https://github.com/pydantic/logfire/pull/917)
@@ -622,3 +631,5 @@ First release from new repo!
 [v3.7.0]: https://github.com/pydantic/logfire/compare/v3.6.4...v3.7.0
 [v3.7.1]: https://github.com/pydantic/logfire/compare/v3.7.0...v3.7.1
 [v3.8.0]: https://github.com/pydantic/logfire/compare/v3.7.1...v3.8.0
+[v3.8.1]: https://github.com/pydantic/logfire/compare/v3.8.0...v3.8.1
+[v3.9.0]: https://github.com/pydantic/logfire/compare/v3.8.1...v3.9.0

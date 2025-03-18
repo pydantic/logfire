@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "3.8.0"
+version = "3.9.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.8"
 authors = [
@@ -46,8 +46,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.21.0, < 1.31.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.31.0",
+    "opentelemetry-sdk >= 1.21.0, < 1.32.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.32.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -167,6 +167,7 @@ dev = [
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents >= 0.0.2; python_full_version >= '3.9'",
+    "pydantic-ai-slim>=0.0.39 ; python_full_version >= '3.9'",
 ]
 docs = [
     "black>=23.12.0",

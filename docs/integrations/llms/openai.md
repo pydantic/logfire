@@ -2,11 +2,9 @@
 integration: logfire
 ---
 
-## Introduction
-
 We support instrumenting both the [standard OpenAI SDK](https://github.com/openai/openai-python) package and [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
-### OpenAI SDK
+## OpenAI SDK
 
 Logfire supports instrumenting calls to OpenAI with one extra line of code, here's an example of instrumenting
 the OpenAI SDK:

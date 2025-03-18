@@ -3,11 +3,14 @@ from ..stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
 from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten, truncate_string as truncate_string
 from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
+from collections import deque
 from functools import cached_property
 from opentelemetry.sdk._logs import LogData as LogData
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
+from pathlib import Path
 from requests import Session
+from threading import Thread
 from typing import Any, Mapping, Sequence
 
 class OTLPExporterHttpSession(Session):
@@ -29,8 +32,8 @@ class DiskRetryer:
     MAX_TASKS: int
     LOG_INTERVAL: int
     lock: Incomplete
-    thread: Incomplete
-    tasks: Incomplete
+    thread: Thread | None
+    tasks: deque[tuple[Path, dict[str, Any]]]
     session: Incomplete
     dir: Incomplete
     last_log_time: Incomplete

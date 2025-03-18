@@ -5,6 +5,7 @@ import inspect
 import json
 import sys
 import warnings
+from contextvars import Token
 from functools import cached_property
 from time import time
 from typing import (
@@ -69,6 +70,7 @@ if TYPE_CHECKING:
     import anthropic
     import httpx
     import openai
+    import pydantic_ai.models
     import requests
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
@@ -936,6 +938,50 @@ class Logfire:
                 include=set(include),
                 exclude=set(exclude),
             )
+        )
+
+    @overload
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.Agent | None = None,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] = 'attributes',
+    ) -> None: ...
+
+    @overload
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.models.Model,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] = 'attributes',
+    ) -> pydantic_ai.models.Model: ...
+
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.Agent | pydantic_ai.models.Model | None = None,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] | None = None,
+    ) -> pydantic_ai.models.Model | None:
+        """Instrument PydanticAI.
+
+        Args:
+            obj: What to instrument.
+                By default, all agents are instrumented.
+                You can also pass a specific model or agent.
+                If you pass a model, a new instrumented model will be returned.
+            event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
+                The default is whatever the default is in your version of PydanticAI.
+        """
+        from .integrations.pydantic_ai import instrument_pydantic_ai
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_pydantic_ai(
+            self,
+            obj=obj,
+            event_mode=event_mode,
         )
 
     def instrument_fastapi(
@@ -2145,7 +2191,7 @@ class LogfireSpan(ReadableSpan):
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
 
         self._added_attributes = False
-        self._token: None | object = None
+        self._token: None | Token[Context] = None
         self._span: None | trace_api.Span = None
 
     if not TYPE_CHECKING:  # pragma: no branch
