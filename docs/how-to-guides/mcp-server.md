@@ -1,7 +1,9 @@
 # Logfire MCP Server
 
-**Logfire** has its own [MCP server](https://modelcontextprotocol.io/introduction), which
-you can use on any software that supports MCP Servers.
+A [MCP (Model Context Protocol) server](https://modelcontextprotocol.io/introduction) that provides
+access to OpenTelemetry traces and metrics through Logfire. This server enables LLMs to query your
+application's telemetry data, analyze distributed traces, and perform custom queries using
+**Logfire**'s OpenTelemetry-native API.
 
 You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
 for more information.
