@@ -116,6 +116,7 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
+PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(r'^pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_(?P<token>[a-zA-Z0-9]+)$')
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -174,17 +175,19 @@ class AdvancedOptions:
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
 
     def generate_base_url(self, token: str | None) -> str:
-        if token and '-' in token:
-            region, _ = token.split('-', maxsplit=1)
-        else:
-            region = None
         if self.base_url is not None:
             return self.base_url
-        if region:
-            return f'https://api-{region}.pydantic.dev'
-        else:
-            # default to us region for tokens that were created before regions were added
+
+        if token is None:
+            # default to US region if no token is provided:
             return 'https://logfire-api.pydantic.dev'
+
+        match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token)
+        if not match:
+            # default to US region for tokens that were created before regions were added:
+            return 'https://logfire-api.pydantic.dev'
+
+        return f'https://api-{match.group("region")}.pydantic.dev'
 
 
 @dataclass
