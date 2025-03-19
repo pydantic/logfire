@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
-import importlib.metadata
 import importlib.util
 import logging
 import platform

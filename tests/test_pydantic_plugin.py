@@ -26,7 +26,6 @@ from pydantic_core import core_schema
 from typing_extensions import Annotated
 
 import logfire
-import logfire.integrations.pydantic
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (

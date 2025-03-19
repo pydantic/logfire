@@ -6,7 +6,6 @@ from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrument
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
-import logfire._internal.metrics
 from logfire._internal.integrations.system_metrics import get_base_config
 from tests.test_metrics import get_collected_metrics
 

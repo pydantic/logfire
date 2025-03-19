@@ -525,11 +525,16 @@ async def test_responses(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -811,11 +816,16 @@ async def test_responses(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -1062,11 +1072,16 @@ async def test_input_guardrails(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -1685,11 +1700,16 @@ async def test_responses_simple(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -1875,11 +1895,16 @@ async def test_responses_simple(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -2180,11 +2205,16 @@ See JSON for details\
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -2433,11 +2463,16 @@ See JSON for details\
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -2680,11 +2715,16 @@ async def test_function_tool_exception(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
@@ -2932,11 +2972,16 @@ async def test_function_tool_exception(exporter: TestExporter):
                                         'title': 'ResponseUsage',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                             'output_tokens_details': {
                                                 'type': 'object',
                                                 'title': 'OutputTokensDetails',
                                                 'x-python-datatype': 'PydanticModel',
-                                            }
+                                            },
                                         },
                                     },
                                 },
