@@ -5,7 +5,7 @@ import requests
 import requests_mock
 from inline_snapshot import snapshot
 
-import logfire._internal.stack_info
+import logfire
 from logfire._internal.utils import UnexpectedResponse, handle_internal_errors
 from tests.import_used_for_tests.internal_error_handling import internal_logfire_code_example, user_code_example
 
