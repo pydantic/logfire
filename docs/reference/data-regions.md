@@ -30,11 +30,11 @@ Consider the following factors when selecting a region:
 
 ## Multiple Regions
 
-You can maintain accounts in both regions if needed for different projects or teams. Each account is managed separately, with its own authentication and data.
+You can have accounts in both regions if needed for different projects or teams. Each account is managed separately, with its own authentication and data.
 
 ## Region Migration
 
-Migration between regions is not currently available. We're working on implementing region migration functionality and expect to make it available soon.
+Migration between regions is not currently available but we hope to make it available soon.
 
 ## Region URLs
 
