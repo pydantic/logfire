@@ -4,8 +4,10 @@ Logfire is hosted in two separate geographic regions to provide you with options
 
 ## Available Regions
 
-* 🇺🇸 **US Region**: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) - Hosted in GCP us-east4
-* 🇪🇺 **EU Region**: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev) - Hosted in GCP europe-west4
+|              | Hosted           | URL                                                         |
+|--------------|------------------|-------------------------------------------------------------|
+| 🇺🇸 US Region | GCP us-east4     | [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)  |
+| 🇪🇺 EU Region | GCP europe-west4 | [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)  |
 
 ## Region Separation
 

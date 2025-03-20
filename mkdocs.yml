@@ -146,6 +146,7 @@ nav:
           - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
+      - Data Regions: reference/data-regions.md
       - Organization Structure: reference/organization-structure.md
       - SDK CLI: reference/cli.md
       - SDK API:
