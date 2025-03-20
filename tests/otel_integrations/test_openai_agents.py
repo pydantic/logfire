@@ -15,8 +15,14 @@ from logfire._internal.exporters.test import TestExporter
 try:
     from agents import (
         Agent,
+        AgentSpanData,
+        CustomSpanData,
         FileSearchTool,
+        FunctionSpanData,
+        GenerationSpanData,
         GuardrailFunctionOutput,
+        GuardrailSpanData,
+        HandoffSpanData,
         InputGuardrailTripwireTriggered,
         OpenAIChatCompletionsModel,
         Runner,
@@ -29,6 +35,7 @@ try:
         input_guardrail,
         trace,
     )
+    from agents.tracing.span_data import ResponseSpanData
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
 
@@ -1472,6 +1479,13 @@ def test_custom_span(exporter: TestExporter):
     )
 
 
+def all_subclasses(cls: type) -> list[type]:
+    result: list[type] = []
+    for subclass in cls.__subclasses__():
+        result += [subclass] + all_subclasses(subclass)
+    return result
+
+
 def test_unknown_span(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
@@ -1555,6 +1569,17 @@ def test_unknown_span(exporter: TestExporter):
             },
         ]
     )
+
+    assert set(all_subclasses(SpanData)) == {
+        MySpanData,
+        AgentSpanData,
+        GuardrailSpanData,
+        HandoffSpanData,
+        GenerationSpanData,
+        CustomSpanData,
+        FunctionSpanData,
+        ResponseSpanData,
+    }, 'Need to update LogfireTraceProviderWrapper.create_span'
 
 
 @pytest.mark.vcr()
