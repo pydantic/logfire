@@ -34,7 +34,7 @@ You can have accounts in both regions if needed for different projects or teams.
 
 ## Region Migration
 
-Migration between regions is not currently available but we hope to make it available soon.
+Migration between regions is not currently available but we hope to make it possible soon.
 
 ## Region URLs
 
