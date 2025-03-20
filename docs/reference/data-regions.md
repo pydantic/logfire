@@ -39,7 +39,8 @@ Migration between regions is not currently available but we hope to make it avai
 ## Region URLs
 
 Always ensure you're using the correct region-specific URL:
-* US region: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)
-* EU region: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)
+
+* US: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)  
+* EU: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)  
 
 The global domain (logfire.pydantic.dev) is used primarily for the initial signup process where you'll select your region.
