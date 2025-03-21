@@ -280,6 +280,9 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
             message += f' failed: {error["message"]}'
         elif isinstance(span_data, TranscriptionSpanData) and span_data.output:
             message += f': {truncate_string(span_data.output, max_length=100)}'
+        elif isinstance(span_data, (SpeechSpanData, SpeechGroupSpanData)) and span_data.input:
+            message += f': {truncate_string(span_data.input, max_length=100)}'
+
         logfire_span.message = message
 
     @property

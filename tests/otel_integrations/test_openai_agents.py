@@ -3465,7 +3465,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                         'speed': None,
                     },
                     'first_content_at': IsStr(),
-                    'logfire.msg': 'Speech',
+                    'logfire.msg': 'Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3489,7 +3489,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'logfire.msg_template': 'Speech group',
                     'logfire.span_type': 'span',
                     'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
-                    'logfire.msg': 'Speech group',
+                    'logfire.msg': 'Speech group: Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'logfire.json_schema': {'type': 'object', 'properties': {'input': {}}},
                 },
             },
