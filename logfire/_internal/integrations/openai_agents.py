@@ -332,6 +332,8 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
+        if isinstance(attributes.get('model'), str):
+            attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
             if span_data.response:
                 attributes.update(get_basic_response_attributes(span_data.response))
@@ -349,21 +351,19 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             attributes.update(
                 {
                     'gen_ai.system': 'openai',
-                    'gen_ai.request.model': span_data.model,
-                    'gen_ai.response.model': span_data.model,
                     # Having this makes it try to generate the new chat panel and fail
                     # 'gen_ai.operation.name': 'chat',
                 }
             )
-            del attributes['model']
             if usage := span_data.usage:
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
                 attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
         elif isinstance(span_data, TranscriptionSpanData):
             if 'input' in attributes:
                 attributes['input'] = {k: v for k, v in attributes['input'].items() if k != 'data'}
-            if 'model' in attributes:
-                attributes['gen_ai.request.model'] = attributes.pop('model')
+        elif isinstance(span_data, SpeechSpanData):
+            if 'output' in attributes:
+                attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()

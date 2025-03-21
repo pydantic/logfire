@@ -3222,6 +3222,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'output': 'Können Sie mir bitte helfen?',
                     'gen_ai.request.model': 'gpt-4o-transcribe',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
+                    'gen_ai.response.model': 'gpt-4o-transcribe',
                     'logfire.msg': "Transcription with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
                     'logfire.json_schema': {
                         'type': 'object',
@@ -3230,6 +3231,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                             'output': {},
                             'model_config': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                 },
@@ -3457,13 +3459,14 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'logfire.msg_template': 'Speech',
                     'logfire.span_type': 'span',
                     'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
-                    'output': {'data': "[Scrubbed due to 'jwt']", 'format': 'pcm'},
-                    'model': 'gpt-4o-mini-tts',
+                    'output': {'format': 'pcm'},
                     'model_config': {
                         'voice': None,
                         'instructions': 'You will receive partial sentences. Do not complete the sentence just read out the text.',
                         'speed': None,
                     },
+                    'gen_ai.request.model': 'gpt-4o-mini-tts',
+                    'gen_ai.response.model': 'gpt-4o-mini-tts',
                     'first_content_at': IsStr(),
                     'logfire.msg': 'Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'logfire.json_schema': {
@@ -3471,12 +3474,12 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                         'properties': {
                             'input': {},
                             'output': {'type': 'object'},
-                            'model': {},
                             'model_config': {'type': 'object'},
                             'first_content_at': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
                         },
                     },
-                    'logfire.scrubbed': [{'path': ['attributes', 'output', 'data'], 'matched_substring': 'jwt'}],
                 },
             },
             {
