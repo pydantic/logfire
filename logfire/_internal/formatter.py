@@ -354,6 +354,21 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     3. Another code object which formats the value.
     """
     source = get_node_source_text(node.value, ex_source)
+
+    # Check if the expression contains await before attempting to compile
+    try:
+        parsed = ast.parse(source, mode='eval')
+        for sub_node in ast.walk(parsed):
+            if isinstance(sub_node, ast.Await):
+                # Signal that we can't compile this
+                raise KnownFormattingError(
+                    f'Cannot evaluate await expression in f-string: {source}. Pre-evaluate the expression before logging.'
+                )
+    except SyntaxError:
+        # For other syntax errors during parsing, let the compile step handle it
+        # as it might provide better error messages
+        pass
+
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
         ast.JoinedStr(
@@ -386,12 +401,6 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     This happens sometimes due to Python bugs (especially for older Python versions)
     in the source positions of AST nodes inside f-strings.
     """
-    # Check for await expressions first, before attempting to unparse
-    if isinstance(node, ast.Await):
-        raise KnownFormattingError(
-            'Cannot evaluate await expression in f-string: await. Pre-evaluate the expression before logging.'
-        )
-
     # ast.unparse is not available in Python 3.8, which is why inspect_arguments is forbidden in 3.8.
     source_unparsed = ast.unparse(node)
     source_segment = ast.get_source_segment(ex_source.text, node) or ''
