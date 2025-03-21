@@ -97,15 +97,15 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
             elif isinstance(span_data, HandoffSpanData):
-                msg_template = 'Handoff: {from_agent} -> {to_agent}'
+                msg_template = 'Handoff: {from_agent} → {to_agent}'
             elif isinstance(span_data, CustomSpanData):
                 msg_template = 'Custom span: {name}'
             elif isinstance(span_data, SpeechGroupSpanData):
-                msg_template = 'Speech group'
+                msg_template = 'Text → Speech group'
             elif isinstance(span_data, SpeechSpanData):
-                msg_template = 'Speech'
+                msg_template = 'Text → Speech'
             elif isinstance(span_data, TranscriptionSpanData):
-                msg_template = 'Transcription with {gen_ai.request.model!r}'
+                msg_template = 'Speech → Text with {gen_ai.request.model!r}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 

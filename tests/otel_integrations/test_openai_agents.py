@@ -662,15 +662,15 @@ async def test_responses(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Handoff: {from_agent} -> {to_agent}',
+                'name': 'Handoff: {from_agent} → {to_agent}',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'logfire.msg_template': 'Handoff: {from_agent} -> {to_agent}',
+                    'logfire.msg_template': 'Handoff: {from_agent} → {to_agent}',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'Handoff: agent1 -> agent2',
+                    'logfire.msg': 'Handoff: agent1 → agent2',
                     'from_agent': 'agent1',
                     'gen_ai.system': 'openai',
                     'to_agent': 'agent2',
@@ -3269,7 +3269,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
     assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
-                'name': 'Transcription with {gen_ai.request.model!r}',
+                'name': 'Speech → Text with {gen_ai.request.model!r}',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -3278,7 +3278,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_voice_pipeline',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Transcription with {gen_ai.request.model!r}',
+                    'logfire.msg_template': 'Speech → Text with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'input': {'format': 'pcm'},
                     'output': 'Können Sie mir bitte helfen?',
@@ -3286,7 +3286,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.system': 'openai',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
                     'gen_ai.response.model': 'gpt-4o-transcribe',
-                    'logfire.msg': "Transcription with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
+                    'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3516,13 +3516,13 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                 },
             },
             {
-                'name': 'Speech',
+                'name': 'Text → Speech',
                 'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'start_time': 10000000000,
                 'end_time': 11000000000,
                 'attributes': {
-                    'logfire.msg_template': 'Speech',
+                    'logfire.msg_template': 'Text → Speech',
                     'logfire.span_type': 'span',
                     'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'output': {'format': 'pcm'},
@@ -3535,7 +3535,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-mini-tts',
                     'first_content_at': IsStr(),
-                    'logfire.msg': 'Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'logfire.msg': 'Text → Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3551,17 +3551,17 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                 },
             },
             {
-                'name': 'Speech group',
+                'name': 'Text → Speech group',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 8000000000,
                 'end_time': 12000000000,
                 'attributes': {
-                    'logfire.msg_template': 'Speech group',
+                    'logfire.msg_template': 'Text → Speech group',
                     'logfire.span_type': 'span',
                     'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'gen_ai.system': 'openai',
-                    'logfire.msg': 'Speech group: Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'logfire.msg': 'Text → Speech group: Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'logfire.json_schema': {'type': 'object', 'properties': {'input': {}, 'gen_ai.system': {}}},
                 },
             },
