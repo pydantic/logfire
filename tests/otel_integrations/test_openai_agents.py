@@ -3227,6 +3227,8 @@ async def test_function_tool_exception(exporter: TestExporter):
 
 @pytest.fixture
 def vcr_allow_bytes():
+    # https://github.com/kevin1024/vcrpy/issues/844#issuecomment-2649743189
+
     import httpx
     import vcr.stubs.httpx_stubs
     from vcr.request import Request as VcrRequest
