@@ -4,6 +4,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pytest
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
@@ -41,6 +42,7 @@ try:
     from agents.tracing.span_data import ResponseSpanData
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
+    from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 
     from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
@@ -3157,6 +3159,338 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'metadata': {'type': 'null'},
                         },
                     },
+                },
+            },
+        ]
+    )
+
+
+@pytest.fixture
+def vcr_allow_bytes():
+    import httpx
+    import vcr.stubs.httpx_stubs
+    from vcr.request import Request as VcrRequest
+
+    def _make_vcr_request(httpx_request: httpx.Request, **_: Any):
+        body_bytes = httpx_request.read()
+        try:
+            body = body_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            body = body_bytes
+        uri = str(httpx_request.url)
+        headers = dict(httpx_request.headers)
+        return VcrRequest(httpx_request.method, uri, body, headers)
+
+    vcr.stubs.httpx_stubs._make_vcr_request = _make_vcr_request  # type: ignore
+
+
+@pytest.mark.vcr()
+@pytest.mark.anyio
+async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
+    logfire.instrument_openai_agents()
+
+    agent = Agent(name='Assistant')
+    pipeline = VoicePipeline(workflow=SingleAgentVoiceWorkflow(agent))
+    buffer = np.zeros(2400, dtype=np.int16)
+    audio_input = AudioInput(buffer=buffer)
+    result = await pipeline.run(audio_input)
+    assert [{k: v for k, v in event.__dict__.items() if k != 'data'} async for event in result.stream()] == snapshot(
+        [
+            {'event': 'turn_started', 'type': 'voice_stream_event_lifecycle'},
+            {'type': 'voice_stream_event_audio'},
+            {'type': 'voice_stream_event_audio'},
+            {'event': 'turn_ended', 'type': 'voice_stream_event_lifecycle'},
+            {'event': 'session_ended', 'type': 'voice_stream_event_lifecycle'},
+        ]
+    )
+
+    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+        [
+            {
+                'name': 'Transcription with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_voice_pipeline',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Transcription with {gen_ai.request.model!r}',
+                    'logfire.span_type': 'span',
+                    'input': {'format': 'pcm'},
+                    'output': 'Können Sie mir bitte helfen?',
+                    'gen_ai.request.model': 'gpt-4o-transcribe',
+                    'model_config': {'temperature': None, 'language': None, 'prompt': None},
+                    'logfire.msg': "Transcription with 'gpt-4o-transcribe'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'input': {'type': 'object'},
+                            'output': {},
+                            'model_config': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace: {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_voice_pipeline',
+                    'code.lineno': 123,
+                    'name': 'Voice Agent',
+                    'metadata': 'null',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: Voice Agent',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': IsStr(),
+                    'group_id': IsStr(),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
+                    },
+                },
+            },
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'model_settings': {
+                        'temperature': None,
+                        'top_p': None,
+                        'frequency_penalty': None,
+                        'presence_penalty': None,
+                        'tool_choice': None,
+                        'parallel_tool_calls': False,
+                        'truncation': None,
+                        'max_tokens': None,
+                    },
+                    'gen_ai.request.model': 'gpt-4o',
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.span_type': 'span',
+                    'response_id': 'resp_67dd5addb0008191b0d059952c4623eb0f38ae46f61d8b89',
+                    'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'response': {
+                        'id': 'resp_67dd5addb0008191b0d059952c4623eb0f38ae46f61d8b89',
+                        'created_at': 1742559965.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4o-2024-08-06',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'msg_67dd5ade2df881918493d9a586f98b3a0f38ae46f61d8b89',
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                                        'type': 'output_text',
+                                    }
+                                ],
+                                'role': 'assistant',
+                                'status': 'completed',
+                                'type': 'message',
+                            }
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [],
+                        'top_p': 1.0,
+                        'max_output_tokens': None,
+                        'previous_response_id': None,
+                        'reasoning': {'effort': None, 'generate_summary': None},
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}},
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 33,
+                            'input_tokens_details': {'cached_tokens': 0},
+                            'output_tokens': 10,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 43,
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'gen_ai.system': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'raw_input': [{'role': 'user', 'content': 'Können Sie mir bitte helfen?'}],
+                    'events': [
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'Können Sie mir bitte helfen?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.choice',
+                            'index': 0,
+                            'message': {'content': 'Natürlich! Wobei genau benötigen Sie Hilfe?', 'role': 'assistant'},
+                        },
+                    ],
+                    'gen_ai.usage.input_tokens': 33,
+                    'gen_ai.usage.output_tokens': 10,
+                    'logfire.msg': "Responses API with 'gpt-4o'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'response_id': {},
+                            'model_settings': {
+                                'type': 'object',
+                                'title': 'ModelSettings',
+                                'x-python-datatype': 'dataclass',
+                            },
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response': {
+                                'type': 'object',
+                                'title': 'Response',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'ResponseOutputMessage',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'content': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'ResponseOutputText',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    },
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseTextConfig',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.system': {},
+                            'gen_ai.operation.name': {},
+                            'raw_input': {'type': 'array'},
+                            'events': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Agent run: {name!r}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.msg_template': 'Agent run: {name!r}',
+                    'logfire.span_type': 'span',
+                    'name': 'Assistant',
+                    'handoffs': [],
+                    'tools': [],
+                    'output_type': 'str',
+                    'logfire.msg': "Agent run: 'Assistant'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {},
+                            'handoffs': {'type': 'array'},
+                            'tools': {'type': 'array'},
+                            'output_type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Speech',
+                'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 11000000000,
+                'attributes': {
+                    'logfire.msg_template': 'Speech',
+                    'logfire.span_type': 'span',
+                    'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'output': {'data': "[Scrubbed due to 'jwt']", 'format': 'pcm'},
+                    'model': 'gpt-4o-mini-tts',
+                    'model_config': {
+                        'voice': None,
+                        'instructions': 'You will receive partial sentences. Do not complete the sentence just read out the text.',
+                        'speed': None,
+                    },
+                    'first_content_at': IsStr(),
+                    'logfire.msg': 'Speech',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'input': {},
+                            'output': {'type': 'object'},
+                            'model': {},
+                            'model_config': {'type': 'object'},
+                            'first_content_at': {},
+                        },
+                    },
+                    'logfire.scrubbed': [{'path': ['attributes', 'output', 'data'], 'matched_substring': 'jwt'}],
+                },
+            },
+            {
+                'name': 'Speech group',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 12000000000,
+                'attributes': {
+                    'logfire.msg_template': 'Speech group',
+                    'logfire.span_type': 'span',
+                    'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'logfire.msg': 'Speech group',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'input': {}}},
                 },
             },
         ]

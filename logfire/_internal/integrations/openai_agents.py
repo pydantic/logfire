@@ -105,7 +105,7 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, SpeechSpanData):
                 msg_template = 'Speech'
             elif isinstance(span_data, TranscriptionSpanData):
-                msg_template = 'Transcription'
+                msg_template = 'Transcription with {gen_ai.request.model!r}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
@@ -353,6 +353,11 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             if usage := span_data.usage:
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
                 attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
+        elif isinstance(span_data, TranscriptionSpanData):
+            if 'input' in attributes:
+                attributes['input'] = {k: v for k, v in attributes['input'].items() if k != 'data'}
+            if 'model' in attributes:
+                attributes['gen_ai.request.model'] = attributes.pop('model')
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
