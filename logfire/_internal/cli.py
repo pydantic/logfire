@@ -26,7 +26,6 @@ from ..version import VERSION
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
 from .config import LogfireCredentials
 from .config_params import ParamManager
-from .constants import LOGFIRE_BASE_URL
 from .tracer import SDKTracerProvider
 from .utils import read_toml_file
 
@@ -397,7 +396,7 @@ def _main(args: list[str] | None = None) -> None:
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
     global_opts = parser.add_argument_group(title='global options')
-    global_opts.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
+    global_opts.add_argument('--logfire-url', default='', help=argparse.SUPPRESS)
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
