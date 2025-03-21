@@ -27,6 +27,9 @@ try:
         OpenAIChatCompletionsModel,
         Runner,
         SpanData,
+        SpeechGroupSpanData,
+        SpeechSpanData,
+        TranscriptionSpanData,
         agent_span,
         custom_span,
         function_tool,
@@ -301,6 +304,82 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'logfire.msg_template': 'logfire span 1',
                     'logfire.msg': 'logfire span 1',
                     'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_manual_parents(exporter: TestExporter):
+    logfire.instrument_openai_agents()
+
+    t = trace('my_trace', trace_id='trace_123')
+    t.start()
+    s = agent_span('my_span', parent=t)
+    s.start()
+    with custom_span('my_custom_span', parent=s):
+        pass
+    s.finish()
+    t.finish()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Custom span: {name}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_manual_parents',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Custom span: {name}',
+                    'logfire.span_type': 'span',
+                    'name': 'my_custom_span',
+                    'data': '{}',
+                    'logfire.msg': 'Custom span: my_custom_span',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"data":{"type":"object"}}}',
+                },
+            },
+            {
+                'name': 'Agent run: {name!r}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_manual_parents',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Agent run: {name!r}',
+                    'logfire.span_type': 'span',
+                    'name': 'my_span',
+                    'handoffs': 'null',
+                    'tools': 'null',
+                    'output_type': 'null',
+                    'logfire.msg': "Agent run: 'my_span'",
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"handoffs":{"type":"null"},"tools":{"type":"null"},"output_type":{"type":"null"}}}',
+                },
+            },
+            {
+                'name': 'OpenAI Agents trace: {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'test_manual_parents',
+                    'code.lineno': 123,
+                    'name': 'my_trace',
+                    'group_id': 'null',
+                    'metadata': 'null',
+                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
+                    'logfire.msg': 'OpenAI Agents trace: my_trace',
+                    'logfire.span_type': 'span',
+                    'agent_trace_id': 'trace_123',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"agent_trace_id":{},"group_id":{"type":"null"},"metadata":{"type":"null"}}}',
                 },
             },
         ]
@@ -1579,6 +1658,9 @@ def test_unknown_span(exporter: TestExporter):
         CustomSpanData,
         FunctionSpanData,
         ResponseSpanData,
+        SpeechGroupSpanData,
+        SpeechSpanData,
+        TranscriptionSpanData,
     }, 'Need to update LogfireTraceProviderWrapper.create_span'
 
 

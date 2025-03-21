@@ -5,6 +5,7 @@ import contextvars
 import inspect
 import sys
 from abc import abstractmethod
+from contextlib import nullcontext
 from dataclasses import dataclass
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -19,13 +20,17 @@ from agents import (
     HandoffSpanData,
     ModelSettings,
     Span,
+    SpeechGroupSpanData,
+    SpeechSpanData,
     Trace,
+    TranscriptionSpanData,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
 from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
+from opentelemetry.trace import NonRecordingSpan, use_span
 from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
@@ -95,6 +100,12 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Handoff: {from_agent} -> {to_agent}'
             elif isinstance(span_data, CustomSpanData):
                 msg_template = 'Custom span: {name}'
+            elif isinstance(span_data, SpeechGroupSpanData):
+                msg_template = 'Speech group'
+            elif isinstance(span_data, SpeechSpanData):
+                msg_template = 'Speech'
+            elif isinstance(span_data, TranscriptionSpanData):
+                msg_template = 'Transcription'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
@@ -104,7 +115,7 @@ class LogfireTraceProviderWrapper:
                 **extra_attributes,
                 _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
             )
-            helper = LogfireSpanHelper(logfire_span)
+            helper = LogfireSpanHelper(logfire_span, parent)
             return LogfireSpanWrapper(span, helper)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -132,9 +143,16 @@ class LogfireTraceProviderWrapper:
 @dataclass
 class LogfireSpanHelper:
     span: LogfireSpan
+    parent: Trace | Span[Any] | None = None
 
     def start(self, mark_as_current: bool):
-        self.span._start()  # type: ignore
+        cm = nullcontext()
+        if isinstance(self.parent, LogfireWrapperBase) and (
+            span_context := self.parent.span_helper.span.get_span_context()
+        ):
+            cm = use_span(NonRecordingSpan(span_context))
+        with cm:
+            self.span._start()  # type: ignore
         if mark_as_current:
             self.span._attach()  # type: ignore
 
@@ -159,7 +177,7 @@ T = TypeVar('T', Trace, Span[TSpanData])  # type: ignore
 
 @dataclass
 class LogfireWrapperBase(Generic[T]):
-    wrapped: Any
+    wrapped: T
     span_helper: LogfireSpanHelper
     token: contextvars.Token[T | None] | None = None
 
@@ -251,7 +269,7 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
             return
         template = logfire_span.message_template
         assert template
-        new_attrs = attributes_from_span_data(self.span_data, template)  # type: ignore
+        new_attrs = attributes_from_span_data(self.span_data, template)
         if error := self.error:
             new_attrs['error'] = error
             logfire_span.set_level('error')
@@ -270,7 +288,7 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         return self.wrapped.span_id
 
     @property
-    def span_data(self) -> TSpanData:  # type: ignore
+    def span_data(self) -> SpanData:
         return self.wrapped.span_data
 
     @property
