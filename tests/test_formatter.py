@@ -178,3 +178,36 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
     assert len(caplog.records) == 1
     assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
     assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore
+
+
+def test_await_in_fstring():
+    """Test that await expressions in f-strings are rejected with a clear error message."""
+    # Create a simple AST node with an Await expression
+    import ast
+
+    # Create a FormattedValue node containing an Await expression
+    await_expr = ast.Await(value=ast.Name(id='coro', ctx=ast.Load()))
+    node = ast.FormattedValue(value=await_expr, conversion=-1, format_spec=None)
+
+    # Create a minimal mock of executing.Source
+    class MockSource:
+        text = "f'{await coro}'"
+
+        @staticmethod
+        def get_text(node: ast.AST) -> str:
+            return 'await coro'
+
+    mock_source = MockSource()
+
+    # Call get_text directly to ensure it's covered
+    text = mock_source.get_text(ast.Name(id='test', ctx=ast.Load()))
+    assert text == 'await coro'
+
+    # Test using compile_formatted_value raises the right error
+    from logfire._internal.formatter import KnownFormattingError, compile_formatted_value
+
+    with pytest.raises(KnownFormattingError) as exc_info:
+        compile_formatted_value(node, mock_source)
+
+    assert 'Cannot evaluate await expression in f-string' in str(exc_info.value)
+    assert 'Pre-evaluate the expression before logging' in str(exc_info.value)
