@@ -5,6 +5,7 @@ import contextvars
 import inspect
 import sys
 from abc import abstractmethod
+from contextlib import nullcontext
 from dataclasses import dataclass
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -19,18 +20,22 @@ from agents import (
     HandoffSpanData,
     ModelSettings,
     Span,
+    SpeechGroupSpanData,
+    SpeechSpanData,
     Trace,
+    TranscriptionSpanData,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
 from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanData, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
+from opentelemetry.trace import NonRecordingSpan, use_span
 from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER
-from logfire._internal.utils import handle_internal_errors, log_internal_error
+from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
 if TYPE_CHECKING:  # pragma: no cover
     from agents.tracing.setup import TraceProvider
@@ -92,9 +97,15 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
             elif isinstance(span_data, HandoffSpanData):
-                msg_template = 'Handoff: {from_agent} -> {to_agent}'
+                msg_template = 'Handoff: {from_agent} → {to_agent}'
             elif isinstance(span_data, CustomSpanData):
                 msg_template = 'Custom span: {name}'
+            elif isinstance(span_data, SpeechGroupSpanData):
+                msg_template = 'Text → Speech group'
+            elif isinstance(span_data, SpeechSpanData):
+                msg_template = 'Text → Speech'
+            elif isinstance(span_data, TranscriptionSpanData):
+                msg_template = 'Speech → Text with {gen_ai.request.model!r}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
@@ -104,7 +115,7 @@ class LogfireTraceProviderWrapper:
                 **extra_attributes,
                 _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
             )
-            helper = LogfireSpanHelper(logfire_span)
+            helper = LogfireSpanHelper(logfire_span, parent)
             return LogfireSpanWrapper(span, helper)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -132,9 +143,16 @@ class LogfireTraceProviderWrapper:
 @dataclass
 class LogfireSpanHelper:
     span: LogfireSpan
+    parent: Trace | Span[Any] | None = None
 
     def start(self, mark_as_current: bool):
-        self.span._start()  # type: ignore
+        cm = nullcontext()
+        if isinstance(self.parent, LogfireWrapperBase) and (
+            span_context := self.parent.span_helper.span.get_span_context()
+        ):
+            cm = use_span(NonRecordingSpan(span_context))
+        with cm:
+            self.span._start()  # type: ignore
         if mark_as_current:
             self.span._attach()  # type: ignore
 
@@ -159,7 +177,7 @@ T = TypeVar('T', Trace, Span[TSpanData])  # type: ignore
 
 @dataclass
 class LogfireWrapperBase(Generic[T]):
-    wrapped: Any
+    wrapped: T
     span_helper: LogfireSpanHelper
     token: contextvars.Token[T | None] | None = None
 
@@ -251,7 +269,8 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
             return
         template = logfire_span.message_template
         assert template
-        new_attrs = attributes_from_span_data(self.span_data, template)  # type: ignore
+        span_data = self.span_data
+        new_attrs = attributes_from_span_data(span_data, template)
         if error := self.error:
             new_attrs['error'] = error
             logfire_span.set_level('error')
@@ -259,6 +278,11 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         message = logfire_format(template, dict(logfire_span.attributes or {}), NOOP_SCRUBBER)
         if error:
             message += f' failed: {error["message"]}'
+        elif isinstance(span_data, TranscriptionSpanData) and span_data.output:
+            message += f': {truncate_string(span_data.output, max_length=100)}'
+        elif isinstance(span_data, (SpeechSpanData, SpeechGroupSpanData)) and span_data.input:
+            message += f': {truncate_string(span_data.input, max_length=100)}'
+
         logfire_span.message = message
 
     @property
@@ -270,7 +294,7 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         return self.wrapped.span_id
 
     @property
-    def span_data(self) -> TSpanData:  # type: ignore
+    def span_data(self) -> SpanData:
         return self.wrapped.span_data
 
     @property
@@ -308,6 +332,9 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
+        attributes['gen_ai.system'] = 'openai'
+        if isinstance(attributes.get('model'), str):
+            attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
             if span_data.response:
                 attributes.update(get_basic_response_attributes(span_data.response))
@@ -322,19 +349,15 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
             )
-            attributes.update(
-                {
-                    'gen_ai.system': 'openai',
-                    'gen_ai.request.model': span_data.model,
-                    'gen_ai.response.model': span_data.model,
-                    # Having this makes it try to generate the new chat panel and fail
-                    # 'gen_ai.operation.name': 'chat',
-                }
-            )
-            del attributes['model']
             if usage := span_data.usage:
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
                 attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
+        elif isinstance(span_data, TranscriptionSpanData):
+            if 'input' in attributes:  # pragma: no branch
+                attributes['input'] = {k: v for k, v in attributes['input'].items() if k != 'data'}
+        elif isinstance(span_data, SpeechSpanData):
+            if 'output' in attributes:  # pragma: no branch
+                attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
