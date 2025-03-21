@@ -332,6 +332,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
+        attributes['gen_ai.system'] = 'openai'
         if isinstance(attributes.get('model'), str):
             attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
@@ -347,13 +348,6 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         elif isinstance(span_data, GenerationSpanData):
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
-            )
-            attributes.update(
-                {
-                    'gen_ai.system': 'openai',
-                    # Having this makes it try to generate the new chat panel and fail
-                    # 'gen_ai.operation.name': 'chat',
-                }
             )
             if usage := span_data.usage:
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
