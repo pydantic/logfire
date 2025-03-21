@@ -3222,7 +3222,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'output': 'Können Sie mir bitte helfen?',
                     'gen_ai.request.model': 'gpt-4o-transcribe',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
-                    'logfire.msg': "Transcription with 'gpt-4o-transcribe'",
+                    'logfire.msg': "Transcription with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {

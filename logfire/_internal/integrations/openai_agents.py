@@ -35,7 +35,7 @@ from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER
-from logfire._internal.utils import handle_internal_errors, log_internal_error
+from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
 if TYPE_CHECKING:  # pragma: no cover
     from agents.tracing.setup import TraceProvider
@@ -269,7 +269,8 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
             return
         template = logfire_span.message_template
         assert template
-        new_attrs = attributes_from_span_data(self.span_data, template)
+        span_data = self.span_data
+        new_attrs = attributes_from_span_data(span_data, template)
         if error := self.error:
             new_attrs['error'] = error
             logfire_span.set_level('error')
@@ -277,6 +278,8 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         message = logfire_format(template, dict(logfire_span.attributes or {}), NOOP_SCRUBBER)
         if error:
             message += f' failed: {error["message"]}'
+        elif isinstance(span_data, TranscriptionSpanData) and span_data.output:
+            message += f': {truncate_string(span_data.output, max_length=100)}'
         logfire_span.message = message
 
     @property
