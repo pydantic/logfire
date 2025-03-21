@@ -354,6 +354,21 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     3. Another code object which formats the value.
     """
     source = get_node_source_text(node.value, ex_source)
+
+    # Check if the expression contains await before attempting to compile
+    try:
+        parsed = ast.parse(source, mode='eval')
+        for sub_node in ast.walk(parsed):
+            if isinstance(sub_node, ast.Await):
+                # Signal that we can't compile this
+                raise KnownFormattingError(
+                    f'Cannot evaluate await expression in f-string: {source}. Pre-evaluate the expression before logging.'
+                )
+    except SyntaxError:
+        # For other syntax errors during parsing, let the compile step handle it
+        # as it might provide better error messages
+        pass
+
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
         ast.JoinedStr(
