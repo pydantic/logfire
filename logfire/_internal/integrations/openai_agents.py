@@ -353,10 +353,10 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
                 attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
         elif isinstance(span_data, TranscriptionSpanData):
-            if 'input' in attributes:
+            if 'input' in attributes:  # pragma: no branch
                 attributes['input'] = {k: v for k, v in attributes['input'].items() if k != 'data'}
         elif isinstance(span_data, SpeechSpanData):
-            if 'output' in attributes:
+            if 'output' in attributes:  # pragma: no branch
                 attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
         return attributes
     except Exception:  # pragma: no cover
