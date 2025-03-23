@@ -1937,7 +1937,7 @@ wheels = [
 
 [[package]]
 name = "inline-snapshot"
-version = "0.20.8"
+version = "0.20.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asttokens" },
@@ -1945,9 +1945,9 @@ dependencies = [
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/69/79babd0f6ad54c430fba36fb7677774398225287482cf494a15394c75894/inline_snapshot-0.20.8.tar.gz", hash = "sha256:52373c15b63097215d1136f292962553f325a5e966957b489fe4326d6fbc77c0", size = 92748 }
+sdist = { url = "https://files.pythonhosted.org/packages/78/d6/fed2ffa9b3ac562f9b6217bc9f61631a689a159ff379a71e231575867baa/inline_snapshot-0.20.9.tar.gz", hash = "sha256:ce41505690f0f6ca96466776bc3e015ccc7412ecb65b74f4e7e90f1a834cbac4", size = 92793 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/74/5222a632fd8d3202ddef383b71c8b6c31a9d77989030efba5be561163d41/inline_snapshot-0.20.8-py3-none-any.whl", hash = "sha256:bded4e142b8817930e4df428b88c462308a8f01ad699852e7574a54bad7ea9f2", size = 48157 },
+    { url = "https://files.pythonhosted.org/packages/f8/ef/d902185b0d74d7df4a75b4a4a6b580224d4188c9a505561ca12a146f52af/inline_snapshot-0.20.9-py3-none-any.whl", hash = "sha256:e4bffcfb39d79bba0320a138e47217601823bbf6948760d75fa175d62a7b893d", size = 48187 },
 ]
 
 [[package]]
@@ -2066,7 +2066,7 @@ wheels = [
 
 [[package]]
 name = "kombu"
-version = "5.5.0"
+version = "5.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "amqp" },
@@ -2075,9 +2075,9 @@ dependencies = [
     { name = "tzdata", marker = "python_full_version >= '3.9'" },
     { name = "vine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0f/a5/eddeaf1044b94d802ba9d69f5446f758a14b6770bcfd7498d5270fc2e68f/kombu-5.5.0.tar.gz", hash = "sha256:72e65c062e903ee1b4e8b68d348f63c02afc172eda409e3aca85867752e79c0b", size = 460768 }
+sdist = { url = "https://files.pythonhosted.org/packages/38/4d/b93fcb353d279839cc35d0012bee805ed0cf61c07587916bfc35dbfddaf1/kombu-5.4.2.tar.gz", hash = "sha256:eef572dd2fd9fc614b37580e3caeafdd5af46c1eff31e7fba89138cdb406f2cf", size = 442858 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/29/f4f109c490d3cab3cbbba53403895e6052c84a40f18c28f75cd4dd53f11d/kombu-5.5.0-py3-none-any.whl", hash = "sha256:526c6cf038c986b998639109a1eb762502f831e8da148cc928f1f95cd91eb874", size = 209313 },
+    { url = "https://files.pythonhosted.org/packages/87/ec/7811a3cf9fdfee3ee88e54d08fcbc3fabe7c1b6e4059826c59d7b795651c/kombu-5.4.2-py3-none-any.whl", hash = "sha256:14212f5ccf022fc0a70453bb025a1dcc32782a588c49ea866884047d66e14763", size = 201349 },
 ]
 
 [[package]]
@@ -5800,11 +5800,11 @@ wheels = [
 
 [[package]]
 name = "tzdata"
-version = "2025.1"
+version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/43/0f/fa4723f22942480be4ca9527bbde8d43f6c3f2fe8412f00e7f5f6746bc8b/tzdata-2025.1.tar.gz", hash = "sha256:24894909e88cdb28bd1636c6887801df64cb485bd593f2fd83ef29075a81d694", size = 194950 }
+sdist = { url = "https://files.pythonhosted.org/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9", size = 196380 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/dd/84f10e23edd882c6f968c21c2434fe67bd4a528967067515feca9e611e5e/tzdata-2025.1-py2.py3-none-any.whl", hash = "sha256:7e127113816800496f027041c570f50bcd464a020098a3b6b199517772303639", size = 346762 },
+    { url = "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839 },
 ]
 
 [[package]]

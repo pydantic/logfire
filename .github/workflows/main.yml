@@ -22,7 +22,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - name: Install dependencies
@@ -39,7 +39,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - run: uv sync --python 3.12 --frozen --group docs
@@ -81,7 +81,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - run: uv sync --python ${{ matrix.python-version }}
@@ -110,7 +110,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - name: Create venv
@@ -140,7 +140,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - uses: actions/setup-node@v4
@@ -177,7 +177,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "0.4.30"
+          version: "0.6.2"
           enable-cache: true
 
       - name: Set up Python 3.12
