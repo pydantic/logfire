@@ -21,7 +21,7 @@ logfire auth
 ```
 
 You will be prompted to select a [data region](./data-regions.md) (EU or US). To specify this
-via the cli use `logfire auth --region eu` or `logfire auth --region us`
+via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region eu auth`
 
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
