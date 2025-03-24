@@ -20,10 +20,12 @@ To authenticate yourself, run the `auth` command in the terminal:
 logfire auth
 ```
 
-![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
-
 You will be prompted to select a [data region](./data-regions.md) (EU or US). To specify this
 via the cli use `logfire auth --region eu` or `logfire auth --region us`
+
+Then you will be given the option to open logfire in your browser:
+![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
+
 
 After pressing `"Enter"`, you will be redirected to the browser to log in to your account.
 
