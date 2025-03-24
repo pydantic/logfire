@@ -26,7 +26,7 @@ Consider the following factors when selecting a region:
 
 * **Geographic proximity**: Choose a region closer to your location or your users for optimal performance
 * **Data residency requirements**: Select the region that aligns with your regulatory compliance needs
-* **GDPR compliance**: Companies requiring GDPR compliance may prefer the EU region
+* **GDPR compliance**: Companies requiring GDPR compliance are advised to use the EU region
 
 ## Multiple Regions
 
@@ -34,13 +34,16 @@ You can have accounts in both regions if needed for different projects or teams.
 
 ## Region Migration
 
-Migration between regions is not currently available but we hope to make it possible soon.
+Migration between regions is not currently available but we hope to make it possible in the future.
+
+## How does this Impact Pricing?
+Pricing is the same between the US and EU instances.
 
 ## Region URLs
 
 Always ensure you're using the correct region-specific URL:
 
-* US: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)  
-* EU: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)  
+* US: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)
+* EU: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)
 
 The global domain (logfire.pydantic.dev) is used primarily for the initial signup process where you'll select your region.
