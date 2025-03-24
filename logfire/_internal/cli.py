@@ -24,7 +24,7 @@ from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
-from .config import REGIONS, LogfireCredentials
+from .config import REGIONS, LogfireCredentials, get_base_url_from_token
 from .config_params import ParamManager
 from .tracer import SDKTracerProvider
 from .utils import read_toml_file
@@ -50,8 +50,9 @@ def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
     param_manager = ParamManager.create(data_dir)
-    base_url = param_manager.load_param('base_url', args.logfire_url)
+    base_url = param_manager.load_param('base_url', _get_logfire_url(args.logfire_url, args.region))
     token = param_manager.load_param('token')
+    base_url = base_url or get_base_url_from_token(token)
 
     if token:
         credentials = LogfireCredentials.from_token(token, args._session, base_url)
@@ -198,17 +199,24 @@ def parse_auth(args: argparse.Namespace) -> None:
     """
     logged_in = False
 
+    logfire_url = _get_logfire_url(args.logfire_url, args.region)
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-        if args.logfire_url and is_logged_in(data, args.logfire_url):  # pragma: no branch
+        if logfire_url and is_logged_in(data, logfire_url):  # pragma: no branch
             logged_in = True
-        elif not args.logfire_url:
+        elif not logfire_url:
             logged_in = any(is_logged_in(data, url) for url in data['tokens'])
     else:
         data: DefaultFile = {'tokens': {}}
 
     if logged_in:
-        sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
+        sys.stderr.writelines(
+            (
+                f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n',
+                'If you would like to log in using a different account, use the --region argument:\n',
+                'logfire --region <region> auth\n',
+            )
+        )
         return
 
     sys.stderr.writelines(
@@ -219,15 +227,20 @@ def parse_auth(args: argparse.Namespace) -> None:
             '\n',
         )
     )
-    if not args.logfire_url:
-        # TODO input validation
-        sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
-        for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
-            sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
-        selected_region = int(input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: '))
+    if not logfire_url:
+        selected_region = -1
+        while not (1 <= selected_region <= len(REGIONS)):
+            sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
+            for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
+                sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
+
+            try:
+                selected_region = int(
+                    input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: ')
+                )
+            except ValueError:
+                selected_region = -1
         logfire_url = list(REGIONS.values())[selected_region - 1]['base_url']
-    else:
-        logfire_url = cast(str, args.logfire_url)
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
@@ -258,7 +271,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
-    logfire_url = args.logfire_url
+    logfire_url = _get_logfire_url(args.logfire_url, args.region)
     projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
     if projects:
         sys.stderr.write(
@@ -288,7 +301,9 @@ def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api
 def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
-    logfire_url = args.logfire_url
+    logfire_url = _get_logfire_url(args.logfire_url, args.region)
+    if logfire_url is None:
+        _, logfire_url = LogfireCredentials._get_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
@@ -306,7 +321,9 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
 def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
-    logfire_url = args.logfire_url
+    logfire_url = _get_logfire_url(args.logfire_url, args.region)
+    if logfire_url is None:
+        _, logfire_url = LogfireCredentials._get_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
 
@@ -387,6 +404,13 @@ def _pretty_table(header: list[str], rows: list[list[str]]):
     return '\n'.join(lines) + '\n'
 
 
+def _get_logfire_url(logfire_url: str | None, region: str | None) -> str | None:
+    if logfire_url is not None:
+        return logfire_url
+    if region is not None:
+        return REGIONS[region]['base_url']
+
+
 class SplitArgs(argparse.Action):
     def __call__(
         self,
@@ -410,7 +434,9 @@ def _main(args: list[str] | None = None) -> None:
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
     global_opts = parser.add_argument_group(title='global options')
-    global_opts.add_argument('--logfire-url', default='', help=argparse.SUPPRESS)
+    url_or_region_grp = global_opts.add_mutually_exclusive_group()
+    url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
+    url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 

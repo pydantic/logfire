@@ -117,6 +117,7 @@ COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(r'^pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_(?P<token>[a-zA-Z0-9]+)$')
+PYDANTIC_LOGFIRE_TOKEN_TEMPLATE = 'pylf_v{version}_{region}_{token}'
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -180,8 +181,7 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
-    This is the explicitly configured base URL. If not set, Logfire will infer
-    the base URL from the token (which contains information about the region).
+    If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
     id_generator: IdGenerator = dataclasses.field(default_factory=lambda: SeededRandomIdGenerator(None))
@@ -200,12 +200,7 @@ class AdvancedOptions:
         if self.base_url is not None:
             return self.base_url
 
-        match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token)
-        if not match:
-            # default to US region for tokens that were created before regions were added:
-            return 'https://logfire-api.pydantic.dev'
-
-        return f'https://api-{match.group("region")}.pydantic.dev'
+        return get_base_url_from_token(token)
 
 
 @dataclass
@@ -898,8 +893,8 @@ class LogfireConfig(_LogfireConfigData):
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
                         credentials = LogfireCredentials.initialize_project(
-                            session=requests.Session(),
                             logfire_api_url=self.advanced.base_url,
+                            session=requests.Session(),
                         )
                         credentials.write_creds_file(self.data_dir)
 
@@ -1350,25 +1345,25 @@ class LogfireCredentials:
         Returns:
             A two-tuple, the first element being the token and the second element being the base API URL.
         """
-        if DEFAULT_FILE.is_file():  # pragma: no branch
+        if DEFAULT_FILE.is_file():
             data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-            if logfire_api_url is not None and is_logged_in(data, logfire_api_url):  # pragma: no branch
+            if logfire_api_url is not None and is_logged_in(data, logfire_api_url):
                 return data['tokens'][logfire_api_url]['token'], logfire_api_url
             elif logfire_api_url is None:
                 tokens_list = list(data['tokens'].items())
-                if len(tokens_list) == 1 and is_logged_in(data, tokens_list[0][0]):
-                    return tokens_list[0][1]['token'], tokens_list[0][0]
+                if len(tokens_list) == 1:
+                    return cls._get_token_data(tokens_list[0][0])
                 elif len(tokens_list) >= 2:
                     choices_str = '\n'.join(
-                        f'{i}. {d["token"]} ({url})' for i, (url, d) in enumerate(tokens_list, start=1)
+                        f'{i}. {_get_token_repr(url, d["token"])}' for i, (url, d) in enumerate(tokens_list, start=1)
                     )
                     int_choice = IntPrompt.ask(
                         f'Multiple user tokens found. Please select one:\n{choices_str}\n',
                         choices=[str(i) for i in range(1, len(data['tokens']) + 1)],
                     )
-                    choice = tokens_list[int_choice - 1]
-                    if is_logged_in(data, choice[0]):
-                        return choice[1]['token'], choice[0]
+                    url, token_data = tokens_list[int_choice - 1]
+                    if is_logged_in(data, url):
+                        return token_data['token'], url
 
         raise LogfireConfigError(
             """You are not authenticated. Please run `logfire auth` to authenticate.
@@ -1722,6 +1717,39 @@ def _print_summary(message: str, min_content_width: int) -> None:
 def _get_creds_file(creds_dir: Path) -> Path:
     """Get the path to the credentials file."""
     return creds_dir / CREDENTIALS_FILENAME
+
+
+def _get_token_repr(url: str, token: str) -> str:
+    region = 'us'
+    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
+        region = match.group('region')
+        if region not in REGIONS:
+            region = 'us'
+
+    token_repr = f'{region.upper()} ({url}) - '
+    if match:
+        # new_token, include prefix and 5 chars
+        token_repr += PYDANTIC_LOGFIRE_TOKEN_TEMPLATE.format(
+            version=match.group('version'),
+            region=match.group('region'),
+            token=match.group('token')[:5],
+        )
+    else:
+        token_repr += token[:5]
+    token_repr += '****'
+    return token_repr
+
+
+def get_base_url_from_token(token: str) -> str:
+    """Get the base API URL from the token's region."""
+    # default to US for tokens that were created before regions were added:
+    region = 'us'
+    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
+        region = match.group('region')
+        if region not in REGIONS:
+            region = 'us'
+
+    return REGIONS[region]['base_url']
 
 
 def get_git_revision_hash() -> str:

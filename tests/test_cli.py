@@ -31,13 +31,13 @@ def logfire_credentials() -> LogfireCredentials:
         token='token',
         project_name='my-project',
         project_url='https://dashboard.logfire.dev',
-        logfire_api_url='https://logfire-api.pydantic.dev',
+        logfire_api_url='https://logfire-us.pydantic.dev',
     )
 
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version]  ...' in capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--region {us,eu}]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -57,7 +57,20 @@ def test_nice_interrupt(capsys: pytest.CaptureFixture[str]) -> None:
 def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
     with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        main(['whoami'])
+
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'pylf_v1_eu_foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-eu.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
 
@@ -113,7 +126,11 @@ def test_whoami_logged_in(
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value='123'))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data', return_value=('123', 'http://localhost')
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -290,22 +307,22 @@ def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixt
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://logfire-api.pydantic.dev/v1/device-auth/new/',
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
             text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
         m.get(
-            'https://logfire-api.pydantic.dev/v1/device-auth/wait/DC',
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
             [
                 dict(text='null'),
                 dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
             ],
         )
 
-        main(['auth'])
+        main(['--region', 'us', 'auth'])
 
         assert auth_file.read_text() == snapshot(
             """\
-[tokens."https://logfire-api.pydantic.dev"]
+[tokens."https://logfire-us.pydantic.dev"]
 token = "fake_token"
 expiration = "fake_exp"
 """
@@ -338,11 +355,11 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://logfire-api.pydantic.dev/v1/device-auth/new/',
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
             text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
         m.get(
-            'https://logfire-api.pydantic.dev/v1/device-auth/wait/DC',
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
             [
                 dict(exc=requests.exceptions.ConnectTimeout),
                 dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
@@ -350,7 +367,7 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
         )
 
         with pytest.warns(UserWarning, match=r'^Failed to poll for token\. Retrying\.\.\.$'):
-            main(['auth'])
+            main(['--region', 'us', 'auth'])
 
 
 def test_auth_permanent_failure(tmp_path: Path) -> None:
@@ -363,22 +380,58 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
-            'https://logfire-api.pydantic.dev/v1/device-auth/new/',
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
             text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
         )
-        m.get('https://logfire-api.pydantic.dev/v1/device-auth/wait/DC', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/device-auth/wait/DC', text='Error', status_code=500)
 
         with pytest.warns(UserWarning, match=r'^Failed to poll for token\. Retrying\.\.\.$'):
             with pytest.raises(LogfireConfigError, match='Failed to poll for token.'):
-                main(['auth'])
+                main(['--region', 'us', 'auth'])
 
 
 def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with patch('logfire._internal.cli.DEFAULT_FILE', default_credentials):
-        main(['auth'])
+        # US is the default region in the default credentials fixture:
+        main(['--region', 'us', 'auth'])
 
         _, err = capsys.readouterr()
-        assert err == IsStr(regex=r'You are already logged in\. \(Your credentials are stored in (.*\.toml)\)\n')
+        assert 'You are already logged in' in err
+
+
+def test_auth_no_region_specified(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
+        # 'not_an_int' is used as the first input to test that invalid inputs are supported,
+        # '2' will result in the EU region being used:
+        stack.enter_context(patch('logfire._internal.cli.input', side_effect=['not_an_int', '2', '']))
+        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-eu.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-eu.pydantic.dev/v1/device-auth/wait/DC',
+            [
+                dict(text='null'),
+                dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
+            ],
+        )
+
+        # Run the auth command, *without* any region specified
+        main(['auth'])
+
+        assert auth_file.read_text() == snapshot(
+            """\
+[tokens."https://logfire-eu.pydantic.dev"]
+token = "fake_token"
+expiration = "fake_exp"
+"""
+        )
 
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
@@ -388,12 +441,17 @@ def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'test-org', 'project_name': 'test-pr'}],
         )
 
@@ -411,11 +469,16 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
 
 def test_projects_list_no_project(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
 
         main(['projects', 'list'])
 
@@ -430,12 +493,17 @@ def test_projects_new_with_project_name_and_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -444,7 +512,7 @@ def test_projects_new_with_project_name_and_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -457,7 +525,7 @@ def test_projects_new_with_project_name_and_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -465,13 +533,18 @@ def test_projects_new_with_project_name_without_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -480,7 +553,7 @@ def test_projects_new_with_project_name_without_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -495,7 +568,7 @@ def test_projects_new_with_project_name_without_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -503,13 +576,18 @@ def test_projects_new_with_project_name_and_wrong_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -518,7 +596,7 @@ def test_projects_new_with_project_name_and_wrong_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -532,7 +610,7 @@ def test_projects_new_with_project_name_and_wrong_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -540,12 +618,17 @@ def test_projects_new_with_project_name_and_default_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -554,7 +637,7 @@ def test_projects_new_with_project_name_and_default_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -565,7 +648,7 @@ def test_projects_new_with_project_name_and_default_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -573,18 +656,23 @@ def test_projects_new_with_project_name_multiple_organizations(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['fake_org']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
         m.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
-            'https://logfire-api.pydantic.dev/v1/account/me',
+            'https://logfire-us.pydantic.dev/v1/account/me',
             json={'default_organization': {'organization_name': 'fake_default_org'}},
         )
 
@@ -596,7 +684,7 @@ def test_projects_new_with_project_name_multiple_organizations(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -615,7 +703,7 @@ def test_projects_new_with_project_name_multiple_organizations(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -623,17 +711,22 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
         m.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
-            'https://logfire-api.pydantic.dev/v1/account/me',
+            'https://logfire-us.pydantic.dev/v1/account/me',
             json={'default_organization': {'organization_name': 'fake_default_org'}},
         )
 
@@ -645,7 +738,7 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_default_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_default_org',
             [create_project_response],
         )
 
@@ -656,7 +749,7 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -664,13 +757,18 @@ def test_projects_new_without_project_name(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -679,7 +777,7 @@ def test_projects_new_without_project_name(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -694,7 +792,7 @@ def test_projects_new_without_project_name(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -702,13 +800,18 @@ def test_projects_new_invalid_project_name(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -717,7 +820,7 @@ def test_projects_new_invalid_project_name(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -739,19 +842,24 @@ def test_projects_new_invalid_project_name(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
 def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -760,7 +868,7 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -772,14 +880,19 @@ def test_projects_without_project_name_without_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         confirm_mock = stack.enter_context(patch('rich.prompt.Confirm.ask', side_effect=[True]))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['myproject', '']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -788,7 +901,7 @@ def test_projects_without_project_name_without_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
             [create_project_response],
         )
 
@@ -806,17 +919,22 @@ def test_projects_without_project_name_without_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
 def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error retrieving list of organizations.'):
             main(['projects', 'new'])
@@ -824,16 +942,21 @@ def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credent
 
 def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
         m.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
-        m.get('https://logfire-api.pydantic.dev/v1/account/me', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/account/me', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error retrieving user information.'):
             main(['projects', 'new'])
@@ -841,14 +964,19 @@ def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials
 
 def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-api.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
-        m.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.post('https://logfire-us.pydantic.dev/v1/projects/fake_org', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error creating new project.'):
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
@@ -856,12 +984,17 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
 
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'fake_org', 'project_name': 'otherproject'},
@@ -875,7 +1008,7 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pyte
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -886,7 +1019,7 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pyte
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -894,13 +1027,18 @@ def test_projects_use_without_project_name(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'fake_org', 'project_name': 'otherproject'},
@@ -914,7 +1052,7 @@ def test_projects_use_without_project_name(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -937,7 +1075,7 @@ def test_projects_use_without_project_name(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -945,14 +1083,19 @@ def test_projects_use_multiple(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         config_console = stack.enter_context(patch('logfire._internal.config.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['1']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'other_org', 'project_name': 'myproject'},
@@ -966,7 +1109,7 @@ def test_projects_use_multiple(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -995,7 +1138,7 @@ def test_projects_use_multiple(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -1003,12 +1146,17 @@ def test_projects_use_multiple_with_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'other_org', 'project_name': 'myproject'},
@@ -1022,7 +1170,7 @@ def test_projects_use_multiple_with_org(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -1033,7 +1181,7 @@ def test_projects_use_multiple_with_org(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -1041,13 +1189,18 @@ def test_projects_use_wrong_project(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['y', '1']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         create_project_response = {
@@ -1058,7 +1211,7 @@ def test_projects_use_wrong_project(
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -1082,7 +1235,7 @@ def test_projects_use_wrong_project(
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
-            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
 
 
@@ -1090,14 +1243,19 @@ def test_projects_use_wrong_project_give_up(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         config_console = stack.enter_context(patch('logfire._internal.config.Console'))
         prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=['n']))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
 
@@ -1119,12 +1277,17 @@ def test_projects_use_wrong_project_give_up(
 
 def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[],
         )
 
@@ -1138,13 +1301,18 @@ def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.Capture
 
 def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         create_project_response = {
@@ -1155,7 +1323,7 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
             }
         }
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             [create_project_response],
         )
 
@@ -1165,17 +1333,22 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
 
 def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: Path) -> None:
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.config.LogfireCredentials._get_user_token', return_value=''))
+        stack.enter_context(
+            patch(
+                'logfire._internal.config.LogfireCredentials._get_token_data',
+                return_value=('', 'https://logfire-us.pydantic.dev'),
+            )
+        )
         stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-api.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         m.post(
-            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
             text='Error',
             status_code=500,
         )

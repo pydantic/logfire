@@ -585,7 +585,7 @@ def test_configure_export_delay() -> None:
     def configure_tracking_exporter():
         request_mocker = requests_mock.Mocker()
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
+            'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
 
@@ -1306,7 +1306,7 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
     try:
         with requests_mock.Mocker() as request_mocker:
             request_mocker.get(
-                'https://logfire-api.pydantic.dev/v1/info',
+                'https://logfire-us.pydantic.dev/v1/info',
                 json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
             )
             configure(send_to_logfire='if-token-present')
@@ -1324,20 +1324,20 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         {
             "token": "foobar",
             "project_name": "myproject",
-            "project_url": "http://dash.localhost:8000/",
-            "logfire_api_url": "http://dash.localhost:8000/"
+            "project_url": "https://logfire-us.pydantic.dev",
+            "logfire_api_url": "https://logfire-us.pydantic.dev"
         }
         """
     )
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'http://dash.localhost:8000/'},
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
         configure(send_to_logfire='if-token-present', data_dir=tmp_path)
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
-        assert capsys.readouterr().err == 'Logfire project URL: http://dash.localhost:8000/\n'
+        assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 
 
 def test_load_creds_file_invalid_json_content(tmp_path: Path):
@@ -1373,13 +1373,52 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
 
 
-def test_get_user_token_not_authenticated(default_credentials: Path):
+def test_get_token_data_explicit_url(default_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
+        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
+        _, url = LogfireCredentials._get_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
+        assert url == 'https://logfire-us.pydantic.dev'
+
+        with pytest.raises(LogfireConfigError):
+            LogfireCredentials._get_token_data(logfire_api_url='https://logfire-eu.pydantic.dev')  # type: ignore
+
+
+def test_get_token_data_no_explicit_url(default_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
+        _, url = LogfireCredentials._get_token_data(logfire_api_url=None)  # type: ignore
+        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
+        assert url == 'https://logfire-us.pydantic.dev'
+
+
+def test_get_token_data_input_choice(multiple_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', multiple_credentials), patch(
+        'rich.prompt.IntPrompt.ask', side_effect=[1]
+    ):
+        _, url = LogfireCredentials._get_token_data(logfire_api_url=None)  # type: ignore
+        # https://logfire-us.pydantic.dev is the first URL present in the multiple credentials fixture:
+        assert url == 'https://logfire-us.pydantic.dev'
+
+
+def test_get_token_data_no_credentials(tmp_path: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', tmp_path):
+        with pytest.raises(LogfireConfigError):
+            LogfireCredentials._get_token_data()  # type: ignore
+
+
+def test_get_token_data_expired_credentials(expired_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', expired_credentials):
+        with pytest.raises(LogfireConfigError):
+            # https://logfire-us.pydantic.dev is the URL present in the expired credentials fixture:
+            LogfireCredentials._get_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
+
+
+def test_get_token_data_not_authenticated(default_credentials: Path):
     with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
         with pytest.raises(
             LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
         ):
             # Use a port that we don't use for local development to reduce conflicts with local configuration
-            LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')  # type: ignore
+            LogfireCredentials._get_token_data(logfire_api_url='http://localhost:8234')  # type: ignore
 
 
 def test_initialize_credentials_from_token_unreachable():
@@ -1395,7 +1434,7 @@ def test_initialize_credentials_from_token_invalid_token():
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
+            'https://logfire-us.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
         )
 
         with pytest.warns(match='Logfire API returned status code 401. Detail: Invalid token'):
@@ -1406,7 +1445,7 @@ def test_initialize_credentials_from_token_unhealthy():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=500)
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'

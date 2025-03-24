@@ -100,8 +100,6 @@ IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file
 """Whether to show a warning message if logfire if used without calling logfire.configure()"""
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=None, tp=Union[str, None])
 """The base URL of the Logfire backend. Primarily for testing purposes."""
-REGION = ConfigParam(env_vars=['LOGFIRE_REGION'], allow_file_config=True, default='us')
-"""The region of the Logfire backend."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
 # fmt: on
