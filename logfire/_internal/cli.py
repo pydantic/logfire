@@ -24,7 +24,7 @@ from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
-from .config import LogfireCredentials
+from .config import REGIONS, LogfireCredentials
 from .config_params import ParamManager
 from .tracer import SDKTracerProvider
 from .utils import read_toml_file
@@ -196,15 +196,20 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    logfire_url = cast(str, args.logfire_url)
+    logged_in = False
 
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-        if is_logged_in(data, logfire_url):  # pragma: no branch
-            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
-            return
+        if args.logfire_url and is_logged_in(data, args.logfire_url):  # pragma: no branch
+            logged_in = True
+        elif not args.logfire_url:
+            logged_in = any(is_logged_in(data, url) for url in data['tokens'])
     else:
         data: DefaultFile = {'tokens': {}}
+
+    if logged_in:
+        sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
+        return
 
     sys.stderr.writelines(
         (
@@ -214,6 +219,15 @@ def parse_auth(args: argparse.Namespace) -> None:
             '\n',
         )
     )
+    if not args.logfire_url:
+        # TODO input validation
+        sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
+        for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
+            sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
+        selected_region = int(input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: '))
+        logfire_url = list(REGIONS.values())[selected_region - 1]['base_url']
+    else:
+        logfire_url = cast(str, args.logfire_url)
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
