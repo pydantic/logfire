@@ -219,4 +219,5 @@ def test_await_in_fstring(exporter: TestExporter):
 
     assert len(exporter.exported_spans) == 1
     span = exporter.exported_spans[0]
-    assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('foo(await bar())')
+    assert span.attributes is not None
+    assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('content data')
