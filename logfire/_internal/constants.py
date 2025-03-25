@@ -137,9 +137,6 @@ ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
 """Key in OTEL attributes with metadata about parts of a span that have been scrubbed."""
 
-LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
-"""The Logfire API base URL."""
-
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
