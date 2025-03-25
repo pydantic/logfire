@@ -72,7 +72,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         for block in response.content:
             if block.type == 'text':
                 message['content'] = block.text
-            elif block.type == 'tool_use':
+            elif block.type == 'tool_use':  # pragma: no branch
                 message.setdefault('tool_calls', []).append(
                     {
                         'function': {
