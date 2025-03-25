@@ -46,9 +46,9 @@ def test_instrument_pydantic_ai():
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     assert m.wrapped is model
-    assert m.options.event_mode == InstrumentationSettings().event_mode == 'attributes'
-    assert isinstance(m.options.tracer, _ProxyTracer)
-    assert m.options.tracer.provider is logfire_inst.config.get_tracer_provider()
+    assert m.settings.event_mode == InstrumentationSettings().event_mode == 'attributes'
+    assert isinstance(m.settings.tracer, _ProxyTracer)
+    assert m.settings.tracer.provider is logfire_inst.config.get_tracer_provider()
 
     # Other agents are unaffected.
     m2 = get_model(agent2)
@@ -59,11 +59,11 @@ def test_instrument_pydantic_ai():
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     # agent1 still has its own instrumentation settings which override the global ones.
-    assert m.options.event_mode == InstrumentationSettings().event_mode == 'attributes'
+    assert m.settings.event_mode == InstrumentationSettings().event_mode == 'attributes'
     # agent2 uses the global settings.
     m2 = get_model(agent2)
     assert isinstance(m2, InstrumentedModel)
-    assert m2.options.event_mode == 'logs'
+    assert m2.settings.event_mode == 'logs'
 
     # Remove the global instrumentation. agent1 remains instrumented.
     Agent.instrument_all(False)

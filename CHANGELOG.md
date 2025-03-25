@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v3.10.0] (2025-03-25)
+
+* Account for new EU region by @Viicos in [#901](https://github.com/pydantic/logfire/pull/901)
+
+## [v3.9.1] (2025-03-25)
+
+* Handle Anthropic thinking blocks by @alexmojaki in [#952](https://github.com/pydantic/logfire/pull/952)
+* Handle new voice span types from OpenAI Agents SDK by @alexmojaki in [#943](https://github.com/pydantic/logfire/pull/943)
+
 ## [v3.9.0] (2025-03-18)
 
 * Add `logfire.instrument_pydantic_ai()` by @alexmojaki in [#926](https://github.com/pydantic/logfire/pull/926)
@@ -633,3 +642,5 @@ First release from new repo!
 [v3.8.0]: https://github.com/pydantic/logfire/compare/v3.7.1...v3.8.0
 [v3.8.1]: https://github.com/pydantic/logfire/compare/v3.8.0...v3.8.1
 [v3.9.0]: https://github.com/pydantic/logfire/compare/v3.8.1...v3.9.0
+[v3.9.1]: https://github.com/pydantic/logfire/compare/v3.9.0...v3.9.1
+[v3.10.0]: https://github.com/pydantic/logfire/compare/v3.9.1...v3.10.0
