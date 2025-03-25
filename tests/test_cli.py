@@ -128,7 +128,8 @@ def test_whoami_logged_in(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data', return_value=('123', 'http://localhost')
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
+                return_value=('123', 'http://localhost'),
             )
         )
 
@@ -161,6 +162,14 @@ def test_whoami_default_dir(
             'Logfire project URL: https://dashboard.logfire.dev',
         ]
     )
+
+
+def test_whoami_no_token_no_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    auth_file = tmp_path / 'default.toml'
+    with patch('logfire._internal.cli.DEFAULT_FILE', auth_file), pytest.raises(SystemExit):
+        main(['whoami'])
+
+        assert 'Not logged in. Run `logfire auth` to log in.' in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -443,7 +452,7 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -471,7 +480,7 @@ def test_projects_list_no_project(default_credentials: Path, capsys: pytest.Capt
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -495,7 +504,7 @@ def test_projects_new_with_project_name_and_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -535,7 +544,7 @@ def test_projects_new_with_project_name_without_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -578,7 +587,7 @@ def test_projects_new_with_project_name_and_wrong_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -620,7 +629,7 @@ def test_projects_new_with_project_name_and_default_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -658,7 +667,7 @@ def test_projects_new_with_project_name_multiple_organizations(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -713,7 +722,7 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -759,7 +768,7 @@ def test_projects_new_without_project_name(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -802,7 +811,7 @@ def test_projects_new_invalid_project_name(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -850,7 +859,7 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -882,7 +891,7 @@ def test_projects_without_project_name_without_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -927,7 +936,7 @@ def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credent
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -944,7 +953,7 @@ def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -966,7 +975,7 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -986,7 +995,7 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pyte
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1029,7 +1038,7 @@ def test_projects_use_without_project_name(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1085,7 +1094,7 @@ def test_projects_use_multiple(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1148,7 +1157,7 @@ def test_projects_use_multiple_with_org(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1191,7 +1200,7 @@ def test_projects_use_wrong_project(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1245,7 +1254,7 @@ def test_projects_use_wrong_project_give_up(
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1279,7 +1288,7 @@ def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.Capture
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1303,7 +1312,7 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )
@@ -1335,7 +1344,7 @@ def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: 
     with ExitStack() as stack:
         stack.enter_context(
             patch(
-                'logfire._internal.config.LogfireCredentials._get_token_data',
+                'logfire._internal.config.LogfireCredentials._get_user_token_data',
                 return_value=('', 'https://logfire-us.pydantic.dev'),
             )
         )

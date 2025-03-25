@@ -116,8 +116,9 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
-PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(r'^pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_(?P<token>[a-zA-Z0-9]+)$')
-PYDANTIC_LOGFIRE_TOKEN_TEMPLATE = 'pylf_v{version}_{region}_{token}'
+PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
+    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
+)
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -1334,7 +1335,7 @@ class LogfireCredentials:
         )
 
     @classmethod
-    def _get_token_data(cls, logfire_api_url: str | None = None) -> tuple[str, str]:
+    def _get_user_token_data(cls, logfire_api_url: str | None = None) -> tuple[str, str]:
         """Get a token and its associated base API URL.
 
         Args:
@@ -1352,8 +1353,8 @@ class LogfireCredentials:
             elif logfire_api_url is None:
                 tokens_list = list(data['tokens'].items())
                 if len(tokens_list) == 1:
-                    return cls._get_token_data(tokens_list[0][0])
-                elif len(tokens_list) >= 2:
+                    return cls._get_user_token_data(tokens_list[0][0])
+                elif len(tokens_list) >= 2:  # pragma: no branch
                     choices_str = '\n'.join(
                         f'{i}. {_get_token_repr(url, d["token"])}' for i, (url, d) in enumerate(tokens_list, start=1)
                     )
@@ -1362,7 +1363,7 @@ class LogfireCredentials:
                         choices=[str(i) for i in range(1, len(data['tokens']) + 1)],
                     )
                     url, token_data = tokens_list[int_choice - 1]
-                    if is_logged_in(data, url):
+                    if is_logged_in(data, url):  # pragma: no branch
                         return token_data['token'], url
 
         raise LogfireConfigError(
@@ -1376,7 +1377,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
     @classmethod
     def get_current_user(cls, session: requests.Session, logfire_api_url: str | None = None) -> dict[str, Any] | None:
         try:
-            user_token, logfire_api_url = cls._get_token_data(logfire_api_url=logfire_api_url)
+            user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
         except LogfireConfigError:
             return None
         return cls._get_user_for_token(user_token, session, logfire_api_url)
@@ -1406,7 +1407,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error retrieving user projects.
         """
-        user_token, logfire_api_url = cls._get_token_data(logfire_api_url=logfire_api_url)
+        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
         projects_url = urljoin(logfire_api_url, '/v1/projects/')
         try:
@@ -1444,7 +1445,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error configuring the project.
         """
-        user_token, logfire_api_url = cls._get_token_data(logfire_api_url=logfire_api_url)
+        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
         org_message = ''
@@ -1554,7 +1555,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error creating projects.
         """
-        user_token, logfire_api_url = cls._get_token_data(logfire_api_url=logfire_api_url)
+        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
         headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
 
         # Get user organizations
@@ -1659,7 +1660,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
             'All data sent to Logfire must be associated with a project.\n'
         )
 
-        _, logfire_api_url = cls._get_token_data(logfire_api_url=logfire_api_url)
+        _, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
 
         projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
         if projects:
@@ -1729,11 +1730,7 @@ def _get_token_repr(url: str, token: str) -> str:
     token_repr = f'{region.upper()} ({url}) - '
     if match:
         # new_token, include prefix and 5 chars
-        token_repr += PYDANTIC_LOGFIRE_TOKEN_TEMPLATE.format(
-            version=match.group('version'),
-            region=match.group('region'),
-            token=match.group('token')[:5],
-        )
+        token_repr += match.group('safe_part') + match.group('token')[:5]
     else:
         token_repr += token[:5]
     token_repr += '****'

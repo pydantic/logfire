@@ -50,11 +50,11 @@ def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
     param_manager = ParamManager.create(data_dir)
-    base_url = param_manager.load_param('base_url', _get_logfire_url(args.logfire_url, args.region))
+    base_url = param_manager.load_param('base_url', args.logfire_url)
     token = param_manager.load_param('token')
-    base_url = base_url or get_base_url_from_token(token)
 
     if token:
+        base_url = base_url or get_base_url_from_token(token)
         credentials = LogfireCredentials.from_token(token, args._session, base_url)
         if credentials:
             credentials.print_token_summary()
@@ -199,15 +199,16 @@ def parse_auth(args: argparse.Namespace) -> None:
     """
     logged_in = False
 
-    logfire_url = _get_logfire_url(args.logfire_url, args.region)
+    logfire_url = args.logfire_url
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-        if logfire_url and is_logged_in(data, logfire_url):  # pragma: no branch
-            logged_in = True
-        elif not logfire_url:
-            logged_in = any(is_logged_in(data, url) for url in data['tokens'])
     else:
         data: DefaultFile = {'tokens': {}}
+
+    if logfire_url:
+        logged_in = is_logged_in(data, logfire_url)
+    else:
+        logged_in = any(is_logged_in(data, url) for url in data['tokens'])
 
     if logged_in:
         sys.stderr.writelines(
@@ -271,8 +272,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
-    logfire_url = _get_logfire_url(args.logfire_url, args.region)
-    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
+    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=args.logfire_url)
     if projects:
         sys.stderr.write(
             _pretty_table(
@@ -301,9 +301,9 @@ def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api
 def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
-    logfire_url = _get_logfire_url(args.logfire_url, args.region)
+    logfire_url = args.logfire_url
     if logfire_url is None:
-        _, logfire_url = LogfireCredentials._get_token_data()  # type: ignore
+        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
@@ -321,9 +321,9 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
 def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
-    logfire_url = _get_logfire_url(args.logfire_url, args.region)
+    logfire_url = args.logfire_url
     if logfire_url is None:
-        _, logfire_url = LogfireCredentials._get_token_data()  # type: ignore
+        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
 
@@ -483,6 +483,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_info.set_defaults(func=parse_info)
 
     namespace = parser.parse_args(args)
+    namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
     tracer = trace.get_tracer(__name__)
