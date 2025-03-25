@@ -197,8 +197,6 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    logged_in = False
-
     logfire_url = args.logfire_url
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
@@ -302,7 +300,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
     logfire_url = args.logfire_url
-    if logfire_url is None:
+    if logfire_url is None:  # pragma: no cover
         _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
@@ -322,7 +320,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
     logfire_url = args.logfire_url
-    if logfire_url is None:
+    if logfire_url is None:  # pragma: no cover
         _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org

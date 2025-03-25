@@ -1348,9 +1348,7 @@ class LogfireCredentials:
         """
         if DEFAULT_FILE.is_file():
             data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-            if logfire_api_url is not None and is_logged_in(data, logfire_api_url):
-                return data['tokens'][logfire_api_url]['token'], logfire_api_url
-            elif logfire_api_url is None:
+            if logfire_api_url is None:
                 tokens_list = list(data['tokens'].items())
                 if len(tokens_list) == 1:
                     return cls._get_user_token_data(tokens_list[0][0])
@@ -1365,6 +1363,8 @@ class LogfireCredentials:
                     url, token_data = tokens_list[int_choice - 1]
                     if is_logged_in(data, url):  # pragma: no branch
                         return token_data['token'], url
+            elif is_logged_in(data, logfire_api_url):
+                return data['tokens'][logfire_api_url]['token'], logfire_api_url
 
         raise LogfireConfigError(
             """You are not authenticated. Please run `logfire auth` to authenticate.
