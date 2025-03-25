@@ -1,7 +1,8 @@
+import ast
 import contextlib
 import sys
 from collections import ChainMap
-from types import SimpleNamespace
+from types import CodeType, SimpleNamespace
 from typing import Any, Mapping
 
 import pytest
@@ -185,8 +186,31 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
+def test_syntax_error_in_ast_walk(monkeypatch: pytest.MonkeyPatch):
+    """Test the SyntaxError exception handling in ast.walk when checking for await expressions."""
+
+    def mock_ast_walk(*args: object, **kwargs: object) -> None:
+        raise SyntaxError('Simulated syntax error in ast.walk')
+
+    monkeypatch.setattr(ast, 'walk', mock_ast_walk)
+
+    node = ast.FormattedValue(value=ast.Name(id='test', ctx=ast.Load()), conversion=-1, format_spec=None)
+
+    class MockSource:
+        text = 'test'
+
+    # This should not raise an exception because the SyntaxError is caught
+    from logfire._internal.formatter import compile_formatted_value
+
+    _, value_code, formatted_code = compile_formatted_value(node, MockSource())
+
+    assert isinstance(value_code, CodeType)
+    assert isinstance(formatted_code, CodeType)
+
+
+@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_await_in_fstring(exporter: TestExporter):
-    """Test that logfire.info(f'{foo(await bar)}') does not evaluate the await expression and logs the source."""
+    """Test that logfire.info(f'{foo(await bar())}') evaluates the await expression and logs a warning."""
     import asyncio
 
     async def bar() -> str:
@@ -212,12 +236,9 @@ def test_await_in_fstring(exporter: TestExporter):
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(test_log())
-    except SyntaxError:
-        pass
+        assert len(exporter.exported_spans) == 1
+        span = exporter.exported_spans[0]
+        assert span.attributes is not None
+        assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('content data')
     finally:
         loop.close()
-
-    assert len(exporter.exported_spans) == 1
-    span = exporter.exported_spans[0]
-    assert span.attributes is not None
-    assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('content data')
