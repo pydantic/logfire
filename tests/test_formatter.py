@@ -1,4 +1,5 @@
 import contextlib
+import sys
 from collections import ChainMap
 from types import SimpleNamespace
 from typing import Any, Mapping
@@ -6,8 +7,11 @@ from typing import Any, Mapping
 import pytest
 from inline_snapshot import snapshot
 
+import logfire
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
+from logfire.testing import TestExporter
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
@@ -180,34 +184,39 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
     assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore
 
 
-def test_await_in_fstring():
-    """Test that await expressions in f-strings are rejected with a clear error message."""
-    # Create a simple AST node with an Await expression
-    import ast
+@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
+def test_await_in_fstring(exporter: TestExporter):
+    """Test that logfire.info(f'{foo(await bar)}') does not evaluate the await expression and logs the source."""
+    import asyncio
 
-    # Create a FormattedValue node containing an Await expression
-    await_expr = ast.Await(value=ast.Name(id='coro', ctx=ast.Load()))
-    node = ast.FormattedValue(value=await_expr, conversion=-1, format_spec=None)
+    async def bar() -> str:
+        return 'content data'
 
-    # Create a minimal mock of executing.Source
-    class MockSource:
-        text = "f'{await coro}'"
+    def foo(x: str) -> str:
+        return x
 
-        @staticmethod
-        def get_text(node: ast.AST) -> str:
-            return 'await coro'
+    async def test_log() -> None:
+        with pytest.warns(FormattingFailedWarning) as warnings:
+            logfire.info(f'{foo(await bar())}')
+            [warning] = warnings
+            assert str(warning.message) == snapshot(
+                '\n'
+                '    Ensure you are either:\n'
+                '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
+                '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
+                '    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.\n'
+                '    The problem was: Cannot evaluate await expression in f-string: foo(await bar()). Pre-evaluate the expression before logging.'
+            )
 
-    mock_source = MockSource()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(test_log())
+    except SyntaxError:
+        pass
+    finally:
+        loop.close()
 
-    # Call get_text directly to ensure it's covered
-    text = mock_source.get_text(ast.Name(id='test', ctx=ast.Load()))
-    assert text == 'await coro'
-
-    # Test using compile_formatted_value raises the right error
-    from logfire._internal.formatter import KnownFormattingError, compile_formatted_value
-
-    with pytest.raises(KnownFormattingError) as exc_info:
-        compile_formatted_value(node, mock_source)
-
-    assert 'Cannot evaluate await expression in f-string' in str(exc_info.value)
-    assert 'Pre-evaluate the expression before logging' in str(exc_info.value)
+    assert len(exporter.exported_spans) == 1
+    span = exporter.exported_spans[0]
+    assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('foo(await bar())')
