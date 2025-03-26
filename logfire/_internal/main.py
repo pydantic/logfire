@@ -638,9 +638,7 @@ class Logfire:
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
-        return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator
-        )
+        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator)
 
     def log(
         self,
@@ -2442,7 +2440,7 @@ def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> N
         return
 
     otlp_attributes = prepare_otlp_attributes(attributes)
-    if json_schema_properties := attributes_json_schema_properties(attributes):
+    if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema_str and isinstance(existing_json_schema_str, str):
