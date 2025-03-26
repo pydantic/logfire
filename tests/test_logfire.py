@@ -660,7 +660,7 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}')
+    @tagged.instrument('hello-world {a=}', record_return=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -700,8 +700,9 @@ def test_instrument(exporter: TestExporter):
                     'a': 123,
                     'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.span_type': 'span',
+                    'return': 'hello 123',
                     'logfire.msg': 'hello-world a=123',
                 },
             },
@@ -1041,7 +1042,7 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
 
 @pytest.mark.anyio
 async def test_instrument_async(exporter: TestExporter):
-    @logfire.instrument()
+    @logfire.instrument(record_return=True)
     async def foo():
         return 456
 
@@ -1063,6 +1064,8 @@ async def test_instrument_async(exporter: TestExporter):
                     'code.filepath': 'test_logfire.py',
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
                     'logfire.span_type': 'span',
+                    'return': 456,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                 },
             }
         ]
