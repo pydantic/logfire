@@ -660,7 +660,7 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}')
+    @tagged.instrument('hello-world {a=}', record_return=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -700,8 +700,9 @@ def test_instrument(exporter: TestExporter):
                     'a': 123,
                     'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.span_type': 'span',
+                    'return': 'hello 123',
                     'logfire.msg': 'hello-world a=123',
                 },
             },
@@ -1041,7 +1042,7 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
 
 @pytest.mark.anyio
 async def test_instrument_async(exporter: TestExporter):
-    @logfire.instrument()
+    @logfire.instrument
     async def foo():
         return 456
 
@@ -1063,6 +1064,38 @@ async def test_instrument_async(exporter: TestExporter):
                     'code.filepath': 'test_logfire.py',
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
                     'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async_record_return(exporter: TestExporter):
+    @logfire.instrument(record_return=True)
+    async def foo():
+        return 456
+
+    assert foo.__name__ == 'foo'
+    assert await foo() == 456
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async_record_return.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'return': 456,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                 },
             }
         ]
