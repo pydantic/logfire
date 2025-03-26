@@ -92,10 +92,14 @@ def instrument(
                 with open_span(*func_args, **func_kwargs) as span:
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
+                        # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
+                        # This isn't great because it has to parse the JSON schema.
+                        # Not sure if making get_open_span return a LogfireSpan when record_return is True
+                        # would be faster overall or if it would be worth the added complexity.
                         set_user_attributes_on_raw_span(span._span, {'return': result})
                     return result
         else:
-
+            # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
                 with open_span(*func_args, **func_kwargs) as span:
                     result = func(*func_args, **func_kwargs)
