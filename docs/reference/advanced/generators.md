@@ -243,4 +243,7 @@ logfire.info('After context manager')
 If you want to instrument a generator that's used for iteration rather than a context manager, see the sections above.
 
 !!! warning
-    In addition to the problems described at the start of this page, using `@logfire.instrument` on an *async* generator function means that values cannot be sent into the generator.
+    In addition to the problems described at the start of this page:
+
+    1. Using `@logfire.instrument` on an *async* generator function means that values cannot be sent into the generator.
+    2. The `record_return` parameter of `@logfire.instrument` is ignored for generator functions.

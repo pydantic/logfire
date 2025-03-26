@@ -199,10 +199,12 @@ async def test_await_in_fstring(exporter: TestExporter):
         [warning] = warnings
         assert str(warning.message) == snapshot(
             '\n'
-            '    Ensure you are either:\n'
-            '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
-            '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
-            '    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.\n'
+            '    Cannot evaluate await expression in f-string. Pre-evaluate the expression before logging.\n'
+            '    For example, change:\n'
+            '      logfire.info(f"{await get_value()}")\n'
+            '    To:\n'
+            '      value = await get_value()\n'
+            '      logfire.info(f"{value}")\n'
             '    The problem was: Cannot evaluate await expression in f-string: foo(await bar()). Pre-evaluate the expression before logging.'
         )
 
