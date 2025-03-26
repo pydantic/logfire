@@ -638,7 +638,9 @@ class Logfire:
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
-        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator)
+        return instrument(
+            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator
+        )
 
     def log(
         self,
