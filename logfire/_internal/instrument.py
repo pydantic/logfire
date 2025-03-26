@@ -48,8 +48,11 @@ def instrument(
     msg_template: LiteralString | None,
     span_name: str | None,
     extract_args: bool | Iterable[str],
+    record_return: bool,
     allow_generator: bool,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    from .main import set_user_attributes_on_raw_span
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         if getattr(func, '__code__', None) in (CONTEXTMANAGER_HELPER_CODE, ASYNCCONTEXTMANAGER_HELPER_CODE):
             warnings.warn(
@@ -86,13 +89,23 @@ def instrument(
         elif inspect.iscoroutinefunction(func):
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
-                with open_span(*func_args, **func_kwargs):
-                    return await func(*func_args, **func_kwargs)
+                with open_span(*func_args, **func_kwargs) as span:
+                    result = await func(*func_args, **func_kwargs)
+                    if record_return:
+                        # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
+                        # This isn't great because it has to parse the JSON schema.
+                        # Not sure if making get_open_span return a LogfireSpan when record_return is True
+                        # would be faster overall or if it would be worth the added complexity.
+                        set_user_attributes_on_raw_span(span._span, {'return': result})
+                    return result
         else:
-
+            # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
-                with open_span(*func_args, **func_kwargs):
-                    return func(*func_args, **func_kwargs)
+                with open_span(*func_args, **func_kwargs) as span:
+                    result = func(*func_args, **func_kwargs)
+                    if record_return:
+                        set_user_attributes_on_raw_span(span._span, {'return': result})
+                    return result
 
         wrapper = functools.wraps(func)(wrapper)  # type: ignore
         return wrapper
