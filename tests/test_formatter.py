@@ -1,15 +1,13 @@
-import ast
 import contextlib
 import sys
 from collections import ChainMap
-from types import CodeType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
@@ -186,32 +184,9 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
-def test_syntax_error_in_ast_walk(monkeypatch: pytest.MonkeyPatch):
-    """Test the SyntaxError exception handling in ast.walk when checking for await expressions."""
-
-    def mock_ast_walk(*args: object, **kwargs: object) -> None:
-        raise SyntaxError('Simulated syntax error in ast.walk')
-
-    monkeypatch.setattr(ast, 'walk', mock_ast_walk)
-
-    node = ast.FormattedValue(value=ast.Name(id='test', ctx=ast.Load()), conversion=-1, format_spec=None)
-
-    class MockSource:
-        text = 'test'
-
-    # This should not raise an exception because the SyntaxError is caught
-    from logfire._internal.formatter import compile_formatted_value
-
-    _, value_code, formatted_code = compile_formatted_value(node, MockSource())
-
-    assert isinstance(value_code, CodeType)
-    assert isinstance(formatted_code, CodeType)
-
-
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
-def test_await_in_fstring(exporter: TestExporter):
+@pytest.mark.anyio
+async def test_await_in_fstring(exporter: TestExporter):
     """Test that logfire.info(f'{foo(await bar())}') evaluates the await expression and logs a warning."""
-    import asyncio
 
     async def bar() -> str:
         return 'content data'
@@ -219,26 +194,35 @@ def test_await_in_fstring(exporter: TestExporter):
     def foo(x: str) -> str:
         return x
 
-    async def test_log() -> None:
-        with pytest.warns(FormattingFailedWarning) as warnings:
-            logfire.info(f'{foo(await bar())}')
-            [warning] = warnings
-            assert str(warning.message) == snapshot(
-                '\n'
-                '    Ensure you are either:\n'
-                '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
-                '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
-                '    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.\n'
-                '    The problem was: Cannot evaluate await expression in f-string: foo(await bar()). Pre-evaluate the expression before logging.'
-            )
+    with pytest.warns(FormattingFailedWarning) as warnings:
+        logfire.info(f'{foo(await bar())}')
+        [warning] = warnings
+        assert str(warning.message) == snapshot(
+            '\n'
+            '    Ensure you are either:\n'
+            '      (1) passing an f-string directly, with inspect_arguments enabled and working, or\n'
+            '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
+            '    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.\n'
+            '    The problem was: Cannot evaluate await expression in f-string: foo(await bar()). Pre-evaluate the expression before logging.'
+        )
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(test_log())
-        assert len(exporter.exported_spans) == 1
-        span = exporter.exported_spans[0]
-        assert span.attributes is not None
-        assert span.attributes[ATTRIBUTES_MESSAGE_KEY] == snapshot('content data')
-    finally:
-        loop.close()
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': f'{foo(await bar())}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': f'{foo(await bar())}',
+                    'logfire.msg': 'content data',
+                    'code.filepath': 'test_formatter.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_await_in_fstring',
+                },
+            }
+        ]
+    )
