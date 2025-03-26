@@ -37,7 +37,14 @@ from typing_extensions import Self, Unpack
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
+PYDANTIC_LOGFIRE_TOKEN_PATTERN: Incomplete
 METRICS_PREFERRED_TEMPORALITY: Incomplete
+
+class _RegionData(TypedDict):
+    base_url: str
+    gcp_region: str
+
+REGIONS: dict[str, _RegionData]
 
 @dataclass
 class ConsoleOptions:
@@ -53,10 +60,11 @@ class ConsoleOptions:
 @dataclass
 class AdvancedOptions:
     """Options primarily used for testing by Logfire developers."""
-    base_url: str = ...
+    base_url: str | None = ...
     id_generator: IdGenerator = dataclasses.field(default_factory=Incomplete)
     ns_timestamp_generator: Callable[[], int] = ...
     log_record_processors: Sequence[LogRecordProcessor] = ...
+    def generate_base_url(self, token: str) -> str: ...
 
 @dataclass
 class PydanticPlugin:
@@ -258,9 +266,9 @@ class LogfireCredentials:
             LogfireConfigError: If the token is invalid.
         """
     @classmethod
-    def get_current_user(cls, session: requests.Session, logfire_api_url: str) -> dict[str, Any] | None: ...
+    def get_current_user(cls, session: requests.Session, logfire_api_url: str | None = None) -> dict[str, Any] | None: ...
     @classmethod
-    def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
+    def get_user_projects(cls, session: requests.Session, logfire_api_url: str | None = None) -> list[dict[str, Any]]:
         """Get list of projects that user has access to them.
 
         Args:
@@ -274,7 +282,7 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error retrieving user projects.
         """
     @classmethod
-    def use_existing_project(cls, *, session: requests.Session, logfire_api_url: str, projects: list[dict[str, Any]], organization: str | None = None, project_name: str | None = None) -> dict[str, Any] | None:
+    def use_existing_project(cls, *, session: requests.Session, projects: list[dict[str, Any]], logfire_api_url: str | None = None, organization: str | None = None, project_name: str | None = None) -> dict[str, Any] | None:
         """Configure one of the user projects to be used by Logfire.
 
         It configures the project if organization/project_name is a valid project that
@@ -294,7 +302,7 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error configuring the project.
         """
     @classmethod
-    def create_new_project(cls, *, session: requests.Session, logfire_api_url: str, organization: str | None = None, default_organization: bool = False, project_name: str | None = None) -> dict[str, Any]:
+    def create_new_project(cls, *, session: requests.Session, logfire_api_url: str | None = None, organization: str | None = None, default_organization: bool = False, project_name: str | None = None) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
         It creates the project under the organization if both project and organization are valid.
@@ -314,12 +322,12 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error creating projects.
         """
     @classmethod
-    def initialize_project(cls, *, logfire_api_url: str, session: requests.Session) -> Self:
+    def initialize_project(cls, *, session: requests.Session, logfire_api_url: str | None = None) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
-            logfire_api_url: The Logfire API base URL.
             session: HTTP client session used to communicate with the Logfire API.
+            logfire_api_url: The Logfire API base URL.
 
         Returns:
             The new credentials.
@@ -332,6 +340,8 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
 
+def get_base_url_from_token(token: str) -> str:
+    """Get the base API URL from the token's region."""
 def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
 def sanitize_project_name(name: str) -> str:
