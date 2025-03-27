@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsJson
+from dirty_equals import IsJson, IsAnyStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette

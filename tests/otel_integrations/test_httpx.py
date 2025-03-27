@@ -7,7 +7,7 @@ from unittest import mock
 
 import httpx
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsStr, IsAnyStr
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
