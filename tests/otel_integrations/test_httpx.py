@@ -7,7 +7,7 @@ from unittest import mock
 
 import httpx
 import pytest
-from dirty_equals import IsStr, IsAnyStr
+from dirty_equals import IsAnyStr, IsStr
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
@@ -410,7 +410,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': (IsStr(),),
@@ -425,7 +425,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
                     'http.response.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': (IsStr(),),
@@ -506,7 +506,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': (IsStr(),),
@@ -521,7 +521,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
                     'http.response.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': (IsStr(),),
@@ -771,7 +771,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': ('python-httpx/0.28.1',),
@@ -786,7 +786,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
                     'http.response.header.accept-encoding': (
-                        IsAnyStr(regex="^'gzip, deflate(?:, br|, zstd|, br, zstd)?'$"),
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': ('python-httpx/0.28.1',),
