@@ -19,17 +19,17 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import trace
-from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
+from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider  # type: ignore
 from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # type: ignore
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
-from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
-from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor  # type: ignore
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor  # type: ignore
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor  # type: ignore
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -106,7 +106,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from opentelemetry._events import EventLoggerProvider
+    from opentelemetry._events import EventLoggerProvider  # type: ignore
 
     from .main import Logfire
 
@@ -703,7 +703,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
+            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider  # type: ignore
 
             self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
         except ImportError:
@@ -1066,7 +1066,7 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
                 if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider
+                    from opentelemetry._events import set_event_logger_provider  # type: ignore
 
                     set_event_logger_provider(self._event_logger_provider)
 

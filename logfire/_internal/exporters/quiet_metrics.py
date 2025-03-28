@@ -1,8 +1,7 @@
 from typing import Any
 
 import requests
-from opentelemetry.sdk.metrics._internal.export import MetricExportResult
-from opentelemetry.sdk.metrics._internal.point import MetricsData
+from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 
 from .wrapper import WrapperMetricExporter
 
