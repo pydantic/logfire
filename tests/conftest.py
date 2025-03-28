@@ -25,7 +25,7 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
 try:
-    from agents.tracing import GLOBAL_TRACE_PROVIDER
+    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
     GLOBAL_TRACE_PROVIDER.shutdown()
     GLOBAL_TRACE_PROVIDER.set_processors([])
