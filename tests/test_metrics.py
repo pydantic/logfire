@@ -9,7 +9,7 @@ from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
-from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
+from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult  # type: ignore
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
 
 import logfire
