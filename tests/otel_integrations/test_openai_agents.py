@@ -3635,7 +3635,7 @@ async def test_mcp(exporter: TestExporter):
     assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
-                'name': 'MCP request',
+                'name': 'MCP request: initialize',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -3653,8 +3653,11 @@ async def test_mcp(exporter: TestExporter):
                             'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
                         },
                     },
-                    'logfire.msg_template': 'MCP request',
-                    'logfire.msg': 'MCP request',
+                    'rpc.system': 'jsonrpc',
+                    'rpc.jsonrpc.version': '2.0',
+                    'rpc.method': 'initialize',
+                    'logfire.msg_template': 'MCP request: initialize',
+                    'logfire.msg': 'MCP request: initialize',
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
@@ -3715,6 +3718,9 @@ async def test_mcp(exporter: TestExporter):
                                     }
                                 },
                             },
+                            'rpc.system': {},
+                            'rpc.jsonrpc.version': {},
+                            'rpc.method': {},
                             'response': {
                                 'type': 'object',
                                 'title': 'InitializeResult',
@@ -3754,7 +3760,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'MCP request',
+                'name': 'MCP request: tools/list',
                 'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
                 'start_time': 6000000000,
@@ -3764,8 +3770,11 @@ async def test_mcp(exporter: TestExporter):
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
                     'request': {'method': 'tools/list', 'params': None, 'cursor': None},
-                    'logfire.msg_template': 'MCP request',
-                    'logfire.msg': 'MCP request',
+                    'rpc.system': 'jsonrpc',
+                    'rpc.jsonrpc.version': '2.0',
+                    'rpc.method': 'tools/list',
+                    'logfire.msg_template': 'MCP request: tools/list',
+                    'logfire.msg': 'MCP request: tools/list',
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
@@ -3793,6 +3802,9 @@ async def test_mcp(exporter: TestExporter):
                                     }
                                 },
                             },
+                            'rpc.system': {},
+                            'rpc.jsonrpc.version': {},
+                            'rpc.method': {},
                             'response': {
                                 'type': 'object',
                                 'title': 'ListToolsResult',
@@ -4006,7 +4018,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'MCP request',
+                'name': 'MCP request: tools/call random_number',
                 'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 12000000000,
@@ -4016,8 +4028,11 @@ async def test_mcp(exporter: TestExporter):
                         'method': 'tools/call',
                         'params': {'meta': None, 'name': 'random_number', 'arguments': {}},
                     },
-                    'logfire.msg_template': 'MCP request',
-                    'logfire.msg': 'MCP request',
+                    'rpc.system': 'jsonrpc',
+                    'rpc.jsonrpc.version': '2.0',
+                    'rpc.method': 'tools/call',
+                    'logfire.msg_template': 'MCP request: tools/call random_number',
+                    'logfire.msg': 'MCP request: tools/call random_number',
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
@@ -4046,6 +4061,9 @@ async def test_mcp(exporter: TestExporter):
                                     }
                                 },
                             },
+                            'rpc.system': {},
+                            'rpc.jsonrpc.version': {},
+                            'rpc.method': {},
                             'response': {
                                 'type': 'object',
                                 'title': 'CallToolResult',
