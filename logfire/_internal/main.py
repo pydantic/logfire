@@ -900,6 +900,7 @@ class Logfire:
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_mcp(self) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
         from .integrations.mcp import instrument_mcp
 
         self._warn_if_not_initialized_for_instrumentation()
