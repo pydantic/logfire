@@ -109,7 +109,7 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, TranscriptionSpanData):
                 msg_template = 'Speech → Text with {gen_ai.request.model!r}'
             elif isinstance(span_data, MCPListToolsSpanData):
-                msg_template = 'MCP list tools from {server}'
+                msg_template = 'MCP: list tools from server {server}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
