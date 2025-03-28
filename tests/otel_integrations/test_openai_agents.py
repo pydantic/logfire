@@ -8,11 +8,10 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pydantic
 import pytest
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
-from mcp.server.fastmcp import FastMCP
-from mcp.shared.memory import create_client_server_memory_streams
 from openai import AsyncOpenAI
 
 import logfire
@@ -51,7 +50,6 @@ try:
     from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 
     from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
-
 
 except ImportError:
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
@@ -3585,23 +3583,27 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
     )
 
 
-class MyMCPServer(_MCPServerWithClientSession):
-    def __init__(self, streams: Any):
-        super().__init__(False)
-        self._streams = streams
-
-    @asynccontextmanager
-    async def create_streams(self):
-        yield self._streams
-
-    @property
-    def name(self):
-        return 'MyMCPServer'
-
-
 @pytest.mark.vcr()
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher')
+@pytest.mark.skipif(pydantic.__version__.startswith('2.4.'), reason='Requires Pydantic 2.5 or higher')
 async def test_mcp(exporter: TestExporter):
+    from mcp.server.fastmcp import FastMCP
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    class MyMCPServer(_MCPServerWithClientSession):
+        def __init__(self, streams: Any):
+            super().__init__(False)
+            self._streams = streams
+
+        @asynccontextmanager
+        async def create_streams(self):
+            yield self._streams
+
+        @property
+        def name(self):
+            return 'MyMCPServer'
+
     logfire.instrument_openai_agents()
 
     fastmcp = FastMCP()
