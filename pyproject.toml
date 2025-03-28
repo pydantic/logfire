@@ -89,7 +89,7 @@ logfire = "logfire.testing"
 
 [dependency-groups]
 dev = [
-    "anyio < 4.4.0",
+    "anyio >= 0",
     "httpx >= 0.27.2",
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
@@ -135,7 +135,7 @@ dev = [
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
-    "pyright>=1.1.360",
+    "pyright == 1.1.397",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.5.0",
     "psycopg[binary] >= 3.2.3",

@@ -39,7 +39,7 @@ try:
         input_guardrail,
         trace,
     )
-    from agents.tracing.span_data import ResponseSpanData
+    from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
     from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
@@ -653,11 +653,18 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': 'Function: random_number',
                     'name': 'random_number',
                     'input': {},
+                    'mcp_data': 'null',
                     'gen_ai.system': 'openai',
                     'output': '4',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'input': {}, 'output': {}, 'gen_ai.system': {}},
+                        'properties': {
+                            'name': {},
+                            'input': {},
+                            'output': {},
+                            'mcp_data': {'type': 'null'},
+                            'gen_ai.system': {},
+                        },
                     },
                 },
             },
@@ -1609,7 +1616,7 @@ def all_subclasses(cls: type) -> list[type]:
 def test_unknown_span(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
-    from agents.tracing import GLOBAL_TRACE_PROVIDER
+    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
     class MySpanData(SpanData):
         def export(self):
@@ -1706,6 +1713,7 @@ def test_unknown_span(exporter: TestExporter):
         SpeechGroupSpanData,
         SpeechSpanData,
         TranscriptionSpanData,
+        MCPListToolsSpanData,
     }, 'Need to update LogfireTraceProviderWrapper.create_span'
 
 
@@ -2912,6 +2920,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'name': 'tool',
                     'input': {},
                     'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                    'mcp_data': 'null',
                     'gen_ai.system': 'openai',
                     'error': {
                         'message': 'Error running tool (non-fatal)',
@@ -2924,6 +2933,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'name': {},
                             'input': {},
                             'output': {},
+                            'mcp_data': {'type': 'null'},
                             'gen_ai.system': {},
                             'error': {'type': 'object'},
                         },

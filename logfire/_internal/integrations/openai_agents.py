@@ -18,8 +18,10 @@ from agents import (
     GenerationSpanData,
     GuardrailSpanData,
     HandoffSpanData,
+    MCPListToolsSpanData,
     ModelSettings,
     Span,
+    SpanData,
     SpeechGroupSpanData,
     SpeechSpanData,
     Trace,
@@ -28,7 +30,7 @@ from agents import (
 from agents.models.openai_responses import OpenAIResponsesModel
 from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
-from agents.tracing.spans import NoOpSpan, SpanData, SpanError, TSpanData
+from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
 from opentelemetry.trace import NonRecordingSpan, use_span
 from typing_extensions import Self
@@ -106,6 +108,8 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Text → Speech'
             elif isinstance(span_data, TranscriptionSpanData):
                 msg_template = 'Speech → Text with {gen_ai.request.model!r}'
+            elif isinstance(span_data, MCPListToolsSpanData):
+                msg_template = 'MCP list tools from {server}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
