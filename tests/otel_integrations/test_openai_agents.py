@@ -51,7 +51,6 @@ try:
     from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 except ImportError:
-    raise
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
     if TYPE_CHECKING:
         assert False
@@ -3588,9 +3587,9 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
 @pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher')
 @pytest.mark.skipif(pydantic.__version__.startswith('2.4.'), reason='Requires Pydantic 2.5 or higher')
 async def test_mcp(exporter: TestExporter):
+    from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
     from mcp.server.fastmcp import FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
-    from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
 
     class MyMCPServer(_MCPServerWithClientSession):
         def __init__(self, streams: Any):
