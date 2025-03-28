@@ -24,7 +24,9 @@ def instrument_mcp(logfire_instance: Logfire):
         span_name = 'MCP request'
 
         root = request.root
-        if method := getattr(root, 'method', None):
+        # method should always exist, but it's had to verify because the request type is a RootModel
+        # of a big union, instead of just using a base class with a method attribute.
+        if method := getattr(root, 'method', None):  # pragma: no branch
             span_name += f': {method}'
             attributes['rpc.method'] = method
             if isinstance(root, CallToolRequest):
