@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 
 def instrument_mcp(logfire_instance: Logfire):
+    logfire_instance = logfire_instance.with_settings(custom_scope_suffix='mcp')
+
     original = BaseSession.send_request  # type: ignore
 
     @functools.wraps(original)  # type: ignore
