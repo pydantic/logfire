@@ -43,7 +43,6 @@ try:
         input_guardrail,
         trace,
     )
-    from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
     from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
     from agents.tracing.spans import NoOpSpan
     from agents.tracing.traces import NoOpTrace
@@ -3591,6 +3590,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
 async def test_mcp(exporter: TestExporter):
     from mcp.server.fastmcp import FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
+    from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
 
     class MyMCPServer(_MCPServerWithClientSession):
         def __init__(self, streams: Any):
