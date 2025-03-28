@@ -49,6 +49,7 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
+instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
@@ -138,6 +139,7 @@ __all__ = (
     'instrument_pymongo',
     'instrument_mysql',
     'instrument_system_metrics',
+    'instrument_mcp',
     'AutoTraceModule',
     'with_tags',
     'with_settings',

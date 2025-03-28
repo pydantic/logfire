@@ -147,6 +147,8 @@ except ImportError:
 
             def instrument_system_metrics(self, *args, **kwargs) -> None: ...
 
+            def instrument_mcp(self, *args, **kwargs) -> None: ...
+
             def shutdown(self, *args, **kwargs) -> None: ...
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -191,6 +193,7 @@ except ImportError:
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
+        instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 
