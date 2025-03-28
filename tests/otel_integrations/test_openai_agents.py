@@ -52,6 +52,7 @@ try:
     from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 except ImportError:
+    raise
     pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
     if TYPE_CHECKING:
         assert False
