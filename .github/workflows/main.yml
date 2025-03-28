@@ -61,10 +61,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
-        pydantic-version: ['2.10']
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        pydantic-version: ['2.11']
         include:
-            - python-version: '3.12'
+            - python-version: '3.8'
+              pydantic-version: '2.10'
+            - python-version: '3.13'
               pydantic-version: '2.4'
     env:
       PYTHON: ${{ matrix.python-version }}

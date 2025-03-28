@@ -17,20 +17,24 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         pydantic-version: ['main']
         include:
-          - python-version: '3.12'
-            pydantic-version: '2.4'
-          - python-version: '3.12'
-            pydantic-version: '2.5'
-          - python-version: '3.12'
-            pydantic-version: '2.6'
-          - python-version: '3.12'
-            pydantic-version: '2.7'
-          - python-version: '3.12'
-            pydantic-version: '2.8'
-          - python-version: '3.12'
-            pydantic-version: '2.9'
-          - python-version: '3.12'
+          - python-version: '3.8'
             pydantic-version: '2.10'
+          - python-version: '3.13'
+            pydantic-version: '2.4'
+          - python-version: '3.13'
+            pydantic-version: '2.5'
+          - python-version: '3.13'
+            pydantic-version: '2.6'
+          - python-version: '3.13'
+            pydantic-version: '2.7'
+          - python-version: '3.13'
+            pydantic-version: '2.8'
+          - python-version: '3.13'
+            pydantic-version: '2.9'
+          - python-version: '3.13'
+            pydantic-version: '2.10'
+          - python-version: '3.13'
+            pydantic-version: '2.11'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
