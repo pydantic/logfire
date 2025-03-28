@@ -899,6 +899,12 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
+    def instrument_mcp(self) -> None:
+        from .integrations.mcp import instrument_mcp
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_mcp(self)
+
     def instrument_pydantic(
         self,
         record: PydanticPluginRecordValues = 'all',
