@@ -89,7 +89,6 @@ logfire = "logfire.testing"
 
 [dependency-groups]
 dev = [
-    "anyio >= 0",
     "httpx >= 0.27.2",
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
