@@ -16,6 +16,7 @@ from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.utils import get_version
 
 try:
     from agents import (
@@ -3585,7 +3586,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
 @pytest.mark.vcr()
 @pytest.mark.anyio
 @pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher')
-@pytest.mark.skipif(pydantic.__version__.startswith('2.4.'), reason='Requires Pydantic 2.5 or higher')
+@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.7'), reason='Requires Pydantic 2.7 or higher')
 async def test_mcp(exporter: TestExporter):
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
     from mcp.server.fastmcp import FastMCP
