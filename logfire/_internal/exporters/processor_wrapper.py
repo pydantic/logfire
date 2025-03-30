@@ -194,7 +194,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
     method = attributes.get(SpanAttributes.HTTP_METHOD)
     route = attributes.get(SpanAttributes.HTTP_ROUTE)
     target = attributes.get(SpanAttributes.HTTP_TARGET)
-    url = attributes.get(SpanAttributes.HTTP_URL)
+    url: Any = attributes.get(SpanAttributes.HTTP_URL)
     if not (method or route or target or url):
         return
 
@@ -225,7 +225,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
             )
             if not server_name:
                 try:
-                    server_name = urlparse(url).hostname  # type: ignore
+                    server_name = urlparse(url).hostname
                 except Exception:  # pragma: no cover
                     pass
             server_name = server_name or url

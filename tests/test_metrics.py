@@ -9,8 +9,13 @@ from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
-from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
-from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
+from opentelemetry.sdk.metrics.export import (
+    AggregationTemporality,
+    InMemoryMetricReader,
+    MetricExporter,
+    MetricExportResult,
+    MetricsData,
+)
 
 import logfire
 import logfire._internal.metrics

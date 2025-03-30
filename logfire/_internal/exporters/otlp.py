@@ -12,8 +12,8 @@ from threading import Lock, Thread
 from typing import Any, Mapping, Sequence
 
 import requests.exceptions
-from opentelemetry.sdk._logs import LogData
-from opentelemetry.sdk._logs._internal.export import LogExportResult
+from opentelemetry.sdk._logs import LogData  # type: ignore
+from opentelemetry.sdk._logs._internal.export import LogExportResult  # type: ignore
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session

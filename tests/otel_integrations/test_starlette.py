@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsJson
+from dirty_equals import IsAnyStr, IsJson
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
@@ -155,7 +155,9 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/ws/{name}',
                     'http.request.header.host': ('testserver',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept_encoding': ('gzip, deflate',),
+                    'http.request.header.accept_encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.request.header.user_agent': ('testclient',),
                     'http.request.header.connection': ('upgrade',),
                     'http.request.header.sec_websocket_key': ('testserver==',),
