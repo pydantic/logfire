@@ -73,11 +73,7 @@ async def test_mcp(exporter: TestExporter):
             )
         )
 
-        def logging_callback(params: Any):
-            logfire.log(params.level, 'MCP server log', attributes=dict(params=params))
-
         async with MyMCPServer(client_streams) as openai_mcp_server:
-            openai_mcp_server.session._logging_callback = logging_callback  # type: ignore
             agent = Agent(name='Assistant', mcp_servers=[openai_mcp_server])
             with warnings.catch_warnings(), trace('my_trace', trace_id='trace_123'):
                 # OpenAI accesses model_fields on an instance which is deprecated in Pydantic 2.11.
@@ -482,20 +478,8 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'MCP server log',
                     'logfire.msg': 'MCP server log',
-                    'code.filepath': 'test_openai_agents_mcp.py',
-                    'code.function': 'logging_callback',
-                    'code.lineno': 123,
-                    'params': {'meta': None, 'level': 'info', 'logger': None, 'data': 'Generating a random number'},
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'params': {
-                                'type': 'object',
-                                'title': 'LoggingMessageNotificationParams',
-                                'x-python-datatype': 'PydanticModel',
-                            }
-                        },
-                    },
+                    'data': 'Generating a random number',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'data': {}}},
                 },
             },
             {
