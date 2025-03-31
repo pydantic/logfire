@@ -337,7 +337,7 @@ def logfire_format_with_magic(
     except KnownFormattingError as e:
         warn_formatting(str(e) or str(e.__cause__))
     except FStringAwaitError as e:
-        warn_fstring_await(str(e) or str(e.__cause__))
+        warn_fstring_await(str(e))
     except Exception:
         # This is an unexpected error that likely indicates a bug in our logic.
         # Handle it here so that the span/log still gets created, just without a nice message.
