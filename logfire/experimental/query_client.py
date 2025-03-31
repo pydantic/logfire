@@ -65,9 +65,9 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.base_url = base_url
         self.read_token = read_token
         self.timeout = timeout
-        self.client: T = client(
-            timeout=timeout, base_url=base_url, headers={'authorization': read_token}, **client_kwargs
-        )
+        headers = client_kwargs.pop('headers', {})
+        headers['authorization'] = read_token
+        self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def build_query_params(
         self,

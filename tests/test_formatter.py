@@ -1,4 +1,5 @@
 import contextlib
+import sys
 from collections import ChainMap
 from types import SimpleNamespace
 from typing import Any, Mapping
@@ -6,8 +7,10 @@ from typing import Any, Mapping
 import pytest
 from inline_snapshot import snapshot
 
+import logfire
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
+from logfire.testing import TestExporter
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
@@ -178,3 +181,50 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
     assert len(caplog.records) == 1
     assert caplog.records[0].message.startswith('Caught an internal error in Logfire.')
     assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore
+
+
+@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
+@pytest.mark.anyio
+async def test_await_in_fstring(exporter: TestExporter):
+    """Test that logfire.info(f'{foo(await bar())}') evaluates the await expression and logs a warning."""
+
+    async def bar() -> str:
+        return 'content data'
+
+    def foo(x: str) -> str:
+        return x
+
+    with pytest.warns(FormattingFailedWarning) as warnings:
+        logfire.info(f'{foo(await bar())}')
+        [warning] = warnings
+        assert str(warning.message) == snapshot(
+            '\n'
+            '    Cannot evaluate await expression in f-string. Pre-evaluate the expression before logging.\n'
+            '    For example, change:\n'
+            '      logfire.info(f"{await get_value()}")\n'
+            '    To:\n'
+            '      value = await get_value()\n'
+            '      logfire.info(f"{value}")\n'
+            '    The problematic f-string value was: foo(await bar())'
+        )
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': f'{foo(await bar())}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': f'{foo(await bar())}',
+                    'logfire.msg': 'content data',
+                    'code.filepath': 'test_formatter.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_await_in_fstring',
+                },
+            }
+        ]
+    )

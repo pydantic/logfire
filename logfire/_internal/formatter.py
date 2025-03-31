@@ -336,6 +336,8 @@ def logfire_format_with_magic(
         return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
     except KnownFormattingError as e:
         warn_formatting(str(e) or str(e.__cause__))
+    except FStringAwaitError as e:
+        warn_fstring_await(str(e))
     except Exception:
         # This is an unexpected error that likely indicates a bug in our logic.
         # Handle it here so that the span/log still gets created, just without a nice message.
@@ -354,6 +356,12 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     3. Another code object which formats the value.
     """
     source = get_node_source_text(node.value, ex_source)
+
+    # Check if the expression contains await before attempting to compile
+    for sub_node in ast.walk(node.value):
+        if isinstance(sub_node, ast.Await):
+            raise FStringAwaitError(source)
+
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
         ast.JoinedStr(
@@ -435,6 +443,14 @@ class KnownFormattingError(Exception):
     """
 
 
+class FStringAwaitError(Exception):
+    """An error raised when an await expression is found in an f-string.
+
+    This is a specific case that can't be handled by f-string introspection and requires
+    pre-evaluating the await expression before logging.
+    """
+
+
 class FormattingFailedWarning(UserWarning):
     pass
 
@@ -447,5 +463,19 @@ def warn_formatting(msg: str):
         '      (2) passing a literal `str.format`-style template, not a preformatted string.\n'
         '    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.\n'
         f'    The problem was: {msg}',
+        category=FormattingFailedWarning,
+    )
+
+
+def warn_fstring_await(msg: str):
+    warn_at_user_stacklevel(
+        f'\n'
+        f'    Cannot evaluate await expression in f-string. Pre-evaluate the expression before logging.\n'
+        '    For example, change:\n'
+        '      logfire.info(f"{await get_value()}")\n'
+        '    To:\n'
+        '      value = await get_value()\n'
+        '      logfire.info(f"{value}")\n'
+        f'    The problematic f-string value was: {msg}',
         category=FormattingFailedWarning,
     )
