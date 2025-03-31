@@ -205,7 +205,7 @@ async def test_await_in_fstring(exporter: TestExporter):
             '    To:\n'
             '      value = await get_value()\n'
             '      logfire.info(f"{value}")\n'
-            '    The problem was: Cannot evaluate await expression in f-string: foo(await bar()). Pre-evaluate the expression before logging.'
+            '    The problematic f-string value was: foo(await bar())'
         )
 
     assert exporter.exported_spans_as_dict() == snapshot(

@@ -360,9 +360,7 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     # Check if the expression contains await before attempting to compile
     for sub_node in ast.walk(node.value):
         if isinstance(sub_node, ast.Await):
-            raise FStringAwaitError(
-                f'Cannot evaluate await expression in f-string: {source}. Pre-evaluate the expression before logging.'
-            )
+            raise FStringAwaitError(source)
 
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
@@ -478,6 +476,6 @@ def warn_fstring_await(msg: str):
         '    To:\n'
         '      value = await get_value()\n'
         '      logfire.info(f"{value}")\n'
-        f'    The problem was: {msg}',
+        f'    The problematic f-string value was: {msg}',
         category=FormattingFailedWarning,
     )
