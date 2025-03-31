@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs import LogData  # type: ignore
 
 import logfire
 from logfire._internal.exporters.wrapper import WrapperLogProcessor
