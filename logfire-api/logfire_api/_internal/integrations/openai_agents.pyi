@@ -1,10 +1,10 @@
 import contextvars
 from _typeshed import Incomplete
 from abc import abstractmethod
-from agents import Span, Trace
+from agents import Span, SpanData, Trace
 from agents.tracing import ResponseSpanData
 from agents.tracing.setup import TraceProvider
-from agents.tracing.spans import SpanData, SpanError, TSpanData
+from agents.tracing.spans import SpanError, TSpanData
 from dataclasses import dataclass
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
 from logfire._internal.formatter import logfire_format as logfire_format
