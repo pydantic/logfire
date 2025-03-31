@@ -36,20 +36,6 @@ except ImportError:
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 
 
-class MyMCPServer(_MCPServerWithClientSession):
-    def __init__(self, streams: Any):
-        super().__init__(False)
-        self._streams = streams
-
-    @asynccontextmanager
-    async def create_streams(self):
-        yield self._streams
-
-    @property
-    def name(self):
-        return 'MyMCPServer'
-
-
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_mcp(exporter: TestExporter):
@@ -72,6 +58,19 @@ async def test_mcp(exporter: TestExporter):
                 raise_exceptions=True,
             )
         )
+
+        class MyMCPServer(_MCPServerWithClientSession):
+            def __init__(self, streams: Any):
+                super().__init__(False)
+                self._streams = streams
+
+            @asynccontextmanager
+            async def create_streams(self):
+                yield self._streams
+
+            @property
+            def name(self):
+                return 'MyMCPServer'
 
         async with MyMCPServer(client_streams) as openai_mcp_server:
             agent = Agent(name='Assistant', mcp_servers=[openai_mcp_server])
