@@ -3589,7 +3589,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.7'), reason='Requires Pydantic 2.7 or higher')
 async def test_mcp(exporter: TestExporter):
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
 
     class MyMCPServer(_MCPServerWithClientSession):
@@ -3611,7 +3611,8 @@ async def test_mcp(exporter: TestExporter):
     fastmcp = FastMCP()
 
     @fastmcp.tool()
-    def random_number() -> int:  # type: ignore
+    async def random_number(ctx: Context) -> int:  # type: ignore
+        await ctx.info('Generating a random number')
         return 4
 
     async with create_client_server_memory_streams() as (client_streams, server_streams):
@@ -3624,9 +3625,13 @@ async def test_mcp(exporter: TestExporter):
             )
         )
 
+        def logging_callback(params: Any):
+            logfire.log(params.level, 'MCP server log', attributes=dict(params=params))
+
         async with MyMCPServer(client_streams) as openai_mcp_server:
+            openai_mcp_server.session._logging_callback = logging_callback  # type: ignore
             agent = Agent(name='Assistant', mcp_servers=[openai_mcp_server])
-            with warnings.catch_warnings():
+            with warnings.catch_warnings(), trace('my_trace', trace_id='trace_123'):
                 # OpenAI accesses model_fields on an instance which is deprecated in Pydantic 2.11.
                 # It catches the resulting exception so that nothing bubbles up here that can be tested.
                 warnings.simplefilter('ignore')
@@ -4019,11 +4024,38 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
+                'name': 'MCP server log',
+                'context': {'trace_id': 3, 'span_id': 17, 'is_remote': False},
+                'parent': None,
+                'start_time': 13000000000,
+                'end_time': 13000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'MCP server log',
+                    'logfire.msg': 'MCP server log',
+                    'code.filepath': 'test_openai_agents.py',
+                    'code.function': 'logging_callback',
+                    'code.lineno': 123,
+                    'params': {'meta': None, 'level': 'info', 'logger': None, 'data': 'Generating a random number'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'params': {
+                                'type': 'object',
+                                'title': 'LoggingMessageNotificationParams',
+                                'x-python-datatype': 'PydanticModel',
+                            }
+                        },
+                    },
+                },
+            },
+            {
                 'name': 'MCP request: tools/call random_number',
                 'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 12000000000,
-                'end_time': 13000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
@@ -4089,7 +4121,7 @@ async def test_mcp(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
                 'start_time': 11000000000,
-                'end_time': 14000000000,
+                'end_time': 15000000000,
                 'attributes': {
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
@@ -4113,10 +4145,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
-                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 18, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
-                'start_time': 15000000000,
-                'end_time': 16000000000,
+                'start_time': 16000000000,
+                'end_time': 17000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_mcp',
@@ -4328,7 +4360,7 @@ async def test_mcp(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
-                'end_time': 17000000000,
+                'end_time': 18000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_mcp',
@@ -4358,7 +4390,7 @@ async def test_mcp(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
-                'end_time': 18000000000,
+                'end_time': 19000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_mcp',
@@ -4369,7 +4401,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': IsStr(),
+                    'agent_trace_id': 'trace_8a93c264acff44bfa215d3565100ba5f',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
