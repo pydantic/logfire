@@ -54,6 +54,13 @@ class KnownFormattingError(Exception):
     In other words this should correspond to errors that would be raised when using `str.format`,
     and generally indicate a user error, most likely that they weren't trying to pass a template string at all.
     """
+class FStringAwaitError(Exception):
+    """An error raised when an await expression is found in an f-string.
+
+    This is a specific case that can't be handled by f-string introspection and requires
+    pre-evaluating the await expression before logging.
+    """
 class FormattingFailedWarning(UserWarning): ...
 
 def warn_formatting(msg: str): ...
+def warn_fstring_await(msg: str): ...

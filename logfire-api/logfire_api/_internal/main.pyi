@@ -401,6 +401,8 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
+    def instrument_mcp(self) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
         """Instrument Pydantic model validations.
 

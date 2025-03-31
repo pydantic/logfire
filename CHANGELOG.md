@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v3.12.0] (2025-03-31)
+
+* Add `logfire.instrument_mcp()` method by @alexmojaki in [#966](https://github.com/pydantic/logfire/pull/966)
+* Merge headers if passed via `client_kwargs` in query client by @Kludex in [#958](https://github.com/pydantic/logfire/pull/958)
+* Warn user if f-string expression contains `await` by @Sbargaoui in [#944](https://github.com/pydantic/logfire/pull/944)
+* Handle new MCP span in OpenAI Agents SDK by @alexmojaki in [#963](https://github.com/pydantic/logfire/pull/963)
+
 ## [v3.11.0] (2025-03-26)
 
 * Add `record_return` flag to `@logfire.instrument` by @alexmojaki in [#955](https://github.com/pydantic/logfire/pull/955)
@@ -649,3 +656,4 @@ First release from new repo!
 [v3.9.1]: https://github.com/pydantic/logfire/compare/v3.9.0...v3.9.1
 [v3.10.0]: https://github.com/pydantic/logfire/compare/v3.9.1...v3.10.0
 [v3.11.0]: https://github.com/pydantic/logfire/compare/v3.10.0...v3.11.0
+[v3.12.0]: https://github.com/pydantic/logfire/compare/v3.11.0...v3.12.0
