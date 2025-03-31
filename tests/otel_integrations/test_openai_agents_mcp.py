@@ -1,3 +1,6 @@
+# No from __future__ import annotations here
+# because it breaks `ctx: Context` being recognised by `@fastmcp.tool()` properly.
+
 import asyncio
 import os
 import sys
@@ -8,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 import pydantic
 import pytest
 
+import logfire
+from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import without_code_attrs
 
@@ -27,9 +32,6 @@ except ImportError:
     if TYPE_CHECKING:
         assert False
 
-
-import logfire
-from logfire._internal.exporters.test import TestExporter
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 
