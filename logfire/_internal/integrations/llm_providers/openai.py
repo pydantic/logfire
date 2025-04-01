@@ -89,7 +89,7 @@ def is_current_agent_span(*span_names: str):
 
 def content_from_completions(chunk: Completion | None) -> str | None:
     if chunk and chunk.choices:
-        return chunk.choices[0].text
+        return chunk.choices[0].delta.content
     return None  # pragma: no cover
 
 
@@ -108,7 +108,9 @@ class OpenaiCompletionStreamState(StreamState):
 
 try:
     # ChatCompletionStreamState only exists in openai>=1.40.0
-    from openai.lib.streaming.chat._completions import ChatCompletionStreamState  # type: ignore
+    from openai.lib.streaming.chat._completions import (
+        ChatCompletionStreamState,  # type: ignore
+    )
 
     class OpenaiChatCompletionStreamState(StreamState):
         def __init__(self):
