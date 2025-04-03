@@ -78,6 +78,12 @@ mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 
+[project.urls]
+Homepage = "https://logfire.pydantic.dev/"
+Source = "https://github.com/pydantic/logfire"
+Documentation = "https://logfire.pydantic.dev/docs/"
+Changelog = "https://logfire.pydantic.dev/docs/release-notes/"
+
 [project.scripts]
 logfire = "logfire.cli:main"
 
@@ -165,7 +171,7 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.0.2 ; python_full_version >= '3.9'",
+    "openai-agents[voice]>=0.0.7 ; python_full_version >= '3.9'",
     "pydantic-ai-slim>=0.0.39 ; python_full_version >= '3.9'",
 ]
 docs = [
