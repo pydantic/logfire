@@ -46,7 +46,7 @@ def instrument_mcp(logfire_instance: Logfire):
 
     original_received_notification = ClientSession._received_notification  # type: ignore
 
-    @functools.wraps(original_send_request)  # type: ignore
+    @functools.wraps(original_received_notification)
     async def _received_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
         with handle_internal_errors:
             if isinstance(notification.root, LoggingMessageNotification):  # pragma: no branch
