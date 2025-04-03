@@ -2402,7 +2402,7 @@ dev = [
     { name = "numpy", marker = "python_full_version < '3.9'", specifier = "<1.24.4" },
     { name = "numpy", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.58.1" },
-    { name = "openai-agents", extras = ["voice"], marker = "python_full_version >= '3.9'", specifier = ">=0.0.2" },
+    { name = "openai-agents", extras = ["voice"], marker = "python_full_version >= '3.9'", specifier = ">=0.0.7" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
