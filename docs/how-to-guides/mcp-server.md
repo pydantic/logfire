@@ -39,7 +39,7 @@ it by creating a `.cursor/mcp.json` file in your project root:
   "mcpServers": {
     "logfire": {
       "command": "uvx",
-      "args": ["logfire-mcp", "--logfire-read-token=YOUR-TOKEN"],
+      "args": ["logfire-mcp", "--read-token=YOUR-TOKEN"],
     }
   }
 }
