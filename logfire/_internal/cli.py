@@ -13,7 +13,7 @@ import warnings
 import webbrowser
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, Sequence
 from urllib.parse import urlparse
 
 import requests
@@ -23,11 +23,18 @@ from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
-from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
+from .auth import (
+    DEFAULT_FILE,
+    HOME_LOGFIRE,
+    UserTokenCollection,
+    default_token_collection,
+    poll_for_token,
+    request_device_code,
+)
+from .client import LogfireClient
 from .config import REGIONS, LogfireCredentials, get_base_url_from_token
 from .config_params import ParamManager
 from .tracer import SDKTracerProvider
-from .utils import read_toml_file
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -197,16 +204,14 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    logfire_url = args.logfire_url
-    if DEFAULT_FILE.is_file():
-        data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-    else:
-        data: DefaultFile = {'tokens': {}}
+    logfire_url: str | None = args.logfire_url
 
-    if logfire_url:
-        logged_in = is_logged_in(data, logfire_url)
+    if DEFAULT_FILE.is_file():
+        tokens_collection = default_token_collection()
     else:
-        logged_in = any(is_logged_in(data, url) for url in data['tokens'])
+        tokens_collection = UserTokenCollection.from_tokens({'tokens': {}})
+
+    logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:
         sys.stderr.writelines(
@@ -255,22 +260,20 @@ def parse_auth(args: argparse.Namespace) -> None:
         )
     )
 
-    data['tokens'][logfire_url] = poll_for_token(args._session, device_code, logfire_url)
+    tokens_collection.add_token(logfire_url, poll_for_token(args._session, device_code, logfire_url))
     sys.stderr.write('Successfully authenticated!\n')
 
-    # There's no standard library package to write TOML files, so we'll write it manually.
-    with DEFAULT_FILE.open('w') as f:
-        for url, info in data['tokens'].items():
-            f.write(f'[tokens."{url}"]\n')
-            f.write(f'token = "{info["token"]}"\n')
-            f.write(f'expiration = "{info["expiration"]}"\n')
-
+    tokens_collection.dump(DEFAULT_FILE)
     sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
 
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
-    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=args.logfire_url)
+    logfire_url: str | None = args.logfire_url
+    user_token = default_token_collection().get_token(logfire_url)
+    client = LogfireClient(user_token)
+
+    projects = client.get_user_projects()
     if projects:
         sys.stderr.write(
             _pretty_table(
@@ -299,42 +302,41 @@ def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api
 def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
-    logfire_url = args.logfire_url
-    if logfire_url is None:  # pragma: no cover
-        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
+    logfire_url: str | None = args.logfire_url
+    user_token = default_token_collection().get_token(logfire_url)
+    client = LogfireClient(user_token)
+
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
     project_info = LogfireCredentials.create_new_project(
-        session=args._session,
-        logfire_api_url=logfire_url,
+        client=client,
         organization=organization,
         default_organization=default_organization,
         project_name=project_name,
     )
-    credentials = _write_credentials(project_info, data_dir, logfire_url)
+    credentials = _write_credentials(project_info, data_dir, user_token.base_url)
     sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
 
 def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
-    logfire_url = args.logfire_url
-    if logfire_url is None:  # pragma: no cover
-        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
+    logfire_url: str | None = args.logfire_url
+    user_token = default_token_collection().get_token(logfire_url)
+    client = LogfireClient(user_token)
+
     project_name = args.project_name
     organization = args.org
-
-    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
+    projects = client.get_user_projects()
     project_info = LogfireCredentials.use_existing_project(
-        session=args._session,
-        logfire_api_url=logfire_url,
+        client=client,
         projects=projects,
         organization=organization,
         project_name=project_name,
     )
     if project_info:
-        credentials = _write_credentials(project_info, data_dir, logfire_url)
+        credentials = _write_credentials(project_info, data_dir, client.base_url)
         sys.stderr.write(
             f'Project configured successfully. You will be able to view it at: {credentials.project_url}\n'
         )
