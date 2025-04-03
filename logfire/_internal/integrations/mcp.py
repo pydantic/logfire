@@ -7,6 +7,8 @@ from mcp.client.session import ClientSession
 from mcp.shared.session import BaseSession
 from mcp.types import CallToolRequest, LoggingMessageNotification
 
+from logfire._internal.utils import handle_internal_errors
+
 if TYPE_CHECKING:
     from logfire import LevelName, Logfire
 
@@ -46,17 +48,18 @@ def instrument_mcp(logfire_instance: Logfire):
 
     @functools.wraps(original_send_request)  # type: ignore
     async def _received_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
-        if isinstance(notification.root, LoggingMessageNotification):
-            params = notification.root.params
-            level: LevelName
-            if params.level in ('critical', 'alert', 'emergency'):
-                level = 'fatal'
-            else:
-                level = params.level
-            span_name = 'MCP server log'
-            if params.logger:
-                span_name += f' from {params.logger}'
-            logfire_instance.log(level, 'MCP server log', attributes=dict(data=params.data))
+        with handle_internal_errors:
+            if isinstance(notification.root, LoggingMessageNotification):  # pragma: no branch
+                params = notification.root.params
+                level: LevelName
+                if params.level in ('critical', 'alert', 'emergency'):
+                    level = 'fatal'
+                else:
+                    level = params.level
+                span_name = 'MCP server log'
+                if params.logger:
+                    span_name += f' from {params.logger}'
+                logfire_instance.log(level, span_name, attributes=dict(data=params.data))
         await original_received_notification(self, notification, *args, **kwargs)
 
     ClientSession._received_notification = _received_notification  # type: ignore
