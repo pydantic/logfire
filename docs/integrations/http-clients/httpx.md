@@ -146,5 +146,54 @@ client.get('https://httpbin.org/get')
 
 You can also use the hooks to filter headers or modify them before capturing them.
 
+### Capture HTTP Bodies
+
+By default, **Logfire** doesn't capture HTTP bodies.
+
+#### Capture Request Body
+
+You can enable capturing the request body by setting the `capture_request_body` parameter to `True`.
+
+```py
+import httpx
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_request_body=True)
+
+client = httpx.Client()
+client.post("https://httpbin.org/post", data="Hello, World!")
+```
+
+#### Capture Response Body
+
+You can enable capturing the response body by setting the `capture_response_body` parameter to `True`.
+
+```py
+import httpx
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_response_body=True)
+
+client = httpx.Client()
+client.get("https://httpbin.org/get")
+```
+
+### Capture All Information
+
+You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
+
+```py
+import httpx
+import logfire
+
+logfire.configure()
+logfire.instrument_httpx(capture_all=True)
+
+client = httpx.Client()
+client.post("https://httpbin.org/post", data="Hello, World!")
+```
+
 [httpx]: https://www.python-httpx.org/
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
