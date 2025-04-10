@@ -39,7 +39,7 @@ it by creating a `.cursor/mcp.json` file in your project root:
   "mcpServers": {
     "logfire": {
       "command": "uvx",
-      "args": ["logfire-mcp", "--logfire-read-token=YOUR-TOKEN"],
+      "args": ["logfire-mcp", "--read-token=YOUR-TOKEN"],
     }
   }
 }
@@ -52,7 +52,7 @@ it by creating a `.cursor/mcp.json` file in your project root:
 For more detailed information, you can check the
 [Cursor documentation](https://docs.cursor.com/context/model-context-protocol).
 
-### Claude Desktop
+#### Claude Desktop
 
 [Claude Desktop](https://claude.ai/download) is a desktop application for the popular
 LLM Claude.
@@ -79,7 +79,7 @@ You can configure it to use the MCP server by adding the following configuration
 Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
 for more information.
 
-### Cline
+#### Cline
 
 [Cline](https://docs.cline.bot/) is a popular chatbot platform that supports MCP servers.
 
