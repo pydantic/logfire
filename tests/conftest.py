@@ -24,6 +24,9 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
+# Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
+os.environ['LOGFIRE_TOKEN'] = ''
+
 try:
     from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
