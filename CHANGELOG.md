@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.13.1] (2025-04-10)
+
+* Upgrade to OpenTelemetry SDK 1.32.0 by @alexmojaki in [#991](https://github.com/pydantic/logfire/pull/991)
+
 ## [v3.13.0] (2025-04-10)
 
 * Emit logs sent from MCP server to client by @alexmojaki in [#974](https://github.com/pydantic/logfire/pull/974)
@@ -663,3 +667,4 @@ First release from new repo!
 [v3.11.0]: https://github.com/pydantic/logfire/compare/v3.10.0...v3.11.0
 [v3.12.0]: https://github.com/pydantic/logfire/compare/v3.11.0...v3.12.0
 [v3.13.0]: https://github.com/pydantic/logfire/compare/v3.12.0...v3.13.0
+[v3.13.1]: https://github.com/pydantic/logfire/compare/v3.13.0...v3.13.1
