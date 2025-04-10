@@ -47,6 +47,9 @@ except ImportError:
 
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
+            
+            @property
+            def context(self): ...  # pragma: no cover
 
         class Logfire:
             def __getattr__(self, attr):
