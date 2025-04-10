@@ -52,6 +52,7 @@ Here's a simple manual tracing (aka logging) example:
 import logfire
 from datetime import date
 
+logfire.configure()
 logfire.info('Hello, {name}!', name='world')
 
 with logfire.span('Asking the user their {question}', question='age'):
