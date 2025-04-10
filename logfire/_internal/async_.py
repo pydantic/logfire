@@ -87,7 +87,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # `callback` is a bound method of a Task.
         # This is the common case for typical user code.
         # In particular this method is usually for advancing an async function (coroutine) to the next `await`.
-        coro: Any = task.get_coro()
+        coro: Any = task.get_coro()  # type: ignore
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
         if not isinstance(coro, CoroutineType):  # pragma: no cover
             return result

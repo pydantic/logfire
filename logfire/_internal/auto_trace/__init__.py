@@ -24,7 +24,7 @@ def install_auto_tracing(
     See `Logfire.install_auto_tracing` for more information.
     """
     if isinstance(modules, Sequence):
-        modules = modules_func_from_sequence(modules)
+        modules = modules_func_from_sequence(modules)  # type: ignore
 
     if not callable(modules):
         raise TypeError('modules must be a list of strings or a callable')

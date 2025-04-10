@@ -53,9 +53,11 @@ class ProxyTracerProvider(TracerProvider):
 
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(
+        default_factory=WeakKeyDictionary['_ProxyTracer', Callable[[], Tracer]]
+    )
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)
+    suppressed_scopes: set[str] = field(default_factory=set[str])
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:

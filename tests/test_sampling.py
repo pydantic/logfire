@@ -16,7 +16,7 @@ from logfire.testing import SeededRandomIdGenerator, TestExporter
 @dataclass
 class SpanNode:
     name: str | None = None
-    children: list[SpanNode] = field(default_factory=list)
+    children: list[SpanNode] = field(default_factory=list['SpanNode'])
 
 
 # TODO(Marcelo): Remove pragma when this file is covered by tests.
