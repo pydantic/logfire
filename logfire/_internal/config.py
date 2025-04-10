@@ -221,9 +221,9 @@ class PydanticPlugin:
     * `failure`: Send metrics for all validations and traces only for validation failures.
     * `metrics`: Send only metrics.
     """
-    include: set[str] = field(default_factory=set[str])
+    include: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
     """By default, third party modules are not instrumented. This option allows you to include specific modules."""
-    exclude: set[str] = field(default_factory=set[str])
+    exclude: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
     """Exclude specific modules from instrumentation."""
 
 

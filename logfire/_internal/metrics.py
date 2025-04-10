@@ -35,9 +35,9 @@ except ImportError:  # pragma: no cover
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):
     provider: MeterProvider
-    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet['_ProxyMeter'])
+    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet)  # type: ignore[reportUnknownVariableType]
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
 
     def get_meter(
         self,
