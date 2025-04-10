@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.13.0] (2025-04-10)
+
+* Emit logs sent from MCP server to client by @alexmojaki in [#974](https://github.com/pydantic/logfire/pull/974)
+* Return `None` from `logfire_api.LogfireSpan.context` when `logfire` could not be imported by @DouweM in [#983](https://github.com/pydantic/logfire/pull/983)
+
 ## [v3.12.0] (2025-03-31)
 
 * Add `logfire.instrument_mcp()` method by @alexmojaki in [#966](https://github.com/pydantic/logfire/pull/966)
@@ -657,3 +662,4 @@ First release from new repo!
 [v3.10.0]: https://github.com/pydantic/logfire/compare/v3.9.1...v3.10.0
 [v3.11.0]: https://github.com/pydantic/logfire/compare/v3.10.0...v3.11.0
 [v3.12.0]: https://github.com/pydantic/logfire/compare/v3.11.0...v3.12.0
+[v3.13.0]: https://github.com/pydantic/logfire/compare/v3.12.0...v3.13.0
