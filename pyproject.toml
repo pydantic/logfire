@@ -78,7 +78,7 @@ mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 pydantic-ai = ["pydantic-ai-slim>=0.0.39 ; python_full_version >= '3.9'"]
-openai-agents =["openai-agents>=0.0.7 ; python_full_version >= '3.9'"]
+openai-agents =["openai-agents>=0.0.9 ; python_full_version >= '3.9'"]
 mcp = ["mcp>=1.6.0 ; python_full_version >= '3.10'"]
 
 [project.urls]
@@ -174,7 +174,7 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.0.7 ; python_full_version >= '3.9'",
+    "openai-agents[voice]>=0.0.9 ; python_full_version >= '3.9'",
     "pydantic-ai-slim>=0.0.39 ; python_full_version >= '3.9'",
 ]
 docs = [
