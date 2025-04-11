@@ -25,6 +25,12 @@ def test_get_traceparent(exporter: TestExporter):
         extra={'agent_name': 'mock'},
     )
 
+    record_feedback(
+        traceparent,
+        'rudeness',
+        'very',
+    )
+
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
@@ -97,6 +103,26 @@ def test_get_traceparent(exporter: TestExporter):
                     'agent_name': 'mock',
                     'logfire.disable_console_log': True,
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"factuality":{},"agent_name":{},"logfire.feedback.comment":{},"logfire.span_type":{},"logfire.disable_console_log":{}}}',
+                },
+            },
+            {
+                'name': 'feedback: rudeness',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'annotation',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'feedback: rudeness',
+                    'logfire.msg': "feedback: rudeness = 'very'",
+                    'code.filepath': 'test_annotations.py',
+                    'code.function': 'test_get_traceparent',
+                    'code.lineno': 123,
+                    'logfire.feedback.name': 'rudeness',
+                    'rudeness': 'very',
+                    'logfire.disable_console_log': True,
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"rudeness":{},"logfire.span_type":{},"logfire.disable_console_log":{}}}',
                 },
             },
         ]
