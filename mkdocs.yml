@@ -314,7 +314,26 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+  - llmstxt:
+      enabled: !ENV [CI, false]
+      full_output: llms-full.txt
+      markdown_description: |-
+        From the team behind Pydantic, Logfire is an observability platform built on the same belief as our
+        open source library — that the most powerful tools can be easy to use.
+      sections:
+        General:
+          - index.md
+          - why.md
+          - concepts.md
+        How To - Guides:
+          - guides/*/*.md
+          - how-to-guides/*.md
+        Integrations:
+          - integrations/*.md
+          - integrations/*/*.md
+        Optional:
+          - roadmap.md
+          - release-notes.md
 hooks:
   - docs/plugins/main.py
-  - docs/plugins/build_llms_txt.py
   - docs/plugins/algolia.py
