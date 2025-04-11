@@ -29,7 +29,6 @@ def test_get_traceparent(exporter: TestExporter):
         extra_attributes={'agent_name': 'mock'},
     )
 
-    # TODO there shouldn't be a pending span for the annotation
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
