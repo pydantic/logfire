@@ -44,16 +44,17 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
         )
 
 
-def _record_feedback(  # type: ignore
+def record_feedback(
     traceparent: str,
     name: str,
     value: int | float | bool | str,
     comment: str | None = None,
     extra: dict[str, Any] | None = None,
-) -> None:  # pragma: no cover  # TODO
-    """VERY WIP, DO NOT USE.
+) -> None:
+    """Attach feedback to a span.
 
-    Evaluate a span with a given value and reason.
+    This is a more structured version of `raw_annotate_span`
+    with special attributes recognized by the Logfire UI.
 
     Args:
         traceparent: The traceparent string.
