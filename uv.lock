@@ -2230,8 +2230,14 @@ flask = [
 httpx = [
     { name = "opentelemetry-instrumentation-httpx" },
 ]
+mcp = [
+    { name = "mcp", marker = "python_full_version >= '3.10'" },
+]
 mysql = [
     { name = "opentelemetry-instrumentation-mysql" },
+]
+openai-agents = [
+    { name = "openai-agents", extra = ["voice"], marker = "python_full_version >= '3.9'" },
 ]
 psycopg = [
     { name = "opentelemetry-instrumentation-psycopg" },
@@ -2240,6 +2246,9 @@ psycopg = [
 psycopg2 = [
     { name = "opentelemetry-instrumentation-psycopg2" },
     { name = "packaging" },
+]
+pydantic-ai = [
+    { name = "pydantic-ai-slim", marker = "python_full_version >= '3.9'" },
 ]
 pymongo = [
     { name = "opentelemetry-instrumentation-pymongo" },
@@ -2378,6 +2387,8 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
+    { name = "mcp", marker = "python_full_version >= '3.10' and extra == 'mcp'", specifier = ">=1.6.0" },
+    { name = "openai-agents", extras = ["voice"], marker = "python_full_version >= '3.9' and extra == 'openai-agents'", specifier = ">=0.0.7" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0,<1.33.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
@@ -2404,11 +2415,12 @@ requires-dist = [
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
     { name = "protobuf", specifier = ">=4.23.4" },
+    { name = "pydantic-ai-slim", marker = "python_full_version >= '3.9' and extra == 'pydantic-ai'", specifier = ">=0.0.39" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
 ]
-provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda"]
+provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "pydantic-ai", "openai-agents", "mcp"]
 
 [package.metadata.requires-dev]
 dev = [
