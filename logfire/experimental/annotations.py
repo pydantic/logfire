@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from opentelemetry import context as otel_context
 from opentelemetry.trace import Span, set_span_in_context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import logfire
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, DISABLE_CONSOLE_KEY
-
-# from logfire.propagate import attach_context
+from logfire.propagate import attach_context
 
 TRACEPARENT_PROPAGATOR = TraceContextTextMapPropagator()
 TRACEPARENT_NAME = 'traceparent'
@@ -34,11 +32,7 @@ def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
 
 def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
     """TODO."""
-    old_context = otel_context.get_current()
-    # with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
-    new_context = TRACEPARENT_PROPAGATOR.extract(carrier={TRACEPARENT_NAME: traceparent})
-    try:
-        otel_context.attach(new_context)
+    with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
         feedback_logfire.info(
             span_name,
             **attributes,  # type: ignore
@@ -48,8 +42,6 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
                 DISABLE_CONSOLE_KEY: True,
             },
         )
-    finally:
-        otel_context.attach(old_context)
 
 
 def record_feedback(
