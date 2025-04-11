@@ -3,7 +3,11 @@ from opentelemetry.trace import get_current_span
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire.experimental.annotations import get_traceparent, raw_annotate_span, record_feedback
+from logfire.experimental.annotations import (
+    _record_feedback,  # type: ignore
+    get_traceparent,
+    raw_annotate_span,
+)
 
 
 def test_get_traceparent(exporter: TestExporter):
@@ -17,7 +21,7 @@ def test_get_traceparent(exporter: TestExporter):
 
     raw_annotate_span(traceparent, 'my_span_name', 'my_message', {'key': 'value'})
 
-    record_feedback(
+    _record_feedback(
         traceparent,
         'factuality',
         0.1,

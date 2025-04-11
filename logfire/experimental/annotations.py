@@ -44,14 +44,16 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
         )
 
 
-def record_feedback(
+def _record_feedback(  # type: ignore
     traceparent: str,
     name: str,
     value: int | float | bool | str,
     comment: str | None = None,
     extra_attributes: dict[str, Any] | None = None,
 ) -> None:
-    """Evaluate a span with a given value and reason.
+    """VERY WIP, DO NOT USE.
+
+    Evaluate a span with a given value and reason.
 
     Args:
         traceparent: The traceparent string.
