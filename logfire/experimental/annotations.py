@@ -50,7 +50,7 @@ def _record_feedback(  # type: ignore
     value: int | float | bool | str,
     comment: str | None = None,
     extra_attributes: dict[str, Any] | None = None,
-) -> None:
+) -> None:  # pragma: no cover  # TODO
     """VERY WIP, DO NOT USE.
 
     Evaluate a span with a given value and reason.
