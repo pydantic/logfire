@@ -44,16 +44,17 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
         )
 
 
-def _record_feedback(  # type: ignore
+def record_feedback(
     traceparent: str,
     name: str,
     value: int | float | bool | str,
     comment: str | None = None,
-    extra_attributes: dict[str, Any] | None = None,
-) -> None:  # pragma: no cover  # TODO
-    """VERY WIP, DO NOT USE.
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Attach feedback to a span.
 
-    Evaluate a span with a given value and reason.
+    This is a more structured version of `raw_annotate_span`
+    with special attributes recognized by the Logfire UI.
 
     Args:
         traceparent: The traceparent string.
@@ -61,22 +62,20 @@ def _record_feedback(  # type: ignore
         value: The value of the evaluation.
             Numbers are interpreted as scores, strings as labels, and booleans as assertions.
         comment: An optional reason for the evaluation.
-        extra_attributes: Optional additional attributes to include in the span.
+        extra: Optional additional attributes to include in the span.
     """
-    attributes: dict[str, Any] = {'feedback.name': name}
+    attributes: dict[str, Any] = {'logfire.feedback.name': name, name: value}
 
-    if isinstance(value, bool):
-        attributes['feedback.assertion'] = value
-    elif isinstance(value, (int, float)):
-        attributes['feedback.score'] = value
-    else:
-        assert isinstance(value, str), f'Value must be a string, int, float, or bool, not {type(value)}'
-        attributes['feedback.label'] = value
+    if extra:
+        assert name not in extra  # TODO check better
+        attributes.update(extra)
 
     if comment:
-        attributes['feedback.comment'] = comment
+        attributes['logfire.feedback.comment'] = comment
 
-    if extra_attributes:
-        attributes.update(extra_attributes)
-
-    raw_annotate_span(traceparent, 'feedback', f'feedback: {name}={value}', attributes)
+    raw_annotate_span(
+        traceparent,
+        f'feedback: {name}',
+        f'feedback: {name} = {value!r}',
+        attributes,
+    )
