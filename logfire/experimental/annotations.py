@@ -6,7 +6,7 @@ from opentelemetry.trace import Span, set_span_in_context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import logfire
-from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY, DISABLE_CONSOLE_KEY
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY
 from logfire.propagate import attach_context
 
 TRACEPARENT_PROPAGATOR = TraceContextTextMapPropagator()
@@ -39,7 +39,6 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
             **{
                 ATTRIBUTES_MESSAGE_KEY: message,
                 ATTRIBUTES_SPAN_TYPE_KEY: 'annotation',
-                DISABLE_CONSOLE_KEY: True,
             },
         )
 

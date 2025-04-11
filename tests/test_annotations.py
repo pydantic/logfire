@@ -79,8 +79,7 @@ def test_get_traceparent(exporter: TestExporter):
                     'code.function': 'test_get_traceparent',
                     'code.lineno': 123,
                     'key': 'value',
-                    'logfire.disable_console_log': True,
-                    'logfire.json_schema': '{"type":"object","properties":{"key":{},"logfire.span_type":{},"logfire.disable_console_log":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"key":{},"logfire.span_type":{}}}',
                 },
             },
             {
@@ -101,8 +100,7 @@ def test_get_traceparent(exporter: TestExporter):
                     'factuality': 0.1,
                     'logfire.feedback.comment': 'the mock agent lied',
                     'agent_name': 'mock',
-                    'logfire.disable_console_log': True,
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"factuality":{},"agent_name":{},"logfire.feedback.comment":{},"logfire.span_type":{},"logfire.disable_console_log":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"factuality":{},"agent_name":{},"logfire.feedback.comment":{},"logfire.span_type":{}}}',
                 },
             },
             {
@@ -121,8 +119,7 @@ def test_get_traceparent(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.feedback.name': 'rudeness',
                     'rudeness': 'very',
-                    'logfire.disable_console_log': True,
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"rudeness":{},"logfire.span_type":{},"logfire.disable_console_log":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.feedback.name":{},"rudeness":{},"logfire.span_type":{}}}',
                 },
             },
         ]
