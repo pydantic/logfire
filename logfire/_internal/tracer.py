@@ -286,7 +286,7 @@ class PendingSpanProcessor(SpanProcessor):
             return
 
         attributes = span.attributes
-        if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) == 'log':
+        if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) not in (None, 'span'):
             return
 
         real_span_context = span.get_span_context()
