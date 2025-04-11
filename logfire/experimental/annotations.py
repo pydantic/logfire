@@ -78,26 +78,3 @@ def record_feedback(
         attributes.update(extra_attributes)
 
     raw_annotate_span(traceparent, 'feedback', f'feedback: {name}={value}', attributes)
-
-
-def main():
-    """TODO."""
-    logfire.configure(
-        console=logfire.ConsoleOptions(verbose=True),
-        advanced=logfire.AdvancedOptions(base_url='http://localhost:8000'),
-        token='test-e2e-write-token',
-    )
-
-    with logfire.span('mock agent run') as span:
-        agent_run_traceparent = get_traceparent(span)
-
-    record_feedback(
-        agent_run_traceparent,
-        'factuality',
-        0.1,
-        comment='the mock agent lied',
-        extra_attributes={'agent_name': 'mock'},
-    )
-
-
-main()
