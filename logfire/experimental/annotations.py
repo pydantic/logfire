@@ -17,7 +17,7 @@ feedback_logfire = logfire.with_settings(custom_scope_suffix='feedback')
 
 
 def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
-    """TODO."""
+    """Get a string representing the span context to use for annotating spans."""
     real_span: Span
     if isinstance(span, Span):
         real_span = span
@@ -31,7 +31,7 @@ def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
 
 
 def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
-    """TODO."""
+    """Create a span of kind 'annotation' as a child of the span with the given traceparent."""
     with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
         feedback_logfire.info(
             span_name,
