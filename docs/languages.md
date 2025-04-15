@@ -1,5 +1,3 @@
-### Language Support
-
 Logfire is built on top of OpenTelemetry, which means that it supports all the languages that OpenTelemetry supports.
 
 In addition, we currently have custom SDKs for:
