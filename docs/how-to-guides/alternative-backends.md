@@ -54,6 +54,83 @@ with logfire.span('This is a span'):
 
 Finally open [http://localhost:16686/search?service=my_logfire_service](http://localhost:16686/search?service=my_logfire_service) to see the traces in the Jaeger UI.
 
+## Example with Langfuse
+
+Langfuse offers an [OpenTelemetry backend](https://langfuse.com/docs/opentelemetry/) that can receive trace data from Pydantic Logfire instrumentation to instrument your Pydantic AI agents.
+
+First, set the required environment variables.
+
+```python
+import os
+import base64
+
+LANGFUSE_PUBLIC_KEY = "pk-lf-..."
+LANGFUSE_SECRET_KEY = "sk-lf-..."
+LANGFUSE_AUTH = base64.b64encode(f"{LANGFUSE_PUBLIC_KEY}:{LANGFUSE_SECRET_KEY}".encode()).decode()
+
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://cloud.langfuse.com/api/public/otel" # EU data region
+# os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://us.cloud.langfuse.com/api/public/otel" # US data region
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
+
+# your openai key
+os.environ["OPENAI_API_KEY"] = "sk-..."
+```
+
+Now, initialize Logfire’s instrumentation and define a sample Pydantic AI agent that makes use of dependency injection and tool registration. 
+
+```python
+import nest_asyncio
+nest_asyncio.apply()
+```
+
+```python
+import logfire
+
+logfire.configure(
+    service_name='my_logfire_service',
+
+    # Sending to Logfire is on by default regardless of the OTEL env vars.
+    send_to_logfire=False,
+)
+```
+
+Make sure to pass `instrument=True` while configuring the `Agent`.
+
+```python
+from pydantic_ai import Agent, RunContext
+
+roulette_agent = Agent(
+    'openai:gpt-4o',
+    deps_type=int,
+    result_type=bool,
+    system_prompt=(
+        'Use the `roulette_wheel` function to see if the '
+        'customer has won based on the number they provide.'
+    ),
+    instrument=True
+)
+
+@roulette_agent.tool
+async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
+    """check if the square is a winner"""
+    return 'winner' if square == ctx.deps else 'loser'
+```
+
+Finally, run your agent and generate trace data that will be sent to Langfuse. 
+
+```python
+# Run the agent
+success_number = 18
+result = roulette_agent.run_sync('Put my money on square eighteen', deps=success_number)
+print(result.data)
+```
+
+You now can see the logs in Langfuse.
+
+[Example trace in Langfuse](https://cloud.langfuse.com/project/cloramnkj0002jz088vzn1ja4/traces/01958b00f28af691900a70f06c3196e5?timestamp=2025-03-12T15%3A37%3A29.994Z&observation=a0a7ab9127ea620f)
+
+![Pydantic AI OpenAI Trace](https://langfuse.com/images/cookbook/otel-integration-pydantic-ai/pydanticai-openai-trace-tree.png)
+
 ## Other environment variables
 
 If `OTEL_TRACES_EXPORTER` and/or `OTEL_METRICS_EXPORTER` are set to any non-empty value other than `otlp`, then **Logfire** will ignore the corresponding `OTEL_EXPORTER_OTLP_*` variables. This is because **Logfire** doesn't support other exporters, so we assume that the environment variables are intended to be used by something else. Normally you don't need to worry about this, and you don't need to set these variables at all unless you want to prevent **Logfire** from setting up these exporters.
