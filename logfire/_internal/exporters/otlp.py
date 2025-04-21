@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import random
 import time
 import uuid
@@ -12,6 +11,7 @@ from threading import Lock, Thread
 from typing import Any, Mapping, Sequence
 
 import requests.exceptions
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import LogData  # type: ignore
 from opentelemetry.sdk._logs._internal.export import LogExportResult  # type: ignore
 from opentelemetry.sdk.trace import ReadableSpan
@@ -20,23 +20,24 @@ from requests import Session
 
 import logfire
 
-from ..stack_info import STACK_INFO_KEYS
-from ..utils import logger, platform_is_emscripten, truncate_string
+from ..utils import logger, platform_is_emscripten
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 
+class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+    max_body_size = 5 * 1024 * 1024
+
+    def _serialize_spans(self, spans: Sequence[ReadableSpan]) -> bytes:
+        result = super()._serialize_spans(spans)  # type: ignore
+        if len(spans) > 1 and len(result) > self.max_body_size:
+            raise BodyTooLargeError(len(result), self.max_body_size)
+        return result
+
+
 class OTLPExporterHttpSession(Session):
-    """A requests.Session subclass that raises a BodyTooLargeError if the request body is too large.
-
-    Also defers failed requests to a DiskRetryer.
-    """
-
-    def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.max_body_size = max_body_size
+    """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
-        self._check_body_size(len(data))
         try:
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
@@ -64,10 +65,6 @@ class OTLPExporterHttpSession(Session):
         # Only create this when needed to save resources,
         # and because the full set of headers are only set some time after this session is created.
         return DiskRetryer(self.headers)
-
-    def _check_body_size(self, size: int) -> None:
-        if size > self.max_body_size:
-            raise BodyTooLargeError(size, self.max_body_size)
 
 
 def raise_for_retryable_status(response: requests.Response):
@@ -192,41 +189,14 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             return super().export(spans)
-        except BodyTooLargeError as e:
-            if len(spans) == 1:
-                self._log_too_large_span(e, spans[0])
-                return SpanExportResult.FAILURE
-
+        except BodyTooLargeError:
             half = len(spans) // 2
+            assert half > 0
             res1 = self.export(spans[:half])
             res2 = self.export(spans[half:])
             if res1 is not SpanExportResult.SUCCESS or res2 is not SpanExportResult.SUCCESS:
                 return SpanExportResult.FAILURE
             return SpanExportResult.SUCCESS
-
-    def _log_too_large_span(self, e: BodyTooLargeError, span: ReadableSpan) -> None:
-        original_attributes = span.attributes or {}
-        new_attributes: dict[str, Any] = {'size': e.size, 'max_size': e.max_size}
-
-        with contextlib.suppress(Exception):  # just being extra cautious
-            for key in STACK_INFO_KEYS:
-                if key in original_attributes:  # pragma: no branch
-                    value = original_attributes[key]
-                    if isinstance(value, str):
-                        value = truncate_string(value, max_length=300)
-                    new_attributes[key] = value
-
-        with contextlib.suppress(Exception):  # separate block to isolate effects of exceptions
-            new_attributes.update(
-                span_name=truncate_string(span.name, max_length=1000),
-                num_attributes=len(original_attributes),
-                num_events=len(span.events),
-                num_links=len(span.links),
-                num_event_attributes=sum(len(event.attributes or {}) for event in span.events),
-                num_link_attributes=sum(len(link.attributes or {}) for link in span.links),
-            )
-
-        logfire.error('Failed to export a span of size {size:,} bytes: {span_name}', **new_attributes)
 
 
 class BodyTooLargeError(Exception):

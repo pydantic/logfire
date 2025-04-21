@@ -6,7 +6,9 @@ import requests.exceptions
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
-from logfire._internal.exporters.otlp import BodyTooLargeError, OTLPExporterHttpSession
+from logfire._internal.exporters.otlp import (
+    OTLPExporterHttpSession,
+)
 
 
 class SinkHTTPAdapter(HTTPAdapter):
@@ -16,15 +18,6 @@ class SinkHTTPAdapter(HTTPAdapter):
         resp = Response()
         resp.status_code = 200
         return resp
-
-
-def test_max_body_size_bytes() -> None:
-    s = OTLPExporterHttpSession(max_body_size=10)
-    s.mount('http://', SinkHTTPAdapter())
-    s.post('http://example.com', data=b'1234567890')
-    with pytest.raises(BodyTooLargeError) as e:
-        s.post('http://example.com', data=b'1234567890XXX')
-    assert str(e.value) == 'Request body is too large (13 bytes), must be less than 10 bytes.'
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
@@ -45,7 +38,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             assert request.headers['Authorization'] == 'Bearer 123'
             return self.mock()
 
-    session = OTLPExporterHttpSession(max_body_size=10)
+    session = OTLPExporterHttpSession()
     headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
     session.headers.update(headers)
 

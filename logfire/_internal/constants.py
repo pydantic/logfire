@@ -173,9 +173,6 @@ CONTEXT_ATTRIBUTES_KEY = create_key('logfire.attributes')  # note this has a ran
 CONTEXT_SAMPLE_RATE_KEY = create_key('logfire.sample-rate')  # note this has a random suffix that OTEL adds
 """Key in the OTEL context that contains the current sample rate."""
 
-OTLP_MAX_BODY_SIZE = 1024 * 1024 * 5  # 5MB
-"""Maximum body size for an OTLP request. Both our backend and SDK enforce this limit."""
-
 MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT = 128
 """Maximum number of characters for formatted values in a logfire message."""
 
