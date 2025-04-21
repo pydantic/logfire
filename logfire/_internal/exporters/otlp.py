@@ -36,6 +36,9 @@ class OTLPExporterHttpSession(Session):
     def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.max_body_size = max_body_size
+        # We compress ourselves here instead of using `compression` in OTel exporters
+        # so that we can measure the body size before compression.
+        self.headers['Content-Encoding'] = 'gzip'
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
         self._check_body_size(len(data))

@@ -21,7 +21,6 @@ import requests
 from opentelemetry import trace
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider  # type: ignore
 from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
-from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # type: ignore
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -918,13 +917,7 @@ class LogfireConfig(_LogfireConfigData):
                         thread.start()
 
                     base_url = self.advanced.generate_base_url(self.token)
-                    headers = {
-                        'User-Agent': f'logfire/{VERSION}',
-                        'Authorization': self.token,
-                        # We compress ourselves in OTLPExporterHttpSession instead of
-                        # using `compression` in OTel exporters so that we can measure the body size before compression
-                        'Content-Encoding': Compression.Gzip.value,
-                    }
+                    headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                     session.headers.update(headers)
                     span_exporter = OTLPSpanExporter(

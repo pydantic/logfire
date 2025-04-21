@@ -47,6 +47,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             assert request.url == 'http://example.com/'
             assert request.headers['User-Agent'] == 'logfire'
             assert request.headers['Authorization'] == 'Bearer 123'
+            assert request.headers['Content-Encoding'] == 'gzip'
             return self.mock()
 
     session = OTLPExporterHttpSession(max_body_size=10)
