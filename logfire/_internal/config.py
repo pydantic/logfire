@@ -918,13 +918,18 @@ class LogfireConfig(_LogfireConfigData):
                         thread.start()
 
                     base_url = self.advanced.generate_base_url(self.token)
-                    headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
+                    headers = {
+                        'User-Agent': f'logfire/{VERSION}',
+                        'Authorization': self.token,
+                        # We compress ourselves in OTLPExporterHttpSession instead of
+                        # using `compression` in OTel exporters so that we can measure the body size before compression
+                        'Content-Encoding': Compression.Gzip.value,
+                    }
                     session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
                     session.headers.update(headers)
                     span_exporter = OTLPSpanExporter(
                         endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
-                        compression=Compression.Gzip,
                     )
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
@@ -949,7 +954,6 @@ class LogfireConfig(_LogfireConfigData):
                                         endpoint=urljoin(base_url, '/v1/metrics'),
                                         headers=headers,
                                         session=session,
-                                        compression=Compression.Gzip,
                                         # I'm pretty sure that this line here is redundant,
                                         # and that passing it to the QuietMetricExporter is what matters
                                         # because the PeriodicExportingMetricReader will read it from there.
@@ -960,10 +964,10 @@ class LogfireConfig(_LogfireConfigData):
                             )
                         )
 
+                    # TODO equivalent of RetryFewerSpansSpanExporter for logs
                     log_exporter = OTLPLogExporter(
                         endpoint=urljoin(base_url, '/v1/logs'),
                         session=session,
-                        compression=Compression.Gzip,
                     )
                     log_exporter = QuietLogExporter(log_exporter)
 

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import contextlib
+import gzip
 import random
 import time
 import uuid
 from collections import deque
 from functools import cached_property
+from io import BytesIO
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
@@ -37,6 +39,7 @@ class OTLPExporterHttpSession(Session):
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
         self._check_body_size(len(data))
+        data = compress(data)
         try:
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
@@ -75,6 +78,13 @@ def raise_for_retryable_status(response: requests.Response):
     # We want to do the retrying ourselves, so we raise an exception instead of returning.
     if response.status_code in (408, 429) or response.status_code >= 500:
         response.raise_for_status()
+
+
+def compress(data: bytes):
+    gzip_data = BytesIO()
+    with gzip.GzipFile(fileobj=gzip_data, mode='w') as gzip_stream:
+        gzip_stream.write(data)
+    return gzip_data.getvalue()
 
 
 class DiskRetryer:

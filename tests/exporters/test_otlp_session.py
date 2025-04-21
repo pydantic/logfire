@@ -1,3 +1,5 @@
+import gzip
+import io
 from typing import Any
 from unittest.mock import Mock
 
@@ -39,7 +41,9 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             self.mock = mock
 
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
-            assert request.body == b'123'
+            assert isinstance(request.body, bytes)
+            with gzip.GzipFile(fileobj=io.BytesIO(request.body)) as f:
+                assert f.read() == b'123'
             assert request.url == 'http://example.com/'
             assert request.headers['User-Agent'] == 'logfire'
             assert request.headers['Authorization'] == 'Bearer 123'
