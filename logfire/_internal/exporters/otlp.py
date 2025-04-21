@@ -197,6 +197,8 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             return super().export(spans)
         except BodyTooLargeError:
             half = len(spans) // 2
+            # BodySizeCheckingOTLPSpanExporter should only raise BodyTooLargeError for >1 span,
+            # otherwise it should just try exporting it.
             assert half > 0
             res1 = self.export(spans[:half])
             res2 = self.export(spans[half:])

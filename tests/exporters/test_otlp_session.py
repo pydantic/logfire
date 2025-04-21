@@ -2,13 +2,19 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import requests
 import requests.exceptions
+from inline_snapshot import snapshot
+from opentelemetry.sdk.trace.export import SpanExportResult
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
 from logfire._internal.exporters.otlp import (
+    BodySizeCheckingOTLPSpanExporter,
+    BodyTooLargeError,
     OTLPExporterHttpSession,
 )
+from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
 
 class SinkHTTPAdapter(HTTPAdapter):
@@ -18,6 +24,19 @@ class SinkHTTPAdapter(HTTPAdapter):
         resp = Response()
         resp.status_code = 200
         return resp
+
+
+def test_max_body_size_bytes() -> None:
+    session = OTLPExporterHttpSession()
+    session.mount('http://', SinkHTTPAdapter())
+    exporter = BodySizeCheckingOTLPSpanExporter(session=session)
+
+    assert exporter.export(TEST_SPANS) == SpanExportResult.SUCCESS
+
+    exporter.max_body_size = 10
+    with pytest.raises(BodyTooLargeError) as e:
+        exporter.export(TEST_SPANS)
+    assert str(e.value) == snapshot('Request body is too large (897045 bytes), must be less than 10 bytes.')
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
