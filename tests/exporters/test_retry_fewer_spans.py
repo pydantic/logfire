@@ -58,6 +58,7 @@ class SomeSpansTooLargeExporter(TestExporter):
                 if len(spans) > 1:
                     raise BodyTooLargeError(20_000_000, 5_000_000)
                 else:
+                    # RetryFewerSpansSpanExporter can only split if there's >1 span.
                     return SpanExportResult.FAILURE
         return super().export(spans)
 
