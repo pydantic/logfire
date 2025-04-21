@@ -25,11 +25,17 @@ from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+    # 5MB is significantly less than what our backend currently accepts,
+    # but smaller requests are faster and more reliable.
+    # This won't prevent bigger spans/payloads from being exported,
+    # it just tries to make each request smaller.
+    # This also helps in case the backend limit is reduced in the future.
     max_body_size = 5 * 1024 * 1024
 
     def _serialize_spans(self, spans: Sequence[ReadableSpan]) -> bytes:
         result = super()._serialize_spans(spans)  # type: ignore
         if len(spans) > 1 and len(result) > self.max_body_size:
+            # Tell outer RetryFewerSpansSpanExporter to split in half
             raise BodyTooLargeError(len(result), self.max_body_size)
         return result
 
