@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Sequence
 
 import pytest
-import requests
 from inline_snapshot import snapshot
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event, ReadableSpan
@@ -17,6 +16,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
+    OTLPExporterHttpSession,
     RetryFewerSpansSpanExporter,
 )
 from logfire.testing import TestExporter
@@ -105,10 +105,13 @@ def test_retry_fewer_spans_when_too_many():
     assert test_exporter.exported_spans == TEST_SPANS
 
 
-def test_max_body_size_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
-    session = requests.Session()
+def test_max_body_size_bytes() -> None:
+    session = OTLPExporterHttpSession()
     session.mount('http://', SinkHTTPAdapter())
     exporter = BodySizeCheckingOTLPSpanExporter(session=session)
+
+    assert exporter.export(TEST_SPANS) == SpanExportResult.SUCCESS
+
     exporter.max_body_size = 10
     with pytest.raises(BodyTooLargeError) as e:
         exporter.export(TEST_SPANS)
