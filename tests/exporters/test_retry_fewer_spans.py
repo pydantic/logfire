@@ -12,7 +12,10 @@ from opentelemetry.sdk.util.instrumentation import (
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.trace.status import Status, StatusCode
 
-from logfire._internal.exporters.otlp import BodyTooLargeError, RetryFewerSpansSpanExporter
+from logfire._internal.exporters.otlp import (
+    BodyTooLargeError,
+    RetryFewerSpansSpanExporter,
+)
 from logfire.testing import TestExporter
 
 RESOURCE = Resource.create({'service.name': 'test', 'telemetry.sdk.version': '1.0.0'})
@@ -52,7 +55,11 @@ class SomeSpansTooLargeExporter(TestExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in spans:
             if span.context and span.context.span_id in TOO_BIG_SPAN_IDS:
-                raise BodyTooLargeError(20_000_000, 5_000_000)
+                if len(spans) > 1:
+                    raise BodyTooLargeError(20_000_000, 5_000_000)
+                else:
+                    # RetryFewerSpansSpanExporter can only split if there's >1 span.
+                    return SpanExportResult.FAILURE
         return super().export(spans)
 
 
@@ -68,45 +75,6 @@ def test_retry_fewer_spans_with_some_spans_too_large(exporter: TestExporter):
     assert res is SpanExportResult.FAILURE
     assert underlying_exporter.exported_spans == [
         span for span in TEST_SPANS if span.context and span.context.span_id not in TOO_BIG_SPAN_IDS
-    ]
-
-    # For the too big spans, `logfire.error` is called once each in place of exporting the original span.
-    # In this test, the `logfire.error` call sends spans to the `exporter: TestExporter` fixture,
-    # which is separate from `underlying_exporter` and `retry_exporter`.
-    # In reality, one exporter would receive both the original (not too big) spans and the error logs.
-    assert exporter.exported_spans_as_dict(fixed_line_number=None, strip_filepaths=False) == [
-        {
-            'name': 'Failed to export a span of size {size:,} bytes: {span_name}',
-            'context': {'trace_id': error_log_span_id, 'span_id': error_log_span_id, 'is_remote': False},
-            'parent': None,
-            'start_time': error_log_span_id * 1000000000,
-            'end_time': error_log_span_id * 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': 17,
-                'logfire.msg_template': 'Failed to export a span of size {size:,} bytes: {span_name}',
-                'logfire.msg': f'Failed to export a span of size 20,000,000 bytes: test span name {too_big_span_id}',
-                'code.filepath': (
-                    'super/super/super/super/super/super/super/super/super/super/super/super/'
-                    'super/super/super/super/super/super/super/super/super/super/super/super/'
-                    'supe...per/super/super/super/super/super/super/super/super/super/super/'
-                    'super/super/super/super/super/super/super/super/super/super/super/super/'
-                    'long/path.py'
-                ),
-                'code.function': 'test_function',
-                'code.lineno': 321,
-                'size': 20_000_000,
-                'max_size': 5_000_000,
-                'span_name': f'test span name {too_big_span_id}',
-                'num_attributes': 4,
-                'num_events': 2,
-                'num_links': 0,
-                'num_event_attributes': 3,
-                'num_link_attributes': 0,
-                'logfire.json_schema': '{"type":"object","properties":{"size":{},"max_size":{},"span_name":{},"num_attributes":{},"num_events":{},"num_links":{},"num_event_attributes":{},"num_link_attributes":{}}}',
-            },
-        }
-        for error_log_span_id, too_big_span_id in enumerate(TOO_BIG_SPAN_IDS, start=1)
     ]
 
     retry_exporter.force_flush()

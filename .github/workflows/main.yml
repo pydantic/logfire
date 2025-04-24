@@ -93,7 +93,7 @@ jobs:
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - run: mkdir coverage
-      - run: uv run --no-sync coverage run -m pytest
+      - run: uv run --no-sync coverage run -m pytest --junitxml=coverage/test-results.xml
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
       - name: store coverage files
@@ -132,6 +132,11 @@ jobs:
           file: ./coverage.xml
           env_vars: PYTHON
       - run: uv run coverage report --fail-under 100
+      - name: Upload test results to Codecov
+        uses: codecov/test-results-action@v1
+        with:
+          files: coverage/test-results.xml
+
 
   test-pyodide:
     name: test on Pyodide

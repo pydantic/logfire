@@ -68,7 +68,6 @@ from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceConte
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
-    OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -84,7 +83,13 @@ from .exporters.console import (
     SimpleConsoleSpanExporter,
 )
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
-from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
+from .exporters.otlp import (
+    BodySizeCheckingOTLPSpanExporter,
+    OTLPExporterHttpSession,
+    QuietLogExporter,
+    QuietSpanExporter,
+    RetryFewerSpansSpanExporter,
+)
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -919,9 +924,9 @@ class LogfireConfig(_LogfireConfigData):
 
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                    session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
+                    session = OTLPExporterHttpSession()
                     session.headers.update(headers)
-                    span_exporter = OTLPSpanExporter(
+                    span_exporter = BodySizeCheckingOTLPSpanExporter(
                         endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
