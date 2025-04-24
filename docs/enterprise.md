@@ -52,7 +52,7 @@ Organizations with:
 
 Enterprise Self-Hosted customers receive:
 
-##### Installation & Configuration Guidance**
+##### Installation & Configuration Guidance
 - Production deployment best practices
 - Environment-specific recommendations
 
