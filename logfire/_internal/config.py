@@ -1748,6 +1748,12 @@ def get_base_url_from_token(token: str) -> str:
     region = 'us'
     if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
         region = match.group('region')
+
+        if region == 'stagingus':
+            return 'https://logfire-us.pydantic.info'
+        elif region == 'stagingeu':
+            return 'https://logfire-eu.pydantic.info'
+
         if region not in REGIONS:
             region = 'us'
 

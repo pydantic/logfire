@@ -50,6 +50,7 @@ from logfire._internal.config import (
     LogfireConfig,
     LogfireCredentials,
     _get_token_repr,  # type: ignore
+    get_base_url_from_token,
     sanitize_project_name,
 )
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
@@ -2272,3 +2273,8 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 
     assert exporter.export([]) == SpanExportResult.FAILURE
     assert not caplog.messages
+
+
+def test_staging_token_regions():
+    assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
+    assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'
