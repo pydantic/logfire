@@ -71,7 +71,7 @@ def instrument_llm_provider(
     try:
         original_request_method = client.request
         attr_name = 'request'
-    except AttributeError:
+    except AttributeError:  # pragma: no cover  # for older versions
         original_request_method = client._request
         attr_name = '_request'
 
