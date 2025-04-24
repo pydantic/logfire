@@ -1,6 +1,6 @@
 import logfire
 from _typeshed import Incomplete
-from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY
 from logfire.propagate import attach_context as attach_context
 from opentelemetry.trace import Span
 from typing import Any

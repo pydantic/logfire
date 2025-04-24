@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v3.14.1] (2025-04-24)
+
+* Handle changes in `openai` and `anthropic` by @alexmojaki in [#1030](https://github.com/pydantic/logfire/pull/1030)
+* Fix exporting of very large spans and payloads by @alexmojaki in [#1027](https://github.com/pydantic/logfire/pull/1027)
+* Prevent infinite loop in `get_user_frame_and_stacklevel` by @alexmojaki in [#1031](https://github.com/pydantic/logfire/pull/1031)
+
 ## [v3.14.0] (2025-04-11)
 
 * Experimental functions for recording feedback annotations
@@ -673,3 +679,4 @@ First release from new repo!
 [v3.13.0]: https://github.com/pydantic/logfire/compare/v3.12.0...v3.13.0
 [v3.13.1]: https://github.com/pydantic/logfire/compare/v3.13.0...v3.13.1
 [v3.14.0]: https://github.com/pydantic/logfire/compare/v3.13.1...v3.14.0
+[v3.14.1]: https://github.com/pydantic/logfire/compare/v3.14.0...v3.14.1
