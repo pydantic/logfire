@@ -68,15 +68,23 @@ def instrument_llm_provider(
     logfire_llm = logfire.with_settings(custom_scope_suffix=scope_suffix.lower(), tags=['LLM'])
 
     client._is_instrumented_by_logfire = True
-    client._original_request_method = original_request_method = client._request
+    try:
+        original_request_method = client.request
+        attr_name = 'request'
+    except AttributeError:
+        original_request_method = client._request
+        attr_name = '_request'
+
+    client._original_request_method = original_request_method
 
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
-    def _instrumentation_setup(**kwargs: Any) -> Any:
+    def _instrumentation_setup(*args: Any, **kwargs: Any) -> Any:
         if is_instrumentation_suppressed():
             return None, None, kwargs
 
-        message_template, span_data, stream_state_cls = get_endpoint_config_fn(kwargs['options'])
+        options = kwargs.get('options') or args[-1]
+        message_template, span_data, stream_state_cls = get_endpoint_config_fn(options)
         if not message_template:
             return None, None, kwargs
 
@@ -115,7 +123,7 @@ def instrument_llm_provider(
     # in the case where we instrument classes rather than client instances.
 
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
-        message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
+        message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
         stream = kwargs['stream']
@@ -128,7 +136,7 @@ def instrument_llm_provider(
                     return response
 
     async def instrumented_llm_request_async(*args: Any, **kwargs: Any) -> Any:
-        message_template, span_data, kwargs = _instrumentation_setup(**kwargs)
+        message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
         stream = kwargs['stream']
@@ -141,9 +149,10 @@ def instrument_llm_provider(
                     return response
 
     if is_async:
-        client._request = instrumented_llm_request_async
+        new_request_method = instrumented_llm_request_async
     else:
-        client._request = instrumented_llm_request_sync
+        new_request_method = instrumented_llm_request_sync
+    setattr(client, attr_name, new_request_method)
 
     @contextmanager
     def uninstrument_context():
@@ -156,7 +165,7 @@ def instrument_llm_provider(
         try:
             yield
         finally:
-            client._request = client._original_request_method  # type: ignore
+            setattr(client, attr_name, client._original_request_method)  # type: ignore
             del client._original_request_method
             client._is_instrumented_by_logfire = False
 

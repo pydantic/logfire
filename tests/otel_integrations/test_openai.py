@@ -1490,6 +1490,7 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
         model='dall-e-3',
         prompt='A picture of a cat.',
     )
+    assert response.data
     assert response.data[0].revised_prompt == 'revised prompt'
     assert response.data[0].url == 'https://example.com/image.jpg'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
