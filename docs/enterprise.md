@@ -7,8 +7,6 @@ In addition to the [Pro plan](https://pydantic.dev/pricing), Logfire has two ent
 - **Enterprise Cloud**: Fully managed, SLA-backed service
 - **Enterprise Self-Hosted**: On-premises deployment via Kubernetes
 
-> **Note:** The Helm chart for Pydantic Logfire is now [open source](https://github.com/pydantic/logfire-helm-chart)
-
 ## Enterprise Cloud
 
 ### Target Users
@@ -32,6 +30,8 @@ Organizations requiring:
 
 ## Enterprise Self-Hosted
 
+> **Note:** The Helm chart for Pydantic Logfire is now [open source](https://github.com/pydantic/logfire-helm-chart)
+
 ### Target Users
 
 Organizations with:
@@ -52,20 +52,17 @@ Organizations with:
 
 Enterprise Self-Hosted customers receive:
 
-1. **Installation & Configuration Guidance**
+##### Installation & Configuration Guidance**
+- Production deployment best practices
+- Environment-specific recommendations
 
-   - Production deployment best practices
-   - Environment-specific recommendations
+##### Ongoing Troubleshooting
+- Direct access to support engineers
+- Assistance with operational and performance issues
 
-2. **Ongoing Troubleshooting**
-
-   - Direct access to support engineers
-   - Assistance with operational and performance issues
-
-3. **Periodic Health Checks**
-
-   - Optional system assessments
-   - Optimization and update recommendations
+##### Periodic Health Checks
+- Optional system assessments
+- Optimization and update recommendations
 
 ## Technical Architecture
 
