@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any, Mapping, cast
 
 from opentelemetry import trace
-from opentelemetry.sdk._logs import LogData  # type: ignore
-from opentelemetry.sdk._logs._internal.export import LogExportResult  # type: ignore
-from opentelemetry.sdk._logs.export import InMemoryLogExporter  # type: ignore
+from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs._internal.export import LogExportResult
+from opentelemetry.sdk._logs.export import InMemoryLogExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.semconv.resource import ResourceAttributes

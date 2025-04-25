@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
 
 import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
-from opentelemetry.sdk._logs import LogRecord  # type: ignore
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link
