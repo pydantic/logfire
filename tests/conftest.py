@@ -9,7 +9,7 @@ from typing import Any
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
 from opentelemetry import trace
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor  # type: ignore
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator

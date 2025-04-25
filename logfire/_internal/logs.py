@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Any
 from weakref import WeakSet
 
-from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider  # type: ignore
+from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider
 from opentelemetry.util.types import Attributes
 
 

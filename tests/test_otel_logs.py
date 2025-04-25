@@ -7,14 +7,14 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
-from opentelemetry._events import Event, get_event_logger, get_event_logger_provider  # type: ignore
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider  # type: ignore
-from opentelemetry.sdk._logs import LogData  # type: ignore
+from opentelemetry._events import Event, get_event_logger, get_event_logger_provider
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry.sdk._logs import LogData
 from opentelemetry.sdk._logs.export import (
-    InMemoryLogExporter,  # type: ignore
-    LogExporter,  # type: ignore
-    LogExportResult,  # type: ignore
-    SimpleLogRecordProcessor,  # type: ignore
+    InMemoryLogExporter,
+    LogExporter,
+    LogExportResult,
+    SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.resources import Resource
 

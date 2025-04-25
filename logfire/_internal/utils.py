@@ -221,7 +221,7 @@ def get_version(version: str) -> Version:
 
     except ImportError:  # pragma: no cover
         # Trigger the sys.path change mentioned below, but discard this.
-        from setuptools._vendor.packaging.version import Version  # type: ignore
+        from setuptools._vendor.packaging.version import Version
 
         try:
             # See https://pydanticlogfire.slack.com/archives/C06EDRBSAH3/p1722017944332959
@@ -234,7 +234,7 @@ def get_version(version: str) -> Version:
 
         except ImportError:
             # sys.path is only changed in newer versions, so fallback to just importing the vendored Version directly.
-            from setuptools._vendor.packaging.version import Version  # type: ignore
+            from setuptools._vendor.packaging.version import Version
     return Version(version)  # type: ignore
 
 

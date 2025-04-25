@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 from textwrap import indent as indent_text
 from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
 
-from opentelemetry.sdk._logs import LogData, LogRecord  # type: ignore
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult  # type: ignore
+from opentelemetry.sdk._logs import LogData, LogRecord
+from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.util import types as otel_types

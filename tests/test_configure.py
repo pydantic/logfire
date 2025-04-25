@@ -18,16 +18,16 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import get_logger_provider  # type: ignore
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # type: ignore
+from opentelemetry._logs import get_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
-from opentelemetry.sdk._logs import LogRecordProcessor  # type: ignore
-from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor  # type: ignore
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor  # type: ignore
+from opentelemetry.sdk._logs import LogRecordProcessor
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (

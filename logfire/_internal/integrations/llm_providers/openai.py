@@ -108,7 +108,7 @@ class OpenaiCompletionStreamState(StreamState):
 
 try:
     # ChatCompletionStreamState only exists in openai>=1.40.0
-    from openai.lib.streaming.chat._completions import ChatCompletionStreamState  # type: ignore
+    from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
     class OpenaiChatCompletionStreamState(StreamState):
         def __init__(self):

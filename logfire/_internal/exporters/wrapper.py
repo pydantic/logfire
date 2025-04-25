@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Sequence, cast
 
 from opentelemetry import context
-from opentelemetry.sdk._logs import LogData, LogRecordProcessor  # type: ignore
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult  # type: ignore
+from opentelemetry.sdk._logs import LogData, LogRecordProcessor
+from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor

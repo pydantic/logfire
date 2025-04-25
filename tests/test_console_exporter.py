@@ -9,8 +9,8 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
-from opentelemetry._events import Event, get_event_logger  # type: ignore
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger  # type: ignore
+from opentelemetry._events import Event, get_event_logger
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
