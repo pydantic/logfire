@@ -59,16 +59,16 @@ Here is a sample query to compute those percentiles for HTTP requests duration:
 WITH dataset AS (
   SELECT
     time_bucket('%time_bucket_duration%', start_timestamp) AS x,
-    (extract(ms from end_timestamp - start_timestamp)) as duration_ms
+    duration * 1000 as duration_ms
   FROM records
   WHERE attributes ? 'http.method'
 )
 SELECT
   x,
-  approx_percentile_cont(duration_ms, 0.50) as percentile_50,
-  approx_percentile_cont(duration_ms, 0.90) as percentile_90,
-  approx_percentile_cont(duration_ms, 0.95) as percentile_95,
-  approx_percentile_cont(duration_ms, 0.99) as percentile_99
+  approx_percentile_cont(0.50) WITHIN GROUP (ORDER BY duration_ms) as percentile_50,
+  approx_percentile_cont(0.90) WITHIN GROUP (ORDER BY duration_ms) as percentile_90,
+  approx_percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) as percentile_95,
+  approx_percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms) as percentile_99
 FROM dataset
 GROUP BY x
 ORDER BY x
