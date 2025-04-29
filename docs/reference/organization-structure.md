@@ -71,7 +71,7 @@ org to a personal org.
 | Convert to normal org | ✅ (one-way)                       | — |
 
 ### Which Org Type Should You Use?
-Whilst you *can* use your personal org for production use-cases (e.g. if you
+While you *can* use your personal org for production use-cases (e.g. if you
 are working alone or in a small team), you may wish to switch your personal org to a normal org if you are working
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
