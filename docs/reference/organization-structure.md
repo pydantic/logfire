@@ -58,8 +58,8 @@ If a user is invited to join a project, they become a **member** of the project,
 ## Organization Types
 
 Logfire has a similar structure to Github in that you have a personal org, and then can create
-and/or belong to many other normal (i.e. non-personal) orgs. Both org types are functionally the same in that
-you can invite others to join them.
+and/or belong to many other normal (i.e. non-personal) orgs. Both org types are functionally the same (e.g. you
+can invite others to join any type of org).
 
 ### Which Org Type Should You Use?
 Whilst you *can* use your personal org for production use-cases (e.g. if you
