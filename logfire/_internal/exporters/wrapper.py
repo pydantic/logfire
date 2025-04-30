@@ -6,8 +6,7 @@ from typing import Any, Sequence, cast
 from opentelemetry import context
 from opentelemetry.sdk._logs import LogData, LogRecordProcessor
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
-from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
-from opentelemetry.sdk.metrics.view import Aggregation
+from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult, MetricsData
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -36,10 +35,11 @@ class WrapperMetricExporter(MetricExporter):
     def __init__(
         self,
         exporter: MetricExporter,
-        preferred_temporality: dict[type, AggregationTemporality] | None = None,
-        preferred_aggregation: dict[type, Aggregation] | None = None,
     ) -> None:
-        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # type: ignore
+        super().__init__(  # type: ignore
+            preferred_temporality=exporter._preferred_temporality,
+            preferred_aggregation=exporter._preferred_aggregation,  # type: ignore
+        )
         self.wrapped_exporter = exporter
 
     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
