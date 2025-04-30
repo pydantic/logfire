@@ -901,18 +901,31 @@ class LogfireConfig(_LogfireConfigData):
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
                 if not self.token:
-                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
+                    try:
+                        credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
-                    # if we still don't have a token, try initializing a new project and writing a new creds file
-                    # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    if self.send_to_logfire is True and credentials is None:
-                        client = LogfireClient.from_url(self.advanced.base_url)
-                        credentials = LogfireCredentials.initialize_project(client=client)
-                        credentials.write_creds_file(self.data_dir)
+                        # if we still don't have a token, try initializing a new project and writing a new creds file
+                        # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
+                        if self.send_to_logfire is True and credentials is None:
+                            client = LogfireClient.from_url(self.advanced.base_url)
+                            credentials = LogfireCredentials.initialize_project(client=client)
+                            credentials.write_creds_file(self.data_dir)
 
-                    if credentials is not None:
-                        self.token = credentials.token
-                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                            if credentials is not None:
+                                self.token = credentials.token
+                                self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                    except LogfireConfigError:
+                        if self.advanced.base_url is not None and self.advanced.base_url.startswith('grpc://'):
+                            # if sending to a custom GRPC endpoint, we allow no
+                            # token (advanced use case, maybe e.g. otel
+                            # collector which has the token configured there)
+                            pass
+                        else:
+                            raise
+
+                base_url = None
+                # NB: grpc (http/2) requires headers to be lowercase
+                headers = {'user-agent': f'logfire/{VERSION}'}
 
                 if self.token:
 
@@ -929,14 +942,74 @@ class LogfireConfig(_LogfireConfigData):
                         thread.start()
 
                     base_url = self.advanced.generate_base_url(self.token)
-                    headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                    session = OTLPExporterHttpSession()
-                    session.headers.update(headers)
-                    span_exporter = BodySizeCheckingOTLPSpanExporter(
-                        endpoint=urljoin(base_url, '/v1/traces'),
-                        session=session,
-                        compression=Compression.Gzip,
-                    )
+                    headers['authorization'] = self.token
+                elif (
+                    self.send_to_logfire is True
+                    and (provided_base_url := self.advanced.base_url) is not None
+                    and provided_base_url.startswith('grpc')
+                ):
+                    # We may not need a token if we are sending to a grpc
+                    # endpoint; it could be an otel collector acting as a proxy
+                    base_url = provided_base_url
+
+                if base_url is not None:
+                    if base_url.startswith('grpc://'):
+                        from grpc import Compression as GrpcCompression
+                        from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+                            OTLPLogExporter as GrpcOTLPLogExporter,
+                        )
+                        from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                            OTLPMetricExporter as GrpcOTLPMetricExporter,
+                        )
+                        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                            OTLPSpanExporter as GrpcOTLPSpanExporter,
+                        )
+
+                        span_exporter = GrpcOTLPSpanExporter(
+                            endpoint=base_url, headers=headers, compression=GrpcCompression.Gzip
+                        )
+                        metric_exporter = GrpcOTLPMetricExporter(
+                            endpoint=base_url,
+                            headers=headers,
+                            compression=GrpcCompression.Gzip,
+                            # I'm pretty sure that this line here is redundant,
+                            # and that passing it to the QuietMetricExporter is what matters
+                            # because the PeriodicExportingMetricReader will read it from there.
+                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                        )
+                        log_exporter = GrpcOTLPLogExporter(
+                            endpoint=base_url,
+                            headers=headers,
+                            compression=GrpcCompression.Gzip,
+                        )
+                    elif base_url.startswith('http://') or base_url.startswith('https://'):
+                        session = OTLPExporterHttpSession()
+                        session.headers.update(headers)
+                        span_exporter = BodySizeCheckingOTLPSpanExporter(
+                            endpoint=urljoin(base_url, '/v1/traces'),
+                            session=session,
+                            compression=Compression.Gzip,
+                        )
+                        metric_exporter = OTLPMetricExporter(
+                            endpoint=urljoin(base_url, '/v1/metrics'),
+                            headers=headers,
+                            session=session,
+                            compression=Compression.Gzip,
+                            # I'm pretty sure that this line here is redundant,
+                            # and that passing it to the QuietMetricExporter is what matters
+                            # because the PeriodicExportingMetricReader will read it from there.
+                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                        )
+                        log_exporter = OTLPLogExporter(
+                            endpoint=urljoin(base_url, '/v1/logs'),
+                            session=session,
+                            compression=Compression.Gzip,
+                        )
+                    else:
+                        raise ValueError(
+                            "Invalid base_url: {base_url}. Must start with 'http://', 'https://', or 'grpc://'."
+                        )
+
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
@@ -949,30 +1022,17 @@ class LogfireConfig(_LogfireConfigData):
 
                     # TODO should we warn here if we have metrics but we're in emscripten?
                     # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
+                    # (The point is that PeriodicExportingMetricReader uses threads which fail in Pyodide / Emscripten)
                     if metric_readers is not None and not emscripten:
                         metric_readers.append(
                             PeriodicExportingMetricReader(
                                 QuietMetricExporter(
-                                    OTLPMetricExporter(
-                                        endpoint=urljoin(base_url, '/v1/metrics'),
-                                        headers=headers,
-                                        session=session,
-                                        compression=Compression.Gzip,
-                                        # I'm pretty sure that this line here is redundant,
-                                        # and that passing it to the QuietMetricExporter is what matters
-                                        # because the PeriodicExportingMetricReader will read it from there.
-                                        preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                    ),
+                                    metric_exporter,
                                     preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                                 )
                             )
                         )
 
-                    log_exporter = OTLPLogExporter(
-                        endpoint=urljoin(base_url, '/v1/logs'),
-                        session=session,
-                        compression=Compression.Gzip,
-                    )
                     log_exporter = QuietLogExporter(log_exporter)
 
                     if emscripten:  # pragma: no cover
