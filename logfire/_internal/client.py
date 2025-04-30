@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urljoin
 
 from requests import Response, Session
+from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
+from .auth import UserToken, UserTokenCollection, default_token_collection
 from .utils import UnexpectedResponse
-
-if TYPE_CHECKING:
-    from .auth import UserToken
-
 
 UA_HEADER = f'logfire/{VERSION}'
 
@@ -27,6 +25,12 @@ class InvalidProjectName(Exception):
 
 
 class LogfireClient:
+    """A Logfire HTTP client to interact with the API.
+
+    Args:
+        user_token: The user token to use when authenticating against the API.
+    """
+
     def __init__(self, user_token: UserToken) -> None:
         if user_token.is_expired:
             raise RuntimeError
@@ -34,6 +38,20 @@ class LogfireClient:
         self._token = user_token.token
         self._session = Session()
         self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
+
+    @classmethod
+    def from_url(cls, base_url: str | None, token_collection: UserTokenCollection | None = None) -> Self:
+        """Create a client from the provided base URL.
+
+        Args:
+            base_url: The base URL to use when looking for a user token. If `None`, will prompt
+                the user into selecting a token from the token collection (or, if only one available,
+                use it directly).
+            token_collection: The token collection to use when looking for the user token. Defaults
+                to the default token collection from `~/.logfire/default.toml`.
+        """
+        token_collection = token_collection or default_token_collection()
+        return cls(user_token=token_collection.get_token(base_url))
 
     def _get(self, endpoint: str) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint))

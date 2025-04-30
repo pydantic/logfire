@@ -209,7 +209,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     if DEFAULT_FILE.is_file():
         tokens_collection = default_token_collection()
     else:
-        tokens_collection = UserTokenCollection.from_tokens({'tokens': {}})
+        tokens_collection = UserTokenCollection.empty()
 
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
@@ -270,8 +270,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     logfire_url: str | None = args.logfire_url
-    user_token = default_token_collection().get_token(logfire_url)
-    client = LogfireClient(user_token)
+    client = LogfireClient.from_url(logfire_url)
 
     projects = client.get_user_projects()
     if projects:
@@ -303,8 +302,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
     logfire_url: str | None = args.logfire_url
-    user_token = default_token_collection().get_token(logfire_url)
-    client = LogfireClient(user_token)
+    client = LogfireClient.from_url(logfire_url)
 
     project_name = args.project_name
     organization = args.org
@@ -315,7 +313,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
         default_organization=default_organization,
         project_name=project_name,
     )
-    credentials = _write_credentials(project_info, data_dir, user_token.base_url)
+    credentials = _write_credentials(project_info, data_dir, client.base_url)
     sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
 
@@ -323,8 +321,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
     logfire_url: str | None = args.logfire_url
-    user_token = default_token_collection().get_token(logfire_url)
-    client = LogfireClient(user_token)
+    client = LogfireClient.from_url(logfire_url)
 
     project_name = args.project_name
     organization = args.org

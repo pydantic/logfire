@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import platform
+import re
 import sys
 import warnings
 from dataclasses import dataclass
@@ -30,6 +31,29 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 """File used to store user tokens."""
 
 
+PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
+    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
+)
+
+
+class _RegionData(TypedDict):
+    base_url: str
+    gcp_region: str
+
+
+REGIONS: dict[str, _RegionData] = {
+    'us': {
+        'base_url': 'https://logfire-us.pydantic.dev',
+        'gcp_region': 'us-east4',
+    },
+    'eu': {
+        'base_url': 'https://logfire-eu.pydantic.dev',
+        'gcp_region': 'europe-west4',
+    },
+}
+"""The existing Logfire regions."""
+
+
 class UserTokenData(TypedDict):
     """User token data."""
 
@@ -37,7 +61,7 @@ class UserTokenData(TypedDict):
     expiration: str
 
 
-class TokensFileData(TypedDict):
+class UserTokensFileData(TypedDict):
     """Content of the file containing the user tokens."""
 
     tokens: dict[str, UserTokenData]
@@ -87,43 +111,46 @@ class UserToken:
 @dataclass
 class UserTokenCollection:
     """A collection of user tokens."""
-    user_tokens: list[UserToken]
+
+    user_tokens: dict[str, UserToken]
+    """A mapping between base URLs and user tokens."""
 
     @classmethod
-    def from_tokens(cls, tokens: TokensFileData) -> Self:
-        return cls(
-            user_tokens=[
-                UserToken.from_user_token_data(url, data)  # pyright: ignore[reportArgumentType], waiting for PEP 728
-                for url, data in tokens.items()
-            ]
-        )
+    def empty(cls) -> Self:
+        """Create an empty user token collection."""
+        return cls(user_tokens={})
+
+    @classmethod
+    def from_file_data(cls, file_data: UserTokensFileData) -> Self:
+        return cls(user_tokens={url: UserToken(base_url=url, **data) for url, data in file_data['tokens'].items()})
 
     @classmethod
     def from_tokens_file(cls, file: Path) -> Self:
-        return cls.from_tokens(cast(TokensFileData, read_toml_file(file)))
+        return cls.from_file_data(cast(UserTokensFileData, read_toml_file(file)))
 
     def get_token(self, base_url: str | None = None) -> UserToken:
+        tokens_list = list(self.user_tokens.values())
         if base_url is not None:
-            token = next((t for t in self.user_tokens if t.base_url == base_url), None)
+            token = next((t for t in tokens_list if t.base_url == base_url), None)
             if token is None:
                 raise LogfireConfigError(
                     f'No user token was found matching the {base_url} Logfire URL. '
                     'Please run `logfire auth` to authenticate.'
                 )
         else:
-            if len(self.user_tokens) == 1:
-                token = self.user_tokens[0]
-            elif len(self.user_tokens) >= 2:
+            if len(tokens_list) == 1:
+                token = tokens_list[0]
+            elif len(tokens_list) >= 2:
                 choices_str = '\n'.join(
                     f'{i}. {token} ({"expired" if token.is_expired else "valid"})'
-                    for i, token in enumerate(self.user_tokens, start=1)
+                    for i, token in enumerate(tokens_list, start=1)
                 )
                 int_choice = IntPrompt.ask(
                     f'Multiple user tokens found. Please select one:\n{choices_str}\n',
-                    choices=[str(i) for i in range(1, len(self.user_tokens) + 1)],
+                    choices=[str(i) for i in range(1, len(tokens_list) + 1)],
                 )
-                token = self.user_tokens[int_choice - 1]
-            else:  # self.user_tokens == []
+                token = tokens_list[int_choice - 1]
+            else:  # tokens_list == []
                 raise LogfireConfigError('No user tokens are available. Please run `logfire auth` to authenticate.')
 
         if token.is_expired:
@@ -132,28 +159,21 @@ class UserTokenCollection:
 
     def is_logged_in(self, base_url: str | None = None) -> bool:
         if base_url is not None:
-            tokens = (t for t in self.user_tokens if t.base_url == base_url)
+            tokens = (t for t in self.user_tokens.values() if t.base_url == base_url)
         else:
-            tokens = self.user_tokens
+            tokens = self.user_tokens.values()
         return any(not t.is_expired for t in tokens)
 
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
-        existing_token = next((t for t in self.user_tokens if t.base_url == base_url), None)
-        if existing_token:
-            token_index = self.user_tokens.index(existing_token)
-            self.user_tokens.remove(existing_token)
-        else:
-            token_index = len(self.user_tokens)
-
         user_token = UserToken.from_user_token_data(base_url, token)
-        self.user_tokens.insert(token_index, user_token)
+        self.user_tokens[base_url] = UserToken.from_user_token_data(base_url, token)
         return user_token
 
     def dump(self, path: Path) -> None:
         # There's no standard library package to write TOML files, so we'll write it manually.
         with path.open('w') as f:
-            for user_token in self.user_tokens:
-                f.write(f'[tokens."{user_token.base_url}"]\n')
+            for base_url, user_token in self.user_tokens.items():
+                f.write(f'[tokens."{base_url}"]\n')
                 f.write(f'token = "{user_token.token}"\n')
                 f.write(f'expiration = "{user_token.expiration}"\n')
 

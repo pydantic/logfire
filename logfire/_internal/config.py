@@ -65,7 +65,6 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from .auth import default_token_collection
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -897,8 +896,7 @@ class LogfireConfig(_LogfireConfigData):
                     # if we still don't have a token, try initializing a new project and writing a new creds file
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
-                        user_token = default_token_collection().get_token(self.advanced.base_url)
-                        client = LogfireClient(user_token)
+                        client = LogfireClient.from_url(self.advanced.base_url)
                         credentials = LogfireCredentials.initialize_project(client=client)
                         credentials.write_creds_file(self.data_dir)
 
@@ -1594,23 +1592,6 @@ def _print_summary(message: str, min_content_width: int) -> None:
 def _get_creds_file(creds_dir: Path) -> Path:
     """Get the path to the credentials file."""
     return creds_dir / CREDENTIALS_FILENAME
-
-
-def _get_token_repr(url: str, token: str) -> str:
-    region = 'us'
-    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
-        region = match.group('region')
-        if region not in REGIONS:
-            region = 'us'
-
-    token_repr = f'{region.upper()} ({url}) - '
-    if match:
-        # new_token, include prefix and 5 chars
-        token_repr += match.group('safe_part') + match.group('token')[:5]
-    else:
-        token_repr += token[:5]
-    token_repr += '****'
-    return token_repr
 
 
 def get_base_url_from_token(token: str) -> str:
