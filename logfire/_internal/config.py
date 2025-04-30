@@ -972,9 +972,6 @@ class LogfireConfig(_LogfireConfigData):
                             endpoint=base_url,
                             headers=headers,
                             compression=GrpcCompression.Gzip,
-                            # I'm pretty sure that this line here is redundant,
-                            # and that passing it to the QuietMetricExporter is what matters
-                            # because the PeriodicExportingMetricReader will read it from there.
                             preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                         )
                         log_exporter = GrpcOTLPLogExporter(
@@ -995,9 +992,6 @@ class LogfireConfig(_LogfireConfigData):
                             headers=headers,
                             session=session,
                             compression=Compression.Gzip,
-                            # I'm pretty sure that this line here is redundant,
-                            # and that passing it to the QuietMetricExporter is what matters
-                            # because the PeriodicExportingMetricReader will read it from there.
                             preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                         )
                         log_exporter = OTLPLogExporter(
@@ -1028,6 +1022,11 @@ class LogfireConfig(_LogfireConfigData):
                             PeriodicExportingMetricReader(
                                 QuietMetricExporter(
                                     metric_exporter,
+                                    # NB this could really be retrieved from `metric_exporter` by `QuietMetricExporter`,
+                                    # but it is currently a private attribute on `MetricExporter`, we preferred not to reach
+                                    # inside the otel SDK details.
+                                    #
+                                    # Just make sure it always matches.
                                     preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                                 )
                             )
