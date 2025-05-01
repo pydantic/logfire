@@ -254,7 +254,7 @@ class CodeSource:
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
     root_path: str = ''
-    """The root path for the source code in the repository.
+    """The path from the root of the repository to the current working directory of the process.
 
     If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
