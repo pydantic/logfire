@@ -282,6 +282,8 @@ filterwarnings = [
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
     "ignore:The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
+    # kombu using deprecated redis API
+    "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
