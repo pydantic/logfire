@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 import pytest
+from dirty_equals import IsStr
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -123,7 +124,7 @@ async def test_mcp(exporter: TestExporter):
                             'resources': {'subscribe': False, 'listChanged': False},
                             'tools': {'listChanged': False},
                         },
-                        'serverInfo': {'name': 'FastMCP', 'version': '1.6.0'},
+                        'serverInfo': {'name': 'FastMCP', 'version': IsStr()},
                         'instructions': None,
                     },
                     'logfire.json_schema': {
@@ -238,6 +239,7 @@ async def test_mcp(exporter: TestExporter):
                                 'name': 'random_number',
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'annotations': None,
                             }
                         ],
                     },
