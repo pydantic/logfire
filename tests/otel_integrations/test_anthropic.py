@@ -150,12 +150,14 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'code.function': 'test_sync_messages',
                     'code.lineno': 123,
                     'request_data': IsJson(
-                        {
-                            'max_tokens': 1000,
-                            'system': 'You are a helpful assistant.',
-                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
-                            'model': 'claude-3-haiku-20240307',
-                        }
+                        snapshot(
+                            {
+                                'max_tokens': 1000,
+                                'system': 'You are a helpful assistant.',
+                                'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                                'model': 'claude-3-haiku-20240307',
+                            }
+                        )
                     ),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -163,37 +165,42 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                     'response_data': IsJson(
-                        {
-                            'message': {
-                                'content': 'Nine',
-                                'role': 'assistant',
-                            },
-                            'usage': {
-                                'input_tokens': 2,
-                                'output_tokens': 3,
-                                'cache_creation_input_tokens': None,
-                                'cache_read_input_tokens': None,
-                            },
-                        }
+                        snapshot(
+                            {
+                                'message': {
+                                    'content': 'Nine',
+                                    'role': 'assistant',
+                                },
+                                'usage': {
+                                    'input_tokens': 2,
+                                    'output_tokens': 3,
+                                    'cache_creation_input_tokens': None,
+                                    'cache_read_input_tokens': None,
+                                    'server_tool_use': None,
+                                },
+                            }
+                        )
                     ),
                     'logfire.json_schema': IsJson(
-                        {
-                            'type': 'object',
-                            'properties': {
-                                'request_data': {'type': 'object'},
-                                'async': {},
-                                'response_data': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'usage': {
-                                            'type': 'object',
-                                            'title': 'Usage',
-                                            'x-python-datatype': 'PydanticModel',
+                        snapshot(
+                            {
+                                'type': 'object',
+                                'properties': {
+                                    'request_data': {'type': 'object'},
+                                    'async': {},
+                                    'response_data': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'usage': {
+                                                'type': 'object',
+                                                'title': 'Usage',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                         },
                                     },
                                 },
-                            },
-                        }
+                            }
+                        )
                     ),
                 },
             }
@@ -236,18 +243,21 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                     'response_data': IsJson(
-                        {
-                            'message': {
-                                'content': 'Nine',
-                                'role': 'assistant',
-                            },
-                            'usage': {
-                                'input_tokens': 2,
-                                'output_tokens': 3,
-                                'cache_creation_input_tokens': None,
-                                'cache_read_input_tokens': None,
-                            },
-                        }
+                        snapshot(
+                            {
+                                'message': {
+                                    'content': 'Nine',
+                                    'role': 'assistant',
+                                },
+                                'usage': {
+                                    'input_tokens': 2,
+                                    'output_tokens': 3,
+                                    'cache_creation_input_tokens': None,
+                                    'cache_read_input_tokens': None,
+                                    'server_tool_use': None,
+                                },
+                            }
+                        )
                     ),
                     'logfire.json_schema': IsJson(
                         {
@@ -485,7 +495,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3}}',
+                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3,"server_tool_use":null}}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
                 },
             }
