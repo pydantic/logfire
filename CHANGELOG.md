@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.15.0] (2025-05-08)
+
+* Remove attributes from `http.server.active_requests` metric to prevent emitting too many by @alexmojaki in [#1060](https://github.com/pydantic/logfire/pull/1060)
+  * This is technically a breaking change as it means less data is sent to Logfire, but most users don't use it and some will save a significant amount of money.
+
 ## [v3.14.1] (2025-04-24)
 
 * Handle changes in `openai` and `anthropic` by @alexmojaki in [#1030](https://github.com/pydantic/logfire/pull/1030)
@@ -680,3 +685,4 @@ First release from new repo!
 [v3.13.1]: https://github.com/pydantic/logfire/compare/v3.13.0...v3.13.1
 [v3.14.0]: https://github.com/pydantic/logfire/compare/v3.13.1...v3.14.0
 [v3.14.1]: https://github.com/pydantic/logfire/compare/v3.14.0...v3.14.1
+[v3.15.0]: https://github.com/pydantic/logfire/compare/v3.14.1...v3.15.0
