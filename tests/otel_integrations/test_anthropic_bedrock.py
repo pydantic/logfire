@@ -95,18 +95,21 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                     'response_data': IsJson(
-                        {
-                            'message': {
-                                'content': 'Nine',
-                                'role': 'assistant',
-                            },
-                            'usage': {
-                                'input_tokens': 2,
-                                'output_tokens': 3,
-                                'cache_creation_input_tokens': None,
-                                'cache_read_input_tokens': None,
-                            },
-                        }
+                        snapshot(
+                            {
+                                'message': {
+                                    'content': 'Nine',
+                                    'role': 'assistant',
+                                },
+                                'usage': {
+                                    'input_tokens': 2,
+                                    'output_tokens': 3,
+                                    'cache_creation_input_tokens': None,
+                                    'cache_read_input_tokens': None,
+                                    'server_tool_use': None,
+                                },
+                            }
+                        )
                     ),
                     'logfire.json_schema': IsJson(
                         {
