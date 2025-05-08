@@ -35,7 +35,6 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                         {
                             'attributes': {
                                 'http.method': 'GET',
-                                'http.server_name': 'testserver',
                                 'http.scheme': 'http',
                                 'http.flavor': '1.1',
                                 'http.request.method': 'GET',

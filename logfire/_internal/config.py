@@ -1024,7 +1024,18 @@ class LogfireConfig(_LogfireConfigData):
                         View(
                             instrument_type=Histogram,
                             aggregation=ExponentialBucketHistogramAggregation(),
-                        )
+                        ),
+                        View(
+                            instrument_type=UpDownCounter,
+                            instrument_name='http.server.active_requests',
+                            attribute_keys={
+                                'url.scheme',
+                                'http.scheme',
+                                'http.flavor',
+                                'http.method',
+                                'http.request.method',
+                            },
+                        ),
                     ],
                 )
             else:
