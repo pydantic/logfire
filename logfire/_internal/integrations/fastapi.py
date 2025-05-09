@@ -20,11 +20,12 @@ from starlette.websockets import WebSocket
 from ..main import Logfire, set_user_attributes_on_raw_span
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import handle_internal_errors, maybe_capture_server_headers
-from .asgi import tweak_asgi_spans_tracer_provider
 
 try:
     from opentelemetry.instrumentation.asgi import ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    from .asgi import tweak_asgi_spans_tracer_provider
 except ImportError:
     raise RuntimeError(
         'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
