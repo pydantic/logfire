@@ -8,7 +8,6 @@ from opentelemetry.sdk._logs import LogData as LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExportResult, LogExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
-from opentelemetry.util import types as otel_types
 from typing import Mapping, TextIO
 
 ConsoleColorsValues: Incomplete
@@ -16,7 +15,7 @@ TextParts = list[tuple[str, str]]
 
 @dataclass
 class Record:
-    attributes: Mapping[str, otel_types.AttributeValue]
+    attributes: Mapping[str, object]
     timestamp: int
     message: str
     events: Sequence[Event]
