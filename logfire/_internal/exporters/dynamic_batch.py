@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 
 from opentelemetry.sdk.environment_variables import OTEL_BSP_SCHEDULE_DELAY
 from opentelemetry.sdk.trace import ReadableSpan
@@ -10,7 +9,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
 
-@dataclass(init=False)
 class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     """A wrapper around a BatchSpanProcessor that dynamically adjusts the schedule delay.
 
