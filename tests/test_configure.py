@@ -54,6 +54,7 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
@@ -598,7 +599,9 @@ def test_configure_export_delay() -> None:
             )
             wait_for_check_token_thread()
 
-        batch_span_processor, *_ = get_span_processors()
+        dynamic_batch_span_processor, *_ = get_span_processors()
+        assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
+        batch_span_processor = dynamic_batch_span_processor.processor
         assert isinstance(batch_span_processor, BatchSpanProcessor)
 
         batch_span_processor.span_exporter = TrackingExporter()
@@ -608,13 +611,21 @@ def test_configure_export_delay() -> None:
         for delay in exp.export_delays:
             assert min_delay < delay < max_delay, f'delay was {delay}, which is not between {min_delay} and {max_delay}'
 
-    # test the default value
+    # test the default behaviour
     exporter = configure_tracking_exporter()
+    for _ in range(10):
+        logfire.info('test')
+    sleep(0.1)
+    # Initially the delay is 100 ms
+    check_delays(exporter, 0.1, 0.4)
+
+    exporter.export_delays.clear()
     while not exporter.export_delays:
         with logfire.span('test'):
             pass
         sleep(0.1)
-    check_delays(exporter, 0.4, 1.0)  # our default is 500ms
+    # After the first 10 spans, we increase to 500ms by default
+    check_delays(exporter, 0.4, 1.0)
 
     # test a very small value
     with patch.dict(os.environ, {'OTEL_BSP_SCHEDULE_DELAY': '1'}):
@@ -1537,8 +1548,9 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(console_span_processor, SimpleSpanProcessor)
     assert isinstance(console_span_processor.span_exporter, ShowParentsConsoleSpanExporter)
 
-    assert isinstance(send_to_logfire_processor, BatchSpanProcessor)
-    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.processor, BatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.processor.span_exporter, RemovePendingSpansExporter)
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)

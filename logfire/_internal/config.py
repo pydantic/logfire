@@ -31,7 +31,6 @@ from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogReco
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
-    OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
@@ -82,6 +81,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from .exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
@@ -486,13 +486,6 @@ def configure(  # noqa: D417
         return DEFAULT_LOGFIRE_INSTANCE
 
 
-def _get_int_from_env(env_var: str) -> int | None:
-    value = os.getenv(env_var)
-    if not value:
-        return None
-    return int(value)  # pragma: no cover
-
-
 @dataclasses.dataclass
 class _LogfireConfigData:
     """Data-only parent class for LogfireConfig.
@@ -850,9 +843,12 @@ class LogfireConfig(_LogfireConfigData):
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 main_multiprocessor.add_span_processor(span_processor)
+                inner_span_processor = span_processor
+                while isinstance(p := getattr(inner_span_processor, 'processor', None), SpanProcessor):
+                    inner_span_processor = p
 
                 has_pending = isinstance(
-                    getattr(span_processor, 'span_exporter', None),
+                    getattr(inner_span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
                 if has_pending:
@@ -934,14 +930,11 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                     if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
                     else:
-                        logfire_processor = BatchSpanProcessor(
-                            span_exporter, schedule_delay_millis=schedule_delay_millis
-                        )
+                        logfire_processor = DynamicBatchSpanProcessor(span_exporter)
                     add_span_processor(logfire_processor)
 
                     # TODO should we warn here if we have metrics but we're in emscripten?
