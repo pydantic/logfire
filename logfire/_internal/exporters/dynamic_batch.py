@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import cast
 
 from opentelemetry.sdk.environment_variables import OTEL_BSP_SCHEDULE_DELAY
 from opentelemetry.sdk.trace import ReadableSpan
@@ -27,6 +28,5 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     def on_end(self, span: ReadableSpan) -> None:
         self.num_processed += 1
         if self.num_processed == 10:
-            assert isinstance(self.processor, BatchSpanProcessor)
-            self.processor.schedule_delay_millis = self.final_delay
+            cast(BatchSpanProcessor, self.processor).schedule_delay_millis = self.final_delay
         super().on_end(span)
