@@ -18,7 +18,6 @@ from opentelemetry.sdk._logs import LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.util import types as otel_types
 from rich.columns import Columns
 from rich.console import Console, Group
 from rich.syntax import Syntax
@@ -52,7 +51,7 @@ TextParts = List[Tuple[str, str]]
 
 @dataclass
 class Record:
-    attributes: Mapping[str, otel_types.AttributeValue]
+    attributes: Mapping[str, object]
     timestamp: int
     message: str
     events: Sequence[Event]
@@ -476,7 +475,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         return parts
 
 
-def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) -> int | None:
+def _pending_span_parent(attributes: Mapping[str, object]) -> int | None:
     """Pending span marks the start of a span.
 
     Since they're nested within another span we haven't seen yet,

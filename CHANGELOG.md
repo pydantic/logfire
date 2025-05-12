@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.15.1] (2025-05-12)
+
+* Support OpenTelemetry SDK 1.33.0 by @alexmojaki in [#1067](https://github.com/pydantic/logfire/pull/1067)
+
 ## [v3.15.0] (2025-05-08)
 
 * Remove attributes from `http.server.active_requests` metric to prevent emitting too many by @alexmojaki in [#1060](https://github.com/pydantic/logfire/pull/1060)
@@ -686,3 +690,4 @@ First release from new repo!
 [v3.14.0]: https://github.com/pydantic/logfire/compare/v3.13.1...v3.14.0
 [v3.14.1]: https://github.com/pydantic/logfire/compare/v3.14.0...v3.14.1
 [v3.15.0]: https://github.com/pydantic/logfire/compare/v3.14.1...v3.15.0
+[v3.15.1]: https://github.com/pydantic/logfire/compare/v3.15.0...v3.15.1
