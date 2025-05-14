@@ -69,8 +69,12 @@ class JsonArgsValueFormatter:
                 if (data_type := schema.get('x-python-datatype')) is None:
                     if schema['type'] == 'object':
                         self._format_items('{', ': ', '}', True, indent_current, value, None)
-                    else:
+                    elif schema['type'] == 'array':
                         self._format_list_like('[', ']', indent_current, value, schema)
+                    else:
+                        # e.g. {'type': 'string', 'format': 'date-time'}
+                        # or {'type': 'null'}
+                        self._write('', '', False, 0, value, None)
                 else:
                     func = self._data_type_map.get(data_type)
                     assert func is not None, f'Unknown data type {data_type}'

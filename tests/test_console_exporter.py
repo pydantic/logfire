@@ -1,8 +1,10 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import decimal
 import io
 import sys
+from datetime import datetime
 from typing import Any
 from unittest import mock
 
@@ -933,3 +935,27 @@ def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
                 "│ x='[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1'",
             ]
         )
+
+
+def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    logfire.info(
+        'hi',
+        d=datetime(2020, 12, 31, 12, 34, 56),
+        x=None,
+        v=decimal.Decimal('1.0'),
+    )
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            IsStr(),
+            '│ d=2020-12-31T12:34:56',
+            '│ x=None',
+            '│ v=1.0',
+        ]
+    )
