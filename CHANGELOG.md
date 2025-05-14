@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v3.16.0] (2025-05-14)
+
+* Make OpenAI spans show token usage in logfire UI by @alexmojaki in [#1076](https://github.com/pydantic/logfire/pull/1076)
+* Fixes for verbose console logging by @alexmojaki in [#1071](https://github.com/pydantic/logfire/pull/1071) and [#1072](https://github.com/pydantic/logfire/pull/1072)
+* Export first batch of spans more quickly by @alexmojaki in [#1066](https://github.com/pydantic/logfire/pull/1066)
+* Tighten scrubbing patterns to reduce accidental matches by @alexmojaki in [#1074](https://github.com/pydantic/logfire/pull/1074)
+* Add `do_not_scrub` and `binary_content` as safe keys for scrubber by @alexmojaki in [#1075](https://github.com/pydantic/logfire/pull/1075)
+
 ## [v3.15.1] (2025-05-12)
 
 * Support OpenTelemetry SDK 1.33.0 by @alexmojaki in [#1067](https://github.com/pydantic/logfire/pull/1067)
@@ -691,3 +699,4 @@ First release from new repo!
 [v3.14.1]: https://github.com/pydantic/logfire/compare/v3.14.0...v3.14.1
 [v3.15.0]: https://github.com/pydantic/logfire/compare/v3.14.1...v3.15.0
 [v3.15.1]: https://github.com/pydantic/logfire/compare/v3.15.0...v3.15.1
+[v3.16.0]: https://github.com/pydantic/logfire/compare/v3.15.1...v3.16.0
