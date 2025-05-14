@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import sys
 from typing import Any
+from unittest import mock
 
 import pytest
 from dirty_equals import IsStr
@@ -914,3 +915,21 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
             "{'key': 'value'}",
         ]
     )
+
+
+def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
+    with mock.patch.dict('os.environ', {'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT': '70'}):
+        logfire.configure(
+            send_to_logfire=False,
+            console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+        )
+
+        logfire.info('hi', x=[1] * 100)
+
+        assert capsys.readouterr().out.splitlines() == snapshot(
+            [
+                'hi',
+                IsStr(),
+                "│ x='[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1'",
+            ]
+        )
