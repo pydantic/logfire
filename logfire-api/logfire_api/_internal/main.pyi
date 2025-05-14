@@ -926,6 +926,8 @@ class Logfire:
     def metric_counter_callback(self, name: str, *, callbacks: Sequence[CallbackT], unit: str = '', description: str = '') -> None:
         """Create a counter metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
@@ -964,6 +966,8 @@ class Logfire:
     def metric_gauge_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
 
         ```py
@@ -999,6 +1003,8 @@ class Logfire:
         """
     def metric_up_down_counter_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
+
+        The callback is called every 60 seconds in a background thread.
 
         The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
         down.
