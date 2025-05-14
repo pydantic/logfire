@@ -144,19 +144,31 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
+    span.set_attribute('gen_ai.system', 'openai')
+
+    if isinstance(response_model := getattr(response, 'model', None), str):
+        span.set_attribute('gen_ai.request.model', response_model)  # we don't have the actual request model here
+        span.set_attribute('gen_ai.response.model', response_model)
+
+    usage = getattr(response, 'usage', None)
+    if isinstance(input_tokens := getattr(usage, 'prompt_tokens', None), int):
+        span.set_attribute('gen_ai.usage.input_tokens', input_tokens)
+    if isinstance(output_tokens := getattr(usage, 'completion_tokens', None), int):
+        span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
+
     if isinstance(response, ChatCompletion) and response.choices:
         span.set_attribute(
             'response_data',
-            {'message': response.choices[0].message, 'usage': response.usage},
+            {'message': response.choices[0].message, 'usage': usage},
         )
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
         span.set_attribute(
             'response_data',
-            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': response.usage},
+            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
         )
     elif isinstance(response, CreateEmbeddingResponse):
-        span.set_attribute('response_data', {'usage': response.usage})
+        span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):  # pragma: no branch
         span.set_attribute('response_data', {'images': response.data})
     return response
