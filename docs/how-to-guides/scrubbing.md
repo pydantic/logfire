@@ -30,8 +30,11 @@ logfire.info('Hello', data={
 
 Here are the default scrubbing patterns:
 
-`'password'`, `'passwd'`, `'mysql_pwd'`, `'secret'`, `'auth'`, `'credential'`, `'private[._ -]?key'`, `'api[._ -]?key'`,
-`'session'`, `'cookie'`, `'csrf'`, `'xsrf'`, `'jwt'`, `'ssn'`, `'social[._ -]?security'`, `'credit[._ -]?card'`
+```python
+['password', 'passwd', 'mysql_pwd', 'secret', 'auth(?!ors?\\b)', 'credential', 'private[._ -]?key', 'api[._ -]?key',
+ 'session', 'cookie', 'social[._ -]?security', 'credit[._ -]?card', '(?:\\b|_)csrf(?:\\b|_)', '(?:\\b|_)xsrf(?:\\b|_)',
+ '(?:\\b|_)jwt(?:\\b|_)', '(?:\\b|_)ssn(?:\\b|_)']
+```
 
 ## Scrubbing less with a callback
 
