@@ -1,4 +1,4 @@
-"""Testing utilities for Logfire."""
+"""Testing utilities for Logfire. See [the guide](https://logfire.pydantic.dev/docs/reference/advanced/testing/) for examples."""
 
 from __future__ import annotations
 

@@ -154,7 +154,8 @@ You can read more about the Gauge metric in the [OpenTelemetry documentation][ga
 
 ### Callback Metrics
 
-Callback metrics, or observable metrics, are a way to create metrics that are automatically updated based on a time interval.
+Callback metrics, or observable metrics, are a way to create metrics that are automatically emitted every 60 seconds in
+a background thread.
 
 #### Counter Callback
 
