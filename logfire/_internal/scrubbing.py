@@ -140,6 +140,8 @@ class BaseScrubber(ABC):
         SpanAttributes.URL_QUERY,
         'event.name',
         'agent_session_id',
+        'do_not_scrub',
+        'binary_content',
     }
 
     @abstractmethod
