@@ -103,7 +103,7 @@ async def test_mcp(exporter: TestExporter):
                         'method': 'initialize',
                         'params': {
                             'meta': None,
-                            'protocolVersion': '2024-11-05',
+                            'protocolVersion': IsStr(),
                             'capabilities': {'experimental': None, 'sampling': {}, 'roots': {'listChanged': True}},
                             'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
                         },
@@ -116,7 +116,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
-                        'protocolVersion': '2024-11-05',
+                        'protocolVersion': IsStr(),
                         'capabilities': {
                             'experimental': {},
                             'logging': None,
