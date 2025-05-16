@@ -962,6 +962,7 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] = 'attributes',
+        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -971,6 +972,7 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] = 'attributes',
+        **kwargs: Any,
     ) -> pydantic_ai.models.Model: ...
 
     def instrument_pydantic_ai(
@@ -979,6 +981,7 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] | None = None,
+        **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
         """Instrument PydanticAI.
 
@@ -989,6 +992,9 @@ class Logfire:
                 If you pass a model, a new instrumented model will be returned.
             event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
                 The default is whatever the default is in your version of PydanticAI.
+            kwargs: Additional keyword arguments to pass to
+                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                for future compatibility.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
 
@@ -997,6 +1003,7 @@ class Logfire:
             self,
             obj=obj,
             event_mode=event_mode,
+            **kwargs,
         )
 
     def instrument_fastapi(
