@@ -326,6 +326,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     for old_message in old_outer_message
                 ]
                 new_attributes['request_data'] = json.dumps(request_data)
+                properties['request_data'] = {'type': 'object'}
 
             response_data = {}
             with suppress(Exception):
@@ -335,6 +336,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     for old_message in old_outer_message
                 ]
                 new_attributes['response_data'] = json.dumps(response_data)
+                properties['response_data'] = {'type': 'object'}
 
         span['attributes'] = {
             **attributes,
