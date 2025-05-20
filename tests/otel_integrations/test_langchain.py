@@ -258,6 +258,8 @@ def test_instrument_langchain(exporter: TestExporter):
                     'llm.invocation_parameters': {'type': 'object'},
                     'llm.tools.0.tool.json_schema': {'type': 'object'},
                     'metadata': {'type': 'object'},
+                    'request_data': {'type': 'object'},
+                    'response_data': {'type': 'object'},
                 },
             },
             'request_data': {
