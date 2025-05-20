@@ -319,33 +319,22 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
     new_attributes: dict[str, Any] = {}
     if span['name'] == 'ChatOpenAI':
-        all_messages = []
-        request_data = {}
         with suppress(Exception):
-            request_data['model'] = parsed_attributes['llm.invocation_parameters']['model']
+            new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
         with suppress(Exception):
-            all_messages = [
-                _transform_langchain_message(old_message)
-                for old_outer_message in parsed_attributes['input.value']['messages']
-                for old_message in old_outer_message
-            ]
-            request_data['messages'] = all_messages[:]
-            new_attributes['request_data'] = request_data
-
-        response_data = {}
-        with suppress(Exception):
-            response_messages = [
-                _transform_langchain_message(old_message['message'])
-                for old_outer_message in parsed_attributes['output.value']['generations']
-                for old_message in old_outer_message
-            ]
-            all_messages += response_messages
-            response_data['messages'] = response_messages
-            new_attributes['response_data'] = response_data
-
-        for k, v in new_attributes.items():
-            properties[k] = {'type': 'object'}
-            new_attributes[k] = json.dumps(v)
+            new_attributes['all_messages_events'] = json.dumps(
+                [
+                    _transform_langchain_message(old_message)
+                    for old_outer_message in parsed_attributes['input.value']['messages']
+                    for old_message in old_outer_message
+                ]
+                + [
+                    _transform_langchain_message(old_message['message'])
+                    for old_outer_message in parsed_attributes['output.value']['generations']
+                    for old_message in old_outer_message
+                ]
+            )
+            properties['all_messages_events'] = {'type': 'array'}
 
     span['attributes'] = {
         **attributes,

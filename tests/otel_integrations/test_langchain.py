@@ -267,31 +267,26 @@ def test_instrument_langchain(exporter: TestExporter):
                     'llm.invocation_parameters': {'type': 'object'},
                     'llm.tools.0.tool.json_schema': {'type': 'object'},
                     'metadata': {'type': 'object'},
-                    'request_data': {'type': 'object'},
-                    'response_data': {'type': 'object'},
+                    'all_messages_events': {'type': 'array'},
                 },
             },
-            'request_data': {
-                'messages': [
-                    {'role': 'user', 'content': "what's 123 + 456?"},
-                    {
-                        'role': 'assistant',
-                        'content': '',
-                        'tool_calls': [
-                            {
-                                'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
-                                'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
-                                'type': 'function',
-                            }
-                        ],
-                        'refusal': None,
-                    },
-                    {'role': 'assistant', 'content': '579.0'},
-                ],
-                'model': 'gpt-4o',
-            },
-            'response_data': {
-                'messages': [{'role': 'assistant', 'content': '123 + 456 equals 579.', 'refusal': None}],
-            },
+            'gen_ai.request.model': 'gpt-4o',
+            'all_messages_events': [
+                {'role': 'user', 'content': "what's 123 + 456?"},
+                {
+                    'role': 'assistant',
+                    'content': '',
+                    'tool_calls': [
+                        {
+                            'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                            'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
+                            'type': 'function',
+                        }
+                    ],
+                    'refusal': None,
+                },
+                {'role': 'assistant', 'content': '579.0'},
+                {'role': 'assistant', 'content': '123 + 456 equals 579.', 'refusal': None},
+            ],
         }
     )
