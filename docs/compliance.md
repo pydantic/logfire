@@ -6,7 +6,8 @@ If you have any questions about compliance, feel free to [get in touch](help.md)
 
 ![Counting size of loaded files screenshot](images/compliance/soc2_logo.png)
 
-Logfire is SOC2 Type II certified. You can request a copy of our SOC2 report by emailing: [legal@pydantic.dev](mailto:legal@pydantic.dev)
+Logfire is SOC2 Type II certified. We did not receive any exceptions in our report. You can request a copy of our SOC2
+report by emailing: [legal@pydantic.dev](mailto:legal@pydantic.dev)
 
 ## HIPAA
 
