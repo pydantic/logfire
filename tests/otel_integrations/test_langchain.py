@@ -283,10 +283,23 @@ def test_instrument_langchain(exporter: TestExporter):
                             'type': 'function',
                         }
                     ],
+                    'invalid_tool_calls': [],
                     'refusal': None,
                 },
-                {'role': 'assistant', 'content': '579.0'},
-                {'role': 'assistant', 'content': '123 + 456 equals 579.', 'refusal': None},
+                {
+                    'role': 'tool',
+                    'content': '579.0',
+                    'name': 'add',
+                    'tool_call_id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                    'status': 'success',
+                },
+                {
+                    'role': 'assistant',
+                    'content': '123 + 456 equals 579.',
+                    'tool_calls': [],
+                    'invalid_tool_calls': [],
+                    'refusal': None,
+                },
             ],
         }
     )

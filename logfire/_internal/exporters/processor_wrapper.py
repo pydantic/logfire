@@ -345,9 +345,13 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
     kwargs = old_message['kwargs']
-    role = 'user' if kwargs['type'] == 'human' else 'assistant'
+    role = {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
     return {
-        'role': role,
-        'content': kwargs['content'],
+        **{
+            k: v
+            for k, v in kwargs.items()
+            if k not in ('type', 'additional_kwargs', 'response_metadata', 'id', 'usage_metadata')
+        },
         **kwargs.get('additional_kwargs', {}),
+        'role': role,
     }
