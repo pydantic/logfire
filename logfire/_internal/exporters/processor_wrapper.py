@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -13,6 +14,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -20,6 +22,7 @@ from ..constants import (
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
+from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
     ReadableSpanDict,
@@ -75,6 +78,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         _tweak_http_spans(span_dict)
         _summarize_db_statement(span_dict)
         _set_error_level_and_status(span_dict)
+        _transform_langchain_span(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
@@ -289,3 +293,22 @@ def _summarize_db_statement(span: ReadableSpanDict):
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
+
+
+def _transform_langchain_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if scope and scope.name == 'openinference.instrumentation.langchain':
+        attributes = span['attributes']
+        existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
+        if existing_json_schema:
+            return
+        properties = JsonSchemaProperties({})
+        for key, value in attributes.items():
+            if isinstance(value, str) and value.startswith(('{"', '[')):
+                try:
+                    json.loads(value)
+                except json.JSONDecodeError:
+                    pass
+                else:
+                    properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
+        span['attributes'] = {**attributes, ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties)}
