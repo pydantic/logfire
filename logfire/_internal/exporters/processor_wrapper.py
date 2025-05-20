@@ -302,13 +302,31 @@ def _transform_langchain_span(span: ReadableSpanDict):
         existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema:
             return
+        new_attributes = {}
         properties = JsonSchemaProperties({})
         for key, value in attributes.items():
-            if isinstance(value, str) and value.startswith(('{"', '[')):
-                try:
-                    json.loads(value)
-                except json.JSONDecodeError:
-                    pass
-                else:
-                    properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
-        span['attributes'] = {**attributes, ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties)}
+            if not isinstance(value, str) or not value.startswith(('{"', '[')):
+                continue
+            try:
+                parsed_value = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+            properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
+            if key != 'input.value' or span['name'] != 'ChatOpenAI':
+                continue
+            messages: list[dict[str, Any]] = []
+            for old_outer_message in parsed_value['messages']:
+                for old_message in old_outer_message:
+                    kwargs = old_message['kwargs']
+                    role = 'user' if kwargs['type'] == 'human' else 'assistant'
+                    message = {'role': role, 'content': kwargs['content']}
+                    message.update(kwargs.get('additional_kwargs', {}))
+                    messages.append(message)
+            model = 'gpt-4o'  # TODO attributes['llm.invocation_parameters']['model']
+            new_attributes['request_data'] = json.dumps({'messages': messages, 'model': model})
+
+        span['attributes'] = {
+            **attributes,
+            ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+            **new_attributes,
+        }

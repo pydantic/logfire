@@ -260,5 +260,24 @@ def test_instrument_langchain(exporter: TestExporter):
                     'metadata': {'type': 'object'},
                 },
             },
+            'request_data': {
+                'messages': [
+                    {'role': 'user', 'content': "what's 123 + 456?"},
+                    {
+                        'role': 'assistant',
+                        'content': '',
+                        'tool_calls': [
+                            {
+                                'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                                'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
+                                'type': 'function',
+                            }
+                        ],
+                        'refusal': None,
+                    },
+                    {'role': 'assistant', 'content': '579.0'},
+                ],
+                'model': 'gpt-4o',
+            },
         }
     )
