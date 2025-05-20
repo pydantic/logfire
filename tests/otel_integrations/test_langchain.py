@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
@@ -5,6 +7,8 @@ from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnkn
 from openinference.instrumentation.langchain import LangChainInstrumentor
 
 from logfire._internal.exporters.test import TestExporter
+
+pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Langgraph does not support 3.8')
 
 
 @pytest.mark.vcr()
