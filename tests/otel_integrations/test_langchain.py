@@ -279,5 +279,8 @@ def test_instrument_langchain(exporter: TestExporter):
                 ],
                 'model': 'gpt-4o',
             },
+            'response_data': {
+                'messages': [{'role': 'assistant', 'content': '123 + 456 equals 579.', 'refusal': None}],
+            },
         }
     )

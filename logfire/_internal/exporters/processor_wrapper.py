@@ -327,6 +327,15 @@ def _transform_langchain_span(span: ReadableSpanDict):
                 ]
                 new_attributes['request_data'] = json.dumps(request_data)
 
+            response_data = {}
+            with suppress(Exception):
+                response_data['messages'] = [
+                    _transform_langchain_message(old_message['message'])
+                    for old_outer_message in parsed_attributes['output.value']['generations']
+                    for old_message in old_outer_message
+                ]
+                new_attributes['response_data'] = json.dumps(response_data)
+
         span['attributes'] = {
             **attributes,
             ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
