@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -304,26 +305,31 @@ def _transform_langchain_span(span: ReadableSpanDict):
             return
         new_attributes = {}
         properties = JsonSchemaProperties({})
+        parsed_attributes: dict[str, Any] = {}
         for key, value in attributes.items():
             if not isinstance(value, str) or not value.startswith(('{"', '[')):
                 continue
             try:
-                parsed_value = json.loads(value)
+                parsed_attributes[key] = json.loads(value)
             except json.JSONDecodeError:
                 continue
             properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
-            if key != 'input.value' or span['name'] != 'ChatOpenAI':
-                continue
-            messages: list[dict[str, Any]] = []
-            for old_outer_message in parsed_value['messages']:
-                for old_message in old_outer_message:
-                    kwargs = old_message['kwargs']
-                    role = 'user' if kwargs['type'] == 'human' else 'assistant'
-                    message = {'role': role, 'content': kwargs['content']}
-                    message.update(kwargs.get('additional_kwargs', {}))
-                    messages.append(message)
-            model = 'gpt-4o'  # TODO attributes['llm.invocation_parameters']['model']
-            new_attributes['request_data'] = json.dumps({'messages': messages, 'model': model})
+
+        if span['name'] == 'ChatOpenAI':
+            request_data = {}
+            with suppress(Exception):
+                request_data['model'] = parsed_attributes['llm.invocation_parameters']['model']
+            with suppress(Exception):
+                messages: list[dict[str, Any]] = []
+                for old_outer_message in parsed_attributes['input.value']['messages']:
+                    for old_message in old_outer_message:
+                        kwargs = old_message['kwargs']
+                        role = 'user' if kwargs['type'] == 'human' else 'assistant'
+                        message = {'role': role, 'content': kwargs['content']}
+                        message.update(kwargs.get('additional_kwargs', {}))
+                        messages.append(message)
+                request_data['messages'] = messages
+                new_attributes['request_data'] = json.dumps(request_data)
 
         span['attributes'] = {
             **attributes,
