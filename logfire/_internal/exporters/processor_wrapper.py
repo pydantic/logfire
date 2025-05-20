@@ -320,15 +320,11 @@ def _transform_langchain_span(span: ReadableSpanDict):
             with suppress(Exception):
                 request_data['model'] = parsed_attributes['llm.invocation_parameters']['model']
             with suppress(Exception):
-                messages: list[dict[str, Any]] = []
-                for old_outer_message in parsed_attributes['input.value']['messages']:
-                    for old_message in old_outer_message:
-                        kwargs = old_message['kwargs']
-                        role = 'user' if kwargs['type'] == 'human' else 'assistant'
-                        message = {'role': role, 'content': kwargs['content']}
-                        message.update(kwargs.get('additional_kwargs', {}))
-                        messages.append(message)
-                request_data['messages'] = messages
+                request_data['messages'] = [
+                    _transform_langchain_message(old_message)
+                    for old_outer_message in parsed_attributes['input.value']['messages']
+                    for old_message in old_outer_message
+                ]
                 new_attributes['request_data'] = json.dumps(request_data)
 
         span['attributes'] = {
@@ -336,3 +332,13 @@ def _transform_langchain_span(span: ReadableSpanDict):
             ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
             **new_attributes,
         }
+
+
+def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
+    kwargs = old_message['kwargs']
+    role = 'user' if kwargs['type'] == 'human' else 'assistant'
+    return {
+        'role': role,
+        'content': kwargs['content'],
+        **kwargs.get('additional_kwargs', {}),
+    }
