@@ -1,14 +1,19 @@
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
-from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
 from openinference.instrumentation.langchain import LangChainInstrumentor
 
 from logfire._internal.exporters.test import TestExporter
 
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Langgraph does not support 3.8')
+try:
+    from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
+except ImportError:
+    pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Langgraph does not support 3.8')
+    if TYPE_CHECKING:
+        assert False
 
 
 @pytest.mark.vcr()
