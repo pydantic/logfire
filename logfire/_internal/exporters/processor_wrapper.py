@@ -298,51 +298,60 @@ def _summarize_db_statement(span: ReadableSpanDict):
 
 def _transform_langchain_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if scope and scope.name == 'openinference.instrumentation.langchain':
-        attributes = span['attributes']
-        existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
-        if existing_json_schema:
-            return
-        new_attributes = {}
-        properties = JsonSchemaProperties({})
-        parsed_attributes: dict[str, Any] = {}
-        for key, value in attributes.items():
-            if not isinstance(value, str) or not value.startswith(('{"', '[')):
-                continue
-            try:
-                parsed_attributes[key] = json.loads(value)
-            except json.JSONDecodeError:
-                continue
-            properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
+    if not (scope and scope.name == 'openinference.instrumentation.langchain'):
+        return
 
-        if span['name'] == 'ChatOpenAI':
-            request_data = {}
-            with suppress(Exception):
-                request_data['model'] = parsed_attributes['llm.invocation_parameters']['model']
-            with suppress(Exception):
-                request_data['messages'] = [
-                    _transform_langchain_message(old_message)
-                    for old_outer_message in parsed_attributes['input.value']['messages']
-                    for old_message in old_outer_message
-                ]
-                new_attributes['request_data'] = json.dumps(request_data)
-                properties['request_data'] = {'type': 'object'}
+    attributes = span['attributes']
+    existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
+    if existing_json_schema:
+        return
 
-            response_data = {}
-            with suppress(Exception):
-                response_data['messages'] = [
-                    _transform_langchain_message(old_message['message'])
-                    for old_outer_message in parsed_attributes['output.value']['generations']
-                    for old_message in old_outer_message
-                ]
-                new_attributes['response_data'] = json.dumps(response_data)
-                properties['response_data'] = {'type': 'object'}
+    properties = JsonSchemaProperties({})
+    parsed_attributes: dict[str, Any] = {}
+    for key, value in attributes.items():
+        if not isinstance(value, str) or not value.startswith(('{"', '[')):
+            continue
+        try:
+            parsed_attributes[key] = json.loads(value)
+        except json.JSONDecodeError:
+            continue
+        properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
-        span['attributes'] = {
-            **attributes,
-            ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
-            **new_attributes,
-        }
+    new_attributes: dict[str, Any] = {}
+    if span['name'] == 'ChatOpenAI':
+        all_messages = []
+        request_data = {}
+        with suppress(Exception):
+            request_data['model'] = parsed_attributes['llm.invocation_parameters']['model']
+        with suppress(Exception):
+            all_messages = [
+                _transform_langchain_message(old_message)
+                for old_outer_message in parsed_attributes['input.value']['messages']
+                for old_message in old_outer_message
+            ]
+            request_data['messages'] = all_messages[:]
+            new_attributes['request_data'] = request_data
+
+        response_data = {}
+        with suppress(Exception):
+            response_messages = [
+                _transform_langchain_message(old_message['message'])
+                for old_outer_message in parsed_attributes['output.value']['generations']
+                for old_message in old_outer_message
+            ]
+            all_messages += response_messages
+            response_data['messages'] = response_messages
+            new_attributes['response_data'] = response_data
+
+        for k, v in new_attributes.items():
+            properties[k] = {'type': 'object'}
+            new_attributes[k] = json.dumps(v)
+
+    span['attributes'] = {
+        **attributes,
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+        **new_attributes,
+    }
 
 
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
