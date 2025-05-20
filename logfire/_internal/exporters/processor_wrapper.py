@@ -346,7 +346,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
     kwargs = old_message['kwargs']
     role = {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
-    return {
+    result = {
         **{
             k: v
             for k, v in kwargs.items()
@@ -355,3 +355,8 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         **kwargs.get('additional_kwargs', {}),
         'role': role,
     }
+    if not result.get('tool_calls'):
+        result.pop('tool_calls', None)
+    if 'tool_call_id' in result:
+        result['id'] = result.pop('tool_call_id')
+    return result
