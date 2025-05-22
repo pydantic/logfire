@@ -328,11 +328,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     for old_outer_message in parsed_attributes['input.value']['messages']
                     for old_message in old_outer_message
                 ]
-                + [
-                    _transform_langchain_message(old_message['message'])
-                    for old_outer_message in parsed_attributes['output.value']['generations']
-                    for old_message in old_outer_message
-                ]
+                + [_transform_langchain_message(parsed_attributes['output.value']['generations'][0][0]['message'])]
             )
             properties['all_messages_events'] = {'type': 'array'}
 
