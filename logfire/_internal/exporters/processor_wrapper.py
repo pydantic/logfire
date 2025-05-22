@@ -330,7 +330,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
             output_value = parsed_attributes['output.value']
             try:
                 # Multiple generations mean multiple choices, we can only display one.
-                message_events = [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
             except Exception:
                 try:
                     output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]

@@ -2,7 +2,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 
 from logfire._internal.exporters.test import TestExporter
@@ -30,7 +30,64 @@ def test_instrument_langchain(exporter: TestExporter):
 
     assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
 
-    spans = [s for s in exporter.exported_spans_as_dict(parse_json_attributes=True) if s['name'] == 'ChatOpenAI']
+    message_events_minimum = [
+        {
+            'role': 'user',
+            'content': "what's 123 + 456?",
+        },
+        {
+            'role': 'assistant',
+            'tool_calls': [
+                {
+                    'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                    'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
+                    'type': 'function',
+                }
+            ],
+        },
+        {
+            'role': 'tool',
+            'content': '579.0',
+            'name': 'add',
+            'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+        },
+        {
+            'role': 'assistant',
+            'content': '123 + 456 equals 579.',
+        },
+    ]
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for span in spans:
+        for actual_event, expected_event in zip(
+            span['attributes'].get('all_messages_events', []), message_events_minimum
+        ):
+            assert actual_event == IsPartialDict(expected_event)
+
+    assert [
+        (span['name'], len(span['attributes'].get('all_messages_events', [])))
+        for span in sorted(spans, key=lambda s: s['start_time'])
+    ] == snapshot(
+        [
+            ('LangGraph', 4),
+            ('agent', 2),
+            ('call_model', 2),
+            ('RunnableSequence', 2),
+            ('Prompt', 1),
+            ('ChatOpenAI', 2),
+            ('should_continue', 2),
+            ('tools', 3),
+            ('add', 0),
+            ('agent', 4),
+            ('call_model', 4),
+            ('RunnableSequence', 4),
+            ('Prompt', 3),
+            ('ChatOpenAI', 4),
+            ('should_continue', 4),
+        ]
+    )
+
+    spans = [s for s in spans if s['name'] == 'ChatOpenAI']
     assert spans[-1]['attributes'] == snapshot(
         {
             'logfire.span_type': 'span',
