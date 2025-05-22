@@ -330,10 +330,21 @@ def _transform_langchain_span(span: ReadableSpanDict):
             output_value = parsed_attributes['output.value']
             try:
                 # Multiple generations mean multiple choices, we can only display one.
-                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+                message_events = [_transform_langchain_message(output_value['generations'][0][0]['message'])]
             except Exception:
                 try:
-                    message_events += [_transform_langchain_message(m) for m in output_value['messages']]
+                    output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]
+                    if (
+                        message_events
+                        and len(message_events) <= len(output_message_events)
+                        and all(
+                            all(om.get(k) == im.get(k) for k in im)
+                            for im, om in zip(message_events, output_message_events)
+                        )
+                    ):
+                        message_events = output_message_events
+                    else:
+                        message_events += output_message_events
                 except Exception:
                     message_events += [_transform_langchain_message(output_value['output'])]
         new_attributes['all_messages_events'] = json.dumps(message_events)
