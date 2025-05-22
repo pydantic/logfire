@@ -364,6 +364,7 @@ async def test_mcp(exporter: TestExporter):
                             }
                         ],
                         'top_p': 1.0,
+                        'background': None,
                         'max_output_tokens': None,
                         'previous_response_id': None,
                         'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
@@ -674,6 +675,7 @@ async def test_mcp(exporter: TestExporter):
                             }
                         ],
                         'top_p': 1.0,
+                        'background': None,
                         'max_output_tokens': None,
                         'previous_response_id': None,
                         'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
