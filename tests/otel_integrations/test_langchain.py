@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
-from openinference.instrumentation.langchain import LangChainInstrumentor
 
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.integrations.langchain import instrument_langchain
 
 try:
     from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
@@ -18,7 +18,7 @@ except ImportError:
 
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter):
-    LangChainInstrumentor().instrument()
+    instrument_langchain()  # TODO replace with logfire.instrument_langchain
 
     def add(a: float, b: float) -> float:
         """Add two numbers."""
