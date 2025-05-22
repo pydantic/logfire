@@ -318,19 +318,27 @@ def _transform_langchain_span(span: ReadableSpanDict):
         properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
     new_attributes: dict[str, Any] = {}
-    if span['name'] == 'ChatOpenAI':
+    with suppress(Exception):
+        new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
+    with suppress(Exception):
+        input_messages = parsed_attributes['input.value']['messages']
+        if len(input_messages) == 1 and isinstance(input_messages[0], list):
+            [input_messages] = input_messages
+
+        message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
         with suppress(Exception):
-            new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
-        with suppress(Exception):
-            new_attributes['all_messages_events'] = json.dumps(
-                [
-                    _transform_langchain_message(old_message)
-                    for old_outer_message in parsed_attributes['input.value']['messages']
-                    for old_message in old_outer_message
-                ]
-                + [_transform_langchain_message(parsed_attributes['output.value']['generations'][0][0]['message'])]
-            )
-            properties['all_messages_events'] = {'type': 'array'}
+            output_value = parsed_attributes['output.value']
+            try:
+                # Multiple generations mean multiple choices, we can only display one.
+                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+            except Exception:
+                try:
+                    message_events += [_transform_langchain_message(m) for m in output_value['messages']]
+                except Exception:
+                    message_events += [_transform_langchain_message(output_value['output'])]
+        new_attributes['all_messages_events'] = json.dumps(message_events)
+        properties['all_messages_events'] = {'type': 'array'}
+        new_attributes.setdefault('gen_ai.request.model', 'unknown')
 
     span['attributes'] = {
         **attributes,
@@ -340,8 +348,12 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
 
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
-    kwargs = old_message['kwargs']
-    role = {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
+    if old_message.get('type') == 'constructor' and 'kwargs' in old_message:
+        kwargs = old_message['kwargs']
+    else:
+        kwargs = old_message
+
+    role = kwargs.get('role') or {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
     result = {
         **{
             k: v
