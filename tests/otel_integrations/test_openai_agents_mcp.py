@@ -224,7 +224,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': {'method': 'tools/list', 'params': None, 'cursor': None},
+                    'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'tools/list',

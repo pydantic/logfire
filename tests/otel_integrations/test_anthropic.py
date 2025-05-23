@@ -177,6 +177,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                     'cache_creation_input_tokens': None,
                                     'cache_read_input_tokens': None,
                                     'server_tool_use': None,
+                                    'service_tier': None,
                                 },
                             }
                         )
@@ -255,6 +256,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                                     'cache_creation_input_tokens': None,
                                     'cache_read_input_tokens': None,
                                     'server_tool_use': None,
+                                    'service_tier': None,
                                 },
                             }
                         )
@@ -495,7 +497,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3,"server_tool_use":null}}',
+                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3,"server_tool_use":null,"service_tier":null}}',
                     'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
                 },
             }

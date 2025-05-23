@@ -107,6 +107,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                     'cache_creation_input_tokens': None,
                                     'cache_read_input_tokens': None,
                                     'server_tool_use': None,
+                                    'service_tier': None,
                                 },
                             }
                         )
