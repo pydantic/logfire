@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -13,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -20,6 +23,7 @@ from ..constants import (
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
+from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
     ReadableSpanDict,
@@ -75,6 +79,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         _tweak_http_spans(span_dict)
         _summarize_db_statement(span_dict)
         _set_error_level_and_status(span_dict)
+        _transform_langchain_span(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
@@ -289,3 +294,88 @@ def _summarize_db_statement(span: ReadableSpanDict):
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
+
+
+def _transform_langchain_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if not (scope and scope.name == 'openinference.instrumentation.langchain'):
+        return
+
+    attributes = span['attributes']
+    existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
+    if existing_json_schema:
+        return
+
+    properties = JsonSchemaProperties({})
+    parsed_attributes: dict[str, Any] = {}
+    for key, value in attributes.items():
+        if not isinstance(value, str) or not value.startswith(('{"', '[')):
+            continue
+        try:
+            parsed_attributes[key] = json.loads(value)
+        except json.JSONDecodeError:
+            continue
+        properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
+
+    new_attributes: dict[str, Any] = {}
+    with suppress(Exception):
+        new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
+    with suppress(Exception):
+        input_messages = parsed_attributes['input.value']['messages']
+        if len(input_messages) == 1 and isinstance(input_messages[0], list):
+            [input_messages] = input_messages
+
+        message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
+        with suppress(Exception):
+            output_value = parsed_attributes['output.value']
+            try:
+                # Multiple generations mean multiple choices, we can only display one.
+                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+            except Exception:
+                try:
+                    output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]
+                    if (
+                        message_events
+                        and len(message_events) <= len(output_message_events)
+                        and all(
+                            all(om.get(k) == im.get(k) for k in im)
+                            for im, om in zip(message_events, output_message_events)
+                        )
+                    ):
+                        message_events = output_message_events
+                    else:
+                        message_events += output_message_events
+                except Exception:
+                    message_events += [_transform_langchain_message(output_value['output'])]
+        new_attributes['all_messages_events'] = json.dumps(message_events)
+        properties['all_messages_events'] = {'type': 'array'}
+        new_attributes.setdefault('gen_ai.request.model', 'unknown')
+
+    span['attributes'] = {
+        **attributes,
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+        **new_attributes,
+    }
+
+
+def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
+    if old_message.get('type') == 'constructor' and 'kwargs' in old_message:
+        kwargs = old_message['kwargs']
+    else:
+        kwargs = old_message
+
+    role = kwargs.get('role') or {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
+    result = {
+        **{
+            k: v
+            for k, v in kwargs.items()
+            if k not in ('type', 'additional_kwargs', 'response_metadata', 'id', 'usage_metadata')
+        },
+        **kwargs.get('additional_kwargs', {}),
+        'role': role,
+    }
+    if not result.get('tool_calls'):
+        result.pop('tool_calls', None)
+    if 'tool_call_id' in result:
+        result['id'] = result.pop('tool_call_id')
+    return result

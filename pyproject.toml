@@ -173,6 +173,10 @@ dev = [
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.0.7 ; python_full_version >= '3.9'",
     "pydantic-ai-slim>=0.0.39 ; python_full_version >= '3.9'",
+    "langchain>=0.0.27",
+    "openinference-instrumentation-langchain>=0.1.30",
+    "langchain-openai>=0.3.17 ; python_full_version >= '3.9'",
+    "langgraph >= 0 ; python_full_version >= '3.9'",
 ]
 docs = [
     "black>=23.12.0",
