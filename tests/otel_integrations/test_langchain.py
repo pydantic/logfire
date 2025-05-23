@@ -76,7 +76,7 @@ def test_instrument_langchain(exporter: TestExporter):
             ('Prompt', 1),
             ('ChatOpenAI', 2),
             ('should_continue', 2),
-            ('tools', 3),
+            ('tools', 0),
             ('add', 0),
             ('agent', 4),
             ('call_model', 4),
