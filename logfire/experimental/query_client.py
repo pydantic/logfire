@@ -4,6 +4,8 @@ from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
+from typing_extensions import Self
+
 from logfire._internal.config import get_base_url_from_token
 
 try:
@@ -58,8 +60,6 @@ class RowQueryResults(TypedDict):
 
 
 T = TypeVar('T', bound=BaseClient)
-S = TypeVar('S', bound='LogfireQueryClient')
-R = TypeVar('R', bound='AsyncLogfireQueryClient')
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -111,7 +111,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, Client, **client_kwargs)
 
-    def __enter__(self: S) -> S:
+    def __enter__(self) -> Self:
         self.client.__enter__()
         return self
 
@@ -236,7 +236,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, AsyncClient, **async_client_kwargs)
 
-    async def __aenter__(self: R) -> R:
+    async def __aenter__(self) -> Self:
         await self.client.__aenter__()
         return self
 
