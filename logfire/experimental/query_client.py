@@ -4,6 +4,8 @@ from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
+from logfire._internal.config import get_base_url_from_token
+
 try:
     from httpx import AsyncClient, Client, Response, Timeout
     from httpx._client import BaseClient
@@ -102,10 +104,11 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     def __init__(
         self,
         read_token: str,
-        base_url: str = 'https://logfire-api.pydantic.dev/',
+        base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
         **client_kwargs: Any,
     ):
+        base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, Client, **client_kwargs)
 
     def __enter__(self: S) -> S:
@@ -226,10 +229,11 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     def __init__(
         self,
         read_token: str,
-        base_url: str = 'https://logfire-api.pydantic.dev/',
+        base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
         **async_client_kwargs: Any,
     ):
+        base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, AsyncClient, **async_client_kwargs)
 
     async def __aenter__(self: R) -> R:
