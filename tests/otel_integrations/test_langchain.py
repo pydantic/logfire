@@ -73,6 +73,17 @@ def test_instrument_langchain(exporter: TestExporter):
         ):
             assert actual_event == IsPartialDict(expected_event)
 
+        if span['name'] == 'ChatOpenAI':
+            assert span['attributes']['gen_ai.usage.input_tokens'] > 0
+            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-4o')
+            assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-4o-2024-08-06')
+            assert span['attributes']['gen_ai.system'] == 'openai'
+        else:
+            assert 'gen_ai.usage.input_tokens' not in span['attributes']
+            assert 'gen_ai.request.model' not in span['attributes']
+            assert 'gen_ai.response.model' not in span['attributes']
+            assert 'gen_ai.system' not in span['attributes']
+
     assert [
         (span['name'], len(span['attributes'].get('all_messages_events', [])))
         for span in sorted(spans, key=lambda s: s['start_time'])
@@ -95,18 +106,6 @@ def test_instrument_langchain(exporter: TestExporter):
             ('should_continue', 4),
         ]
     )
-
-    for span in spans:
-        if span['name'] == 'ChatOpenAI':
-            assert span['attributes']['gen_ai.usage.input_tokens'] > 0
-            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-4o')
-            assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-4o-2024-08-06')
-            assert span['attributes']['gen_ai.system'] == 'openai'
-        else:
-            assert 'gen_ai.usage.input_tokens' not in span['attributes']
-            assert 'gen_ai.request.model' not in span['attributes']
-            assert 'gen_ai.response.model' not in span['attributes']
-            assert 'gen_ai.system' not in span['attributes']
 
     spans = [s for s in spans if s['name'] == 'ChatOpenAI']
     attributes = spans[-1]['attributes']
