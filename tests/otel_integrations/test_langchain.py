@@ -102,6 +102,7 @@ def test_instrument_langchain(exporter: TestExporter):
     spans = [s for s in spans if s['name'] == 'ChatOpenAI']
     attributes = spans[-1]['attributes']
     assert attributes['gen_ai.request.model'] == snapshot('gpt-4o')
+    assert attributes['gen_ai.response.model'] == snapshot('gpt-4o-2024-08-06')
     assert attributes['gen_ai.usage.input_tokens'] == snapshot(79)
     assert attributes['all_messages_events'] == snapshot(
         [

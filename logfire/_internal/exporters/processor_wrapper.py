@@ -318,8 +318,13 @@ def _transform_langchain_span(span: ReadableSpanDict):
         properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
     new_attributes: dict[str, Any] = {}
+
     with suppress(Exception):
         new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
+
+    with suppress(Exception):
+        new_attributes['gen_ai.response.model'] = parsed_attributes['gen_ai.completion']['llm_output']['model_name']
+
     with suppress(Exception):
         input_messages = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))['messages']
         if len(input_messages) == 1 and isinstance(input_messages[0], list):
