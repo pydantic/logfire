@@ -298,7 +298,7 @@ def _summarize_db_statement(span: ReadableSpanDict):
 
 def _transform_langchain_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if not (scope and scope.name == 'openinference.instrumentation.langchain'):
+    if not (scope and scope.name in ('openinference.instrumentation.langchain', 'langsmith')):
         return
 
     attributes = span['attributes']
@@ -321,13 +321,13 @@ def _transform_langchain_span(span: ReadableSpanDict):
     with suppress(Exception):
         new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
     with suppress(Exception):
-        input_messages = parsed_attributes['input.value']['messages']
+        input_messages = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))['messages']
         if len(input_messages) == 1 and isinstance(input_messages[0], list):
             [input_messages] = input_messages
 
         message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
         with suppress(Exception):
-            output_value = parsed_attributes['output.value']
+            output_value = parsed_attributes.get('output.value', parsed_attributes.get('gen_ai.completion', {}))
             try:
                 # Multiple generations mean multiple choices, we can only display one.
                 message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
