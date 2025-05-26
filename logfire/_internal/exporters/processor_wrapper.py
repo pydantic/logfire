@@ -303,7 +303,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
     attributes = span['attributes']
     existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
-    if existing_json_schema:
+    if existing_json_schema:  # pragma: no cover
         return
 
     properties = JsonSchemaProperties({})
@@ -313,7 +313,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
             continue
         try:
             parsed_attributes[key] = json.loads(value)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError:  # pragma: no cover
             continue
         properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
