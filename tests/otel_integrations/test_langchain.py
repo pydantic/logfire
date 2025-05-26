@@ -73,25 +73,29 @@ def test_instrument_langchain(exporter: TestExporter):
             assert actual_event == IsPartialDict(expected_event)
 
     assert [
-        (span['name'], len(span['attributes'].get('all_messages_events', [])))
+        (
+            span['name'],
+            len(span['attributes'].get('all_messages_events', [])),
+            'gen_ai.usage.input_tokens' in span['attributes'],
+        )
         for span in sorted(spans, key=lambda s: s['start_time'])
     ] == snapshot(
         [
-            ('LangGraph', 4),
-            ('agent', 2),
-            ('call_model', 2),
-            ('RunnableSequence', 2),
-            ('Prompt', 1),
-            ('ChatOpenAI', 2),
-            ('should_continue', 2),
-            ('tools', 0),
-            ('add', 0),
-            ('agent', 4),
-            ('call_model', 4),
-            ('RunnableSequence', 4),
-            ('Prompt', 3),
-            ('ChatOpenAI', 4),
-            ('should_continue', 4),
+            ('LangGraph', 4, False),
+            ('agent', 2, False),
+            ('call_model', 2, False),
+            ('RunnableSequence', 2, False),
+            ('Prompt', 1, False),
+            ('ChatOpenAI', 2, True),
+            ('should_continue', 2, False),
+            ('tools', 0, False),
+            ('add', 0, False),
+            ('agent', 4, False),
+            ('call_model', 4, False),
+            ('RunnableSequence', 4, False),
+            ('Prompt', 3, False),
+            ('ChatOpenAI', 4, True),
+            ('should_continue', 4, False),
         ]
     )
 
