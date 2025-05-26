@@ -2,9 +2,11 @@ from _typeshed import Incomplete
 from datetime import datetime
 from httpx import AsyncClient, Client, Response, Timeout
 from httpx._client import BaseClient
+from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
 from pyarrow import Table
 from types import TracebackType
 from typing import Any, Generic, TypeVar, TypedDict
+from typing_extensions import Self
 
 DEFAULT_TIMEOUT: Incomplete
 
@@ -32,8 +34,6 @@ class RowQueryResults(TypedDict):
     columns: list[ColumnDetails]
     rows: list[dict[str, Any]]
 T = TypeVar('T', bound=BaseClient)
-S = TypeVar('S', bound='LogfireQueryClient')
-R = TypeVar('R', bound='AsyncLogfireQueryClient')
 
 class _BaseLogfireQueryClient(Generic[T]):
     base_url: Incomplete
@@ -46,8 +46,8 @@ class _BaseLogfireQueryClient(Generic[T]):
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     """A synchronous client for querying Logfire data."""
-    def __init__(self, read_token: str, base_url: str = 'https://logfire-api.pydantic.dev/', timeout: Timeout = ..., **client_kwargs: Any) -> None: ...
-    def __enter__(self) -> S: ...
+    def __init__(self, read_token: str, base_url: str | None = None, timeout: Timeout = ..., **client_kwargs: Any) -> None: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     def query_json(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
@@ -68,8 +68,8 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
 
 class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     """An asynchronous client for querying Logfire data."""
-    def __init__(self, read_token: str, base_url: str = 'https://logfire-api.pydantic.dev/', timeout: Timeout = ..., **async_client_kwargs: Any) -> None: ...
-    async def __aenter__(self) -> R: ...
+    def __init__(self, read_token: str, base_url: str | None = None, timeout: Timeout = ..., **async_client_kwargs: Any) -> None: ...
+    async def __aenter__(self) -> Self: ...
     async def __aexit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     async def query_json(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
