@@ -55,15 +55,17 @@ def test_instrument_pydantic_ai():
     assert m2 is model
 
     # Now instrument all agents. Also use the (currently not default) event mode.
-    logfire_inst.instrument_pydantic_ai(event_mode='logs')
+    logfire_inst.instrument_pydantic_ai(event_mode='logs', include_binary_content=False)
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     # agent1 still has its own instrumentation settings which override the global ones.
     assert m.settings.event_mode == InstrumentationSettings().event_mode == 'attributes'
+    assert m.settings.include_binary_content == InstrumentationSettings().include_binary_content
     # agent2 uses the global settings.
     m2 = get_model(agent2)
     assert isinstance(m2, InstrumentedModel)
     assert m2.settings.event_mode == 'logs'
+    assert not m2.settings.include_binary_content
 
     # Remove the global instrumentation. agent1 remains instrumented.
     Agent.instrument_all(False)
