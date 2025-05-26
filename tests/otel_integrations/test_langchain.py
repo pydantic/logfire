@@ -1,4 +1,3 @@
-import contextlib
 import importlib
 import os
 import sys
@@ -15,8 +14,10 @@ os.environ['LANGSMITH_TRACING'] = 'true'
 
 for mod_name, mod in list(sys.modules.items()):
     if mod_name.startswith('langsmith'):
-        with contextlib.suppress(Exception):
+        try:
             importlib.reload(mod)
+        except Exception as e:
+            print(f'Failed to reload {mod_name}: {e}')
 
 try:
     from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
