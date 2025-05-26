@@ -349,7 +349,9 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     message_events += [_transform_langchain_message(output_value['output'])]
         new_attributes['all_messages_events'] = json.dumps(message_events)
         properties['all_messages_events'] = {'type': 'array'}
-        new_attributes.setdefault('gen_ai.request.model', 'unknown')
+
+    if 'gen_ai.request.model' not in attributes and 'gen_ai.usage.input_tokens' in attributes:
+        attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
 
     span['attributes'] = {
         **attributes,
