@@ -358,6 +358,9 @@ def _transform_langchain_span(span: ReadableSpanDict):
     if 'gen_ai.request.model' not in attributes and 'gen_ai.usage.input_tokens' in attributes:
         attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
 
+    if attributes.get('gen_ai.system') == 'langchain':
+        attributes = {k: v for k, v in attributes.items() if k != 'gen_ai.system'}
+
     span['attributes'] = {
         **attributes,
         ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
