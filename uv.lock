@@ -959,7 +959,7 @@ name = "cffi"
 version = "1.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser" },
+    { name = "pycparser", marker = "python_full_version >= '3.9' or platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/97/c783634659c2920c3fc70419e3af40972dbaf758daa229a7d6ea6135c90d/cffi-1.17.1.tar.gz", hash = "sha256:1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824", size = 516621, upload-time = "2024-09-04T20:45:21.852Z" }
 wheels = [
@@ -3052,8 +3052,6 @@ dev = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
     { name = "openai" },
     { name = "openai-agents", extra = ["voice"], marker = "python_full_version >= '3.9'" },
-    { name = "openinference-instrumentation-langchain", version = "0.1.30", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "openinference-instrumentation-langchain", version = "0.1.43", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "opentelemetry-instrumentation-aiohttp-client" },
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
@@ -3193,7 +3191,6 @@ dev = [
     { name = "numpy", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.58.1" },
     { name = "openai-agents", extras = ["voice"], marker = "python_full_version >= '3.9'", specifier = ">=0.0.7" },
-    { name = "openinference-instrumentation-langchain", specifier = ">=0.1.30" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
@@ -4435,146 +4432,6 @@ wheels = [
 voice = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "websockets", marker = "python_full_version >= '3.9'" },
-]
-
-[[package]]
-name = "openinference-instrumentation"
-version = "0.1.27"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation != 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation == 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "openinference-semantic-conventions", version = "0.1.13", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-api", marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-sdk", marker = "python_full_version < '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/95/0b/67a86429dbb73b3216faca70de6f556002954f3ac04442352c62fefb8151/openinference_instrumentation-0.1.27.tar.gz", hash = "sha256:4ab692da433c8feb35e708d6a60f1886987c4b2f52856e7a3a0352b3488c059c", size = 20085, upload-time = "2025-04-10T22:47:30.209Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/e7/7c46a4414d658f3e10f55efa3c3fd7e8a56c164205c356e6984df9938c8d/openinference_instrumentation-0.1.27-py3-none-any.whl", hash = "sha256:287ffaa207a0387077a96bed62d4e0f92a1e9c043bfbe079075935d854e39aa0", size = 25510, upload-time = "2025-04-10T22:47:28.963Z" },
-]
-
-[[package]]
-name = "openinference-instrumentation"
-version = "0.1.31"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "openinference-semantic-conventions", version = "0.1.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "opentelemetry-api", marker = "python_full_version >= '3.9'" },
-    { name = "opentelemetry-sdk", marker = "python_full_version >= '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/32/7f4370eb6f56deb0a0826ed414a480a1de927a3b81fd9e9ca2b289fcf35b/openinference_instrumentation-0.1.31.tar.gz", hash = "sha256:fc958e6a6cc73bab892e8f4233c5b61f8b85cdf266f41eed1759408d68e24192", size = 20115, upload-time = "2025-05-23T00:10:37.864Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/29/5510d1ae50c0b7594bba0d0934d64568bf066798c40090fb9bcad558722b/openinference_instrumentation-0.1.31-py3-none-any.whl", hash = "sha256:6ab5c9ab7cf18a1b3d6f4c7b091dd6692a706dd45f22fac9f58d9265005f5d63", size = 25537, upload-time = "2025-05-23T00:10:35.958Z" },
-]
-
-[[package]]
-name = "openinference-instrumentation-langchain"
-version = "0.1.30"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation != 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation == 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "openinference-instrumentation", version = "0.1.27", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "openinference-semantic-conventions", version = "0.1.13", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-api", marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", marker = "python_full_version < '3.9'" },
-    { name = "wrapt", marker = "python_full_version < '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/19/79/5c161caabb012fcfb336acf93d1b6e4d2b6cb715f817ad6cdc7406146bf9/openinference_instrumentation_langchain-0.1.30.tar.gz", hash = "sha256:9563a524ec5226dce8f8ba122b5362b218bbb9cb07de3edb012d9d63671f12d7", size = 47978, upload-time = "2025-01-29T00:19:20.769Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/d7/ccc7e8ea42314109a37af9eb87562738b86d8c857489fe39af7422797cce/openinference_instrumentation_langchain-0.1.30-py3-none-any.whl", hash = "sha256:4c5a8287ca9593d5651ee5d4f25b086e92c3b37656c14271cdf1690063f0b1d9", size = 17303, upload-time = "2025-01-29T00:19:19.522Z" },
-]
-
-[[package]]
-name = "openinference-instrumentation-langchain"
-version = "0.1.43"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "openinference-instrumentation", version = "0.1.31", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "openinference-semantic-conventions", version = "0.1.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "opentelemetry-api", marker = "python_full_version >= '3.9'" },
-    { name = "opentelemetry-instrumentation", marker = "python_full_version >= '3.9'" },
-    { name = "opentelemetry-semantic-conventions", marker = "python_full_version >= '3.9'" },
-    { name = "wrapt", marker = "python_full_version >= '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/69/84/f85ea5c4b73ee6570f5f4a0a247243fc08cde8ed3b5c4ae40df7b9580c38/openinference_instrumentation_langchain-0.1.43.tar.gz", hash = "sha256:18b5ac3ba52fcb85a576dd94175e025c6cbacce9cb2619a8f8b281b2c30e06cb", size = 52212, upload-time = "2025-05-20T06:30:14.889Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/b1/08b85cf9af64d8e994e554edda3898af5563b9b6073f6690a463af67338d/openinference_instrumentation_langchain-0.1.43-py3-none-any.whl", hash = "sha256:66645839eac2c3cf986bc917ef309dc89c468f3bb0a56b20eaba6c89b8b44e9a", size = 18776, upload-time = "2025-05-20T06:30:13.022Z" },
-]
-
-[[package]]
-name = "openinference-semantic-conventions"
-version = "0.1.13"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.8.1' and python_full_version < '3.9' and platform_python_implementation != 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation == 'PyPy'",
-    "python_full_version < '3.8.1' and platform_python_implementation != 'PyPy'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/46/69/909479d03ed42bc468cc5f39c8eddfdedc7ed4aec7a456c52b1f3b837068/openinference_semantic_conventions-0.1.13.tar.gz", hash = "sha256:40a6474a85f8c5184ed25ddc42e6213dca66f58c155b63e8ac1bf95db7ec1ce9", size = 9421, upload-time = "2025-02-04T22:40:28.808Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/b2/f1d4a032e92b2b811368d8cf624da08c9ba504d9f68214698c72a20ebead/openinference_semantic_conventions-0.1.13-py3-none-any.whl", hash = "sha256:750164718b9c5e58f437591dd2413f0d28d0a0540cbf7b99c27738a0ac631f5c", size = 9228, upload-time = "2025-02-04T22:40:27.162Z" },
-]
-
-[[package]]
-name = "openinference-semantic-conventions"
-version = "0.1.17"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation == 'PyPy'",
-    "python_full_version >= '3.12.4' and python_full_version < '3.13' and platform_python_implementation != 'PyPy'",
-    "python_full_version >= '3.12' and python_full_version < '3.12.4' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.11.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation == 'PyPy'",
-    "python_full_version == '3.9.*' and platform_python_implementation != 'PyPy'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ea/c1/851eed629ee65d38395f586eb4d82d9cc7c61c31de4c523394cc84ee4940/openinference_semantic_conventions-0.1.17.tar.gz", hash = "sha256:8c382f756344887c77f03c8def1702318d8d8cc8b4055f46924aabb7c89ed8bd", size = 9635, upload-time = "2025-04-02T04:43:34.111Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/99/306c007c3a2accafcf47fc5c20ea81648c039292ca6770c9c1ab7914dd6b/openinference_semantic_conventions-0.1.17-py3-none-any.whl", hash = "sha256:919b7f2c0b0bdd406377288337d77046efb84866ad4805ad7a73a09368147398", size = 9384, upload-time = "2025-04-02T04:43:32.998Z" },
 ]
 
 [[package]]
