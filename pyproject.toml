@@ -264,6 +264,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
+# The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [
     "error",
