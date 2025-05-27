@@ -1,7 +1,5 @@
-import importlib
 import os
 import sys
-from typing import TYPE_CHECKING
 
 import pytest
 from dirty_equals import IsPartialDict
@@ -12,23 +10,14 @@ from logfire._internal.exporters.test import TestExporter
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
-for mod_name, mod in list(sys.modules.items()):
-    if mod_name.startswith('langsmith'):
-        try:
-            importlib.reload(mod)
-        except Exception as e:
-            print(f'Failed to reload {mod_name}: {e}')
-
-try:
-    from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
-except ImportError:
-    pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Langgraph does not support 3.8')
-    if TYPE_CHECKING:
-        assert False
+pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Langgraph does not support 3.8')
 
 
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter):
+    from langchain_core.tracers.langchain import wait_for_all_tracers
+    from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
+
     def add(a: float, b: float) -> float:
         """Add two numbers."""
         return a + b
@@ -38,6 +27,7 @@ def test_instrument_langchain(exporter: TestExporter):
     result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 
     assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
+    wait_for_all_tracers()
 
     message_events_minimum = [
         {
