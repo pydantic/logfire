@@ -32,8 +32,11 @@ def test_instrument_langchain(exporter: TestExporter):
     result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 
     assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
+
+    # Wait for langsmith OTel thread
     wait_for_all_tracers()
 
+    # All spans that have messages should have some 'prefix' of this list, maybe with extra keys in each dict.
     message_events_minimum = [
         {
             'role': 'user',
@@ -84,19 +87,22 @@ def test_instrument_langchain(exporter: TestExporter):
         for span in sorted(spans, key=lambda s: s['start_time'])
     ] == snapshot(
         [
-            ('LangGraph', 4),
+            ('LangGraph', 4),  # Full conversation in outermost span
+            # First request and response
             ('agent', 2),
             ('call_model', 2),
             ('RunnableSequence', 2),
-            ('Prompt', 1),
+            ('Prompt', 1),  # prompt spans miss the output
             ('ChatOpenAI', 2),
             ('should_continue', 2),
+            # Tools don't have message events
             ('tools', 0),
             ('add', 0),
+            # Second request and response included, thus the whole conversation
             ('agent', 4),
             ('call_model', 4),
             ('RunnableSequence', 4),
-            ('Prompt', 3),
+            ('Prompt', 3),  # prompt spans miss the output
             ('ChatOpenAI', 4),
             ('should_continue', 4),
         ]
