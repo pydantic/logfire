@@ -82,7 +82,25 @@ def test_instrument_langchain(exporter: TestExporter):
     assert [
         (span['name'], len(span['attributes'].get('all_messages_events', [])))
         for span in sorted(spans, key=lambda s: s['start_time'])
-    ] == snapshot([])
+    ] == snapshot(
+        [
+            ('LangGraph', 4),
+            ('agent', 2),
+            ('call_model', 2),
+            ('RunnableSequence', 2),
+            ('Prompt', 1),
+            ('ChatOpenAI', 2),
+            ('should_continue', 2),
+            ('tools', 0),
+            ('add', 0),
+            ('agent', 4),
+            ('call_model', 4),
+            ('RunnableSequence', 4),
+            ('Prompt', 3),
+            ('ChatOpenAI', 4),
+            ('should_continue', 4),
+        ]
+    )
 
     spans = [s for s in spans if s['name'] == 'ChatOpenAI']
     attributes = spans[-1]['attributes']
