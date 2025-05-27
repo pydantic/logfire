@@ -1,3 +1,7 @@
+---
+integration: built-in
+---
+
 # LangChain
 
 [LangChain](https://www.langchain.com/) (and thus [LangGraph](https://www.langchain.com/langgraph)) has [built-in OpenTelemetry tracing via Langsmith](https://docs.smith.langchain.com/observability/how_to_guides/trace_langchain_with_otel) which you can use with **Logfire**. It's enabled by these two environment variables:
@@ -31,6 +35,7 @@ def add(a: float, b: float) -> float:
 math_agent = create_react_agent('openai:gpt-4o', tools=[add], name='math_agent')
 
 result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
+print(result['messages'][-1].content)
 ```
 
 The resulting trace looks like this in Logfire:
