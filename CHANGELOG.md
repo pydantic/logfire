@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.16.1] (2025-05-26)
+
+* Infer base URL from read token in query client by @Viicos in [#1088](https://github.com/pydantic/logfire/pull/1088)
+* Add `include_binary_content` ([#1090](https://github.com/pydantic/logfire/pull/1090)) and `**kwargs` ([#1078](https://github.com/pydantic/logfire/pull/1078)) to `instrument_pydantic_ai` by @alexmojaki
+
 ## [v3.16.0] (2025-05-14)
 
 * Make OpenAI spans show token usage in logfire UI by @alexmojaki in [#1076](https://github.com/pydantic/logfire/pull/1076)
@@ -700,3 +705,4 @@ First release from new repo!
 [v3.15.0]: https://github.com/pydantic/logfire/compare/v3.14.1...v3.15.0
 [v3.15.1]: https://github.com/pydantic/logfire/compare/v3.15.0...v3.15.1
 [v3.16.0]: https://github.com/pydantic/logfire/compare/v3.15.1...v3.16.0
+[v3.16.1]: https://github.com/pydantic/logfire/compare/v3.16.0...v3.16.1
