@@ -227,14 +227,13 @@ def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: st
 def responses_output_events(response: Response):
     """Generate dictionaries in the style of OTel events from the outputs of the Responses API."""
     events: list[dict[str, Any]] = []
-    if response.output:
-        for out in response.output:
-            for message in input_to_events(
-                out.model_dump(),
-                # Outputs don't have tool call responses, so this isn't needed.
-                tool_call_id_to_name={},
-            ):
-                events.append({**message, 'role': 'assistant'})
+    for out in response.output:
+        for message in input_to_events(
+            out.model_dump(),
+            # Outputs don't have tool call responses, so this isn't needed.
+            tool_call_id_to_name={},
+        ):
+            events.append({**message, 'role': 'assistant'})
     return events
 
 
