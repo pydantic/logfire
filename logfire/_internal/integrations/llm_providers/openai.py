@@ -225,6 +225,7 @@ def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: st
 
 @handle_internal_errors
 def responses_output_events(response: Response):
+    """Generate dictionaries in the style of OTel events from the outputs of the Responses API."""
     events: list[dict[str, Any]] = []
     if response.output:
         for out in response.output:
@@ -238,6 +239,12 @@ def responses_output_events(response: Response):
 
 
 def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+    """Generate dictionaries in the style of OTel events from one input to the Responses API.
+
+    `tool_call_id_to_name` is a mapping from tool call IDs to function names.
+    It's populated when the input is a tool call and used later to
+    provide the function name in the event for tool call responses.
+    """
     try:
         events: list[dict[str, Any]] = []
         role: str | None = inp.get('role')
