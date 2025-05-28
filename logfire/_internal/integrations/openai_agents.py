@@ -408,6 +408,7 @@ def get_response_span_events(span: ResponseSpanData):
     events: list[dict[str, Any]] = []
     response = span.response
     inputs = span.input
+    tool_call_id_to_name: dict[str, str] = {}
     if response and (instructions := getattr(response, 'instructions', None)):
         events += [
             {
@@ -421,10 +422,10 @@ def get_response_span_events(span: ResponseSpanData):
             inputs = [{'role': 'user', 'content': inputs}]
         for inp in inputs:  # type: ignore
             inp: dict[str, Any]
-            events += input_to_events(inp)
+            events += input_to_events(inp, tool_call_id_to_name)
     if response and response.output:
         for out in response.output:
-            for message in input_to_events(out.model_dump()):
+            for message in input_to_events(out.model_dump(), tool_call_id_to_name):
                 message.pop('event.name', None)
                 events.append(
                     {
@@ -436,7 +437,7 @@ def get_response_span_events(span: ResponseSpanData):
     return events
 
 
-def input_to_events(inp: dict[str, Any]):
+def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
     try:
         events: list[dict[str, Any]] = []
         role: str | None = inp.get('role')
@@ -454,6 +455,7 @@ def input_to_events(inp: dict[str, Any]):
                             continue
                     events.append(unknown_event(content_item))  # pragma: no cover
         elif typ == 'function_call':
+            tool_call_id_to_name[inp['call_id']] = inp['name']
             events.append(
                 {
                     'event.name': 'gen_ai.assistant.message',
@@ -474,6 +476,7 @@ def input_to_events(inp: dict[str, Any]):
                     'role': 'tool',
                     'id': inp['call_id'],
                     'content': inp['output'],
+                    'name': tool_call_id_to_name.get(inp['call_id'], inp.get('name', 'unknown')),
                 }
             )
         else:

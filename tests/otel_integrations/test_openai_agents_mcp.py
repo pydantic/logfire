@@ -728,6 +728,7 @@ async def test_mcp(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
                             'content': '{"type":"text","text":"4","annotations":null}',
+                            'name': 'random_number',
                         },
                         {
                             'event.name': 'gen_ai.choice',
