@@ -387,18 +387,15 @@ async def test_mcp(exporter: TestExporter):
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Give me a random number', 'role': 'user'},
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                                        'type': 'function',
-                                        'function': {'name': 'random_number', 'arguments': '{}'},
-                                    }
-                                ],
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
+                                    'type': 'function',
+                                    'function': {'name': 'random_number', 'arguments': '{}'},
+                                }
+                            ],
                         },
                     ],
                     'gen_ai.usage.input_tokens': 51,
@@ -731,9 +728,9 @@ async def test_mcp(exporter: TestExporter):
                             'name': 'random_number',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': "Here's a random number for you: 4", 'role': 'assistant'},
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': "Here's a random number for you: 4",
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 83,

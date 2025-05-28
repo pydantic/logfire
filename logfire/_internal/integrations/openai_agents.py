@@ -426,14 +426,7 @@ def get_response_span_events(span: ResponseSpanData):
     if response and response.output:
         for out in response.output:
             for message in input_to_events(out.model_dump(), tool_call_id_to_name):
-                message.pop('event.name', None)
-                events.append(
-                    {
-                        'event.name': 'gen_ai.choice',
-                        'index': 0,
-                        'message': {**message, 'role': 'assistant'},
-                    },
-                )
+                events.append({**message, 'role': 'assistant'})
     return events
 
 
