@@ -184,9 +184,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         )
     elif isinstance(response, CreateEmbeddingResponse):
         span.set_attribute('response_data', {'usage': usage})
-    elif isinstance(response, ImagesResponse):  # pragma: no branch
+    elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
-    elif isinstance(response, Response):
+    elif isinstance(response, Response):  # pragma: no branch
         events = json.loads(span.attributes['events'])  # type: ignore
         events += responses_output_events(response, events)
         span.set_attribute('events', events)
@@ -215,7 +215,7 @@ def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: st
             }
         ]
     if inputs:
-        if isinstance(inputs, str):  # pragma: no cover
+        if isinstance(inputs, str):
             inputs = [{'role': 'user', 'content': inputs}]
         for inp in inputs:
             events += input_to_events(inp, tool_call_id_to_name)

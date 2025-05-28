@@ -1925,7 +1925,9 @@ def test_responses_api(exporter: TestExporter) -> None:
     ]
 
     input_messages: Any = [{'role': 'user', 'content': 'What is the weather like in Paris today?'}]
-    response = client.responses.create(model='gpt-4.1', input=input_messages, tools=tools, instructions='Be nice')
+    response = client.responses.create(
+        model='gpt-4.1', input=input_messages[0]['content'], tools=tools, instructions='Be nice'
+    )
     tool_call: Any = response.output[0]
     input_messages.append(tool_call)
     input_messages.append({'type': 'function_call_output', 'call_id': tool_call.call_id, 'output': 'Rainy'})
