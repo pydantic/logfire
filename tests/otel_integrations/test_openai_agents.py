@@ -870,12 +870,14 @@ async def test_responses(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
                             'content': '4',
+                            'name': 'random_number',
                         },
                         {
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_oEA0MnUXCwKevx8txteoopNL',
                             'content': "{'assistant': 'agent2'}",
+                            'name': 'transfer_to_agent2',
                         },
                         {
                             'event.name': 'gen_ai.choice',
@@ -3159,6 +3161,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
                             'content': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                            'name': 'tool',
                         },
                         {
                             'event.name': 'gen_ai.choice',
