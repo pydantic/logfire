@@ -151,9 +151,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('gen_ai.response.model', response_model)
 
     usage = getattr(response, 'usage', None)
-    if isinstance(input_tokens := getattr(usage, 'prompt_tokens', None), int):
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
+    if isinstance(input_tokens, int):
         span.set_attribute('gen_ai.usage.input_tokens', input_tokens)
-    if isinstance(output_tokens := getattr(usage, 'completion_tokens', None), int):
+    if isinstance(output_tokens, int):
         span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
 
     if isinstance(response, ChatCompletion) and response.choices:
