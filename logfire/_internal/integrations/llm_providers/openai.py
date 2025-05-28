@@ -188,7 +188,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
         events = json.loads(span.attributes['events'])  # type: ignore
-        events += responses_output_events(response, events)
+        events += responses_output_events(response)
         span.set_attribute('events', events)
 
     return response
@@ -204,6 +204,7 @@ def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
 
 @handle_internal_errors
 def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: str | None):
+    """Generate dictionaries in the style of OTel events from the inputs and instructions to the Responses API."""
     events: list[dict[str, Any]] = []
     tool_call_id_to_name: dict[str, str] = {}
     if instructions:
@@ -223,16 +224,15 @@ def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: st
 
 
 @handle_internal_errors
-def responses_output_events(response: Response, input_events: list[dict[str, Any]]):
-    tool_call_id_to_name: dict[str, str] = {}
-    for inp in input_events:
-        for tool_call in inp.get('tool_calls', []):
-            tool_call_id_to_name[tool_call['id']] = tool_call['function']['name']
-
+def responses_output_events(response: Response):
     events: list[dict[str, Any]] = []
     if response.output:
         for out in response.output:
-            for message in input_to_events(out.model_dump(), tool_call_id_to_name):
+            for message in input_to_events(
+                out.model_dump(),
+                # Outputs don't have tool call responses, so this isn't needed.
+                tool_call_id_to_name={},
+            ):
                 events.append({**message, 'role': 'assistant'})
     return events
 

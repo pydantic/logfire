@@ -409,5 +409,5 @@ def get_response_span_events(span: ResponseSpanData):
     instructions = getattr(response, 'instructions', None)
     events = inputs_to_events(inputs, instructions) or []
     if response:
-        events += responses_output_events(response, events) or []
+        events += responses_output_events(response) or []
     return events
