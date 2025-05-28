@@ -48,7 +48,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
@@ -68,23 +68,26 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
             stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     else:
+        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        if 'model' in json_data:
+            span_data['gen_ai.request.model'] = json_data['model']
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
-            span_data={'request_data': json_data, 'url': url},
+            span_data=span_data,
         )
 
 
@@ -158,7 +161,6 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     span.set_attribute('gen_ai.system', 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
-        span.set_attribute('gen_ai.request.model', response_model)  # we don't have the actual request model here
         span.set_attribute('gen_ai.response.model', response_model)
 
     usage = getattr(response, 'usage', None)
