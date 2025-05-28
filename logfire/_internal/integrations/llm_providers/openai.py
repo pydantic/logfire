@@ -56,7 +56,13 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         return EndpointConfig(  # pragma: no cover
             message_template='Responses API with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={
+                'gen_ai.request.model': json_data['model'],
+                'events': inputs_to_events(
+                    json_data['input'],  # type: ignore
+                    json_data.get('instructions'),  # type: ignore
+                ),
+            },
         )
     elif url == '/completions':
         return EndpointConfig(
@@ -189,10 +195,10 @@ def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
 
 
 @handle_internal_errors
-def get_responses_api_message_events(response: Response | None, inputs: str | list[dict[str, Any]] | None = None):
+def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: str | None):
     events: list[dict[str, Any]] = []
     tool_call_id_to_name: dict[str, str] = {}
-    if response and (instructions := getattr(response, 'instructions', None)):
+    if instructions:
         events += [
             {
                 'event.name': 'gen_ai.system.message',
@@ -205,7 +211,18 @@ def get_responses_api_message_events(response: Response | None, inputs: str | li
             inputs = [{'role': 'user', 'content': inputs}]
         for inp in inputs:
             events += input_to_events(inp, tool_call_id_to_name)
-    if response and response.output:
+    return events
+
+
+@handle_internal_errors
+def responses_output_events(response: Response, input_events: list[dict[str, Any]]):
+    tool_call_id_to_name: dict[str, str] = {}
+    for inp in input_events:
+        for tool_call in inp.get('tool_calls', []):
+            tool_call_id_to_name[tool_call['id']] = tool_call['function']['name']
+
+    events: list[dict[str, Any]] = []
+    if response.output:
         for out in response.output:
             for message in input_to_events(out.model_dump(), tool_call_id_to_name):
                 events.append({**message, 'role': 'assistant'})

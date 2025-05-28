@@ -35,7 +35,7 @@ from opentelemetry.trace import NonRecordingSpan, use_span
 from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
-from logfire._internal.integrations.llm_providers.openai import get_responses_api_message_events
+from logfire._internal.integrations.llm_providers.openai import inputs_to_events, responses_output_events
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -406,4 +406,8 @@ def get_magic_response_attributes() -> dict[str, Any]:
 def get_response_span_events(span: ResponseSpanData):
     response = span.response
     inputs: str | list[dict[str, Any]] | None = span.input  # type: ignore
-    return get_responses_api_message_events(response, inputs)
+    instructions = getattr(response, 'instructions', None)
+    events = inputs_to_events(inputs, instructions) or []
+    if response:
+        events += responses_output_events(response, events) or []
+    return events
