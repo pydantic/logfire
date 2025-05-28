@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 import json
 import sys
 from io import BytesIO
-from typing import AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Iterator
 
 import httpx
 import openai
@@ -1879,5 +1879,156 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
                     },
                 },
             }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_responses_api(exporter: TestExporter) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    tools: Any = [
+        {
+            'type': 'function',
+            'name': 'get_weather',
+            'description': 'Get current temperature for a given location.',
+            'parameters': {
+                'type': 'object',
+                'properties': {'location': {'type': 'string', 'description': 'City and country e.g. Bogotá, Colombia'}},
+                'required': ['location'],
+                'additionalProperties': False,
+            },
+        }
+    ]
+
+    input_messages: Any = [{'role': 'user', 'content': 'What is the weather like in Paris today?'}]
+    response = client.responses.create(model='gpt-4.1', input=input_messages, tools=tools, instructions='Be nice')
+    tool_call: Any = response.output[0]
+    input_messages.append(tool_call)
+    input_messages.append({'type': 'function_call_output', 'call_id': tool_call.call_id, 'output': 'Rainy'})
+    response2: Any = client.responses.create(model='gpt-4.1', input=input_messages)
+    assert response2.output[0].content[0].text == snapshot(
+        'The weather in Paris today is rainy. If you’re planning to go out, '
+        'don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.'
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api',
+                    'code.lineno': 123,
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.usage.input_tokens': 65,
+                    'gen_ai.usage.output_tokens': 17,
+                    'events': [
+                        {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'type': 'function',
+                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
+                                }
+                            ],
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api',
+                    'code.lineno': 123,
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.usage.input_tokens': 43,
+                    'gen_ai.usage.output_tokens': 40,
+                    'events': [
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'type': 'function',
+                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                            'content': 'Rainy',
+                            'name': 'get_weather',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'The weather in Paris today is rainy. If you’re planning to go out, don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.',
+                            'role': 'assistant',
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
         ]
     )

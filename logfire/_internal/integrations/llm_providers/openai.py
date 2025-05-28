@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import openai
@@ -54,8 +55,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        return EndpointConfig(  # pragma: no cover
-            message_template='Responses API with {request_data[model]!r}',
+        return EndpointConfig(
+            message_template='Responses API with {gen_ai.request.model!r}',
             span_data={
                 'gen_ai.request.model': json_data['model'],
                 'events': inputs_to_events(
@@ -183,6 +184,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):  # pragma: no branch
         span.set_attribute('response_data', {'images': response.data})
+    elif isinstance(response, Response):
+        events = json.loads(span.attributes['events'])  # type: ignore
+        events += responses_output_events(response, events)
+        span.set_attribute('events', events)
+
     return response
 
 
