@@ -5,7 +5,6 @@ import dataclasses
 import datetime
 import json
 from collections.abc import Mapping, Sequence
-from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
@@ -45,10 +44,6 @@ def _set_encoder(o: set[Any], seen: set[int]) -> JsonValue:
         return [to_json_value(item, seen) for item in sorted(o)]
     except TypeError:
         return [to_json_value(item, seen) for item in o]
-
-
-def _to_isoformat(o: Any, _seen: set[int]) -> str:
-    return o.isoformat()
 
 
 def _to_str(o: Any, _seen: set[int]) -> str:
@@ -193,11 +188,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         frozenset: _set_encoder,
         bytes: _bytes_encoder,
         bytearray: _bytearray_encoder,
-        datetime.date: _to_isoformat,
-        datetime.datetime: _to_isoformat,
-        datetime.time: _to_isoformat,
         datetime.timedelta: lambda o, _: o.total_seconds(),
-        Decimal: _to_str,
         Enum: lambda o, seen: to_json_value(o.value, seen),
         GeneratorType: _to_repr,
         IPv4Address: _to_str,
