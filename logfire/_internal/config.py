@@ -1088,7 +1088,7 @@ class LogfireConfig(_LogfireConfigData):
                 # The reason that spans may be lingering open is that they're in suspended generator frames.
                 # Apart from here, they will be ended when the generator is garbage collected
                 # as the interpreter shuts down, but that's too late.
-                for span in list(OPEN_SPANS):
+                for span in list(OPEN_SPANS.values()):
                     # TODO maybe we should be recording something about what happened here?
                     span.end()
                     # Interpreter shutdown may trigger another call to .end(),

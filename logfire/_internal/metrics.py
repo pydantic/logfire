@@ -20,7 +20,10 @@ from opentelemetry.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
+from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
+
+from .tracer import _LogfireWrappedSpan  # type: ignore
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
@@ -319,6 +322,9 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        span = get_current_span()
+        if isinstance(span, _LogfireWrappedSpan):
+            span.increment_metric(self._name, amount)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:

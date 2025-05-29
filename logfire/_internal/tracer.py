@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import sys
 import traceback
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
-from weakref import WeakKeyDictionary, WeakSet
+from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
 from opentelemetry import context as context_api
@@ -44,7 +45,7 @@ except ImportError:  # pragma: no cover
     ValidationError = None
 
 
-OPEN_SPANS: WeakSet[_LogfireWrappedSpan] = WeakSet()
+OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan] = WeakValueDictionary()
 
 
 @dataclass
@@ -125,13 +126,19 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    metrics: dict[str, float] = field(default_factory=dict)  # type: ignore[reportUnknownVariableType]
 
     def __post_init__(self):
-        OPEN_SPANS.add(self)
+        OPEN_SPANS[self._open_spans_key()] = self
 
     def end(self, end_time: int | None = None) -> None:
-        OPEN_SPANS.discard(self)
+        OPEN_SPANS.pop(self._open_spans_key(), None)
+        if self.metrics:
+            self.span.set_attribute('logfire.metrics', json.dumps(self.metrics))
         self.span.end(end_time or self.ns_timestamp_generator())
+
+    def _open_spans_key(self):
+        return _open_spans_key(self.span.get_span_context())
 
     def get_span_context(self) -> SpanContext:
         return self.span.get_span_context()
@@ -176,6 +183,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         timestamp = timestamp or self.ns_timestamp_generator()
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
+    def increment_metric(self, name: str, value: float):
+        if name in self.metrics:
+            self.metrics[name] += value
+        else:
+            self.metrics[name] = value
+        if self.parent and (parent := OPEN_SPANS.get(_open_spans_key(self.parent))):
+            parent.increment_metric(name, value)
+
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self.is_recording():
             if isinstance(exc_value, BaseException):
@@ -186,6 +201,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         # for ReadableSpan
         def __getattr__(self, name: str) -> Any:
             return getattr(self.span, name)
+
+
+def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
+    return ctx.trace_id, ctx.span_id
 
 
 @dataclass
