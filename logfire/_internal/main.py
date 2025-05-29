@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+from enum import Enum
 import inspect
 import json
 import sys
@@ -2450,7 +2451,9 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
-    if isinstance(value, int):
+    if isinstance(value, Enum):
+        return logfire_json_dumps(value)
+    elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
                 f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
