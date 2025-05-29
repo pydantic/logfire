@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import contextlib
-from enum import Enum
 import inspect
 import json
 import sys
 import warnings
 from contextvars import Token
+from enum import Enum
 from functools import cached_property
 from time import time
 from typing import (
