@@ -273,6 +273,9 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        span = get_current_span()
+        if isinstance(span, _LogfireWrappedSpan):
+            span.increment_metric(self._name, attributes or {}, amount)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
@@ -322,9 +325,6 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        span = get_current_span()
-        if isinstance(span, _LogfireWrappedSpan):
-            span.increment_metric(self._name, amount)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
