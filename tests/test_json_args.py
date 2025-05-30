@@ -316,29 +316,29 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             Decimal('1.7'),
             '1.7',
-            '"Decimal(\'1.7\')"',
-            {'type': 'string', 'format': 'decimal'},
+            '"1.7"',
+            {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
             id='decimal',
         ),
         pytest.param(
             date(2023, 1, 1),
             '2023-01-01',
-            '"datetime.date(2023, 1, 1)"',
-            {'type': 'string', 'format': 'date'},
+            '"2023-01-01"',
+            {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
             id='date',
         ),
         pytest.param(
             datetime(2023, 1, 1, 10, 10),
             '2023-01-01 10:10:00',
-            '"datetime.datetime(2023, 1, 1, 10, 10)"',
-            {'type': 'string', 'format': 'date-time'},
+            '"2023-01-01T10:10:00"',
+            {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
             id='datetime',
         ),
         pytest.param(
             time(12, 10),
             '12:10:00',
-            '"datetime.time(12, 10)"',
-            {'type': 'string', 'format': 'time'},
+            '"12:10:00"',
+            {'type': 'string', 'format': 'time', 'x-python-datatype': 'time'},
             id='time',
         ),
         pytest.param(
@@ -973,13 +973,13 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
                 '...'
                 'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
             ),
-            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
             'code.filepath': 'test_json_args.py',
             'code.lineno': 123,
             'code.function': 'test_log_non_scalar_complex_args',
             'a': 1,
-            'complex_list': '["a",1,{"x":"x","y":"datetime.datetime(2023, 1, 1, 0, 0)"},{"t":10},{"p":20}]',
-            'complex_dict': '{"k1":"v1","model":{"x":"x","y":"datetime.datetime(2023, 1, 1, 0, 0)"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
+            'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
+            'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
         }
     )
 
