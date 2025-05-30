@@ -19,6 +19,7 @@ from opentelemetry.sdk.metrics.export import (
 
 import logfire
 import logfire._internal.metrics
+from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.test import TestExporter
 
@@ -451,5 +452,45 @@ def test_metrics_in_spans(exporter: TestExporter):
                     },
                 },
             },
+        ]
+    )
+
+
+def test_metrics_in_non_recording_spans(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=0),
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+        ),
+    )
+    tokens = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        tokens.add(100, attributes=dict(model='gpt4'))
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == []
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'tokens',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'model': 'gpt4'},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 100,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'is_monotonic': True,
+                },
+            }
         ]
     )
