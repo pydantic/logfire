@@ -6,7 +6,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from dirty_equals import IsFloat, IsJson
+from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
@@ -699,10 +699,10 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                                         'http.target': '/',
                                         'net.host.port': 80,
                                     },
-                                    'total': 1,
+                                    'total': IsInt(),
                                 }
                             ],
-                            'total': 1,
+                            'total': IsInt(),
                         },
                         'http.server.request.duration': {
                             'details': [

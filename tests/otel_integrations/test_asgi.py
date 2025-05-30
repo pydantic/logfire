@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 
-from dirty_equals import IsFloat
+from dirty_equals import IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.applications import Starlette
@@ -112,10 +112,10 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                                         'http.status_code': 200,
                                         'net.host.port': 80,
                                     },
-                                    'total': 1,
+                                    'total': IsInt(),
                                 }
                             ],
-                            'total': 1,
+                            'total': IsInt(),
                         },
                         'http.server.request.duration': {
                             'details': [

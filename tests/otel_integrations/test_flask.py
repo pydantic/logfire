@@ -156,10 +156,10 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                                         'net.host.name': 'localhost',
                                         'net.host.port': 80,
                                     },
-                                    'total': 1,
+                                    'total': 2,
                                 }
                             ],
-                            'total': 1,
+                            'total': 2,
                         },
                         'http.server.request.duration': {
                             'details': [

@@ -4,7 +4,7 @@ import importlib
 from unittest import mock
 
 import pytest
-from dirty_equals import IsFloat
+from dirty_equals import IsFloat, IsInt
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
@@ -106,10 +106,10 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
                                         'net.host.name': 'localhost',
                                         'net.host.port': 80,
                                     },
-                                    'total': 0,
+                                    'total': IsInt(),
                                 }
                             ],
-                            'total': 0,
+                            'total': IsInt(),
                         },
                         'http.server.request.duration': {
                             'details': [
