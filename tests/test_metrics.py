@@ -20,6 +20,7 @@ from opentelemetry.sdk.metrics.export import (
 import logfire
 import logfire._internal.metrics
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
+from logfire._internal.exporters.test import TestExporter
 
 meter = metrics.get_meter('global_test_meter')
 
@@ -387,3 +388,68 @@ def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
     exporter.shutdown()
     assert force_flush_called
     assert shutdown_called
+
+
+def test_metrics_in_spans(exporter: TestExporter):
+    tokens = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        tokens.add(100, attributes=dict(model='gpt4'))
+        with logfire.span('nested_span'):
+            tokens.add(200, attributes=dict(model='gpt4'))
+            tokens.add(500, attributes=dict(model='gemini-2.5'))
+        tokens.add(999)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'nested_span',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'nested_span',
+                    'logfire.msg': 'nested_span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'tokens': {
+                            'details': [
+                                {'attributes': {'model': 'gpt4'}, 'total': 200},
+                                {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
+                            ],
+                            'total': 700,
+                        }
+                    },
+                },
+            },
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'tokens': {
+                            'details': [
+                                {'attributes': {'model': 'gpt4'}, 'total': 300},
+                                {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
+                                {'attributes': {}, 'total': 999},
+                            ],
+                            'total': 1799,
+                        }
+                    },
+                },
+            },
+        ]
+    )
