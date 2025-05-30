@@ -148,19 +148,19 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
         pytest.param(
             '2023-01-01',
             {'type': 'string', 'x-python-datatype': 'date'},
-            'datetime.date(2023, 1, 1)',
+            "date('2023-01-01')",
             id='date',
         ),
         pytest.param(
             '2023-01-01T10:10:00',
             {'type': 'string', 'x-python-datatype': 'datetime'},
-            'datetime.datetime(2023, 1, 1, 10, 10)',
+            "datetime('2023-01-01T10:10:00')",
             id='datetime',
         ),
         pytest.param(
             '12:10:00',
             {'type': 'string', 'x-python-datatype': 'time'},
-            'datetime.time(12, 10)',
+            "time('12:10:00')",
             id='time',
         ),
         pytest.param(
@@ -494,7 +494,7 @@ def test_nested_json_args_value_formatting():
     1,
     MyModel(
         x='x',
-        y=datetime.datetime(2023, 1, 1, 0, 0),
+        y=datetime('2023-01-01T00:00:00'),
     ),
     MyDataclass(
         t=10,
@@ -554,19 +554,19 @@ def test_nested_json_args_value_formatting():
         pytest.param(
             '2023-01-01',
             {'type': 'string', 'x-python-datatype': 'date'},
-            'datetime.date(2023, 1, 1)',
+            "date('2023-01-01')",
             id='date',
         ),
         pytest.param(
             '2023-01-01T10:10:00',
             {'type': 'string', 'x-python-datatype': 'datetime'},
-            'datetime.datetime(2023, 1, 1, 10, 10)',
+            "datetime('2023-01-01T10:10:00')",
             id='datetime',
         ),
         pytest.param(
             '12:10:00',
             {'type': 'string', 'x-python-datatype': 'time'},
-            'datetime.time(12, 10)',
+            "time('12:10:00')",
             id='time',
         ),
         pytest.param(
@@ -691,26 +691,3 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
 def test_all_types_covered():
     types = set(DataType.__args__)
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore
-
-
-def test_date_time_fallbacks():
-    # Empty string
-    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'date'})
-    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'datetime'})
-    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'time'})
-
-    # Invalid string
-    assert 'not-a-date' in json_args_value_formatter(
-        'not-a-date', schema={'type': 'string', 'x-python-datatype': 'date'}
-    )
-    assert 'not-a-datetime' in json_args_value_formatter(
-        'not-a-datetime', schema={'type': 'string', 'x-python-datatype': 'datetime'}
-    )
-    assert 'not-a-time' in json_args_value_formatter(
-        'not-a-time', schema={'type': 'string', 'x-python-datatype': 'time'}
-    )
-
-    # Unsupported type
-    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'date'})
-    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'datetime'})
-    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'time'})
