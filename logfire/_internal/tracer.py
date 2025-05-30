@@ -150,11 +150,12 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         OPEN_SPANS[self._open_spans_key()] = self
 
     def end(self, end_time: int | None = None) -> None:
-        OPEN_SPANS.pop(self._open_spans_key(), None)
-        if self.metrics:
-            self.span.set_attribute(
-                'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
-            )
+        with handle_internal_errors:
+            OPEN_SPANS.pop(self._open_spans_key(), None)
+            if self.metrics:
+                self.span.set_attribute(
+                    'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
+                )
         self.span.end(end_time or self.ns_timestamp_generator())
 
     def _open_spans_key(self):
