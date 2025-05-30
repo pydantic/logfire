@@ -691,3 +691,26 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
 def test_all_types_covered():
     types = set(DataType.__args__)
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore
+
+
+def test_date_time_fallbacks():
+    # Empty string
+    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'date'})
+    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'datetime'})
+    assert "''" in json_args_value_formatter('', schema={'type': 'string', 'x-python-datatype': 'time'})
+
+    # Invalid string
+    assert 'not-a-date' in json_args_value_formatter(
+        'not-a-date', schema={'type': 'string', 'x-python-datatype': 'date'}
+    )
+    assert 'not-a-datetime' in json_args_value_formatter(
+        'not-a-datetime', schema={'type': 'string', 'x-python-datatype': 'datetime'}
+    )
+    assert 'not-a-time' in json_args_value_formatter(
+        'not-a-time', schema={'type': 'string', 'x-python-datatype': 'time'}
+    )
+
+    # Unsupported type
+    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'date'})
+    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'datetime'})
+    assert '123' in json_args_value_formatter(123, schema={'type': 'string', 'x-python-datatype': 'time'})

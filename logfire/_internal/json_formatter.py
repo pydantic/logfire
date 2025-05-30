@@ -274,58 +274,70 @@ class JsonArgsValueFormatter:
         )
 
     def _format_date(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        """Format a date value as its Python repr. Accepts ISO string or date object.
+        """Format a date value for output, handling both string and date object inputs.
 
-        Falls back to safe_repr if input is invalid.
+        Attempts to parse a string as an ISO date, or accepts a date object directly.
+        Falls back to a safe representation if parsing fails.
+
+        Args:
+            _indent_current (int): The current indentation level (unused).
+            value (Any): The value to format, expected to be a string or date object.
+            schema (JSONSchema | None): Optional schema information for formatting.
         """
-        if isinstance(value, str):
-            if value:
+        try:
+            if isinstance(value, str):
                 d = date.fromisoformat(value)
+            elif isinstance(value, date):
+                d = value
             else:
-                self._write('', '', False, 0, safe_repr(value), schema)
-                return
-        elif isinstance(value, date):
-            d = value
-        else:
+                raise TypeError
+            self._write('', '', True, 0, d, schema)
+        except Exception:
             self._write('', '', False, 0, safe_repr(value), schema)
-            return
-        self._write('', '', True, 0, d, schema)
 
     def _format_datetime(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        """Format a datetime value as its Python repr. Accepts ISO string or datetime object.
+        """Format a datetime value for output, handling both string and datetime object inputs.
 
-        Falls back to safe_repr if input is invalid.
+        Attempts to parse a string as an ISO datetime, or accepts a datetime object directly.
+        Falls back to a safe representation if parsing fails.
+
+        Args:
+            _indent_current (int): The current indentation level (unused).
+            value (Any): The value to format, expected to be a string or datetime object.
+            schema (JSONSchema | None): Optional schema information for formatting.
         """
-        if isinstance(value, str):
-            if value:
+        try:
+            if isinstance(value, str):
                 dt = datetime.fromisoformat(value)
+            elif isinstance(value, datetime):
+                dt = value
             else:
-                self._write('', '', False, 0, safe_repr(value), schema)
-                return
-        elif isinstance(value, datetime):
-            dt = value
-        else:
+                raise TypeError
+            self._write('', '', True, 0, dt, schema)
+        except Exception:
             self._write('', '', False, 0, safe_repr(value), schema)
-            return
-        self._write('', '', True, 0, dt, schema)
 
     def _format_time(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        """Format a time value as its Python repr. Accepts ISO string or time object.
+        """Format a time value for output, handling both string and time object inputs.
 
-        Falls back to safe_repr if input is invalid.
+        Attempts to parse a string as an ISO time, or accepts a time object directly.
+        Falls back to a safe representation if parsing fails.
+
+        Args:
+            _indent_current (int): The current indentation level (unused).
+            value (Any): The value to format, expected to be a string or time object.
+            schema (JSONSchema | None): Optional schema information for formatting.
         """
-        if isinstance(value, str):
-            if value:
+        try:
+            if isinstance(value, str):
                 t = time.fromisoformat(value)
+            elif isinstance(value, time):
+                t = value
             else:
-                self._write('', '', False, 0, safe_repr(value), schema)
-                return
-        elif isinstance(value, time):
-            t = value
-        else:
+                raise TypeError
+            self._write('', '', True, 0, t, schema)
+        except Exception:
             self._write('', '', False, 0, safe_repr(value), schema)
-            return
-        self._write('', '', True, 0, t, schema)
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)
