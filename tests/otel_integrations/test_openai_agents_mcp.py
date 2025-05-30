@@ -104,7 +104,7 @@ async def test_mcp(exporter: TestExporter):
                         'params': {
                             'meta': None,
                             'protocolVersion': IsStr(),
-                            'capabilities': {'experimental': None, 'sampling': {}, 'roots': {'listChanged': True}},
+                            'capabilities': {'experimental': None, 'sampling': None, 'roots': None},
                             'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
                         },
                     },
@@ -149,18 +149,6 @@ async def test_mcp(exporter: TestExporter):
                                                         'type': 'object',
                                                         'title': 'ClientCapabilities',
                                                         'x-python-datatype': 'PydanticModel',
-                                                        'properties': {
-                                                            'sampling': {
-                                                                'type': 'object',
-                                                                'title': 'SamplingCapability',
-                                                                'x-python-datatype': 'PydanticModel',
-                                                            },
-                                                            'roots': {
-                                                                'type': 'object',
-                                                                'title': 'RootsCapability',
-                                                                'x-python-datatype': 'PydanticModel',
-                                                            },
-                                                        },
                                                     },
                                                     'clientInfo': {
                                                         'type': 'object',
