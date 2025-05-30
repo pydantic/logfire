@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import decimal
+import enum
 import io
 import sys
 from datetime import datetime
@@ -943,19 +944,40 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
     )
 
+    class MyEnum(enum.Enum):
+        """Enum with string values."""
+
+        ABC = 'abc'
+
+    class MyStrEnum(str, enum.Enum):
+        """String-based Enum."""
+
+        STR = 'str_val'
+
+    class MyIntEnum(int, enum.Enum):
+        """Integer-based Enum."""
+
+        INT = 1
+
     logfire.info(
         'hi',
         d=datetime(2020, 12, 31, 12, 34, 56),
         x=None,
         v=decimal.Decimal('1.0'),
+        e=MyEnum.ABC,
+        se=MyStrEnum.STR,
+        ie=MyIntEnum.INT,
     )
 
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             'hi',
             IsStr(),
-            '│ d=2020-12-31T12:34:56',
+            '│ d=datetime.datetime(2020, 12, 31, 12, 34, 56)',
             '│ x=None',
-            '│ v=1.0',
+            "│ v=Decimal('1.0')",
+            "│ e=MyEnum('abc')",
+            "│ se=MyStrEnum('str_val')",
+            '│ ie=MyIntEnum(1)',
         ]
     )
