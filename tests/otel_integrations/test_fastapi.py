@@ -6,7 +6,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from dirty_equals import IsJson
+from dirty_equals import IsFloat, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
@@ -433,7 +433,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'outside request handler',
@@ -512,7 +512,15 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.route': '/',
                     'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'http.method': {},
+                            'http.route': {},
+                            'fastapi.route.name': {},
+                            'fastapi.route.operation_id': {'type': 'null'},
+                        },
+                    },
                 },
             },
             {
@@ -528,7 +536,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'method': 'GET',
                     'http.route': '/',
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.level_num': 5,
@@ -565,7 +573,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'code.lineno': 123,
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.level_num': 5,
                 },
@@ -656,7 +664,10 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.route': '/',
                     'fastapi.route.name': 'homepage',
                     'fastapi.route.operation_id': 'null',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'fastapi.route.name': {}, 'fastapi.route.operation_id': {'type': 'null'}},
+                    },
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -674,6 +685,74 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg_template': 'outside request handler',
                     'logfire.msg': 'outside request handler',
                     'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'http.target': '/',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': 1,
+                                }
+                            ],
+                            'total': 1,
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'http.route': '/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                        'http.server.response.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'http.target': '/',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                        'http.server.response.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'http.route': '/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                    },
                 },
             },
         ]

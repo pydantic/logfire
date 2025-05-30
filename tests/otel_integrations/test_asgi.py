@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 
+from dirty_equals import IsFloat
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.applications import Starlette
@@ -34,7 +35,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'inside request handler',
@@ -98,6 +99,70 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'logfire.msg_template': 'outside request handler',
                     'logfire.msg': 'outside request handler',
                     'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'net.host.port': 80,
+                                    },
+                                    'total': 1,
+                                }
+                            ],
+                            'total': 1,
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                        'http.server.response.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'net.host.port': 80,
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                        'http.server.response.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                    },
                 },
             },
         ]
