@@ -24,6 +24,7 @@ from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
 from .tracer import _LogfireWrappedSpan  # type: ignore
+from .utils import handle_internal_errors
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
@@ -273,9 +274,10 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        span = get_current_span()
-        if isinstance(span, _LogfireWrappedSpan):
-            span.increment_metric(self._name, attributes or {}, amount)
+        with handle_internal_errors:
+            span = get_current_span()
+            if isinstance(span, _LogfireWrappedSpan):
+                span.increment_metric(self._name, attributes or {}, amount)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
