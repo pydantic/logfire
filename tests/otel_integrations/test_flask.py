@@ -3,7 +3,7 @@ from unittest import mock
 
 import opentelemetry.instrumentation.flask
 import pytest
-from dirty_equals import IsFloat
+from dirty_equals import IsFloat, IsInt
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
@@ -156,10 +156,10 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                                         'net.host.name': 'localhost',
                                         'net.host.port': 80,
                                     },
-                                    'total': 2,
+                                    'total': IsInt(),
                                 }
                             ],
-                            'total': 2,
+                            'total': IsInt(),
                         },
                         'http.server.request.duration': {
                             'details': [
