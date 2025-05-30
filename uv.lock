@@ -2551,6 +2551,7 @@ celery = [
     { name = "opentelemetry-instrumentation-celery" },
 ]
 django = [
+    { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-django" },
 ]
 fastapi = [
@@ -2716,6 +2717,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'asgi'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", marker = "extra == 'aws-lambda'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", marker = "extra == 'celery'", specifier = ">=0.42b0" },

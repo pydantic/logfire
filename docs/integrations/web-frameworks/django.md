@@ -12,12 +12,6 @@ Install `logfire` with the `django` extra:
 
 {{ install_logfire(extras=['django']) }}
 
-!!! info
-    If you use are using the **[Asynchronous support]** of Django, you'll also need to
-    install the `asgi` extra:
-
-    {{ install_logfire(extras=['django,asgi']) }}
-
 ## Usage
 
 In the `settings.py` file, add the following lines:
@@ -46,6 +40,5 @@ If you are using a different database, check the available instrumentation metho
 [django]: https://www.djangoproject.com/
 [opentelemetry-django]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html
 [django-instrumentor]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html#opentelemetry.instrumentation.django.DjangoInstrumentor
-[Asynchronous support]: https://docs.djangoproject.com/en/dev/topics/async/#asynchronous-support
 [uses SQLite as the database engine]: https://docs.djangoproject.com/en/dev/ref/settings/#databases
 [Integrations section]: ../index.md
