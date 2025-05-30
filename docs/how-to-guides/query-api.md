@@ -144,7 +144,7 @@ client library, such as `requests` in Python. Below are the general steps and an
 
 ### General Steps to Make a Direct HTTP Request
 
-1. **Set the Endpoint URL**: The base URL for the Logfire API is `https://logfire-api.pydantic.dev`.
+1. **Set the Endpoint URL**: The base URL for the Logfire API is `https://logfire-us.pydantic.dev` for accounts in the US region, and `https://logfire-eu.pydantic.dev` for accounts in the EU region.
 
 2. **Add Authentication**: Include the read token in your request headers to authenticate.
    The header key should be `Authorization` with the value `Bearer <your_read_token_here>`.
@@ -162,7 +162,7 @@ You can also use the `Accept` header to specify the desired format for the respo
 import requests
 
 # Define the base URL and your read token
-base_url = 'https://logfire-api.pydantic.dev'
+base_url = 'https://logfire-us.pydantic.dev'  # or 'https://logfire-eu.pydantic.dev' for EU accounts
 read_token = '<your_read_token_here>'
 
 # Set the headers for authentication
