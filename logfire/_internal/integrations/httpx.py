@@ -148,11 +148,11 @@ def instrument_httpx(
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
+        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)
 
 
 class LogfireHttpxInfoMixin:
-    headers: httpx.Headers
+    headers: httpx.Headers | None
 
     @property
     def content_type_header_object(self) -> ContentTypeHeader:
@@ -160,14 +160,18 @@ class LogfireHttpxInfoMixin:
 
     @property
     def content_type_header_string(self) -> str:
-        return self.headers.get('content-type', '')
+        if self.headers is not None:
+            return self.headers.get('content-type', '')
+
+        raise TypeError('Content Type Header String returned None')
 
 
 class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     span: Span
 
     def capture_headers(self):
-        capture_request_or_response_headers(self.span, self.headers, 'request')
+        if self.headers is not None:
+            capture_request_or_response_headers(self.span, self.headers, 'request')
 
     def capture_body(self):
         captured_form = self.capture_body_if_form()
@@ -189,7 +193,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
             return False
 
         data = self.form_data
-        if not (data and isinstance(data, Mapping)):  # pragma: no cover  # type: ignore
+        if not data:
             return False
         self.set_complex_span_attributes({attr_name: data})
         return True
@@ -234,7 +238,8 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     is_async: bool
 
     def capture_headers(self):
-        capture_request_or_response_headers(self.span, self.headers, 'response')
+        if self.headers is not None:
+            capture_request_or_response_headers(self.span, self.headers, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text'):
         def hook(span: LogfireSpan):
