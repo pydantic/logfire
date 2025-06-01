@@ -899,12 +899,16 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, experimental_propagate_otel_context: bool = False) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            experimental_propagate_otel_context: Whether to enable experimental propagation of the OpenTelemetry context.
+        """
         from .integrations.mcp import instrument_mcp
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_mcp(self)
+        instrument_mcp(self, experimental_propagate_otel_context)
 
     def instrument_pydantic(
         self,
