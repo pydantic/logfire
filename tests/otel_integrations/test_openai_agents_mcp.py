@@ -202,7 +202,12 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
-                    'request': {'method': 'tools/list', 'params': None, 'jsonrpc': '2.0', 'id': 1},
+                    'request': {
+                        'method': 'tools/list',
+                        'params': None,
+                        'jsonrpc': '2.0',
+                        'id': 1,
+                    },
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.json_schema': {
@@ -228,7 +233,10 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': {'method': 'tools/list', 'params': None},
+                    'request': {
+                        'method': 'tools/list',
+                        'params': None,
+                    },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'tools/list',
