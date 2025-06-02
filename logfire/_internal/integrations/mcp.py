@@ -23,9 +23,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @functools.wraps(original_send_request)  # type: ignore
     async def send_request(self: Any, request: Any, *args: Any, **kwargs: Any):
-        raw_request = request.root
+        root = request.root
         attributes: dict[str, Any] = {
-            'request': raw_request,
+            'request': root,
             # https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
             'rpc.system': 'jsonrpc',
             'rpc.jsonrpc.version': '2.0',
@@ -34,15 +34,15 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
         # method should always exist, but it's had to verify because the request type is a RootModel
         # of a big union, instead of just using a base class with a method attribute.
-        if method := getattr(raw_request, 'method', None):  # pragma: no branch
-            span_name = f'{span_name}: {method}'
+        if method := getattr(root, 'method', None):  # pragma: no branch
+            span_name += f': {method}'
             attributes['rpc.method'] = method
-            if isinstance(raw_request, CallToolRequest):
-                span_name += f' {raw_request.params.name}'
+            if isinstance(root, CallToolRequest):
+                span_name += f' {root.params.name}'
 
         with logfire_instance.span(span_name, **attributes) as span:
             if propagate_otel_context:
-                if params := getattr(raw_request, 'params', None):
+                if params := getattr(root, 'params', None):
                     carrier = get_context()
                     if meta := getattr(params, 'meta', None):
                         meta.traceparent = carrier['traceparent']
