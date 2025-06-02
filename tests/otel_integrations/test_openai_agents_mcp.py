@@ -132,31 +132,24 @@ async def test_mcp(exporter: TestExporter):
                         'properties': {
                             'request': {
                                 'type': 'object',
-                                'title': 'ClientRequest',
+                                'title': 'InitializeRequest',
                                 'x-python-datatype': 'PydanticModel',
                                 'properties': {
-                                    'root': {
+                                    'params': {
                                         'type': 'object',
-                                        'title': 'InitializeRequest',
+                                        'title': 'InitializeRequestParams',
                                         'x-python-datatype': 'PydanticModel',
                                         'properties': {
-                                            'params': {
+                                            'capabilities': {
                                                 'type': 'object',
-                                                'title': 'InitializeRequestParams',
+                                                'title': 'ClientCapabilities',
                                                 'x-python-datatype': 'PydanticModel',
-                                                'properties': {
-                                                    'capabilities': {
-                                                        'type': 'object',
-                                                        'title': 'ClientCapabilities',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                    'clientInfo': {
-                                                        'type': 'object',
-                                                        'title': 'Implementation',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                },
-                                            }
+                                            },
+                                            'clientInfo': {
+                                                'type': 'object',
+                                                'title': 'Implementation',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
                                         },
                                     }
                                 },
@@ -259,15 +252,8 @@ async def test_mcp(exporter: TestExporter):
                         'properties': {
                             'request': {
                                 'type': 'object',
-                                'title': 'ClientRequest',
+                                'title': 'ListToolsRequest',
                                 'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'root': {
-                                        'type': 'object',
-                                        'title': 'ListToolsRequest',
-                                        'x-python-datatype': 'PydanticModel',
-                                    }
-                                },
                             },
                             'rpc.system': {},
                             'rpc.jsonrpc.version': {},
@@ -586,20 +572,13 @@ async def test_mcp(exporter: TestExporter):
                         'properties': {
                             'request': {
                                 'type': 'object',
-                                'title': 'ClientRequest',
+                                'title': 'CallToolRequest',
                                 'x-python-datatype': 'PydanticModel',
                                 'properties': {
-                                    'root': {
+                                    'params': {
                                         'type': 'object',
-                                        'title': 'CallToolRequest',
+                                        'title': 'CallToolRequestParams',
                                         'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'params': {
-                                                'type': 'object',
-                                                'title': 'CallToolRequestParams',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
                                     }
                                 },
                             },
