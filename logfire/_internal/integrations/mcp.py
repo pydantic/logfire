@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
 from mcp.client.session import ClientSession
@@ -83,20 +83,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     @functools.wraps(original_handle_client_request)
     async def _received_request_client(self: Any, responder: Any) -> None:
         request = responder.request.root
-        with ExitStack() as exit_stack:
-            if (
-                propagate_otel_context
-                and (params := getattr(request, 'params', None))
-                and (meta := getattr(params, 'meta', None))
-            ):
-                exit_stack.enter_context(attach_context(meta.model_dump()))
-
-            span_name = 'MCP client handle request'
-            if method := getattr(request, 'method', None):  # pragma: no branch
-                span_name = f'{span_name}: {method}'
-
-            with logfire_instance.span(span_name, request=request):
-                await original_handle_client_request(self, responder)
+        span_name = 'MCP client handle request'
+        with _handle_request_with_context(request, span_name):
+            await original_handle_client_request(self, responder)
 
     ClientSession._received_request = _received_request_client  # type: ignore
 
@@ -104,6 +93,14 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @functools.wraps(original_handle_server_request)  # type: ignore
     async def _handle_request(self: Any, message: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
+        span_name = 'MCP server handle request'
+        with _handle_request_with_context(request, span_name):
+            return await original_handle_server_request(self, message, request, *args, **kwargs)
+
+    Server._handle_request = _handle_request  # type: ignore
+
+    @contextmanager
+    def _handle_request_with_context(request: Any, span_name: str):
         with ExitStack() as exit_stack:
             if (
                 propagate_otel_context
@@ -111,11 +108,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 and (meta := getattr(params, 'meta', None))
             ):
                 exit_stack.enter_context(attach_context(meta.model_dump()))
-            span_name = 'MCP server handle request'
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name = f'{span_name}: {method}'
-
             with logfire_instance.span(span_name, request=request):
-                return await original_handle_server_request(self, message, request, *args, **kwargs)
-
-    Server._handle_request = _handle_request  # type: ignore
+                yield
