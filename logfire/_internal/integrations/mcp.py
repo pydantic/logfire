@@ -41,13 +41,12 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name += f' {root.params.name}'
 
         with logfire_instance.span(span_name, **attributes) as span:
-            if propagate_otel_context:
-                if params := getattr(root, 'params', None):
-                    carrier = get_context()
-                    if meta := getattr(params, 'meta', None):
-                        meta.traceparent = carrier['traceparent']
-                    else:
-                        params.meta = RequestParams.Meta.model_validate(carrier)
+            if propagate_otel_context and (params := getattr(root, 'params', None)):
+                carrier = get_context()
+                if meta := getattr(params, 'meta', None):
+                    meta.traceparent = carrier['traceparent']
+                else:
+                    params.meta = RequestParams.Meta.model_validate(carrier)
 
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)
@@ -81,10 +80,12 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     async def _received_request_client(self: Any, responder: Any) -> None:
         with ExitStack() as exit_stack:
             request = responder.request.root
-            if propagate_otel_context:
-                if params := getattr(request, 'params', None):
-                    if meta := getattr(params, 'meta', None):
-                        exit_stack.enter_context(attach_context(meta.model_dump()))
+            if (
+                propagate_otel_context
+                and (params := getattr(request, 'params', None))
+                and (meta := getattr(params, 'meta', None))
+            ):
+                exit_stack.enter_context(attach_context(meta.model_dump()))
 
             span_name = 'MCP client handle request'
             if method := getattr(request, 'method', None):  # pragma: no branch
@@ -100,10 +101,12 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     @functools.wraps(original_handle_server_request)  # type: ignore
     async def _handle_request(self: Any, message: Any, req: Any, *args: Any, **kwargs: Any) -> Any:
         with ExitStack() as exit_stack:
-            if propagate_otel_context:
-                if params := getattr(req, 'params', None):
-                    if meta := getattr(params, 'meta', None):
-                        exit_stack.enter_context(attach_context(meta.model_dump()))
+            if (
+                propagate_otel_context
+                and (params := getattr(req, 'params', None))
+                and (meta := getattr(params, 'meta', None))
+            ):
+                exit_stack.enter_context(attach_context(meta.model_dump()))
             span_name = 'MCP server handle request'
             if method := getattr(req, 'method', None):  # pragma: no branch
                 span_name = f'{span_name}: {method}'
