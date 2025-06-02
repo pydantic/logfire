@@ -8,6 +8,7 @@ from mcp.client.session import ClientSession
 from mcp.server import Server
 from mcp.shared.session import BaseSession
 from mcp.types import CallToolRequest, LoggingMessageNotification, RequestParams
+from pydantic import TypeAdapter
 
 from logfire._internal.utils import handle_internal_errors
 from logfire.propagate import attach_context, get_context
@@ -53,9 +54,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                         # RequestParams.Meta should allow basically anything, we're being extra careful here.
                         params.meta = RequestParams.Meta.model_validate({**carrier, **dumped_meta})
                     else:
-                        dumped_request = request.model_dump()
-                        dumped_request['params'] = {'_meta': carrier}
-                        request = type(request).model_validate(dumped_request)  # type: ignore
+                        root.params = _request_params_type_adapter(type(root)).validate_python({'_meta': carrier})  # type: ignore
 
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)
@@ -117,3 +116,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name += f': {method}'
             with logfire_instance.span(span_name, request=request):
                 yield
+
+
+@functools.lru_cache
+def _request_params_type_adapter(root_type: Any):
+    params_type = root_type.model_fields['params'].annotation
+    return TypeAdapter(params_type)
