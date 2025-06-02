@@ -41,12 +41,16 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name += f' {root.params.name}'
 
         with logfire_instance.span(span_name, **attributes) as span:
-            if propagate_otel_context and (params := getattr(root, 'params', None)):
-                carrier = get_context()
-                if meta := getattr(params, 'meta', None):
-                    meta.traceparent = carrier['traceparent']
-                else:
-                    params.meta = RequestParams.Meta.model_validate(carrier)
+            with handle_internal_errors:
+                if propagate_otel_context and (params := getattr(root, 'params', None)):
+                    carrier = get_context()
+                    if meta := getattr(params, 'meta', None):
+                        dumped_meta = meta.model_dump()
+                    else:
+                        dumped_meta = {}
+                    # Prioritise existing values in meta over the context carrier.
+                    # RequestParams.Meta should allow basically anything, we're being extra careful here.
+                    params.meta = RequestParams.Meta.model_validate({**carrier, **dumped_meta})
 
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)
