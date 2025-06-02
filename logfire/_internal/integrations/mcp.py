@@ -25,7 +25,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     async def send_request(self: Any, request: Any, *args: Any, **kwargs: Any):
         raw_request = request.root
         attributes: dict[str, Any] = {
-            'request': raw_request,
+            'request': request,
             # https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
             'rpc.system': 'jsonrpc',
             'rpc.jsonrpc.version': '2.0',
