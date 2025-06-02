@@ -42,7 +42,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
         with logfire_instance.span(span_name, **attributes) as span:
             with handle_internal_errors:
-                if propagate_otel_context:
+                if propagate_otel_context:  # pragma: no branch
                     carrier = get_context()
                     if params := getattr(root, 'params', None):
                         if meta := getattr(params, 'meta', None):  # pragma: no cover # TODO
@@ -107,7 +107,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     @contextmanager
     def _handle_request_with_context(request: Any, span_name: str):
         with ExitStack() as exit_stack:
-            if (
+            if (  # pragma: no branch
                 propagate_otel_context
                 and (params := getattr(request, 'params', None))
                 and (meta := getattr(params, 'meta', None))
