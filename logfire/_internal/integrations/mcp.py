@@ -109,6 +109,6 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
             ):
                 exit_stack.enter_context(attach_context(meta.model_dump()))
             if method := getattr(request, 'method', None):  # pragma: no branch
-                span_name = f'{span_name}: {method}'
+                span_name += f': {method}'
             with logfire_instance.span(span_name, request=request):
                 yield
