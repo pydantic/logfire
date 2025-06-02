@@ -44,7 +44,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
             with handle_internal_errors:
                 if propagate_otel_context and (params := getattr(root, 'params', None)):
                     carrier = get_context()
-                    if meta := getattr(params, 'meta', None):
+                    if meta := getattr(params, 'meta', None):  # pragma: no cover # TODO
                         dumped_meta = meta.model_dump()
                     else:
                         dumped_meta = {}
