@@ -197,14 +197,20 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: tools/list',
-                'context': {'trace_id': 3, 'span_id': 11, 'is_remote': False},
-                'parent': None,
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 9, 'is_remote': True},
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/list',
-                        'params': None,
+                        'params': {
+                            'meta': {
+                                'progressToken': None,
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000009-01',
+                            },
+                            'cursor': None,
+                        },
                         'jsonrpc': '2.0',
                         'id': 1,
                     },
@@ -217,6 +223,20 @@ async def test_mcp(exporter: TestExporter):
                                 'type': 'object',
                                 'title': 'ListToolsRequest',
                                 'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'params': {
+                                        'type': 'object',
+                                        'title': 'PaginatedRequestParams',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'meta': {
+                                                'type': 'object',
+                                                'title': 'Meta',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    }
+                                },
                             }
                         },
                     },
@@ -486,7 +506,7 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log',
-                'context': {'trace_id': 4, 'span_id': 21, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 21, 'is_remote': False},
                 'parent': None,
                 'start_time': 16000000000,
                 'end_time': 16000000000,
@@ -501,7 +521,7 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log from my_logger',
-                'context': {'trace_id': 5, 'span_id': 22, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 22, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
                 'end_time': 17000000000,
