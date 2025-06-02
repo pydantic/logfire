@@ -95,7 +95,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name = f'{span_name}: {method}'
 
-            with logfire_instance.span(span_name, request=request, propagate_otel_context=propagate_otel_context):
+            with logfire_instance.span(span_name, request=request):
                 await original_handle_client_request(self, responder)
 
     ClientSession._received_request = _received_request_client  # type: ignore
