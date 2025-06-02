@@ -41,7 +41,7 @@ os.environ.setdefault('OPENAI_API_KEY', 'foo')
 @pytest.mark.anyio
 async def test_mcp(exporter: TestExporter):
     logfire.instrument_openai_agents()
-    logfire.instrument_mcp(experimental_propagate_otel_context=True)
+    logfire.instrument_mcp()
 
     fastmcp = FastMCP()
 
