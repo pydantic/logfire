@@ -41,7 +41,7 @@ os.environ.setdefault('OPENAI_API_KEY', 'foo')
 @pytest.mark.anyio
 async def test_mcp(exporter: TestExporter):
     logfire.instrument_openai_agents()
-    logfire.instrument_mcp()
+    logfire.instrument_mcp(experimental_propagate_otel_context=True)
 
     fastmcp = FastMCP()
 
@@ -478,7 +478,7 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log',
-                'context': {'trace_id': 5, 'span_id': 21, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 21, 'is_remote': False},
                 'parent': None,
                 'start_time': 16000000000,
                 'end_time': 16000000000,
@@ -493,7 +493,7 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log from my_logger',
-                'context': {'trace_id': 6, 'span_id': 22, 'is_remote': False},
+                'context': {'trace_id': 5, 'span_id': 22, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
                 'end_time': 17000000000,
@@ -508,15 +508,18 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: tools/call',
-                'context': {'trace_id': 4, 'span_id': 19, 'is_remote': False},
-                'parent': None,
+                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': True},
                 'start_time': 15000000000,
                 'end_time': 18000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
                         'params': {
-                            'meta': None,
+                            'meta': {
+                                'progressToken': None,
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000011-01',
+                            },
                             'name': 'random_number',
                             'arguments': {},
                         },
@@ -537,6 +540,13 @@ async def test_mcp(exporter: TestExporter):
                                         'type': 'object',
                                         'title': 'CallToolRequestParams',
                                         'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'meta': {
+                                                'type': 'object',
+                                                'title': 'Meta',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
                                     }
                                 },
                             }
