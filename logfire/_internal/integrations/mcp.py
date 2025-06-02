@@ -53,8 +53,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                         # RequestParams.Meta should allow basically anything, we're being extra careful here.
                         params.meta = RequestParams.Meta.model_validate({**carrier, **dumped_meta})
                     else:
-                        root.params = {'_meta': carrier}  # type: ignore
-                        request = type(request).model_validate(request)  # type: ignore
+                        dumped_request = request.model_dump()
+                        dumped_request['params'] = {'_meta': carrier}
+                        request = type(request).model_validate(dumped_request)  # type: ignore
 
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)
