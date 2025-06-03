@@ -14,6 +14,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import logfire
 
+from ._internal.config import METRICS_PREFERRED_TEMPORALITY
 from ._internal.constants import ONE_SECOND_IN_NANOSECONDS
 from ._internal.exporters.test import TestExporter, TestLogExporter
 from ._internal.utils import SeededRandomIdGenerator
@@ -101,7 +102,7 @@ class CaptureLogfire:
 def capfire() -> CaptureLogfire:
     """A fixture that returns a CaptureLogfire instance."""
     exporter = TestExporter()
-    metrics_reader = InMemoryMetricReader()
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
     time_generator = TimeGenerator()
     log_exporter = TestLogExporter(time_generator)
     logfire.configure(
