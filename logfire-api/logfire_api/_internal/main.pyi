@@ -401,8 +401,13 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
         """Instrument Pydantic model validations.
 
