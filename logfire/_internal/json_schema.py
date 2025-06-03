@@ -286,8 +286,6 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.BaseModel)
 
-    class_name = obj.__class__.__name__
-
     while isinstance(obj, pydantic.RootModel):
         obj = obj.root  # type: ignore
 
@@ -299,7 +297,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         fields = obj.__fields__  # type: ignore
         extra = {}
 
-    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen, class_name=class_name)  # type: ignore
+    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)  # type: ignore
 
 
 def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
@@ -373,16 +371,14 @@ def _properties(properties: dict[str, Any], seen: set[int]) -> JsonDict:
         return {}
 
 
-def _custom_object_schema(
-    obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int], class_name: str = ''
-) -> JsonDict:
+def _custom_object_schema(obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int]) -> JsonDict:
     properties: dict[str, Any] = {}
     for key in keys:
         with suppress(Exception):
             properties[key] = getattr(obj, key)
     return {
         'type': 'object',
-        'title': class_name or obj.__class__.__name__,
+        'title': obj.__class__.__name__,
         'x-python-datatype': datatype_name,
         **_properties(properties, seen),
     }
