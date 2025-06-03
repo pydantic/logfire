@@ -96,6 +96,7 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
     This is used to sample spans that are not sampled by the OTEL sampler.
     """
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None: ...
+@handle_internal_errors
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...
