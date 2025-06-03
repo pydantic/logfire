@@ -286,18 +286,18 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.BaseModel)
 
-    while isinstance(obj, pydantic.RootModel):
-        obj = obj.root  # type: ignore
+    if isinstance(obj, pydantic.RootModel):
+        return create_json_schema(obj.root, seen)  # type: ignore
 
     try:
-        fields = type(obj).model_fields  # type: ignore
-        extra = obj.model_extra or {}  # type: ignore
+        fields = type(obj).model_fields
+        extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
         fields = obj.__fields__  # type: ignore
         extra = {}
 
-    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)  # type: ignore
+    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
 
 def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
