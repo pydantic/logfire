@@ -640,6 +640,7 @@ async def test_mcp(exporter: TestExporter):
                                         'annotations': [],
                                         'text': "Here's a random number for you: 4",
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
