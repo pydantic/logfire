@@ -1,6 +1,3 @@
-from logging import Logger
-from typing import Any
-
 import pytest
 import structlog
 from inline_snapshot import snapshot
@@ -25,18 +22,18 @@ def fixture_configure_structlog() -> None:
 
 
 @pytest.fixture(scope='module')
-def logger() -> Any:
+def logger() -> structlog.BoundLogger:
     return structlog.get_logger()
 
 
-def test_structlog(exporter: TestExporter, logger: Logger) -> None:
+def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
     logger.info('This is now being logged: %s', 123)
     logger.error(456)
 
     try:
         str(1 / 0)
     except ZeroDivisionError:
-        logger.exception('error')
+        logger.exception('error', **{'logfire.msg': 'bad'})
 
     assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
         [
@@ -53,7 +50,7 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                     'logfire.msg': 'This is now being logged: 123',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 33,
+                    'code.lineno': 30,
                     'logfire.disable_console_log': True,
                 },
             },
@@ -70,7 +67,7 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                     'logfire.msg': '456',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 34,
+                    'code.lineno': 31,
                     'logfire.disable_console_log': True,
                 },
             },
@@ -84,10 +81,10 @@ def test_structlog(exporter: TestExporter, logger: Logger) -> None:
                     'logfire.span_type': 'log',
                     'logfire.level_num': 17,
                     'logfire.msg_template': 'error',
-                    'logfire.msg': 'error',
+                    'logfire.msg': 'bad',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 39,
+                    'code.lineno': 36,
                     'logfire.disable_console_log': True,
                 },
                 'events': [
