@@ -77,7 +77,7 @@ at a larger company and want to create a more "official" Logfire org for that co
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
 
 ### How Do I Switch from Personal to Normal Org?
-In the org settings, you will find a section called "Convert to org", which will take you through a brief series of
+In the personal org settings, you will find a section called "Convert to org", which will take you through a brief series of
 steps where you will:
 
 - Define your new (normal) organization's name and slug
