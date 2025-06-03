@@ -1,5 +1,18 @@
 # Release Notes
 
+## [v3.17.0] (2025-06-03)
+
+* LangChain instrumentation via LangSmith  by @alexmojaki in [#1084](https://github.com/pydantic/logfire/pull/1084)
+* MCP OTel context propagation by @samuelcolvin in [#1103](https://github.com/pydantic/logfire/pull/1103)
+* Add `capfire.get_collected_metrics()` by @alexmojaki in [#1116](https://github.com/pydantic/logfire/pull/1116)
+
+## [v3.16.2] (2025-06-03)
+
+* Fixes for OpenAI Responses API and Agents SDK by @alexmojaki in [#1092](https://github.com/pydantic/logfire/pull/1092),  [#1093](https://github.com/pydantic/logfire/pull/1093), [#1094](https://github.com/pydantic/logfire/pull/1094), and [#1095](https://github.com/pydantic/logfire/pull/1095)
+* Fix verbose console formatting for enum, dates, and decimals by @sbhrwlr in [#1096](https://github.com/pydantic/logfire/pull/1096)
+* Allow setting `logfire.msg` in structlog integration by @alexmojaki in [#1113](https://github.com/pydantic/logfire/pull/1113)
+* Add ASGI instrumentation package to `django` extra by @alexmojaki in [#1097](https://github.com/pydantic/logfire/pull/1097)
+
 ## [v3.16.1] (2025-05-26)
 
 * Infer base URL from read token in query client by @Viicos in [#1088](https://github.com/pydantic/logfire/pull/1088)
@@ -706,3 +719,5 @@ First release from new repo!
 [v3.15.1]: https://github.com/pydantic/logfire/compare/v3.15.0...v3.15.1
 [v3.16.0]: https://github.com/pydantic/logfire/compare/v3.15.1...v3.16.0
 [v3.16.1]: https://github.com/pydantic/logfire/compare/v3.16.0...v3.16.1
+[v3.16.2]: https://github.com/pydantic/logfire/compare/v3.16.1...v3.16.2
+[v3.17.0]: https://github.com/pydantic/logfire/compare/v3.16.2...v3.17.0

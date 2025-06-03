@@ -6,6 +6,7 @@ import json
 import sys
 import warnings
 from contextvars import Token
+from enum import Enum
 from functools import cached_property
 from time import time
 from typing import (
@@ -899,12 +900,17 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
         from .integrations.mcp import instrument_mcp
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_mcp(self)
+        instrument_mcp(self, propagate_otel_context)
 
     def instrument_pydantic(
         self,
@@ -2450,7 +2456,9 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
-    if isinstance(value, int):
+    if isinstance(value, Enum):
+        return logfire_json_dumps(value)
+    elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
                 f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
