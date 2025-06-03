@@ -545,32 +545,26 @@ async def test_responses(exporter: TestExporter):
                             'role': 'user',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
-                                        'type': 'function',
-                                        'function': {'name': 'random_number', 'arguments': '{}'},
-                                    }
-                                ],
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
+                                    'type': 'function',
+                                    'function': {'name': 'random_number', 'arguments': '{}'},
+                                }
+                            ],
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                                        'type': 'function',
-                                        'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
-                                    }
-                                ],
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                                    'type': 'function',
+                                    'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
+                                }
+                            ],
                         },
                     ],
                     'logfire.json_schema': {
@@ -774,6 +768,7 @@ async def test_responses(exporter: TestExporter):
                                         'annotations': [],
                                         'text': "The random number generated is 4, and it's been handed off to agent2.",
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -870,20 +865,19 @@ async def test_responses(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
                             'content': '4',
+                            'name': 'random_number',
                         },
                         {
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_oEA0MnUXCwKevx8txteoopNL',
                             'content': "{'assistant': 'agent2'}",
+                            'name': 'transfer_to_agent2',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'content': "The random number generated is 4, and it's been handed off to agent2.",
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': "The random number generated is 4, and it's been handed off to agent2.",
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 89,
@@ -1116,7 +1110,14 @@ async def test_input_guardrails(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67cee2641544819193c128971fa966e3',
-                                'content': [{'annotations': [], 'text': '1 + 1 equals 2.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': '1 + 1 equals 2.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -1151,11 +1152,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'raw_input': [{'content': '1+1?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '1+1?', 'role': 'user'},
-                        {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': '1 + 1 equals 2.', 'role': 'assistant'},
-                        },
+                        {'event.name': 'gen_ai.assistant.message', 'content': '1 + 1 equals 2.', 'role': 'assistant'},
                     ],
                     'gen_ai.usage.input_tokens': 29,
                     'gen_ai.usage.output_tokens': 9,
@@ -1804,7 +1801,14 @@ async def test_responses_simple(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67ceee05a83c8191a2e1e19ceb63495e',
-                                'content': [{'annotations': [], 'text': '2 + 2 equals 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': '2 + 2 equals 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -1839,11 +1843,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'raw_input': [{'content': '2+2?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
-                        {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': '2 + 2 equals 4.', 'role': 'assistant'},
-                        },
+                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
                     ],
                     'gen_ai.usage.input_tokens': 29,
                     'gen_ai.usage.output_tokens': 9,
@@ -1998,7 +1998,14 @@ async def test_responses_simple(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67ceee06885881918c740a6ca0ce2807',
-                                'content': [{'annotations': [], 'text': 'Yes, 2 + 2 equals 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'Yes, 2 + 2 equals 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -2046,9 +2053,9 @@ async def test_responses_simple(exporter: TestExporter):
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
                         {'event.name': 'gen_ai.user.message', 'content': '4?', 'role': 'user'},
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': 'Yes, 2 + 2 equals 4.', 'role': 'assistant'},
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Yes, 2 + 2 equals 4.',
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 47,
@@ -2271,6 +2278,7 @@ async def test_file_search(exporter: TestExporter):
                                         ],
                                         'text': 'Logfire is made by Pydantic.',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -2316,28 +2324,25 @@ async def test_file_search(exporter: TestExporter):
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'content': """\
+                            'event.name': 'gen_ai.unknown',
+                            'role': 'assistant',
+                            'content': """\
 file_search_call
 
 See JSON for details\
 """,
-                                'data': {
-                                    'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
-                                    'queries': ['Who made Logfire?'],
-                                    'status': 'completed',
-                                    'type': 'file_search_call',
-                                    'results': None,
-                                },
+                            'data': {
+                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                'queries': ['Who made Logfire?'],
+                                'status': 'completed',
+                                'type': 'file_search_call',
+                                'results': None,
                             },
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': 'Logfire is made by Pydantic.', 'role': 'assistant'},
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Logfire is made by Pydantic.',
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 1974,
@@ -2525,7 +2530,14 @@ See JSON for details\
                         'output': [
                             {
                                 'id': 'msg_67ceff3d201481918300b33fb2968fb5',
-                                'content': [{'annotations': [], 'text': 'The answer is 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'The answer is 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -2620,11 +2632,7 @@ See JSON for details\
                             'role': 'assistant',
                         },
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
-                        {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': 'The answer is 4.', 'role': 'assistant'},
-                        },
+                        {'event.name': 'gen_ai.assistant.message', 'content': 'The answer is 4.', 'role': 'assistant'},
                     ],
                     'gen_ai.usage.input_tokens': 923,
                     'gen_ai.usage.output_tokens': 8,
@@ -2890,18 +2898,15 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
-                                        'type': 'function',
-                                        'function': {'name': 'tool', 'arguments': '{}'},
-                                    }
-                                ],
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
+                                    'type': 'function',
+                                    'function': {'name': 'tool', 'arguments': '{}'},
+                                }
+                            ],
                         },
                     ],
                     'gen_ai.usage.input_tokens': 244,
@@ -3079,6 +3084,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                                         'annotations': [],
                                         'text': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -3159,14 +3165,12 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
                             'content': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
+                            'name': 'tool',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'content': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
-                                'role': 'assistant',
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 283,
@@ -3466,6 +3470,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                                         'annotations': [],
                                         'text': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -3506,9 +3511,9 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                             'role': 'user',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': 'Natürlich! Wobei genau benötigen Sie Hilfe?', 'role': 'assistant'},
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 33,

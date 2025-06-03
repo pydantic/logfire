@@ -4,6 +4,7 @@ from ..utils import handle_internal_errors as handle_internal_errors, maybe_capt
 from .asgi import tweak_asgi_spans_tracer_provider as tweak_asgi_spans_tracer_provider
 from _typeshed import Incomplete
 from fastapi import FastAPI
+from functools import lru_cache
 from starlette.requests import Request
 from starlette.websockets import WebSocket
 from typing import Any, Awaitable, Callable, ContextManager, Iterable
@@ -15,6 +16,7 @@ def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_heade
 
     See `Logfire.instrument_fastapi` for more details.
     """
+@lru_cache
 def patch_fastapi():
     """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-from typing import Any, cast
+from typing import Any
 
 import pytest
 import requests
@@ -20,6 +19,7 @@ from opentelemetry.sdk.metrics.export import (
 import logfire
 import logfire._internal.metrics
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
+from logfire.testing import get_collected_metrics
 
 meter = metrics.get_meter('global_test_meter')
 
@@ -349,12 +349,6 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
             }
         ]
     )
-
-
-def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
-    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
-    [resource_metric] = exported_metrics['resource_metrics']
-    return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]
 
 
 def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:

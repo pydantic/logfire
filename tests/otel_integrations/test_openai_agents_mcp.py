@@ -104,7 +104,7 @@ async def test_mcp(exporter: TestExporter):
                         'params': {
                             'meta': None,
                             'protocolVersion': IsStr(),
-                            'capabilities': {'experimental': None, 'sampling': {}, 'roots': {'listChanged': True}},
+                            'capabilities': {'experimental': None, 'sampling': None, 'roots': None},
                             'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
                         },
                     },
@@ -149,18 +149,6 @@ async def test_mcp(exporter: TestExporter):
                                                         'type': 'object',
                                                         'title': 'ClientCapabilities',
                                                         'x-python-datatype': 'PydanticModel',
-                                                        'properties': {
-                                                            'sampling': {
-                                                                'type': 'object',
-                                                                'title': 'SamplingCapability',
-                                                                'x-python-datatype': 'PydanticModel',
-                                                            },
-                                                            'roots': {
-                                                                'type': 'object',
-                                                                'title': 'RootsCapability',
-                                                                'x-python-datatype': 'PydanticModel',
-                                                            },
-                                                        },
                                                     },
                                                     'clientInfo': {
                                                         'type': 'object',
@@ -387,18 +375,15 @@ async def test_mcp(exporter: TestExporter):
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Give me a random number', 'role': 'user'},
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'tool_calls': [
-                                    {
-                                        'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                                        'type': 'function',
-                                        'function': {'name': 'random_number', 'arguments': '{}'},
-                                    }
-                                ],
-                            },
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
+                                    'type': 'function',
+                                    'function': {'name': 'random_number', 'arguments': '{}'},
+                                }
+                            ],
                         },
                     ],
                     'gen_ai.usage.input_tokens': 51,
@@ -655,6 +640,7 @@ async def test_mcp(exporter: TestExporter):
                                         'annotations': [],
                                         'text': "Here's a random number for you: 4",
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -728,11 +714,12 @@ async def test_mcp(exporter: TestExporter):
                             'role': 'tool',
                             'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
                             'content': '{"type":"text","text":"4","annotations":null}',
+                            'name': 'random_number',
                         },
                         {
-                            'event.name': 'gen_ai.choice',
-                            'index': 0,
-                            'message': {'content': "Here's a random number for you: 4", 'role': 'assistant'},
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': "Here's a random number for you: 4",
+                            'role': 'assistant',
                         },
                     ],
                     'gen_ai.usage.input_tokens': 83,
