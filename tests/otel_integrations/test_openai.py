@@ -1874,7 +1874,8 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
 
 
 def test_create_thread(instrumented_client: openai.Client, exporter: TestExporter) -> None:
-    thread = instrumented_client.beta.threads.create()
+    with pytest.warns(DeprecationWarning):
+        thread = instrumented_client.beta.threads.create()  # type: ignore
     assert thread.id == 'thread_abc123'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
