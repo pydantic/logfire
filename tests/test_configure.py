@@ -1307,6 +1307,15 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
     assert len(requests_mocker.request_history) == 0
 
 
+def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        requests_mocker = stack.enter_context(requests_mock.Mocker())
+        configure(token='', send_to_logfire='if-token-present', console=False)
+        wait_for_check_token_thread()
+        assert len(requests_mocker.request_history) == 0
+
+
 def wait_for_check_token_thread():
     for thread in threading.enumerate():
         if thread.name == 'check_logfire_token':  # pragma: no cover

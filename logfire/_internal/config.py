@@ -907,7 +907,7 @@ class LogfireConfig(_LogfireConfigData):
                         self.token = credentials.token
                         self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
-                if self.token is not None:
+                if is_valid_token(self.token):
 
                     def check_token():
                         assert self.token is not None
@@ -921,6 +921,7 @@ class LogfireConfig(_LogfireConfigData):
                         thread = Thread(target=check_token, name='check_logfire_token')
                         thread.start()
 
+                    assert self.token is not None
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession()
