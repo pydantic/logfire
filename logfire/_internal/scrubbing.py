@@ -42,12 +42,19 @@ DEFAULT_PATTERNS = [
     'api[._ -]?key',
     'session',
     'cookie',
-    'csrf',
-    'xsrf',
-    'jwt',
-    'ssn',
     'social[._ -]?security',
     'credit[._ -]?card',
+    *[
+        # Require these to be surrounded by word boundaries or underscores,
+        # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
+        rf'(?:\b|_){acronym}(?:\b|_)'
+        for acronym in [
+            'csrf',
+            'xsrf',
+            'jwt',
+            'ssn',
+        ]
+    ],
 ]
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
@@ -133,6 +140,8 @@ class BaseScrubber(ABC):
         SpanAttributes.URL_QUERY,
         'event.name',
         'agent_session_id',
+        'do_not_scrub',
+        'binary_content',
     }
 
     @abstractmethod

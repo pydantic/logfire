@@ -148,19 +148,19 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
         pytest.param(
             '2023-01-01',
             {'type': 'string', 'x-python-datatype': 'date'},
-            "date('2023-01-01')",
+            'datetime.date(2023, 1, 1)',
             id='date',
         ),
         pytest.param(
             '2023-01-01T10:10:00',
             {'type': 'string', 'x-python-datatype': 'datetime'},
-            "datetime('2023-01-01T10:10:00')",
+            'datetime.datetime(2023, 1, 1, 10, 10)',
             id='datetime',
         ),
         pytest.param(
             '12:10:00',
             {'type': 'string', 'x-python-datatype': 'time'},
-            "time('12:10:00')",
+            'datetime.time(12, 10)',
             id='time',
         ),
         pytest.param(
@@ -494,7 +494,7 @@ def test_nested_json_args_value_formatting():
     1,
     MyModel(
         x='x',
-        y=datetime('2023-01-01T00:00:00'),
+        y=datetime.datetime(2023, 1, 1, 0, 0),
     ),
     MyDataclass(
         t=10,
@@ -554,19 +554,19 @@ def test_nested_json_args_value_formatting():
         pytest.param(
             '2023-01-01',
             {'type': 'string', 'x-python-datatype': 'date'},
-            "date('2023-01-01')",
+            'datetime.date(2023, 1, 1)',
             id='date',
         ),
         pytest.param(
             '2023-01-01T10:10:00',
             {'type': 'string', 'x-python-datatype': 'datetime'},
-            "datetime('2023-01-01T10:10:00')",
+            'datetime.datetime(2023, 1, 1, 10, 10)',
             id='datetime',
         ),
         pytest.param(
             '12:10:00',
             {'type': 'string', 'x-python-datatype': 'time'},
-            "time('12:10:00')",
+            'datetime.time(12, 10)',
             id='time',
         ),
         pytest.param(

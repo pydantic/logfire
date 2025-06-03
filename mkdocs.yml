@@ -101,9 +101,10 @@ nav:
       - Integrations: integrations/index.md
       - LLMs:
           - PydanticAI: integrations/llms/pydanticai.md
-          - LLamaIndex: integrations/llms/llamaindex.md
           - OpenAI: integrations/llms/openai.md
           - Anthropic: integrations/llms/anthropic.md
+          - LangChain: integrations/llms/langchain.md
+          - LLamaIndex: integrations/llms/llamaindex.md
           - Mirascope: integrations/llms/mirascope.md
           - LiteLLM: integrations/llms/litellm.md
           - Magentic: integrations/llms/magentic.md

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import openai
@@ -9,10 +11,13 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
+from openai.types.responses import Response
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import get_current_span
 
-from ...utils import handle_internal_errors
+from logfire import LogfireSpan
+
+from ...utils import handle_internal_errors, log_internal_error
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -43,37 +48,46 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        return EndpointConfig(  # pragma: no cover
-            message_template='Responses API with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+        return EndpointConfig(
+            message_template='Responses API with {gen_ai.request.model!r}',
+            span_data={
+                'gen_ai.request.model': json_data['model'],
+                'events': inputs_to_events(
+                    json_data['input'],  # type: ignore
+                    json_data.get('instructions'),  # type: ignore
+                ),
+            },
         )
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
             stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     else:
+        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        if 'model' in json_data:
+            span_data['gen_ai.request.model'] = json_data['model']
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
-            span_data={'request_data': json_data, 'url': url},
+            span_data=span_data,
         )
 
 
@@ -144,21 +158,39 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
+    span.set_attribute('gen_ai.system', 'openai')
+
+    if isinstance(response_model := getattr(response, 'model', None), str):
+        span.set_attribute('gen_ai.response.model', response_model)
+
+    usage = getattr(response, 'usage', None)
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
+    if isinstance(input_tokens, int):
+        span.set_attribute('gen_ai.usage.input_tokens', input_tokens)
+    if isinstance(output_tokens, int):
+        span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
+
     if isinstance(response, ChatCompletion) and response.choices:
         span.set_attribute(
             'response_data',
-            {'message': response.choices[0].message, 'usage': response.usage},
+            {'message': response.choices[0].message, 'usage': usage},
         )
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
         span.set_attribute(
             'response_data',
-            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': response.usage},
+            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
         )
     elif isinstance(response, CreateEmbeddingResponse):
-        span.set_attribute('response_data', {'usage': response.usage})
-    elif isinstance(response, ImagesResponse):  # pragma: no branch
+        span.set_attribute('response_data', {'usage': usage})
+    elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
+    elif isinstance(response, Response):  # pragma: no branch
+        events = json.loads(span.attributes['events'])  # type: ignore
+        events += responses_output_events(response)
+        span.set_attribute('events', events)
+
     return response
 
 
@@ -168,3 +200,103 @@ def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
         return False
     assert issubclass(client, openai.AsyncOpenAI), f'Expected OpenAI or AsyncOpenAI type, got: {client}'
     return True
+
+
+@handle_internal_errors
+def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: str | None):
+    """Generate dictionaries in the style of OTel events from the inputs and instructions to the Responses API."""
+    events: list[dict[str, Any]] = []
+    tool_call_id_to_name: dict[str, str] = {}
+    if instructions:
+        events += [
+            {
+                'event.name': 'gen_ai.system.message',
+                'content': instructions,
+                'role': 'system',
+            }
+        ]
+    if inputs:
+        if isinstance(inputs, str):
+            inputs = [{'role': 'user', 'content': inputs}]
+        for inp in inputs:
+            events += input_to_events(inp, tool_call_id_to_name)
+    return events
+
+
+@handle_internal_errors
+def responses_output_events(response: Response):
+    """Generate dictionaries in the style of OTel events from the outputs of the Responses API."""
+    events: list[dict[str, Any]] = []
+    for out in response.output:
+        for message in input_to_events(
+            out.model_dump(),
+            # Outputs don't have tool call responses, so this isn't needed.
+            tool_call_id_to_name={},
+        ):
+            events.append({**message, 'role': 'assistant'})
+    return events
+
+
+def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+    """Generate dictionaries in the style of OTel events from one input to the Responses API.
+
+    `tool_call_id_to_name` is a mapping from tool call IDs to function names.
+    It's populated when the input is a tool call and used later to
+    provide the function name in the event for tool call responses.
+    """
+    try:
+        events: list[dict[str, Any]] = []
+        role: str | None = inp.get('role')
+        typ = inp.get('type')
+        content = inp.get('content')
+        if role and typ in (None, 'message') and content:
+            event_name = f'gen_ai.{role}.message'
+            if isinstance(content, str):
+                events.append({'event.name': event_name, 'content': content, 'role': role})
+            else:
+                for content_item in content:
+                    with contextlib.suppress(KeyError):
+                        if content_item['type'] == 'output_text':  # pragma: no branch
+                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
+                            continue
+                    events.append(unknown_event(content_item))  # pragma: no cover
+        elif typ == 'function_call':
+            tool_call_id_to_name[inp['call_id']] = inp['name']
+            events.append(
+                {
+                    'event.name': 'gen_ai.assistant.message',
+                    'role': 'assistant',
+                    'tool_calls': [
+                        {
+                            'id': inp['call_id'],
+                            'type': 'function',
+                            'function': {'name': inp['name'], 'arguments': inp['arguments']},
+                        },
+                    ],
+                }
+            )
+        elif typ == 'function_call_output':
+            events.append(
+                {
+                    'event.name': 'gen_ai.tool.message',
+                    'role': 'tool',
+                    'id': inp['call_id'],
+                    'content': inp['output'],
+                    'name': tool_call_id_to_name.get(inp['call_id'], inp.get('name', 'unknown')),
+                }
+            )
+        else:
+            events.append(unknown_event(inp))
+        return events
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return [unknown_event(inp)]
+
+
+def unknown_event(inp: dict[str, Any]):
+    return {
+        'event.name': 'gen_ai.unknown',
+        'role': inp.get('role') or 'unknown',
+        'content': f'{inp.get("type")}\n\nSee JSON for details',
+        'data': inp,
+    }

@@ -401,8 +401,13 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
         """Instrument Pydantic model validations.
 
@@ -422,9 +427,9 @@ class Logfire:
                 Exclude specific modules from instrumentation.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes') -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes') -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -926,6 +931,8 @@ class Logfire:
     def metric_counter_callback(self, name: str, *, callbacks: Sequence[CallbackT], unit: str = '', description: str = '') -> None:
         """Create a counter metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
@@ -964,6 +971,8 @@ class Logfire:
     def metric_gauge_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
 
         ```py
@@ -999,6 +1008,8 @@ class Logfire:
         """
     def metric_up_down_counter_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
+
+        The callback is called every 60 seconds in a background thread.
 
         The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
         down.
@@ -1056,24 +1067,28 @@ class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
     def __init__(self, span: trace_api.Span) -> None: ...
     def __enter__(self) -> FastLogfireSpan: ...
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
     def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
     @property
     def message_template(self) -> str | None: ...
     @property
     def tags(self) -> tuple[str, ...]: ...
     @tags.setter
+    @handle_internal_errors
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
     @property
     def message(self) -> str: ...
     @message.setter
     def message(self, message: str): ...
+    @handle_internal_errors
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -1090,6 +1105,7 @@ class LogfireSpan(ReadableSpan):
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.
         """
     def is_recording(self) -> bool: ...
+    @handle_internal_errors
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
 

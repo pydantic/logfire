@@ -4,11 +4,13 @@ import dataclasses
 import functools
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
 from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider
-from opentelemetry.util.types import Attributes
+
+if TYPE_CHECKING:
+    from opentelemetry.util.types import _ExtendedAttributes  # type: ignore
 
 
 @dataclass
@@ -22,7 +24,11 @@ class ProxyLoggerProvider(LoggerProvider):
     suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
 
     def get_logger(
-        self, name: str, version: str | None = None, schema_url: str | None = None, attributes: Attributes | None = None
+        self,
+        name: str,
+        version: str | None = None,
+        schema_url: str | None = None,
+        attributes: _ExtendedAttributes | None = None,
     ) -> Logger:
         with self.lock:
             if name in self.suppressed_scopes:
@@ -74,7 +80,7 @@ class ProxyLogger(Logger):
     name: str
     version: str | None = None
     schema_url: str | None = None
-    attributes: Attributes | None = None
+    attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
         self.logger.emit(record)

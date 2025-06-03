@@ -6,17 +6,15 @@ from dirty_equals import IsInt, IsNumeric
 from django.http import HttpResponse
 from django.test import Client
 from inline_snapshot import snapshot
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.django
-from logfire.testing import TestExporter
-from tests.test_metrics import get_collected_metrics
+from logfire.testing import CaptureLogfire, TestExporter
 
 
-def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMemoryMetricReader):
+def test_good_route(client: Client, capfire: CaptureLogfire):
     logfire.instrument_django()
     response: HttpResponse = client.get(  # type: ignore
         '/django_test_app/123/?very_long_query_param_name=very+long+query+param+value&foo=1'
@@ -24,7 +22,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
     assert response.status_code == 200
     assert response.content == b'item_id: 123'
 
-    assert get_collected_metrics(metrics_reader) == snapshot(
+    assert capfire.get_collected_metrics() == snapshot(
         [
             {
                 'name': 'http.server.active_requests',
@@ -35,7 +33,6 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
                         {
                             'attributes': {
                                 'http.method': 'GET',
-                                'http.server_name': 'testserver',
                                 'http.scheme': 'http',
                                 'http.flavor': '1.1',
                                 'http.request.method': 'GET',
@@ -119,7 +116,7 @@ def test_good_route(client: Client, exporter: TestExporter, metrics_reader: InMe
     )
 
     # TODO route and target should consistently start with /, including in the name/message
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert capfire.exporter.exported_spans_as_dict() == snapshot(
         [
             {
                 'name': 'GET django_test_app/<int:item_id>/',
