@@ -39,10 +39,11 @@ class LogfireProcessor:
         attributes = {k: v for k, v in event_dict.items() if k not in RESERVED_ATTRS}
         level = event_dict.get('level', 'info').lower()
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
-        attributes[ATTRIBUTES_MESSAGE_KEY] = message = event_dict.get('event') or 'structlog event'
+        msg_template = event_dict.get('event') or 'structlog event'
+        attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, msg_template)
         self.logfire_instance.log(
             level=level,  # type: ignore
-            msg_template=message,
+            msg_template=msg_template,
             attributes=attributes,
             console_log=self.console_log,
             exc_info=event_dict.get('exc_info', False),
