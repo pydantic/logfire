@@ -148,7 +148,14 @@ def instrument_httpx(
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
+        meter_provider = final_kwargs['meter_provider']
+        instrumentor.instrument_client(
+            client,
+            tracer_provider=tracer_provider,
+            meter_provider=meter_provider,  # TODO handle older versions
+            request_hook=request_hook,  # type: ignore
+            response_hook=response_hook,  # type: ignore
+        )
 
 
 class LogfireHttpxInfoMixin:
