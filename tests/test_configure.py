@@ -1338,6 +1338,22 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
         del os.environ['LOGFIRE_TOKEN']
 
 
+def test_send_to_logfire_if_token_present_not_empty_via_env_with_empty_arg(capsys: pytest.CaptureFixture[str]) -> None:
+    os.environ['LOGFIRE_TOKEN'] = 'non_empty_token'
+    try:
+        with requests_mock.Mocker() as request_mocker:
+            request_mocker.get(
+                'https://logfire-us.pydantic.dev/v1/info',
+                json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+            )
+            configure(token='', send_to_logfire='if-token-present')
+            wait_for_check_token_thread()
+            assert len(request_mocker.request_history) == 1
+            assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
 def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     creds_file = tmp_path / 'logfire_credentials.json'
     creds_file.write_text(

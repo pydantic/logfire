@@ -160,7 +160,7 @@ class ParamManager:
         Returns:
             The value of the parameter.
         """
-        if runtime is not None:
+        if runtime is not None and runtime != '':
             return runtime
 
         param = CONFIG_PARAMS[name]
