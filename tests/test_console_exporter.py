@@ -973,10 +973,10 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         [
             'hi',
             IsStr(),
-            '│ d=datetime.datetime(2020, 12, 31, 12, 34, 56)',
+            "│ d='2020-12-31T12:34:56'",
             '│ x=None',
-            "│ v=Decimal('1.0')",
-            "│ e=MyEnum('abc')",
+            '│ v=Decimal(1.0)',
+            "│ e='abc'",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
         ]

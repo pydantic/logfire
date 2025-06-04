@@ -16,6 +16,8 @@ from types import GeneratorType
 from typing import Any, Callable
 from uuid import UUID
 
+from opentelemetry.util import types as otel_types
+
 from .utils import JsonValue, safe_repr
 
 NUMPY_DIMENSION_MAX_SIZE = 10
@@ -292,13 +294,17 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     return safe_repr(o)
 
 
-def logfire_json_dumps(obj: Any) -> str:
+def logfire_json_dumps(obj: Any) -> otel_types.AttributeValue:
     try:
-        return json.dumps(obj, default=lambda o: to_json_value(o, set()), separators=(',', ':'))
+        return json.dumps(obj, separators=(',', ':'))
     except Exception:
-        # fallback to eagerly calling to_json_value to take care of object keys which are not strings
-        # see https://github.com/pydantic/platform/pull/2045
-        return json.dumps(to_json_value(obj, set()), separators=(',', ':'))
+        # fallback: eagerly transform the object via to_json_value to handle
+        # non-serializable types and non-string dictionary keys.
+        json_value = to_json_value(obj, set())
+        if isinstance(json_value, (int, float, str, bool)):
+            return json_value
+
+        return json.dumps(json_value, separators=(',', ':'))
 
 
 def is_sqlalchemy(obj: Any) -> bool:
