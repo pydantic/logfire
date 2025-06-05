@@ -28,7 +28,7 @@ from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
@@ -572,6 +572,24 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
+def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
+    assert isinstance(processor, BatchSpanProcessor)
+    try:
+        exporter = processor._batch_processor._exporter  # type: ignore
+    except AttributeError:
+        exporter = processor.span_exporter  # type: ignore
+    return exporter  # type: ignore
+
+
+def get_batch_log_exporter(processor: LogRecordProcessor) -> LogExporter:
+    assert isinstance(processor, BatchLogRecordProcessor)
+    try:
+        exporter = processor._batch_processor._exporter  # type: ignore
+    except AttributeError:
+        exporter = processor._exporter  # type: ignore
+    return exporter  # type: ignore
+
+
 def test_configure_export_delay() -> None:
     class TrackingExporter(SpanExporter):
         def __init__(self) -> None:
@@ -602,8 +620,8 @@ def test_configure_export_delay() -> None:
 
         dynamic_batch_span_processor, *_ = get_span_processors()
         assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
-        ex = dynamic_batch_span_processor.batch_processor._exporter = TrackingExporter()  # type: ignore
-        assert dynamic_batch_span_processor.span_exporter is ex
+        batch_span_processor = dynamic_batch_span_processor.batch_processor
+        ex = batch_span_processor.span_exporter = batch_span_processor._exporter = TrackingExporter()  # type: ignore
         return ex
 
     def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
@@ -612,7 +630,6 @@ def test_configure_export_delay() -> None:
 
     # test the default behaviour
     exporter = configure_tracking_exporter()
-    assert get_span_processors()[0].batch_processor._schedule_delay == 0.1  # type: ignore
     for _ in range(10):
         logfire.info('test')
     sleep(0.1)
@@ -625,7 +642,6 @@ def test_configure_export_delay() -> None:
             pass
         sleep(0.1)
     # After the first 10 spans, we increase to 500ms by default
-    assert get_span_processors()[0].batch_processor._schedule_delay == 0.5  # type: ignore
     check_delays(exporter, 0.4, 1.0)
 
     # test a very small value
@@ -1566,9 +1582,9 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(console_log_processor._exporter, ConsoleLogExporter)  # type: ignore
     assert console_log_processor._exporter.span_exporter is console_span_processor.span_exporter  # type: ignore
 
-    assert isinstance(logfire_log_processor, BatchLogRecordProcessor)
-    assert isinstance(logfire_log_processor._batch_processor._exporter, QuietLogExporter)  # type: ignore
-    assert isinstance(logfire_log_processor._batch_processor._exporter.exporter, OTLPLogExporter)  # type: ignore
+    exporter = get_batch_log_exporter(logfire_log_processor)
+    assert isinstance(exporter, QuietLogExporter)
+    assert isinstance(exporter.exporter, OTLPLogExporter)
 
 
 def test_custom_exporters():
@@ -1600,8 +1616,7 @@ def test_otel_exporter_otlp_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    exporter = otel_processor._batch_processor._exporter  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
 
@@ -1611,9 +1626,9 @@ def test_otel_exporter_otlp_endpoint_env_var():
     assert otel_metric_reader._exporter._endpoint == 'otel_endpoint/v1/metrics'  # type: ignore
 
     [otel_log_processor] = get_log_record_processors()
-    assert isinstance(otel_log_processor, BatchLogRecordProcessor)
-    assert isinstance(otel_log_processor._batch_processor._exporter, OTLPLogExporter)  # type: ignore
-    assert otel_log_processor._batch_processor._exporter._endpoint == 'otel_endpoint/v1/logs'  # type: ignore
+    log_exporter = get_batch_log_exporter(otel_log_processor)
+    assert isinstance(log_exporter, OTLPLogExporter)
+    assert log_exporter._endpoint == 'otel_endpoint/v1/logs'  # type: ignore
 
 
 def test_otel_traces_exporter_env_var():
@@ -1644,8 +1659,7 @@ def test_otel_metrics_exporter_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    exporter = otel_processor._batch_processor._exporter  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
 
@@ -1658,8 +1672,7 @@ def test_otel_logs_exporter_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    exporter = otel_processor._batch_processor._exporter  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == 'otel_endpoint4/v1/traces'  # type: ignore
 
@@ -1672,8 +1685,7 @@ def test_otel_exporter_otlp_traces_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    exporter = otel_processor._batch_processor._exporter  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == 'otel_traces_endpoint'  # type: ignore
 
@@ -1704,9 +1716,9 @@ def test_otel_exporter_otlp_logs_endpoint_env_var():
     assert len(list(get_metric_readers())) == 0
 
     [otel_log_processor] = get_log_record_processors()
-    assert isinstance(otel_log_processor, BatchLogRecordProcessor)
-    assert isinstance(otel_log_processor._batch_processor._exporter, OTLPLogExporter)  # type: ignore
-    assert otel_log_processor._batch_processor._exporter._endpoint == 'otel_logs_endpoint'  # type: ignore
+    exporter = get_batch_log_exporter(otel_log_processor)
+    assert isinstance(exporter, OTLPLogExporter)
+    assert exporter._endpoint == 'otel_logs_endpoint'  # type: ignore
 
 
 def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
