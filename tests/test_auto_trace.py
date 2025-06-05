@@ -303,13 +303,6 @@ def only_ellipsis_function():
 
     assert ast.unparse(tree).strip() == result.strip()
 
-    # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.
-    assert (
-        compile(nested_sample, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
-        or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
-        or ast.dump(tree) == ast.dump(ast.parse(result))
-    )
-
     assert [f.args for f in context_factories] == snapshot(  # type: ignore
         [
             (

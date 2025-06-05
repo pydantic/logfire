@@ -13,7 +13,7 @@ os.environ['LANGSMITH_TRACING'] = 'true'
 
 pytestmark = pytest.mark.skipif(
     get_version(pydantic.__version__) < get_version('2.5.0'),
-    reason='Langgraph does not support 3.8',
+    reason='Langgraph does not support older Pydantic versions',
 )
 
 
