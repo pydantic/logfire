@@ -56,7 +56,7 @@ jobs:
           ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_WRITE_API_KEY }}
 
   test:
-    name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
+    name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
