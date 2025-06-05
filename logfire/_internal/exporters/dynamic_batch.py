@@ -35,7 +35,7 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
         if self.num_processed == 10:
             if hasattr(self.batch_processor, '_schedule_delay_millis'):
                 self.batch_processor._schedule_delay = self.final_delay / 1e3  # type: ignore
-            else:  # pragma: no cover
+            else:
                 self.processor.schedule_delay_millis = self.final_delay  # type: ignore
         super().on_end(span)
 
@@ -45,7 +45,7 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
 
     @property
     def span_exporter(self) -> SpanExporter:
-        if isinstance(self.batch_processor, BatchSpanProcessor):  # pragma: no cover
+        if isinstance(self.batch_processor, BatchSpanProcessor):
             return self.batch_processor.span_exporter  # type: ignore
         else:
             return self.batch_processor._exporter  # type: ignore
