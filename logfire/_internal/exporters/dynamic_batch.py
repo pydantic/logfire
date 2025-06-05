@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
 
 from opentelemetry.sdk.environment_variables import OTEL_BSP_SCHEDULE_DELAY
-from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
 
-if TYPE_CHECKING:
+try:
     from opentelemetry.sdk._shared_internal import BatchProcessor
+except ImportError:
+    BatchProcessor = None
 
 
 class DynamicBatchSpanProcessor(WrapperSpanProcessor):
@@ -33,19 +34,40 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     def on_end(self, span: ReadableSpan) -> None:
         self.num_processed += 1
         if self.num_processed == 10:
-            if hasattr(self.batch_processor, '_schedule_delay_millis'):
-                self.batch_processor._schedule_delay = self.final_delay / 1e3  # type: ignore
-            else:  # pragma: no cover
-                self.processor.schedule_delay_millis = self.final_delay  # type: ignore
+            self.schedule_delay_millis = self.final_delay
         super().on_end(span)
 
-    @property
-    def batch_processor(self) -> BatchSpanProcessor | BatchProcessor[Span]:
-        return getattr(self.processor, '_batch_processor', self.processor)
+    if BatchProcessor:
 
-    @property
-    def span_exporter(self) -> SpanExporter:
-        if isinstance(self.batch_processor, BatchSpanProcessor):  # pragma: no cover
-            return self.batch_processor.span_exporter  # type: ignore
-        else:
+        @property
+        def batch_processor(self):  # type: ignore
+            return self.processor._batch_processor  # type: ignore
+
+        @property
+        def span_exporter(self) -> SpanExporter:  # type: ignore
             return self.batch_processor._exporter  # type: ignore
+
+        @property
+        def schedule_delay_millis(self) -> float:  # type: ignore
+            return self.batch_processor._schedule_delay * 1000  # type: ignore
+
+        @schedule_delay_millis.setter
+        def schedule_delay_millis(self, value: float):  # type: ignore
+            self.batch_processor._schedule_delay = value / 1000  # type: ignore
+    else:
+
+        @property
+        def batch_processor(self):
+            return self.processor
+
+        @property
+        def span_exporter(self) -> SpanExporter:
+            return self.processor.span_exporter  # type: ignore
+
+        @property
+        def schedule_delay_millis(self) -> float:
+            return self.processor.schedule_delay_millis  # type: ignore
+
+        @schedule_delay_millis.setter
+        def schedule_delay_millis(self, value: float):
+            self.processor.schedule_delay_millis = value  # type: ignore
