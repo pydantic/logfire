@@ -7,9 +7,6 @@ on:
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
 
-  # TODO
-  pull_request: {}
-
 
 jobs:
   test:
@@ -94,19 +91,19 @@ jobs:
 
       - run: uv run --no-sync pytest
 
-#  notify-on-failure:
-#    name: Notify maintainers on CI failure
-#    runs-on: ubuntu-latest
-#    needs: test
-#    # only run if the test job failed
-#    if: ${{ failure() }}
-#
-#    steps:
-#      - name: Send slack message
-#        uses: slackapi/slack-github-action@v2.0.0
-#        with:
-#          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-#          webhook-type: webhook-trigger
-#          payload: |
-#            heading: Logfire daily CI deps test ${{github.repository}} failed!
-#            body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
+  notify-on-failure:
+    name: Notify maintainers on CI failure
+    runs-on: ubuntu-latest
+    needs: test
+    # only run if the test job failed
+    if: ${{ failure() }}
+
+    steps:
+      - name: Send slack message
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload: |
+            heading: Logfire daily CI deps test ${{github.repository}} failed!
+            body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}
