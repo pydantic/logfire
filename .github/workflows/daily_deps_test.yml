@@ -7,32 +7,56 @@ on:
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
 
+
 jobs:
   test:
-    name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
+    name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         pydantic-version: ['main']
+        otel-version: ['1']  # i.e. the latest
         include:
+          # Pydantic versions
           - python-version: '3.12'
             pydantic-version: '2.4'
+            otel-version: '1'
           - python-version: '3.12'
             pydantic-version: '2.5'
+            otel-version: '1'
           - python-version: '3.12'
             pydantic-version: '2.6'
+            otel-version: '1'
           - python-version: '3.12'
             pydantic-version: '2.7'
+            otel-version: '1'
           - python-version: '3.13'
             pydantic-version: '2.8'
+            otel-version: '1'
           - python-version: '3.13'
             pydantic-version: '2.9'
+            otel-version: '1'
           - python-version: '3.13'
             pydantic-version: '2.10'
+            otel-version: '1'
           - python-version: '3.13'
             pydantic-version: '2.11'
+            otel-version: '1'
+          # OpenTelemetry versions
+          - python-version: '3.13'
+            pydantic-version: 'main'
+            otel-version: '1.33'
+          - python-version: '3.13'
+            pydantic-version: 'main'
+            otel-version: '1.32'
+          - python-version: '3.13'
+            pydantic-version: 'main'
+            otel-version: '1.31'
+          - python-version: '3.13'
+            pydantic-version: 'main'
+            otel-version: '1.30'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -58,6 +82,12 @@ jobs:
         if: matrix.pydantic-version != 'main'
         # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
+
+      - name: Install OTel SDK ${{ matrix.otel-version }}
+        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
+        run: |
+          uv pip install 'opentelemetry-sdk==${{ matrix.otel-version }}.*'
+          uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: uv run --no-sync pytest
 
