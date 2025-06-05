@@ -106,7 +106,9 @@ jobs:
 
       - name: Install OTel SDK ${{ matrix.otel-version }}
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
-        run: uv pip install 'opentelemetry-sdk==${{ matrix.otel-version }}.*'
+        run: |
+          uv pip install 'opentelemetry-sdk==${{ matrix.otel-version }}.*'
+          uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: mkdir coverage
       - run: uv run --no-sync coverage run -m pytest --junitxml=coverage/test-results.xml
