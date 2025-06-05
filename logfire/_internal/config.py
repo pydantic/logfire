@@ -907,7 +907,7 @@ class LogfireConfig(_LogfireConfigData):
                         self.token = credentials.token
                         self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
-                if is_valid_token(self.token):
+                if self.token:
 
                     def check_token():
                         assert self.token is not None
