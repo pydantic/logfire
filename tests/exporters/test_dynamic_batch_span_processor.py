@@ -17,9 +17,10 @@ def test_dynamic_batch_span_processor(exporter: TestExporter, config_kwargs: dic
         logfire.info('test')
     assert processor.num_processed == 9
     assert isinstance(processor.processor, BatchSpanProcessor)
-    assert processor.processor.schedule_delay_millis == 100
+    assert processor.schedule_delay_millis == 100
+
     logfire.info('test')
     assert processor.num_processed == 10
-    assert processor.processor.schedule_delay_millis == 500
+    assert processor.schedule_delay_millis == 500
     logfire.force_flush()
     assert len(exporter.exported_spans) == 10

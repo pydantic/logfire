@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
@@ -23,7 +23,6 @@ from pydantic import (
 )
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic_core import core_schema
-from typing_extensions import Annotated
 
 import logfire
 from logfire._internal.config import GLOBAL_CONFIG

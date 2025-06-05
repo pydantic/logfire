@@ -1,55 +1,46 @@
 from __future__ import annotations
 
 import os
-import sys
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 import pytest
+from agents import (
+    Agent,
+    AgentSpanData,
+    CustomSpanData,
+    FileSearchTool,
+    FunctionSpanData,
+    GenerationSpanData,
+    GuardrailFunctionOutput,
+    GuardrailSpanData,
+    HandoffSpanData,
+    InputGuardrailTripwireTriggered,
+    OpenAIChatCompletionsModel,
+    Runner,
+    SpanData,
+    SpeechGroupSpanData,
+    SpeechSpanData,
+    TranscriptionSpanData,
+    agent_span,
+    custom_span,
+    function_tool,
+    get_current_span,
+    get_current_trace,
+    input_guardrail,
+    trace,
+)
+from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
+from agents.tracing.spans import NoOpSpan
+from agents.tracing.traces import NoOpTrace
+from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-
-try:
-    from agents import (
-        Agent,
-        AgentSpanData,
-        CustomSpanData,
-        FileSearchTool,
-        FunctionSpanData,
-        GenerationSpanData,
-        GuardrailFunctionOutput,
-        GuardrailSpanData,
-        HandoffSpanData,
-        InputGuardrailTripwireTriggered,
-        OpenAIChatCompletionsModel,
-        Runner,
-        SpanData,
-        SpeechGroupSpanData,
-        SpeechSpanData,
-        TranscriptionSpanData,
-        agent_span,
-        custom_span,
-        function_tool,
-        get_current_span,
-        get_current_trace,
-        input_guardrail,
-        trace,
-    )
-    from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
-    from agents.tracing.spans import NoOpSpan
-    from agents.tracing.traces import NoOpTrace
-    from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-
-    from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
-
-except ImportError:
-    pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
-    if TYPE_CHECKING:
-        assert False
+from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 
@@ -768,6 +759,7 @@ async def test_responses(exporter: TestExporter):
                                         'annotations': [],
                                         'text': "The random number generated is 4, and it's been handed off to agent2.",
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -1109,7 +1101,14 @@ async def test_input_guardrails(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67cee2641544819193c128971fa966e3',
-                                'content': [{'annotations': [], 'text': '1 + 1 equals 2.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': '1 + 1 equals 2.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -1793,7 +1792,14 @@ async def test_responses_simple(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67ceee05a83c8191a2e1e19ceb63495e',
-                                'content': [{'annotations': [], 'text': '2 + 2 equals 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': '2 + 2 equals 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -1983,7 +1989,14 @@ async def test_responses_simple(exporter: TestExporter):
                         'output': [
                             {
                                 'id': 'msg_67ceee06885881918c740a6ca0ce2807',
-                                'content': [{'annotations': [], 'text': 'Yes, 2 + 2 equals 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'Yes, 2 + 2 equals 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -2256,6 +2269,7 @@ async def test_file_search(exporter: TestExporter):
                                         ],
                                         'text': 'Logfire is made by Pydantic.',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -2507,7 +2521,14 @@ See JSON for details\
                         'output': [
                             {
                                 'id': 'msg_67ceff3d201481918300b33fb2968fb5',
-                                'content': [{'annotations': [], 'text': 'The answer is 4.', 'type': 'output_text'}],
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'The answer is 4.',
+                                        'type': 'output_text',
+                                        'logprobs': None,
+                                    }
+                                ],
                                 'role': 'assistant',
                                 'status': 'completed',
                                 'type': 'message',
@@ -3054,6 +3075,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                                         'annotations': [],
                                         'text': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',
@@ -3439,6 +3461,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                                         'annotations': [],
                                         'text': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
                                         'type': 'output_text',
+                                        'logprobs': None,
                                     }
                                 ],
                                 'role': 'assistant',

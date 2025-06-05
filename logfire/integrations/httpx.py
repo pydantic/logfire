@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, NamedTuple
+from collections.abc import Awaitable
+from typing import Any, Callable, NamedTuple
 
 import httpx
 from opentelemetry.trace import Span

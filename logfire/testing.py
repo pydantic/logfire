@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from typing import Any, cast
 
 import pytest
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricsData
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import logfire
 
+from ._internal.config import METRICS_PREFERRED_TEMPORALITY
 from ._internal.constants import ONE_SECOND_IN_NANOSECONDS
 from ._internal.exporters.test import TestExporter, TestLogExporter
 from ._internal.utils import SeededRandomIdGenerator
@@ -90,12 +93,16 @@ class CaptureLogfire:
     log_exporter: TestLogExporter
     """The log exporter."""
 
+    def get_collected_metrics(self):
+        """Get the collected metrics as a list of dictionaries."""
+        return get_collected_metrics(self.metrics_reader)
+
 
 @pytest.fixture
 def capfire() -> CaptureLogfire:
     """A fixture that returns a CaptureLogfire instance."""
     exporter = TestExporter()
-    metrics_reader = InMemoryMetricReader()
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
     time_generator = TimeGenerator()
     log_exporter = TestLogExporter(time_generator)
     logfire.configure(
@@ -107,7 +114,14 @@ def capfire() -> CaptureLogfire:
             log_record_processors=[SimpleLogRecordProcessor(log_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
+        metrics=logfire.MetricsOptions(additional_readers=[metrics_reader]),
     )
 
     return CaptureLogfire(exporter=exporter, metrics_reader=metrics_reader, log_exporter=log_exporter)
+
+
+def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
+    """Get the collected metrics as a list of dictionaries."""
+    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
+    [resource_metric] = exported_metrics['resource_metrics']
+    return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]

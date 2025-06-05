@@ -4,9 +4,10 @@ import json
 import sys
 import traceback
 from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
@@ -20,8 +21,6 @@ from opentelemetry.sdk.trace import (
     TracerProvider as SDKTracerProvider,
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator
-from opentelemetry.semconv.resource import ResourceAttributes
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 from opentelemetry.trace.status import Status, StatusCode
@@ -106,7 +105,7 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 return self.provider.resource
-            return Resource.create({ResourceAttributes.SERVICE_NAME: self.config.service_name})
+            return Resource.create({'service.name': self.config.service_name})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:
@@ -422,7 +421,7 @@ def record_exception(
         # ignoring the passed exception.
         # So we override the stacktrace attribute with the correct one.
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
+        attributes['exception.stacktrace'] = stacktrace
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 

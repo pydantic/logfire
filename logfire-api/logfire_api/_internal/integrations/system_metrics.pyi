@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
+from collections.abc import Iterable
 from logfire import Logfire as Logfire
-from typing import Iterable, Literal
+from typing import Literal
 from typing_extensions import LiteralString
 
 MetricName: type[Literal['system.cpu.simple_utilization', 'system.cpu.time', 'system.cpu.utilization', 'system.memory.usage', 'system.memory.utilization', 'system.swap.usage', 'system.swap.utilization', 'system.disk.io', 'system.disk.operations', 'system.disk.time', 'system.network.dropped.packets', 'system.network.packets', 'system.network.errors', 'system.network.io', 'system.network.connections', 'system.thread_count', 'process.open_file_descriptor.count', 'process.context_switches', 'process.cpu.time', 'process.cpu.utilization', 'process.cpu.core_utilization', 'process.memory.usage', 'process.memory.virtual', 'process.thread.count', 'process.runtime.gc_count', 'process.runtime.memory', 'process.runtime.cpu.time', 'process.runtime.thread_count', 'process.runtime.cpu.utilization', 'process.runtime.context_switches']]

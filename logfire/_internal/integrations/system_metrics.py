@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from platform import python_implementation
-from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
@@ -93,7 +94,7 @@ MetricName: type[
     'process.runtime.context_switches',
 ]
 
-Config = Dict[MetricName, Optional[Iterable[str]]]
+Config = dict[MetricName, Optional[Iterable[str]]]
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).

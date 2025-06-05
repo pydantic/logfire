@@ -1,13 +1,14 @@
 from __future__ import annotations as _annotations
 
 import json
-import sys
+from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
-from typing import Any, AsyncIterator, Iterator
+from typing import Any
 
 import httpx
 import openai
 import pytest
+from dirty_equals import IsNumeric
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
@@ -27,13 +28,12 @@ import logfire
 from logfire._internal.utils import suppress_instrumentation
 from logfire.testing import TestExporter
 
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Newest OpenAI SDK does not support 3.8')
-
 
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
+    (We no longer support 3.8 either, but it's not worth changing this now)
     """
     assert request.method == 'POST'
     if request.url == 'https://api.openai.com/v1/chat/completions':
@@ -1638,6 +1638,38 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                     'http.target': '/v1/completions',
                 },
             },
@@ -1671,6 +1703,38 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'response_data': {'type': 'object'},
+                        },
+                    },
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric,
+                                }
+                            ],
+                            'total': IsNumeric,
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
                         },
                     },
                 },
@@ -1874,7 +1938,8 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
 
 
 def test_create_thread(instrumented_client: openai.Client, exporter: TestExporter) -> None:
-    thread = instrumented_client.beta.threads.create()
+    with pytest.warns(DeprecationWarning):
+        thread = instrumented_client.beta.threads.create()  # type: ignore
     assert thread.id == 'thread_abc123'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [

@@ -4,14 +4,14 @@ import json
 import re
 import sys
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
-from typing import Any, Iterator, List, Mapping
+from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
@@ -97,12 +97,8 @@ def generator() -> Iterator[int]:
 gen = generator()
 
 
-if sys.version_info >= (3, 9):  # pragma: no branch
-    _MySequence = Sequence[int]
-    _ListSubclass = list[int]
-else:  # pragma: no cover
-    _MySequence = Sequence
-    _ListSubclass = list
+_MySequence = Sequence[int]
+_ListSubclass = list[int]
 
 
 class MySequence(_MySequence):
@@ -317,28 +313,28 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Decimal('1.7'),
             '1.7',
             '"1.7"',
-            {'type': 'string', 'format': 'decimal'},
+            {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
             id='decimal',
         ),
         pytest.param(
             date(2023, 1, 1),
             '2023-01-01',
             '"2023-01-01"',
-            {'type': 'string', 'format': 'date'},
+            {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
             id='date',
         ),
         pytest.param(
             datetime(2023, 1, 1, 10, 10),
             '2023-01-01 10:10:00',
             '"2023-01-01T10:10:00"',
-            {'type': 'string', 'format': 'date-time'},
+            {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
             id='datetime',
         ),
         pytest.param(
             time(12, 10),
             '12:10:00',
             '"12:10:00"',
-            {'type': 'string', 'format': 'time'},
+            {'type': 'string', 'format': 'time', 'x-python-datatype': 'time'},
             id='time',
         ),
         pytest.param(
@@ -880,7 +876,7 @@ class SAModel(SABase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(30))
-    models2: Mapped[List[SAModel2]] = relationship(back_populates='model', lazy='dynamic')  # noqa
+    models2: Mapped[list[SAModel2]] = relationship(back_populates='model', lazy='dynamic')
 
 
 class SAModel2(SABase):
@@ -973,7 +969,7 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
                 '...'
                 'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
             ),
-            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
             'code.filepath': 'test_json_args.py',
             'code.lineno': 123,
             'code.function': 'test_log_non_scalar_complex_args',

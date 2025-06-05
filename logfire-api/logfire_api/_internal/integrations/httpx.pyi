@@ -1,15 +1,16 @@
+import contextlib
 import httpx
 from _typeshed import Incomplete
-from collections.abc import Generator
+from collections.abc import Awaitable as Awaitable, Generator, Mapping
 from email.headerregistry import ContentTypeHeader
-from functools import cached_property
+from functools import cached_property, lru_cache
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
 from logfire._internal.main import set_user_attributes_on_raw_span as set_user_attributes_on_raw_span
 from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from logfire.integrations.httpx import AsyncRequestHook as AsyncRequestHook, AsyncResponseHook as AsyncResponseHook, RequestHook as RequestHook, RequestInfo as RequestInfo, ResponseHook as ResponseHook, ResponseInfo as ResponseInfo
 from opentelemetry.trace import Span
-from typing import Any, Awaitable, Callable, Literal, Mapping, ParamSpec
+from typing import Any, Callable, Literal, ParamSpec
 
 P = ParamSpec('P')
 
@@ -54,6 +55,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     def on_response_read(self, hook: Callable[[LogfireSpan], None]): ...
     def wrap_response_read(self, hook: Callable[[Callable[[], bytes]], bytes]): ...
     def wrap_response_aread(self, hook: Callable[[Callable[[], Awaitable[bytes]]], Awaitable[bytes]]): ...
+    @contextlib.contextmanager
     def attach_original_span_context(self) -> Generator[None]: ...
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str): ...
 
@@ -69,6 +71,8 @@ def capture_request_or_response_headers(span: Span, headers: httpx.Headers, requ
 
 CODES_FOR_METHODS_WITH_DATA_PARAM: Incomplete
 
+@lru_cache
 def content_type_header_from_string(content_type: str) -> ContentTypeHeader: ...
 def content_type_subtypes(subtype: str) -> set[str]: ...
+@lru_cache
 def is_json_type(content_type: str) -> bool: ...

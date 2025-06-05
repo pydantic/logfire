@@ -20,6 +20,7 @@ import datetime
 import re
 import uuid
 from collections import deque
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
 from decimal import Decimal
 from enum import Enum
@@ -27,7 +28,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PosixPath
 from types import GeneratorType
-from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
+from typing import Any, Callable, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
@@ -43,10 +44,10 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
         Enum: _enum_schema,
-        Decimal: {'type': 'string', 'format': 'decimal'},
-        datetime.datetime: {'type': 'string', 'format': 'date-time'},
-        datetime.date: {'type': 'string', 'format': 'date'},
-        datetime.time: {'type': 'string', 'format': 'time'},
+        Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
+        datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
+        datetime.time: {'type': 'string', 'format': 'time', 'x-python-datatype': 'time'},
         datetime.timedelta: {'type': 'string', 'x-python-datatype': 'timedelta'},
         GeneratorType: _generator_schema,
         IPv4Address: {'type': 'string', 'format': 'ipv4'},

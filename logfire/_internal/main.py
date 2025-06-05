@@ -5,17 +5,17 @@ import inspect
 import json
 import sys
 import warnings
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from contextvars import Token
+from enum import Enum
 from functools import cached_property
 from time import time
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    ContextManager,
-    Iterable,
     Literal,
-    Sequence,
     TypeVar,
     Union,
     overload,
@@ -839,7 +839,7 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -899,12 +899,17 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
         from .integrations.mcp import instrument_mcp
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_mcp(self)
+        instrument_mcp(self, propagate_otel_context)
 
     def instrument_pydantic(
         self,
@@ -1031,7 +1036,7 @@ class Logfire:
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -1095,7 +1100,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -1190,7 +1195,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -2450,7 +2455,9 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
-    if isinstance(value, int):
+    if isinstance(value, Enum):
+        return logfire_json_dumps(value)
+    elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
                 f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
