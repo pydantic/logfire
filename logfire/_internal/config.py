@@ -573,10 +573,6 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
-        if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
-            raise LogfireConfigError(
-                'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
-            )
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):

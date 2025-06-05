@@ -1529,15 +1529,6 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
-@pytest.mark.skipif(sys.version_info[:2] >= (3, 9), reason='Testing an error only raised in Python 3.8+')
-def test_configure_fstring_python_38():
-    with pytest.raises(  # pragma: no branch
-        LogfireConfigError,
-        match=r'Inspecting arguments is only supported in Python 3.9\+ and only recommended in Python 3.11\+.',
-    ):
-        logfire.configure(send_to_logfire=False, inspect_arguments=True)
-
-
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo')
