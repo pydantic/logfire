@@ -1,6 +1,5 @@
 import importlib
 import logging
-import sys
 from collections.abc import Generator, Iterator
 from unittest import mock
 
@@ -16,9 +15,6 @@ from testcontainers.redis import RedisContainer
 import logfire
 import logfire._internal.integrations.celery
 from logfire.testing import TestExporter
-
-# TODO find a better solution
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Redis testcontainers has problems in 3.8')
 
 
 def test_missing_opentelemetry_dependency() -> None:

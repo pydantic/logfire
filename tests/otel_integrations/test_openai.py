@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import json
-import sys
 from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
 from typing import Any
@@ -27,8 +26,6 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 import logfire
 from logfire._internal.utils import suppress_instrumentation
 from logfire.testing import TestExporter
-
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Newest OpenAI SDK does not support 3.8')
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:

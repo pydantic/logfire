@@ -2397,7 +2397,6 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
