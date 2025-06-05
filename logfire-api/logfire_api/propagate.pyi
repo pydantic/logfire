@@ -1,8 +1,9 @@
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from opentelemetry import context as otel_context
 from opentelemetry.propagators.textmap import TextMapPropagator
-from typing import Any, Iterator, Mapping
+from typing import Any
 
 __all__ = ['get_context', 'attach_context', 'ContextCarrier']
 

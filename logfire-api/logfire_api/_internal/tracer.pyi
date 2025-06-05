@@ -3,6 +3,7 @@ from .config import LogfireConfig as LogfireConfig
 from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
 from .utils import handle_internal_errors as handle_internal_errors
 from _typeshed import Incomplete
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -13,7 +14,7 @@ from opentelemetry.trace import Link as Link, Span, SpanContext, SpanKind, Trace
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 from threading import Lock
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable
 from weakref import WeakKeyDictionary, WeakSet
 
 OPEN_SPANS: WeakSet[_LogfireWrappedSpan]

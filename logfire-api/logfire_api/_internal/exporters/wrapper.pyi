@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from collections.abc import Sequence
 from dataclasses import dataclass
 from opentelemetry import context
 from opentelemetry.sdk._logs import LogData, LogRecordProcessor
@@ -7,7 +8,7 @@ from opentelemetry.sdk.metrics.export import AggregationTemporality as Aggregati
 from opentelemetry.sdk.metrics.view import Aggregation as Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
-from typing import Any, Sequence
+from typing import Any
 
 class WrapperSpanExporter(SpanExporter):
     """A base class for SpanExporters that wrap another exporter."""
