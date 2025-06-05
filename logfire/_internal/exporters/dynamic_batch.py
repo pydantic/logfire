@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import os
-from typing import cast
+from typing import TYPE_CHECKING
 
 from opentelemetry.sdk.environment_variables import OTEL_BSP_SCHEDULE_DELAY
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
+
+if TYPE_CHECKING:
+    from opentelemetry.sdk._shared_internal import BatchProcessor
 
 
 class DynamicBatchSpanProcessor(WrapperSpanProcessor):
@@ -17,6 +20,8 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     the `OTEL_BSP_SCHEDULE_DELAY` environment variable (default: 500ms).
     This makes the initial experience of the SDK more responsive.
     """
+
+    processor: BatchSpanProcessor  # type: ignore
 
     def __init__(self, exporter: SpanExporter) -> None:
         self.final_delay = float(os.environ.get(OTEL_BSP_SCHEDULE_DELAY) or 500)
@@ -28,5 +33,19 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     def on_end(self, span: ReadableSpan) -> None:
         self.num_processed += 1
         if self.num_processed == 10:
-            cast(BatchSpanProcessor, self.processor).schedule_delay_millis = self.final_delay
+            if hasattr(self.batch_processor, '_schedule_delay_millis'):
+                self.batch_processor._schedule_delay = self.final_delay / 1e3  # type: ignore
+            else:  # pragma: no cover
+                self.processor.schedule_delay_millis = self.final_delay  # type: ignore
         super().on_end(span)
+
+    @property
+    def batch_processor(self) -> BatchSpanProcessor | BatchProcessor[Span]:
+        return getattr(self.processor, '_batch_processor', self.processor)
+
+    @property
+    def span_exporter(self) -> SpanExporter:
+        if isinstance(self.batch_processor, BatchSpanProcessor):  # pragma: no cover
+            return self.batch_processor.span_exporter  # type: ignore
+        else:
+            return self.batch_processor._exporter  # type: ignore

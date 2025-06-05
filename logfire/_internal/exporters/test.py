@@ -17,8 +17,6 @@ from opentelemetry.sdk._logs._internal.export import LogExportResult
 from opentelemetry.sdk._logs.export import InMemoryLogExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.semconv.resource import ResourceAttributes
-from opentelemetry.semconv.trace import SpanAttributes
 
 from ..constants import ATTRIBUTES_SPAN_TYPE_KEY
 
@@ -82,15 +80,13 @@ class TestExporter(SpanExporter):
             res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
-                if SpanAttributes.EXCEPTION_STACKTRACE in attributes:
+                if 'exception.stacktrace' in attributes:
                     last_line = next(  # pragma: no branch
                         line.strip()
-                        for line in reversed(
-                            cast(str, event.attributes[SpanAttributes.EXCEPTION_STACKTRACE]).split('\n')
-                        )
+                        for line in reversed(cast(str, event.attributes['exception.stacktrace']).split('\n'))
                         if line.strip()
                     )
-                    attributes[SpanAttributes.EXCEPTION_STACKTRACE] = last_line
+                    attributes['exception.stacktrace'] = last_line
             return res
 
         def build_instrumentation_scope(span: ReadableSpan) -> dict[str, Any]:
@@ -148,10 +144,10 @@ def process_attribute(
     if name == 'code.function':
         if sys.version_info >= (3, 11) and strip_function_qualname:
             return value.split('.')[-1]
-    if name == ResourceAttributes.PROCESS_PID:
+    if name == 'process.pid':
         assert value == os.getpid()
         return 1234
-    if name == ResourceAttributes.SERVICE_INSTANCE_ID:
+    if name == 'service.instance.id':
         if re.match(r'^[0-9a-f]{32}$', value):
             return '0' * 32
     if parse_json_attributes and isinstance(value, str) and (value.startswith('{') or value.startswith('[')):

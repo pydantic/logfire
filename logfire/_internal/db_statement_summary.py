@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-from opentelemetry.semconv.trace import SpanAttributes
-
 MAX_QUERY_MESSAGE_LENGTH = 80
 
 
@@ -13,7 +11,7 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
 
     Returns: A new string to use as span message or None to keep the original message.
     """
-    db_statement = attributes.get(SpanAttributes.DB_STATEMENT)
+    db_statement = attributes.get('db.statement')
     if not isinstance(db_statement, str):
         # covers `None` and anything any other unexpected type
         return None
@@ -25,7 +23,7 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
 
     db_statement = db_statement.strip()
     if isinstance(message, str):
-        db_name = attributes.get(SpanAttributes.DB_NAME)
+        db_name = attributes.get('db.name')
         if db_name and isinstance(db_name, str) and message.endswith(db_name):
             operation = message[: -len(db_name) - 1]
         else:

@@ -148,7 +148,17 @@ def instrument_httpx(
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
+        meter_provider = final_kwargs['meter_provider']
+        client_kwargs = dict(
+            tracer_provider=tracer_provider,
+            request_hook=request_hook,
+            response_hook=response_hook,
+        )
+        try:
+            instrumentor.instrument_client(client, meter_provider=meter_provider, **client_kwargs)
+        except TypeError:  # pragma: no cover
+            # This is a fallback for older versions of opentelemetry-instrumentation-httpx
+            instrumentor.instrument_client(client, **client_kwargs)
 
 
 class LogfireHttpxInfoMixin:
