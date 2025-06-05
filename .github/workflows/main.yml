@@ -72,23 +72,14 @@ jobs:
               pydantic-version: '2'  # i.e. the latest
               otel-version: '1.33'
             - python-version: '3.13'
-              pydantic-version: '2'  # i.e. the latest
+              pydantic-version: '2'
               otel-version: '1.32'
             - python-version: '3.13'
-              pydantic-version: '2'  # i.e. the latest
+              pydantic-version: '2'
               otel-version: '1.31'
             - python-version: '3.13'
-              pydantic-version: '2'  # i.e. the latest
+              pydantic-version: '2'
               otel-version: '1.30'
-            - python-version: '3.12'
-              pydantic-version: '2'  # i.e. the latest
-              otel-version: '1.29'
-            - python-version: '3.12'
-              pydantic-version: '2'  # i.e. the latest
-              otel-version: '1.28'
-            - python-version: '3.12'
-              pydantic-version: '2'  # i.e. the latest
-              otel-version: '1.27'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
