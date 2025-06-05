@@ -5,10 +5,11 @@ from .stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
 from .utils import ReadableSpanDict as ReadableSpanDict
 from _typeshed import Incomplete
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
-from typing import Any, Callable, Sequence, TypedDict
+from typing import Any, Callable, TypedDict
 
 DEFAULT_PATTERNS: Incomplete
 JsonPath: typing_extensions.TypeAlias

@@ -31,6 +31,8 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, record_exception as record_exception, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
@@ -47,7 +49,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from types import ModuleType
-from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, overload
+from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
 
@@ -354,7 +356,7 @@ class Logfire:
         Returns:
             Whether the flush of spans was successful.
         """
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -430,7 +432,7 @@ class Logfire:
     def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -472,7 +474,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -530,7 +532,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:

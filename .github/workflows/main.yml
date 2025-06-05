@@ -56,18 +56,21 @@ jobs:
           ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_WRITE_API_KEY }}
 
   test:
-    name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
+    name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        pydantic-version: ['2.11']
+        pydantic-version: ['2']  # i.e. the latest
+        otel-version: ['1']  # i.e. the latest
         include:
-            - python-version: '3.8'
-              pydantic-version: '2.10'
             - python-version: '3.12'
               pydantic-version: '2.4'
+              otel-version: '1'  # i.e. the latest
+            - python-version: '3.13'
+              pydantic-version: '2'  # i.e. the latest
+              otel-version: '1.30'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -92,14 +95,20 @@ jobs:
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
+      - name: Install OTel SDK ${{ matrix.otel-version }}
+        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
+        run: |
+          uv pip install 'opentelemetry-sdk==${{ matrix.otel-version }}.*'
+          uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
+
       - run: mkdir coverage
       - run: uv run --no-sync coverage run -m pytest --junitxml=coverage/test-results.xml
         env:
-          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
+          COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
       - name: store coverage files
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}
+          name: coverage-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
           path: coverage
           include-hidden-files: true
 

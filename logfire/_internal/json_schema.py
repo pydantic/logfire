@@ -20,6 +20,7 @@ import datetime
 import re
 import uuid
 from collections import deque
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
 from decimal import Decimal
 from enum import Enum
@@ -27,7 +28,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PosixPath
 from types import GeneratorType
-from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
+from typing import Any, Callable, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value

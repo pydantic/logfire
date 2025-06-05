@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any
+from typing import Annotated, Any
 from unittest import mock
 
 import pytest
@@ -17,7 +17,6 @@ from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
-from typing_extensions import Annotated
 
 import logfire
 import logfire._internal
@@ -1250,11 +1249,40 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 ],
             },
             {
+                'name': 'GET /exception http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /exception http send response.start',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.start',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                },
+            },
+            {
+                'name': 'GET /exception http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /exception http send response.body',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.body',
+                },
+            },
+            {
                 'name': 'GET /exception',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 8000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception',
@@ -1282,20 +1310,11 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'fastapi.route.name': 'exception',
                     'fastapi.route.operation_id': 'null',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
                     'logfire.level_num': 17,
                 },
-                'events': [
-                    {
-                        'name': 'exception',
-                        'timestamp': 7000000000,
-                        'attributes': {
-                            'exception.type': 'ValueError',
-                            'exception.message': 'test exception',
-                            'exception.stacktrace': 'ValueError: test exception',
-                            'exception.escaped': 'False',
-                        },
-                    }
-                ],
             },
         ]
     )

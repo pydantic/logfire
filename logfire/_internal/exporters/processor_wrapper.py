@@ -9,7 +9,6 @@ from urllib.parse import parse_qs, urlparse
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
@@ -121,7 +120,7 @@ def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
     attributes = span['attributes']
     # We never expect db.statement to be in the attributes here.
     # This is just to be extra sure that we're not accidentally hiding an actual query span.
-    if SpanAttributes.DB_SYSTEM not in attributes or SpanAttributes.DB_STATEMENT in attributes:  # pragma: no cover
+    if 'db.system' not in attributes or 'db.statement' in attributes:  # pragma: no cover
         return
     span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
@@ -196,17 +195,17 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):  # pragma: no cover
         return
 
-    method = attributes.get(SpanAttributes.HTTP_METHOD)
-    route = attributes.get(SpanAttributes.HTTP_ROUTE)
-    target = attributes.get(SpanAttributes.HTTP_TARGET)
-    url: Any = attributes.get(SpanAttributes.HTTP_URL)
+    method = attributes.get('http.method')
+    route = attributes.get('http.route')
+    target = attributes.get('http.target')
+    url: Any = attributes.get('http.url')
     if not (method or route or target or url):
         return
 
     if not target and url and isinstance(url, str):
         try:
             target = urlparse(url).path
-            span['attributes'] = attributes = {**attributes, SpanAttributes.HTTP_TARGET: target}
+            span['attributes'] = attributes = {**attributes, 'http.target': target}
         except Exception:  # pragma: no cover
             pass
 
@@ -224,9 +223,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
         if span['kind'] == SpanKind.CLIENT:
             # For outgoing requests, we also want the domain, not just the path.
             server_name: Any = (
-                attributes.get(SpanAttributes.SERVER_ADDRESS)
-                or attributes.get(SpanAttributes.HTTP_SERVER_NAME)
-                or attributes.get(SpanAttributes.HTTP_HOST)
+                attributes.get('server.address') or attributes.get('http.server_name') or attributes.get('http.host')
             )
             if not server_name:
                 try:

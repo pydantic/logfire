@@ -3,15 +3,17 @@ from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_cod
 from ..utils import handle_internal_errors as handle_internal_errors, maybe_capture_server_headers as maybe_capture_server_headers
 from .asgi import tweak_asgi_spans_tracer_provider as tweak_asgi_spans_tracer_provider
 from _typeshed import Incomplete
+from collections.abc import Awaitable, Iterable
+from contextlib import AbstractContextManager
 from fastapi import FastAPI
 from functools import lru_cache
 from starlette.requests import Request
 from starlette.websockets import WebSocket
-from typing import Any, Awaitable, Callable, ContextManager, Iterable
+from typing import Any, Callable
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
-def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.

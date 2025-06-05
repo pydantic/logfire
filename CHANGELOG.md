@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.18.0] (2025-06-05)
+
+* Upgrade to OpenTelemetry SDK 1.34.0 by @alexmojaki in [#1120](https://github.com/pydantic/logfire/pull/1120)
+* Drop Python 3.8 support by @alexmojaki in [#1122](https://github.com/pydantic/logfire/pull/1122)
+
 ## [v3.17.0] (2025-06-03)
 
 * LangChain instrumentation via LangSmith  by @alexmojaki in [#1084](https://github.com/pydantic/logfire/pull/1084)
@@ -721,3 +726,4 @@ First release from new repo!
 [v3.16.1]: https://github.com/pydantic/logfire/compare/v3.16.0...v3.16.1
 [v3.16.2]: https://github.com/pydantic/logfire/compare/v3.16.1...v3.16.2
 [v3.17.0]: https://github.com/pydantic/logfire/compare/v3.16.2...v3.17.0
+[v3.18.0]: https://github.com/pydantic/logfire/compare/v3.17.0...v3.18.0
