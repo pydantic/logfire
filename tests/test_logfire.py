@@ -2778,9 +2778,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     assert exporter.exported_spans_as_dict() == expected_spans
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
-)
 def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
@@ -2927,7 +2924,6 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
