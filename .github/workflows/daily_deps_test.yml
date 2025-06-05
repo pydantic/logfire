@@ -7,9 +7,13 @@ on:
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
 
+  # TODO
+  pull_request: {}
+
+
 jobs:
   test:
-    name: test on Python ${{ matrix.python-version }} and pydantic ${{ matrix.pydantic-version }}
+    name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -81,6 +85,12 @@ jobs:
         if: matrix.pydantic-version != 'main'
         # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
+
+      - name: Install OTel SDK ${{ matrix.otel-version }}
+        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
+        run: |
+          uv pip install 'opentelemetry-sdk==${{ matrix.otel-version }}.*'
+          uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: uv run --no-sync pytest
 
