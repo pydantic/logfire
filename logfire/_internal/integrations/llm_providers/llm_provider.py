@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import ExitStack, contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, cast
 
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, suppress_instrumentation

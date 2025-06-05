@@ -3207,8 +3207,9 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
@@ -3258,8 +3259,9 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with logfire.span('foo') as span:
             span.record_exception(RuntimeError('error'))

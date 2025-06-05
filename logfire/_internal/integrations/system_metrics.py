@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from platform import python_implementation
-from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
+from typing import TYPE_CHECKING, Dict, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 

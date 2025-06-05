@@ -5,6 +5,7 @@ import inspect
 import json
 import sys
 import warnings
+from collections.abc import Iterable, Sequence
 from contextvars import Token
 from enum import Enum
 from functools import cached_property
@@ -14,9 +15,7 @@ from typing import (
     Any,
     Callable,
     ContextManager,
-    Iterable,
     Literal,
-    Sequence,
     TypeVar,
     Union,
     overload,

@@ -8,6 +8,7 @@ import os
 import platform
 import random
 import sys
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,8 +20,6 @@ from typing import (
     Callable,
     Dict,
     List,
-    Mapping,
-    Sequence,
     Tuple,
     TypedDict,
     TypeVar,

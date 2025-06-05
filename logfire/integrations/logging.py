@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
-from typing import TYPE_CHECKING, Any, ClassVar, Mapping, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import logfire
 

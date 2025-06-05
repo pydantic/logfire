@@ -1,7 +1,8 @@
 from __future__ import annotations as _annotations
 
 import json
-from typing import Any, AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
 import anthropic
 import httpx

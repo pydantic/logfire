@@ -1,7 +1,7 @@
 import importlib
 import logging
 import sys
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 from unittest import mock
 
 import pytest

@@ -12,9 +12,10 @@ And existing plugins exist to propagate the context with
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator, Mapping
+from typing import Any
 
 from opentelemetry import context as otel_context, propagate, trace
 from opentelemetry.propagators.textmap import TextMapPropagator

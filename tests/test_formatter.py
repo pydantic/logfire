@@ -1,8 +1,9 @@
 import contextlib
 import sys
 from collections import ChainMap
+from collections.abc import Mapping
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot

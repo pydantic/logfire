@@ -4,14 +4,14 @@ import json
 import re
 import sys
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
-from typing import Any, Iterator, List, Mapping
+from typing import Any, List
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
 

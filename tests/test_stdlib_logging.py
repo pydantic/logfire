@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from contextlib import contextmanager
 from logging import Logger, getLogger
-from typing import Any, Sequence
+from typing import Any
 
 import pytest
 from dirty_equals import IsPositiveInt

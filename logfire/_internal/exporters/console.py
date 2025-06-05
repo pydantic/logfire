@@ -8,11 +8,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from textwrap import indent as indent_text
-from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
+from typing import Any, List, Literal, TextIO, Tuple, cast
 
 from opentelemetry.sdk._logs import LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult

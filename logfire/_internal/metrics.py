@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from threading import Lock
-from typing import Any, Generic, Sequence, TypeVar
+from typing import Any, Generic, TypeVar
 from weakref import WeakSet
 
 from opentelemetry.metrics import (
