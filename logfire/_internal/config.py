@@ -53,7 +53,6 @@ from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
-from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
@@ -765,12 +764,12 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
-                ResourceAttributes.SERVICE_NAME: self.service_name,
-                ResourceAttributes.PROCESS_PID: os.getpid(),
+                'service.name': self.service_name,
+                'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
-                ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
-                ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
+                'process.runtime.name': sys.implementation.name,
+                'process.runtime.version': get_runtime_version(),
+                'process.runtime.description': sys.version,
                 # Having this giant blob of data associated with every span/metric causes various problems so it's
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -785,7 +784,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
-                otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+                otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
@@ -813,7 +812,7 @@ class LogfireConfig(_LogfireConfigData):
             # Currently there's a newer version with some differences here:
             # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
             # Both recommend generating a UUID.
-            resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
+            resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -1040,7 +1039,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
-                        new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
+                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
                         logger_provider._resource = new_resource  # type: ignore
