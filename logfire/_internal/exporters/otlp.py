@@ -4,11 +4,12 @@ import random
 import time
 import uuid
 from collections import deque
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import requests.exceptions
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter

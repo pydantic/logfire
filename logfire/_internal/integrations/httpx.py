@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
+from collections.abc import Awaitable, Mapping
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal, Mapping, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
@@ -148,7 +149,17 @@ def instrument_httpx(
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
+        meter_provider = final_kwargs['meter_provider']
+        client_kwargs = dict(
+            tracer_provider=tracer_provider,
+            request_hook=request_hook,
+            response_hook=response_hook,
+        )
+        try:
+            instrumentor.instrument_client(client, meter_provider=meter_provider, **client_kwargs)
+        except TypeError:  # pragma: no cover
+            # This is a fallback for older versions of opentelemetry-instrumentation-httpx
+            instrumentor.instrument_client(client, **client_kwargs)
 
 
 class LogfireHttpxInfoMixin:

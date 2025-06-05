@@ -2,8 +2,9 @@ import ast
 import asyncio
 import runpy
 import sys
+from contextlib import AbstractContextManager
 from importlib.machinery import SourceFileLoader
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable
 
 import pytest
 from inline_snapshot import snapshot
@@ -244,7 +245,7 @@ def only_ellipsis_function():
 
 
 def test_rewrite_ast():
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     tree = rewrite_ast(
         ast.parse(nested_sample),
         'foo.py',
@@ -300,15 +301,7 @@ def only_ellipsis_function():
     ...
 '''
 
-    if sys.version_info >= (3, 9):  # pragma: no branch
-        assert ast.unparse(tree).strip() == result.strip()
-
-    # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.
-    assert (
-        compile(nested_sample, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
-        or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
-        or ast.dump(tree) == ast.dump(ast.parse(result))
-    )
+    assert ast.unparse(tree).strip() == result.strip()
 
     assert [f.args for f in context_factories] == snapshot(  # type: ignore
         [
@@ -429,7 +422,7 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     rewrite_ast(
         ast.parse(sample),
         'foo.py',

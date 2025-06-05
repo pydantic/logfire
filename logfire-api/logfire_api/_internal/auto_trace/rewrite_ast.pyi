@@ -1,8 +1,9 @@
 import ast
 from ..ast_utils import BaseTransformer as BaseTransformer, LogfireArgs as LogfireArgs
 from ..main import Logfire as Logfire
+from contextlib import AbstractContextManager as AbstractContextManager
 from dataclasses import dataclass
-from typing import Any, Callable, ContextManager, TypeVar
+from typing import Any, Callable, TypeVar
 
 def compile_source(tree: ast.AST, filename: str, module_name: str, logfire_instance: Logfire, min_duration: int) -> Callable[[dict[str, Any]], None]:
     """Compile a modified AST of the module's source code in the module's namespace.
@@ -21,13 +22,13 @@ def compile_source(tree: ast.AST, filename: str, module_name: str, logfire_insta
     If `min_duration` is greater than 0, then `context_factories[index]` is initially `MeasureTime`.
     Otherwise, it's initially the `partial` above.
     """
-def rewrite_ast(tree: ast.AST, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire, context_factories: list[Callable[[], ContextManager[Any]]], min_duration: int) -> ast.AST: ...
+def rewrite_ast(tree: ast.AST, filename: str, logfire_name: str, module_name: str, logfire_instance: Logfire, context_factories: list[Callable[[], AbstractContextManager[Any]]], min_duration: int) -> ast.AST: ...
 
 @dataclass
 class AutoTraceTransformer(BaseTransformer):
     """Trace all encountered functions except those explicitly marked with `@no_auto_trace`."""
     logfire_instance: Logfire
-    context_factories: list[Callable[[], ContextManager[Any]]]
+    context_factories: list[Callable[[], AbstractContextManager[Any]]]
     min_duration: int
     def check_no_auto_trace(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:
         """Return true if the node has a `@no_auto_trace` or `@logfire.no_auto_trace` decorator."""

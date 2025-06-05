@@ -1,9 +1,9 @@
 from __future__ import annotations as _annotations
 
 import json
-import sys
+from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
-from typing import Any, AsyncIterator, Iterator
+from typing import Any
 
 import httpx
 import openai
@@ -27,13 +27,12 @@ import logfire
 from logfire._internal.utils import suppress_instrumentation
 from logfire.testing import TestExporter
 
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Newest OpenAI SDK does not support 3.8')
-
 
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
+    (We no longer support 3.8 either, but it's not worth changing this now)
     """
     assert request.method == 'POST'
     if request.url == 'https://api.openai.com/v1/chat/completions':

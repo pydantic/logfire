@@ -1,10 +1,11 @@
 import dataclasses
 from _typeshed import Incomplete
 from abc import ABC
+from collections.abc import Sequence
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge
 from opentelemetry.util.types import Attributes
 from threading import Lock
-from typing import Any, Generic, Sequence, TypeVar
+from typing import Any, Generic, TypeVar
 from weakref import WeakSet
 
 Gauge: Incomplete

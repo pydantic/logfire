@@ -5,6 +5,8 @@ import inspect
 import json
 import sys
 import warnings
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property
@@ -13,10 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    ContextManager,
-    Iterable,
     Literal,
-    Sequence,
     TypeVar,
     Union,
     overload,
@@ -840,7 +839,7 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -1037,7 +1036,7 @@ class Logfire:
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -1101,7 +1100,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -1196,7 +1195,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:

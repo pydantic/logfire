@@ -2,13 +2,13 @@ from ..constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY
 from ..json_formatter import json_args_value_formatter as json_args_value_formatter
 from ..utils import truncate_string as truncate_string
 from _typeshed import Incomplete
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from opentelemetry.sdk._logs import LogData as LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExportResult, LogExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
-from typing import Mapping, TextIO
+from typing import TextIO
 
 ConsoleColorsValues: Incomplete
 TextParts = list[tuple[str, str]]

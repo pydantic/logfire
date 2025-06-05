@@ -11,9 +11,10 @@ import platform
 import sys
 import warnings
 import webbrowser
+from collections.abc import Sequence
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import requests

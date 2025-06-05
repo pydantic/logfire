@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-from contextlib import contextmanager
+from collections.abc import Awaitable, Iterable
+from contextlib import AbstractContextManager, contextmanager
 from functools import lru_cache
-from typing import Any, Awaitable, Callable, ContextManager, Iterable
+from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Span
 from starlette.requests import Request
 from starlette.responses import Response
@@ -62,7 +62,7 @@ def instrument_fastapi(
     excluded_urls: str | Iterable[str] | None = None,
     record_send_receive: bool = False,
     **opentelemetry_kwargs: Any,
-) -> ContextManager[None]:
+) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.
@@ -78,7 +78,7 @@ def instrument_fastapi(
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **opentelemetry_kwargs,
     }
-    FastAPIInstrumentor.instrument_app(  # type: ignore
+    FastAPIInstrumentor.instrument_app(
         app,
         excluded_urls=excluded_urls,
         server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
@@ -170,10 +170,10 @@ class FastAPIInstrumentation:
         with self.logfire_instance.span('FastAPI arguments') as span:
             with handle_internal_errors:
                 if isinstance(request, Request):  # pragma: no branch
-                    span.set_attribute(SpanAttributes.HTTP_METHOD, request.method)
+                    span.set_attribute('http.method', request.method)
                 route: APIRoute | APIWebSocketRoute | None = request.scope.get('route')
                 if route:  # pragma: no branch
-                    span.set_attribute(SpanAttributes.HTTP_ROUTE, route.path)
+                    span.set_attribute('http.route', route.path)
                     fastapi_route_attributes: dict[str, Any] = {'fastapi.route.name': route.name}
                     if isinstance(route, APIRoute):  # pragma: no branch
                         fastapi_route_attributes['fastapi.route.operation_id'] = route.operation_id

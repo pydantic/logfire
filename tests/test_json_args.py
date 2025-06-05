@@ -4,14 +4,14 @@ import json
 import re
 import sys
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
-from typing import Any, Iterator, List, Mapping
+from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
@@ -97,12 +97,8 @@ def generator() -> Iterator[int]:
 gen = generator()
 
 
-if sys.version_info >= (3, 9):  # pragma: no branch
-    _MySequence = Sequence[int]
-    _ListSubclass = list[int]
-else:  # pragma: no cover
-    _MySequence = Sequence
-    _ListSubclass = list
+_MySequence = Sequence[int]
+_ListSubclass = list[int]
 
 
 class MySequence(_MySequence):
@@ -880,7 +876,7 @@ class SAModel(SABase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(30))
-    models2: Mapped[List[SAModel2]] = relationship(back_populates='model', lazy='dynamic')  # noqa
+    models2: Mapped[list[SAModel2]] = relationship(back_populates='model', lazy='dynamic')
 
 
 class SAModel2(SABase):
