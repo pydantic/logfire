@@ -844,7 +844,9 @@ class LogfireConfig(_LogfireConfigData):
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 main_multiprocessor.add_span_processor(span_processor)
                 inner_span_processor = span_processor
-                while isinstance(p := getattr(inner_span_processor, 'processor', None), SpanProcessor):
+                while not isinstance(inner_span_processor, DynamicBatchSpanProcessor) and isinstance(
+                    p := getattr(inner_span_processor, 'processor', None), SpanProcessor
+                ):
                     inner_span_processor = p
 
                 has_pending = isinstance(
