@@ -156,7 +156,8 @@ def instrument_httpx(
         )
         try:
             instrumentor.instrument_client(client, meter_provider=meter_provider, **client_kwargs)
-        except TypeError:
+        except TypeError:  # pragma: no cover
+            # This is a fallback for older versions of opentelemetry-instrumentation-httpx
             instrumentor.instrument_client(client, **client_kwargs)
 
 
