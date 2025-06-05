@@ -3,6 +3,7 @@ from ..utils import logger as logger, platform_is_emscripten as platform_is_emsc
 from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
 from collections import deque
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import LogData as LogData
@@ -11,7 +12,7 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 from pathlib import Path
 from requests import Session
 from threading import Thread
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
     max_body_size: Incomplete

@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 MAX_QUERY_MESSAGE_LENGTH: int
 
