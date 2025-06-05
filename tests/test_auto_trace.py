@@ -2,8 +2,9 @@ import ast
 import asyncio
 import runpy
 import sys
+from contextlib import AbstractContextManager
 from importlib.machinery import SourceFileLoader
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable
 
 import pytest
 from inline_snapshot import snapshot
@@ -244,7 +245,7 @@ def only_ellipsis_function():
 
 
 def test_rewrite_ast():
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     tree = rewrite_ast(
         ast.parse(nested_sample),
         'foo.py',
@@ -428,7 +429,7 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     rewrite_ast(
         ast.parse(sample),
         'foo.py',

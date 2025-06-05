@@ -11,7 +11,7 @@ from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
@@ -876,7 +876,7 @@ class SAModel(SABase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(30))
-    models2: Mapped[List[SAModel2]] = relationship(back_populates='model', lazy='dynamic')  # noqa
+    models2: Mapped[list[SAModel2]] = relationship(back_populates='model', lazy='dynamic')
 
 
 class SAModel2(SABase):

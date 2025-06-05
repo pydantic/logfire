@@ -3,9 +3,9 @@ from __future__ import annotations
 import dataclasses
 import inspect
 from collections.abc import Awaitable, Iterable
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from functools import lru_cache
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
@@ -62,7 +62,7 @@ def instrument_fastapi(
     excluded_urls: str | Iterable[str] | None = None,
     record_send_receive: bool = False,
     **opentelemetry_kwargs: Any,
-) -> ContextManager[None]:
+) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.

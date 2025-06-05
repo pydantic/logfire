@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterable, Iterator
-from contextlib import ExitStack, contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, cast
+from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, suppress_instrumentation
@@ -23,7 +23,7 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
-) -> ContextManager[None]:
+) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
     The `client` argument can be:

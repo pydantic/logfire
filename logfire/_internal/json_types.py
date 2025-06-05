@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Literal, TypedDict, TypeVar, Union
+from typing import Any, Literal, TypedDict, TypeVar, Union
 
 from typing_extensions import NotRequired
 
@@ -96,7 +96,7 @@ class _Items(TypedDict):
 
 
 class _PrefixItems(TypedDict):
-    prefixItems: List[JSONSchema]  # noqa
+    prefixItems: list[JSONSchema]
 
 
 _ArrayBase = TypedDict(
