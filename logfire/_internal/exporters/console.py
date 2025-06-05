@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from textwrap import indent as indent_text
-from typing import Any, List, Literal, TextIO, Tuple, cast
+from typing import Any, Literal, TextIO, cast
 
 from opentelemetry.sdk._logs import LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
@@ -46,7 +46,7 @@ _ERROR_LEVEL = LEVEL_NUMBERS['error']
 
 # A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
 # When logging without colors, just the text is used in a plain `print`.
-TextParts = List[Tuple[str, str]]
+TextParts = list[tuple[str, str]]
 
 
 @dataclass

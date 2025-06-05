@@ -97,12 +97,8 @@ def generator() -> Iterator[int]:
 gen = generator()
 
 
-if sys.version_info >= (3, 9):  # pragma: no branch
-    _MySequence = Sequence[int]
-    _ListSubclass = list[int]
-else:  # pragma: no cover
-    _MySequence = Sequence
-    _ListSubclass = list
+_MySequence = Sequence[int]
+_ListSubclass = list[int]
 
 
 class MySequence(_MySequence):

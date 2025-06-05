@@ -18,9 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    List,
-    Tuple,
     TypedDict,
     TypeVar,
     Union,
@@ -52,8 +49,8 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 
-JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
-JsonDict = Dict[str, JsonValue]
+JsonValue = Union[int, float, str, bool, None, list['JsonValue'], tuple['JsonValue', ...], 'JsonDict']
+JsonDict = dict[str, JsonValue]
 
 try:
     import pydantic_core

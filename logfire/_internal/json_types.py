@@ -104,9 +104,9 @@ _ArrayBase = TypedDict(
     {
         'type': Literal['array'],
         'x-python-datatype': Literal['tuple', 'deque', 'set', 'frozenset', 'ndarray'],
-        'x-columns': NotRequired[List[str]],
-        'x-indices': NotRequired[List[Any]],
-        'x-shape': NotRequired[List[int]],
+        'x-columns': NotRequired[list[str]],
+        'x-indices': NotRequired[list[Any]],
+        'x-shape': NotRequired[list[int]],
         'x-dtype': NotRequired[str],
     },
 )
