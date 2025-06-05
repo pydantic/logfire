@@ -620,8 +620,8 @@ def test_configure_export_delay() -> None:
 
         dynamic_batch_span_processor, *_ = get_span_processors()
         assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
-        batch_span_processor = dynamic_batch_span_processor.batch_processor
-        ex = batch_span_processor.span_exporter = batch_span_processor._exporter = TrackingExporter()  # type: ignore
+        batch_processor = dynamic_batch_span_processor.batch_processor
+        ex = batch_processor.span_exporter = batch_processor._exporter = TrackingExporter()  # type: ignore
         return ex
 
     def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
