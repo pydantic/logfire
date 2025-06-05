@@ -273,6 +273,7 @@ from opentelemetry.sdk.trace.sampling import (
     ALWAYS_ON,
     ParentBased,
     Sampler,
+    TraceIdRatioBased,
 )
 
 import logfire
@@ -289,6 +290,10 @@ class MySampler(Sampler):
     ):
         if name == 'exclude me':
             sampler = ALWAYS_OFF
+        elif name == 'include me minimally':
+            sampler = TraceIdRatioBased(0.01)  # 1% sampling
+        elif name == 'include me partially':
+            sampler = TraceIdRatioBased(0.5)   # 50% sampling
         else:
             sampler = ALWAYS_ON
         return sampler.should_sample(
@@ -314,6 +319,14 @@ logfire.configure(
 with logfire.span('keep me'):
     logfire.info('kept child')
 
+for i in range(5):
+    with logfire.span('include me partially'):
+        logfire.info(f'partial sample {i}')
+
+for i in range(270):
+    with logfire.span('include me minimally'):
+        logfire.info(f'minimal sample {i}')
+        
 with logfire.span('exclude me'):
     logfire.info('excluded child')
 ```
@@ -323,12 +336,26 @@ This will output something like:
 ```
 10:37:30.897 keep me
 10:37:30.898   kept child
+10:37:30.899 include me partially
+10:37:30.900   partial sample 0
+10:37:30.901 include me partially
+10:37:30.902   partial sample 3
+10:37:30.905 include me minimally
+10:37:30.906   minimal sample 47
+10:37:30.910 include me minimally
+10:37:30.911   minimal sample 183
 ```
 
-Note that the sampler explicitly excluded only the span named `exclude me`. The reason that the `excluded child` log is
-not included is that `MySampler` was wrapped in a `ParentBased` sampler, which excludes spans whose parents are
-excluded. If you remove that and simply pass `head=MySampler()`, the `excluded child` log will be included, resulting in
-an incomplete trace.
+The sampler applies different strategies based on span names:
+
+- `exclude me`: Never sampled (0% using `ALWAYS_OFF`)
+- `include me partially`: 50% sampling (roughly half appear)
+- `include me minimally`: 1% sampling (roughly 1 in a 100 appears)
+- `keep me` and all others: Always sampled (100% using `ALWAYS_ON`)
+
+The sampler is wrapped in a `ParentBased` sampler, which ensures child spans follow their parent's sampling decision.
+If you remove that and simply pass `head=MySampler()`, child spans might be included even when their parents are
+excluded, resulting in incomplete traces.
 
 You can also pass a `Sampler` to the `head` argument of `SamplingOptions.level_or_duration` to combine tail sampling
 with custom head sampling.
