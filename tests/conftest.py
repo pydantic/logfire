@@ -100,6 +100,7 @@ def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) 
         **config_kwargs,
         metrics=logfire.MetricsOptions(
             additional_readers=[metrics_reader],
+            collect_in_spans=True,
         ),
     )
     # sanity check: there are no active spans
