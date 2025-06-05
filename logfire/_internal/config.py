@@ -234,13 +234,13 @@ class PydanticPlugin:
 
 @dataclass
 class MetricsOptions:
-    """Configuration of metrics.
-
-    This only has one option for now, but it's a place to add more related options in the future.
-    """
+    """Configuration of metrics."""
 
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
+
+    collect_in_spans: bool = False
+    """Experimental setting to add up the values of counter and histogram metrics in active spans."""
 
 
 @dataclass

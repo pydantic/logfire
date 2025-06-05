@@ -143,6 +143,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
 
     def __post_init__(self):
@@ -204,7 +205,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
-        if not self.is_recording():
+        if not self.is_recording() or not self.record_metrics:
             return
 
         self.metrics[name].increment(attributes, value)
@@ -256,7 +257,11 @@ class _ProxyTracer(Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
     ) -> Span:
-        start_time = start_time or self.provider.config.advanced.ns_timestamp_generator()
+        config = self.provider.config
+        ns_timestamp_generator = config.advanced.ns_timestamp_generator
+        record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
+
+        start_time = start_time or ns_timestamp_generator()
 
         # Make a copy of the attributes since this method can be called by arbitrary external code,
         # e.g. third party instrumentation.
@@ -281,7 +286,8 @@ class _ProxyTracer(Tracer):
             )
         return _LogfireWrappedSpan(
             span,
-            ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
+            ns_timestamp_generator=ns_timestamp_generator,
+            record_metrics=record_metrics,
         )
 
     # This means that `with start_as_current_span(...):`
