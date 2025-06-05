@@ -149,13 +149,15 @@ def instrument_httpx(
 
         tracer_provider = final_kwargs['tracer_provider']
         meter_provider = final_kwargs['meter_provider']
-        instrumentor.instrument_client(
-            client,
+        client_kwargs = dict(
             tracer_provider=tracer_provider,
-            meter_provider=meter_provider,  # TODO handle older versions
-            request_hook=request_hook,  # type: ignore
-            response_hook=response_hook,  # type: ignore
+            request_hook=request_hook,
+            response_hook=response_hook,
         )
+        try:
+            instrumentor.instrument_client(client, meter_provider=meter_provider, **client_kwargs)
+        except TypeError:
+            instrumentor.instrument_client(client, **client_kwargs)
 
 
 class LogfireHttpxInfoMixin:
