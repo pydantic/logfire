@@ -2397,7 +2397,6 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
@@ -2778,9 +2777,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     assert exporter.exported_spans_as_dict() == expected_spans
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
-)
 def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
@@ -2927,7 +2923,6 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
@@ -3207,8 +3202,9 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
@@ -3258,8 +3254,9 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with logfire.span('foo') as span:
             span.record_exception(RuntimeError('error'))

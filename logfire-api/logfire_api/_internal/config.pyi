@@ -21,6 +21,7 @@ from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
@@ -32,7 +33,7 @@ from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, Literal, Sequence, TypedDict
+from typing import Any, Callable, Literal, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str

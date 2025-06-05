@@ -1,7 +1,7 @@
 import contextlib
 import httpx
 from _typeshed import Incomplete
-from collections.abc import Generator
+from collections.abc import Awaitable as Awaitable, Generator, Mapping
 from email.headerregistry import ContentTypeHeader
 from functools import cached_property, lru_cache
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
@@ -10,7 +10,7 @@ from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from logfire.integrations.httpx import AsyncRequestHook as AsyncRequestHook, AsyncResponseHook as AsyncResponseHook, RequestHook as RequestHook, RequestInfo as RequestInfo, ResponseHook as ResponseHook, ResponseInfo as ResponseInfo
 from opentelemetry.trace import Span
-from typing import Any, Awaitable, Callable, Literal, Mapping, ParamSpec
+from typing import Any, Callable, Literal, ParamSpec
 
 P = ParamSpec('P')
 

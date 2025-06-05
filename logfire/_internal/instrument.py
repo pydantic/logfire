@@ -4,9 +4,9 @@ import contextlib
 import functools
 import inspect
 import warnings
-from collections.abc import Sequence
-from contextlib import asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterable, TypeVar
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
@@ -119,7 +119,7 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
-) -> Callable[P, ContextManager[Any]]:
+) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
     # This is the fast case for when there are no arguments to extract

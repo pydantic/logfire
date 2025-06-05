@@ -1,55 +1,46 @@
 from __future__ import annotations
 
 import os
-import sys
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 import pytest
+from agents import (
+    Agent,
+    AgentSpanData,
+    CustomSpanData,
+    FileSearchTool,
+    FunctionSpanData,
+    GenerationSpanData,
+    GuardrailFunctionOutput,
+    GuardrailSpanData,
+    HandoffSpanData,
+    InputGuardrailTripwireTriggered,
+    OpenAIChatCompletionsModel,
+    Runner,
+    SpanData,
+    SpeechGroupSpanData,
+    SpeechSpanData,
+    TranscriptionSpanData,
+    agent_span,
+    custom_span,
+    function_tool,
+    get_current_span,
+    get_current_trace,
+    input_guardrail,
+    trace,
+)
+from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
+from agents.tracing.spans import NoOpSpan
+from agents.tracing.traces import NoOpTrace
+from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-
-try:
-    from agents import (
-        Agent,
-        AgentSpanData,
-        CustomSpanData,
-        FileSearchTool,
-        FunctionSpanData,
-        GenerationSpanData,
-        GuardrailFunctionOutput,
-        GuardrailSpanData,
-        HandoffSpanData,
-        InputGuardrailTripwireTriggered,
-        OpenAIChatCompletionsModel,
-        Runner,
-        SpanData,
-        SpeechGroupSpanData,
-        SpeechSpanData,
-        TranscriptionSpanData,
-        agent_span,
-        custom_span,
-        function_tool,
-        get_current_span,
-        get_current_trace,
-        input_guardrail,
-        trace,
-    )
-    from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
-    from agents.tracing.spans import NoOpSpan
-    from agents.tracing.traces import NoOpTrace
-    from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-
-    from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
-
-except ImportError:
-    pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='Requires Python 3.9 or higher')
-    if TYPE_CHECKING:
-        assert False
+from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 

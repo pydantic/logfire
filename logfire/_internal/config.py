@@ -9,11 +9,12 @@ import re
 import sys
 import time
 import warnings
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -53,7 +54,6 @@ from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
-from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
@@ -574,10 +574,6 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
-        if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
-            raise LogfireConfigError(
-                'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
-            )
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
@@ -765,12 +761,12 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
-                ResourceAttributes.SERVICE_NAME: self.service_name,
-                ResourceAttributes.PROCESS_PID: os.getpid(),
+                'service.name': self.service_name,
+                'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
-                ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
-                ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
+                'process.runtime.name': sys.implementation.name,
+                'process.runtime.version': get_runtime_version(),
+                'process.runtime.description': sys.version,
                 # Having this giant blob of data associated with every span/metric causes various problems so it's
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -785,7 +781,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
-                otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+                otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
@@ -813,7 +809,7 @@ class LogfireConfig(_LogfireConfigData):
             # Currently there's a newer version with some differences here:
             # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
             # Both recommend generating a UUID.
-            resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
+            resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -843,12 +839,8 @@ class LogfireConfig(_LogfireConfigData):
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 main_multiprocessor.add_span_processor(span_processor)
-                inner_span_processor = span_processor
-                while isinstance(p := getattr(inner_span_processor, 'processor', None), SpanProcessor):
-                    inner_span_processor = p
-
                 has_pending = isinstance(
-                    getattr(inner_span_processor, 'span_exporter', None),
+                    getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
                 if has_pending:
@@ -1042,7 +1034,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
-                        new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
+                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
                         logger_provider._resource = new_resource  # type: ignore

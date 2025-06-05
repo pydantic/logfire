@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from typing import Any
 
 import pytest
@@ -465,7 +464,6 @@ def test_do_not_scrub(exporter: TestExporter):
     )
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')
 def test_fstring_magic_scrubbing(exporter: TestExporter):
     password = 'secret-password'
     name = 'John'
