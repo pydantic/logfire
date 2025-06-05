@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sys
 import traceback
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 from weakref import WeakKeyDictionary, WeakSet
 
 import opentelemetry.trace as trace_api

@@ -8,6 +8,7 @@ import os
 import platform
 import random
 import sys
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,11 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    List,
-    Mapping,
-    Sequence,
-    Tuple,
     TypedDict,
     TypeVar,
     Union,
@@ -53,8 +49,8 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 
-JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
-JsonDict = Dict[str, JsonValue]
+JsonValue = Union[int, float, str, bool, None, list['JsonValue'], tuple['JsonValue', ...], 'JsonDict']
+JsonDict = dict[str, JsonValue]
 
 try:
     import pydantic_core

@@ -4,10 +4,10 @@ import asyncio
 import asyncio.events
 import asyncio.tasks
 import inspect
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from types import CoroutineType
-from typing import TYPE_CHECKING, Any, ContextManager
+from typing import TYPE_CHECKING, Any
 
 from .constants import ONE_SECOND_IN_NANOSECONDS
 from .stack_info import StackInfo, get_code_object_info, get_stack_info_from_frame
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 ASYNCIO_PATH = str(Path(asyncio.__file__).parent.absolute())
 
 
-def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager[None]:
+def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> AbstractContextManager[None]:
     """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
     See Logfire.log_slow_async_callbacks.

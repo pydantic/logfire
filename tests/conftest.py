@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -89,9 +88,8 @@ def config_kwargs(
             log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        # Ensure that inspect_arguments doesn't break things in most versions
-        # (it's off by default for <3.11) but it's completely forbidden for 3.8.
-        inspect_arguments=sys.version_info[:2] >= (3, 9),
+        # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
+        inspect_arguments=True,
         distributed_tracing=True,
     )
 

@@ -9,11 +9,12 @@ import re
 import sys
 import time
 import warnings
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 

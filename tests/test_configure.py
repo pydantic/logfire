@@ -5,10 +5,11 @@ import json
 import os
 import sys
 import threading
+from collections.abc import Iterable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from time import sleep, time
-from typing import Any, Iterable, Sequence
+from typing import Any
 from unittest import mock
 from unittest.mock import call, patch
 
@@ -1295,13 +1296,17 @@ def test_send_to_logfire_if_token_present_empty() -> None:
 
 
 def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
-    with patch.dict(
-        os.environ,
-        {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
-    ), mock.patch(
-        'logfire._internal.config.Confirm.ask',
-        side_effect=RuntimeError,
-    ), requests_mock.Mocker() as requests_mocker:
+    with (
+        patch.dict(
+            os.environ,
+            {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
+        ),
+        mock.patch(
+            'logfire._internal.config.Confirm.ask',
+            side_effect=RuntimeError,
+        ),
+        requests_mock.Mocker() as requests_mocker,
+    ):
         configure(console=False)
         wait_for_check_token_thread()
     assert len(requests_mocker.request_history) == 0
@@ -1416,8 +1421,9 @@ def test_get_user_token_data_no_explicit_url(default_credentials: Path):
 
 
 def test_get_user_token_data_input_choice(multiple_credentials: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', multiple_credentials), patch(
-        'rich.prompt.IntPrompt.ask', side_effect=[1]
+    with (
+        patch('logfire._internal.config.DEFAULT_FILE', multiple_credentials),
+        patch('rich.prompt.IntPrompt.ask', side_effect=[1]),
     ):
         _, url = LogfireCredentials._get_user_token_data(logfire_api_url=None)  # type: ignore
         # https://logfire-us.pydantic.dev is the first URL present in the multiple credentials fixture:

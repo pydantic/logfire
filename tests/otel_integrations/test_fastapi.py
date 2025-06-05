@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any
+from typing import Annotated, Any
 from unittest import mock
 
 import pytest
@@ -17,7 +17,6 @@ from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
-from typing_extensions import Annotated
 
 import logfire
 import logfire._internal

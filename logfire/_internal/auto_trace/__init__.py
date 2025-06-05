@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import TYPE_CHECKING, Callable, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Callable, Literal
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
 from .import_hook import LogfireFinder

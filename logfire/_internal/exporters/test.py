@@ -5,11 +5,11 @@ import os
 import re
 import sys
 import typing
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 from opentelemetry import trace
 from opentelemetry.sdk._logs import LogData

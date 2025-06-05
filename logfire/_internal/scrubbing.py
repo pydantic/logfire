@@ -4,8 +4,9 @@ import copy
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
+from typing import Any, Callable, TypedDict, cast
 
 import typing_extensions
 from opentelemetry.attributes import BoundedAttributes

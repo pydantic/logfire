@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence, cast
+from typing import Any, cast
 
 from opentelemetry import context
 from opentelemetry.sdk._logs import LogData, LogRecordProcessor
