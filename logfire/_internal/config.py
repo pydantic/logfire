@@ -27,6 +27,7 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
+from opentelemetry.processor.baggage import ALLOW_ALL_BAGGAGE_KEYS, BaggageSpanProcessor
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
@@ -289,6 +290,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    add_baggage_to_attributes: bool = False,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
@@ -341,6 +343,7 @@ def configure(  # noqa: D417
             Defaults to `True` if and only if the Python version is at least 3.11.
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
+        add_baggage_to_attributes: if True, any OpenTelemetry Baggage will be added to spans as attributes
         code_source: Settings for the source code of the project.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
@@ -475,6 +478,7 @@ def configure(  # noqa: D417
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
+        add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
@@ -558,6 +562,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -628,6 +633,12 @@ class _LogfireConfigData:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
 
+        if add_baggage_to_attributes:
+            additional_span_processors = [
+                *(additional_span_processors or []),
+                BaggageSpanProcessor(ALLOW_ALL_BAGGAGE_KEYS),
+            ]
+
         self.additional_span_processors = additional_span_processors
 
         if metrics is None:
@@ -659,6 +670,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        add_baggage_to_attributes: bool = False,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -685,6 +697,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
@@ -722,6 +735,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -742,6 +756,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
                 advanced,
