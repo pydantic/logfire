@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 
-from opentelemetry import baggage as otel_baggage, context
+from opentelemetry import baggage, context
 
 __all__ = (
     'get_baggage',
@@ -13,7 +13,7 @@ __all__ = (
 
 def get_baggage() -> Mapping[str, object] | None:
     """Get all OpenTelemetry baggage for the current context as a mapping of key/value pairs."""
-    return otel_baggage.get_all()
+    return baggage.get_all()
 
 
 @contextmanager
@@ -42,7 +42,7 @@ def update_baggage(bag: dict[str, object]) -> Iterator[None]:
     """
     current_context = context.get_current()
     for key, value in bag.items():
-        current_context = otel_baggage.set_baggage(key, value, current_context)
+        current_context = baggage.set_baggage(key, value, current_context)
     token = context.attach(current_context)
     try:
         yield

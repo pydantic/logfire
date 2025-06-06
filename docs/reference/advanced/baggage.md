@@ -37,7 +37,7 @@ logfire.configure(add_baggage_to_attributes=True)
 This will ensure that any OpenTelemetry Baggage is added as attributes to the spans handled by logfire.
 (Under the hood, this is just adding a [`BaggageSpanProcessor`](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/processor/opentelemetry-processor-baggage) to the list of additional span processors.)
 
-Once you've done this, you can use the [`update_baggage`][logfire.baggage.update_baggage] contextmanager to contextually update the Baggage (which will
+Once you've done this, you can use the [`update_baggage`][logfire.update_baggage] contextmanager to contextually update the Baggage (which will
 be added as attributes to all spans opened under that context):
 
 ```python
@@ -45,7 +45,7 @@ import logfire
 
 logfire.configure(add_baggage_to_attributes=True)
 
-with logfire.baggage.update_baggage({
+with logfire.update_baggage({
     'user_id': '123',
     'session': 'abcdef',
 }):

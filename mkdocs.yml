@@ -157,7 +157,6 @@ nav:
           - Sampling: reference/api/sampling.md
           - Propagate: reference/api/propagate.md
           - Exceptions: reference/api/exceptions.md
-          - Baggage: reference/api/baggage.md
           - Pydantic: reference/api/pydantic.md
   - Roadmap: roadmap.md
   - Languages: languages.md
@@ -307,7 +306,6 @@ plugins:
         "api/propagate.md": "reference/api/propagate.md"
         "api/exceptions.md": "reference/api/exceptions.md"
         "api/sampling.md": "reference/api/sampling.md"
-        "api/baggage.md": "reference/api/baggage.md"
         "api/integrations/structlog.md": "reference/api/logfire.md#logfire.StructlogProcessor"
         "api/integrations/pydantic.md": "reference/api/pydantic.md"
         "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
