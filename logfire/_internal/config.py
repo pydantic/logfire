@@ -880,7 +880,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
-                if not is_valid_token(token=self.token):
+                if not self.token:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
                     # if we still don't have a token, try initializing a new project and writing a new creds file
