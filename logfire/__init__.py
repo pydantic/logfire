@@ -6,6 +6,7 @@ from typing import Any
 
 from logfire.sampling import SamplingOptions
 
+from . import baggage
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.cli import logfire_info
@@ -158,4 +159,5 @@ __all__ = (
     'SamplingOptions',
     'MetricsOptions',
     'logfire_info',
+    'baggage',
 )

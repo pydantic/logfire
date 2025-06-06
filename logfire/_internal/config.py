@@ -27,6 +27,7 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
+from opentelemetry.processor.baggage import ALLOW_ALL_BAGGAGE_KEYS, BaggageSpanProcessor
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
@@ -292,6 +293,7 @@ def configure(  # noqa: D417
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
+    add_baggage_to_attributes: bool = False,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
     """Configure the logfire SDK.
@@ -349,6 +351,7 @@ def configure(  # noqa: D417
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
         advanced: Advanced options primarily used for testing by Logfire developers.
+        add_baggage_to_attributes: if True, any OpenTelemetry Baggage will be added to spans as attributes
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
 
@@ -478,6 +481,7 @@ def configure(  # noqa: D417
         code_source=code_source,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
+        add_baggage_to_attributes=add_baggage_to_attributes,
     )
 
     if local:
@@ -561,6 +565,7 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
+        add_baggage_to_attributes: bool,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         self.param_manager = param_manager = ParamManager.create(config_dir)
@@ -628,6 +633,12 @@ class _LogfireConfigData:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
 
+        if add_baggage_to_attributes:
+            additional_span_processors = [
+                *(additional_span_processors or []),
+                BaggageSpanProcessor(ALLOW_ALL_BAGGAGE_KEYS),
+            ]
+
         self.additional_span_processors = additional_span_processors
 
         if metrics is None:
@@ -662,6 +673,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
+        add_baggage_to_attributes: bool = False,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -688,6 +700,7 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
+            add_baggage_to_attributes=add_baggage_to_attributes,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -725,6 +738,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
+        add_baggage_to_attributes: bool,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -745,6 +759,7 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 distributed_tracing,
                 advanced,
+                add_baggage_to_attributes,
             )
             self.initialize()
 
