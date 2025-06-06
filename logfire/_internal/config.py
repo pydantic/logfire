@@ -878,9 +878,6 @@ class LogfireConfig(_LogfireConfigData):
                 credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
 
-                def is_valid_token(token: str | None) -> bool:
-                    return token is not None and token != ''
-
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
                 if not is_valid_token(token=self.token):
