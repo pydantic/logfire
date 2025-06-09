@@ -107,11 +107,41 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
     return [
         {
             'name': span['name'],
-            'attributes': {
-                k: v
-                for k, v in span['attributes'].items()
-                if not k.startswith('code.') and not k.startswith('logfire.')
-            },
+            'attributes': {k: v for k, v in span['attributes'].items() if not k.startswith(('code.', 'logfire.'))},
         }
         for span in exporter.exported_spans_as_dict()
     ]
+
+
+def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter):
+    logfire.configure(**config_kwargs, add_baggage_to_attributes=True)
+    with logfire.set_baggage(a='3', secret='foo', bar='my_password'):
+        logfire.info('info')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'info',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'info',
+                    'logfire.msg': 'info',
+                    'code.filepath': 'test_baggage.py',
+                    'code.function': 'test_baggage_scrubbed',
+                    'code.lineno': 123,
+                    'a': '3',
+                    'secret': "[Scrubbed due to 'secret']",
+                    'bar': "[Scrubbed due to 'password']",
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'bar'], 'matched_substring': 'password'},
+                    ],
+                },
+            }
+        ]
+    )
