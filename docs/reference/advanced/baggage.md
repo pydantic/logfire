@@ -52,6 +52,8 @@ logfire.configure(add_baggage_to_attributes=True)
 
 with logfire.set_baggage(user_id='123', session='abcdef'):
     print(logfire.get_baggage())
+    #> {'user_id': '123', 'session': 'abcdef'}
+
     # All spans opened here (and their descendants) will have attributes user_id='123' and session='abcdef'
     with logfire.span('inside-baggage-span'):
         ...
