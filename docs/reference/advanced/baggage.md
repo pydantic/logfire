@@ -2,12 +2,15 @@
 
 In OpenTelemetry, [Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) is a key-value store that can be
 used to propagate any data you like alongside context during (distributed) tracing.
+Baggage is included in the context of a trace, and is propagated across service boundaries, allowing you to
+attach metadata to a trace that can be accessed by any service that participates in that trace.
 
 Technically, Baggage is a separate key-value store and is formally unassociated with attributes on spans, metrics, or
 logs without explicitly creating those attributes from the Baggage.
 
-However, because a common use cases for Baggage is to add data to span attributes across a whole trace, **Logfire**
-provides convenience APIs for setting Baggage and automatically adding Baggage to descendant span attributes.
+However, a common use cases for Baggage is to add data to span attributes across a whole trace. Because of this,
+**Logfire** provides convenience APIs for setting Baggage and automatically adding Baggage to descendant span
+attributes.
 
 ### Why use Baggage to set attributes?
 
@@ -27,18 +30,20 @@ have an appropriately set `user_id` attribute, and you can update your query to
 
 ### Using Baggage in Logfire
 
-To enable Baggage processing, you just need to add the `add_baggage_to_attributes=True` argument to `logfire.configure()`:
+To enable Baggage processing, you just need to add the `add_baggage_to_attributes=True` argument to
+`logfire.configure()`:
 
 ```python
 import logfire
+
 logfire.configure(add_baggage_to_attributes=True)
 ```
 
 This will ensure that any OpenTelemetry Baggage is added as attributes to the spans handled by logfire.
 (Under the hood, this is just adding a [`BaggageSpanProcessor`](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/processor/opentelemetry-processor-baggage) to the list of additional span processors.)
 
-Once you've done this, you can use the [`set_baggage`][logfire.set_baggage] contextmanager to contextually update the Baggage (which will
-be added as attributes to all spans opened under that context):
+Once you've done this, you can use the [`set_baggage`][logfire.set_baggage] contextmanager to contextually update the
+Baggage (which will be added as attributes to all spans opened under that context):
 
 ```python
 import logfire
