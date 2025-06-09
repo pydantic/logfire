@@ -731,7 +731,7 @@ class Logfire:
         """Instrument the `aiohttp` module so that spans are automatically created for each server request.
 
         Uses the
-        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp/aiohttp.html)
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
         library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
     def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
