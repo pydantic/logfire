@@ -116,24 +116,47 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
 def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter):
     logfire.configure(**config_kwargs, add_baggage_to_attributes=True)
     with logfire.set_baggage(a='3', secret='foo', bar='my_password'):
-        logfire.info('info')
+        with logfire.span('span'):
+            pass
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True, _include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'info',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
                 'end_time': 1000000000,
                 'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'info',
-                    'logfire.msg': 'info',
                     'code.filepath': 'test_baggage.py',
                     'code.function': 'test_baggage_scrubbed',
                     'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'pending_span',
+                    'a': '3',
+                    'secret': "[Scrubbed due to 'secret']",
+                    'bar': "[Scrubbed due to 'password']",
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'bar'], 'matched_substring': 'password'},
+                    ],
+                },
+            },
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_baggage.py',
+                    'code.function': 'test_baggage_scrubbed',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
                     'a': '3',
                     'secret': "[Scrubbed due to 'secret']",
                     'bar': "[Scrubbed due to 'password']",
@@ -142,6 +165,6 @@ def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter)
                         {'path': ['attributes', 'bar'], 'matched_substring': 'password'},
                     ],
                 },
-            }
+            },
         ]
     )
