@@ -248,7 +248,7 @@ except ImportError:
             """Show versions of logfire, OS and related packages."""
             return 'logfire_info() is not implement by logfire-api'
 
-        def get_baggage(*args, **kwargs) -> dict[str, object] | None:...
+        def get_baggage(*args, **kwargs) -> dict[str, str]:...
 
         def set_baggage(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()

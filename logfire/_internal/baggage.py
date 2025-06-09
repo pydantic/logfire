@@ -19,12 +19,17 @@ get_baggage = baggage.get_all
 def set_baggage(**bag: str) -> Iterator[None]:
     """Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
 
-    Note that all values in `bag` must be strings, as OpenTelemetry baggage only supports string values.
+    All values in `bag` must be strings, as OpenTelemetry baggage only supports string values.
 
-    This is used for propagating arbitrary context (like user ids, task ids, etc) down to all spans opened under this scope.
+    OpenTelemetry baggage is a way to propagate metadata across service boundaries in a distributed system, and is
+    included in headers of outgoing requests for which context propagation is configured.
+    This is intended to be used to propagate arbitrary context (like user ids, task ids, etc.) down to all nested spans.
 
-    Note that baggage is not _automatically_ converted into attributes on descendant spans, but this is a common usage
-    pattern. If you want baggage to be converted into attributes, use `logfire.configure(add_baggage_to_attributes=True)`.
+    Baggage is not _automatically_ converted into attributes on descendant spans, but this is a common usage pattern.
+    If you want baggage to be converted into attributes, use `logfire.configure(add_baggage_to_attributes=True)`.
+
+    Note: this function should always be used as a context manager; if you try to open and close it manually you may
+    run into surprises because OpenTelemetry Baggage is stored in the same contextvar as the current span.
 
     Args:
         bag: The key/value pairs to attach to baggage.
