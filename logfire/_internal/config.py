@@ -27,7 +27,6 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
-from opentelemetry.processor.baggage import ALLOW_ALL_BAGGAGE_KEYS, BaggageSpanProcessor
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
@@ -59,6 +58,7 @@ from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.baggage import BaggageSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -636,7 +636,7 @@ class _LogfireConfigData:
         if add_baggage_to_attributes:
             additional_span_processors = [
                 *(additional_span_processors or []),
-                BaggageSpanProcessor(ALLOW_ALL_BAGGAGE_KEYS),
+                BaggageSpanProcessor(),
             ]
 
         self.additional_span_processors = additional_span_processors

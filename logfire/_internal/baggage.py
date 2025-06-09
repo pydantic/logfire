@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from opentelemetry import baggage, context
+from opentelemetry.sdk.trace import Span, SpanProcessor
 
 __all__ = (
     'get_baggage',
@@ -54,3 +55,9 @@ def set_baggage(**bag: str) -> Iterator[None]:
         yield
     finally:
         context.detach(token)
+
+
+class BaggageSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
+        for key, value in get_baggage(parent_context).items():
+            span.set_attribute(key, value)  # type: ignore
