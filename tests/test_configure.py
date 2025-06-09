@@ -1328,6 +1328,15 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
     assert len(requests_mocker.request_history) == 0
 
 
+def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        requests_mocker = stack.enter_context(requests_mock.Mocker())
+        configure(token='', send_to_logfire='if-token-present', console=False)
+        wait_for_check_token_thread()
+        assert len(requests_mocker.request_history) == 0
+
+
 def wait_for_check_token_thread():
     for thread in threading.enumerate():
         if thread.name == 'check_logfire_token':  # pragma: no cover
@@ -1343,6 +1352,22 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
                 json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
             )
             configure(send_to_logfire='if-token-present')
+            wait_for_check_token_thread()
+            assert len(request_mocker.request_history) == 1
+            assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
+def test_send_to_logfire_if_token_present_not_empty_via_env_with_empty_arg(capsys: pytest.CaptureFixture[str]) -> None:
+    os.environ['LOGFIRE_TOKEN'] = 'non_empty_token'
+    try:
+        with requests_mock.Mocker() as request_mocker:
+            request_mocker.get(
+                'https://logfire-us.pydantic.dev/v1/info',
+                json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+            )
+            configure(token='', send_to_logfire='if-token-present')
             wait_for_check_token_thread()
             assert len(request_mocker.request_history) == 1
             assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
