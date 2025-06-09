@@ -2,14 +2,13 @@
 integration: otel
 ---
 
-# AIOHTTP Client
+# AIOHTTP
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.
 
 The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method will create a span for every request made by your AIOHTTP clients.
 
-!!! question "What about AIOHTTP Server?"
-    The AIOHTTP server instrumentation is not supported yet. You can track the progress [here][aiohttp-server].
+The [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] method will create a span for every request made by your AIOHTTP server.
 
 ## Installation
 
@@ -17,7 +16,7 @@ Install `logfire` with the `aiohttp` extra:
 
 {{ install_logfire(extras=['aiohttp']) }}
 
-## Usage
+## Client Usage
 
 Let's see a minimal example below. You can run it with `python main.py`:
 
@@ -42,6 +41,41 @@ if __name__ == "__main__":
 ```
 
 The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the `AioHttpClientInstrumentor().instrument()` method of the OpenTelemetry aiohttp client Instrumentation package, read more about it [here][opentelemetry-aiohttp].
+
+## Server Usage
+
+You can also instrument aiohttp servers to create spans for every incoming request. Here's a minimal server example:
+
+```py title="server.py"
+import logfire
+from aiohttp import web
+
+
+logfire.configure()
+logfire.instrument_aiohttp_server()
+
+
+async def hello(request):
+    return web.Response(text="Hello, World!")
+
+
+async def user_handler(request):
+    user_id = request.match_info['user_id']
+    return web.json_response({"user_id": user_id, "message": "User profile"})
+
+
+app = web.Application()
+app.router.add_get('/', hello)
+app.router.add_get('/users/{user_id}', user_handler)
+
+
+if __name__ == "__main__":
+    web.run_app(app, host='localhost', port=8080)
+```
+
+You can run this server with `python server.py` and then make requests to `http://localhost:8080/` or `http://localhost:8080/users/123` to see the spans created for each request.
+
+The keyword arguments of `logfire.instrument_aiohttp_server()` are passed to the `AioHttpServerInstrumentor().instrument()` method of the OpenTelemetry aiohttp server Instrumentation package.
 
 ## Hiding sensitive URL parameters
 
