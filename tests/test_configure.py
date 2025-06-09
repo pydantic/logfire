@@ -24,6 +24,7 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
+from opentelemetry.processor.baggage import BaggageSpanProcessor
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
@@ -849,6 +850,7 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        add_baggage_to_attributes=True,
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -864,6 +866,9 @@ def test_config_serializable():
     serialized2 = serialize_config()
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
+        additional_span_processors = s.pop('additional_span_processors')
+        assert len(additional_span_processors) == 1
+        assert isinstance(additional_span_processors[0], BaggageSpanProcessor)
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
         return s
