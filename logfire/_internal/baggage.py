@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from opentelemetry import baggage, context
 
 __all__ = (
     'get_baggage',
-    'update_baggage',
+    'set_baggage',
 )
 
 
-def get_baggage() -> Mapping[str, object] | None:
-    """Get all OpenTelemetry baggage for the current context as a mapping of key/value pairs."""
-    return baggage.get_all()
+get_baggage = baggage.get_all
+"""Get all OpenTelemetry baggage for the current context as a mapping of key/value pairs."""
 
 
 @contextmanager
-def update_baggage(bag: dict[str, object]) -> Iterator[None]:
+def set_baggage(**bag: str) -> Iterator[None]:
     """Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
+
+    Note that all values in `bag` must be strings, as OpenTelemetry baggage only supports string values.
 
     This is used for propagating arbitrary context (like user ids, task ids, etc) down to all spans opened under this scope.
 
@@ -31,11 +32,11 @@ def update_baggage(bag: dict[str, object]) -> Iterator[None]:
     Example usage:
 
     ```python
-    from logfire import update_baggage
+    from logfire import set_baggage
 
-    with update_baggage({'my_id': '123'}):
+    with set_baggage(my_id='123'):
         # All spans opened inside this block will have baggage '{"my_id": "123"}'
-        with update_baggage({'my_session': 'abc'}):
+        with set_baggage(my_session='abc'):
             # All spans opened inside this block will have baggage '{"my_id": "123", "my_session": "abc"}'
             ...
     ```

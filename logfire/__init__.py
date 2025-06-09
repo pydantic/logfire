@@ -8,7 +8,7 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
-from ._internal.baggage import get_baggage, update_baggage
+from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
 from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
@@ -160,5 +160,5 @@ __all__ = (
     'MetricsOptions',
     'logfire_info',
     'get_baggage',
-    'update_baggage',
+    'set_baggage',
 )

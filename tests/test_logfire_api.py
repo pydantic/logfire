@@ -231,10 +231,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.get_baggage()
     logfire__all__.remove('get_baggage')
 
-    assert hasattr(logfire_api, 'update_baggage')
-    with logfire_api.update_baggage({}):
+    assert hasattr(logfire_api, 'set_baggage')
+    with logfire_api.set_baggage(a='1'):
         pass
-    logfire__all__.remove('update_baggage')
+    logfire__all__.remove('set_baggage')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

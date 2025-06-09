@@ -250,5 +250,5 @@ except ImportError:
 
         def get_baggage(*args, **kwargs) -> dict[str, object] | None:...
 
-        def update_baggage(*args, **kwargs) -> ContextManager[None]:
+        def set_baggage(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()
