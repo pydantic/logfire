@@ -16,10 +16,4 @@ def instrument_aiohttp_server(logfire_instance: Logfire, **kwargs: Any):
 
     See the `Logfire.instrument_aiohttp_server` method for details.
     """
-    AioHttpServerInstrumentor().instrument(
-        **{
-            "tracer_provider": logfire_instance.config.get_tracer_provider(),
-            "meter_provider": logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        },
-    )
+    AioHttpServerInstrumentor().instrument(**kwargs)
