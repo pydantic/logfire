@@ -17,13 +17,13 @@ aggregations, etc.
 
 As a concrete example, you might have received an issue report from a user with user_id `scolvin`, and want to
 search for all spans corresponding to slow database queries that happened in requests made by that user. You might find
-all slow database requests with the query `duration > '1 second' AND attributes ? 'db.statement'`, but trying to filter
+all slow database requests with the query `duration > 1 AND attributes ? 'db.statement'`, but trying to filter
 down to only those spans coming from requests by a specific user is harder.
 
 But Baggage provides a solution to this: just add `{'user_id': 'scolvin'}` at the start of your endpoint, and
 ensure that all Baggage is converted to span attributes. Then every span created while handling that endpoint will
 have an appropriately set `user_id` attribute, and you can update your query to
-`duration > '1 second' AND attributes ? 'db.statement' AND attributes->>'user_id' = 'scolvin'`.
+`duration > 1 AND attributes ? 'db.statement' AND attributes->>'user_id' = 'scolvin'`.
 
 ### Using Baggage in Logfire
 
@@ -61,4 +61,4 @@ regardless of whether you configure logfire to add the Baggage to span attribute
 
     If using the `logfire` library from Python, that is as simple as calling `logfire.configure(add_baggage_to_attributes=True)`,
     but you can accomplish this with the opentelemetry SDK in many other languages as well. You can find more information
-    in the official [OpenTelemetry Baggage documentation]https://opentelemetry.io/docs/concepts/signals/baggage/).
+    in the official [OpenTelemetry Baggage documentation](https://opentelemetry.io/docs/concepts/signals/baggage/).
