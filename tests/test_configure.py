@@ -44,7 +44,7 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
-from logfire._internal.baggage import BaggageSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -868,7 +868,7 @@ def test_config_serializable():
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         additional_span_processors = s.pop('additional_span_processors')
         assert len(additional_span_processors) == 1
-        assert isinstance(additional_span_processors[0], BaggageSpanProcessor)
+        assert isinstance(additional_span_processors[0], DirectBaggageAttributesSpanProcessor)
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
         return s

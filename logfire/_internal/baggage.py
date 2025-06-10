@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -57,7 +58,13 @@ def set_baggage(**bag: str) -> Iterator[None]:
         context.detach(token)
 
 
-class BaggageSpanProcessor(SpanProcessor):
+class DirectBaggageAttributesSpanProcessor(SpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        for key, value in get_baggage(parent_context).items():
-            span.set_attribute(key, value)  # type: ignore
+        span.set_attributes(baggage.get_all(parent_context))  # type: ignore
+
+
+class JsonBaggageAttributesSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
+        attrs = baggage.get_all(parent_context)
+        if attrs:
+            span.set_attribute('logfire.baggage', json.dumps(attrs))

@@ -58,7 +58,7 @@ from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
 
-from logfire._internal.baggage import BaggageSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -636,7 +636,7 @@ class _LogfireConfigData:
         if add_baggage_to_attributes:
             additional_span_processors = [
                 *(additional_span_processors or []),
-                BaggageSpanProcessor(),
+                DirectBaggageAttributesSpanProcessor(),
             ]
 
         self.additional_span_processors = additional_span_processors
