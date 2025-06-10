@@ -40,6 +40,7 @@ DataType = Literal[
     'Exception',
     # pydantic types
     'PydanticModel',
+    'AnyUrl',
     'Url',
     'NameEmail',
     'SecretBytes',

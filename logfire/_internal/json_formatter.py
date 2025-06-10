@@ -36,6 +36,7 @@ class JsonArgsValueFormatter:
             'timedelta': self._format_timedelta,
             'Enum': partial(self._write, '(', ')', True),
             'IPv4Address': partial(self._write, 'IPv4Address(', ')', True),
+            'AnyUrl': partial(self._write, 'AnyUrl(', ')', True),
             'Url': partial(self._write, 'Url(', ')', True),
             'IPv4Interface': partial(self._write, 'IPv4Interface(', ')', True),
             'IPv4Network': partial(self._write, 'IPv4Network(', ')', True),
