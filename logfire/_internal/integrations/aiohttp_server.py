@@ -16,4 +16,10 @@ def instrument_aiohttp_server(logfire_instance: Logfire, **kwargs: Any):
 
     See the `Logfire.instrument_aiohttp_server` method for details.
     """
-    AioHttpServerInstrumentor().instrument(**kwargs)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Inheritance class _InstrumentedApplication from web.Application is discouraged",
+            category=DeprecationWarning
+        )
+        AioHttpServerInstrumentor().instrument(**kwargs)
