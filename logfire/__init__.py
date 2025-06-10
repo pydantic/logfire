@@ -133,7 +133,7 @@ __all__ = (
     'instrument_flask',
     'instrument_starlette',
     'instrument_aiohttp_client',
-    'instrument_aiohttp_server'
+    'instrument_aiohttp_server',
     'instrument_sqlalchemy',
     'instrument_sqlite3',
     'instrument_aws_lambda',
