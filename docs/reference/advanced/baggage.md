@@ -46,13 +46,44 @@ with logfire.set_baggage(user_id='scolvin'):
 Then you can update your query to
 `duration > 1 AND attributes ? 'db.statement' AND attributes->'logfire.baggage'->>'user_id' = 'scolvin'`.
 
-Note that the `set_baggage` contextmanager will always update the OpenTelemetry Baggage used during propagation,
-regardless of whether you configure logfire to add the Baggage to span attributes.
+## Disabling
 
-!!! info "Baggage and distributed tracing"
-    Baggage is propagated automatically during distributed tracing, but in order for the propagated baggage to be
-    added as _attributes_ in other services, you need to ensure a `BaggageSpanProcessor` is configured in those services.
+If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
+`logfire.configure()` function. This may slightly improve performance.
+The `set_baggage` contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
 
-    If using the `logfire` library from Python, that is as simple as calling `logfire.configure(add_baggage_to_attributes=True)`,
-    but you can accomplish this with the opentelemetry SDK in many other languages as well. You can find more information
-    in the official [OpenTelemetry Baggage documentation](https://opentelemetry.io/docs/concepts/signals/baggage/).
+## Using with multiple services
+
+Baggage is propagated automatically to other processes along with the trace context if you've instrumented
+the appropriate libraries, e.g. HTTP clients and servers.
+See the [Distributed Tracing](../../how-to-guides/distributed-tracing.md#integrations)
+documentation for more information on how this works.
+
+For example, if you:
+
+1. Instrument [`httpx`](../../integrations/http-clients/httpx.md) in one service, where you
+2. make an `httpx` request in the context of `with logfire.set_baggage`
+3. to another service that has instrumented [`fastapi`](../../integrations/web-frameworks/fastapi.md)
+
+then the values set in `logfire.set_baggage` in step 2 will be available as Baggage in the `fastapi` service,
+and by default those values will be added as attributes to the spans created in that service.
+
+This works by including the values in the `Baggage` HTTP header in the request made by `httpx`.
+This happens regardless of whether the request is received by a server that can read the Baggage or not,
+or whether either service sets Baggage as span attributes. So it's important to be careful about what you put in Baggage:
+
+- **Don't put sensitive information in Baggage**, as it may be sent to third party services. While span attributes from baggage are still [scrubbed](../../how-to-guides/scrubbing.md) by default, the Baggage header itself is not scrubbed.
+- **Don't put large values in Baggage**, as this may add bloat to HTTP headers. Large values may also be dropped by servers instead of being propagated.
+
+### With other OpenTelemetry SDKs
+
+If all your services are using the Python Logfire SDK, then Baggage will be set as span attributes automatically by default,
+so you only need to ensure that context propagation is working.
+
+For other OpenTelemetry SDKs, Baggage will still be propagated automatically, but to set the span attributes requires extra configuration.
+Try searching for `BaggageSpanProcessor` and the name of the language you're using.
+
+These processors will typically set span attributes with the same name as the Baggage key, e.g. if the baggage key is `user_id`, the span attribute will also just be `user_id`.
+This differs from Logfire which puts the values inside the `logfire.baggage` JSON attribute to avoid conflicts with attributes set directly on the span.
+You can make Logfire behave like other SDKs with `logfire.configure(add_baggage_to_attributes='direct')`.
+Then you can query e.g. `attributes->>'user_id' = 'scolvin'` which will work for all spans in the trace regardless of whether they were created by Logfire or another OpenTelemetry SDK.
