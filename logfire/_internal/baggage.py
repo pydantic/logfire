@@ -70,11 +70,20 @@ class NoForceFlushSpanProcessor(SpanProcessor):
 
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        span.set_attributes(baggage.get_all(parent_context))  # type: ignore
+        span.set_attributes(_get_baggage_attrs(parent_context))
 
 
 class JsonBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        attrs = baggage.get_all(parent_context)
-        if attrs:
-            span.set_attribute('logfire.baggage', json.dumps(dict(attrs)))
+        if attrs := _get_baggage_attrs(parent_context):
+            span.set_attribute('logfire.baggage', json.dumps(attrs))
+
+
+def _get_baggage_attrs(parent_context: context.Context | None = None) -> dict[str, str]:
+    """Get baggage as a dict of strings to set as attributes on a span.
+
+    The values are converted to strings because that's what happens when baggage is propagated
+    to different services, e.g. through HTTP headers.
+    This way the value will be consistent between services.
+    """
+    return {k: str(v) for k, v in baggage.get_all(parent_context).items()}

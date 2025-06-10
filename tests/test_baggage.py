@@ -89,7 +89,7 @@ def test_baggage_goes_to_span_attributes(
     logfire.configure(**config_kwargs)
     with logfire.set_baggage(a='1'):
         with logfire.span('outer'):
-            with logfire.set_baggage(b='2'):
+            with logfire.set_baggage(b=2):  # type: ignore  # test non-str values
                 with logfire.span('outer-middle'):
                     with logfire.set_baggage(a='3'):
                         with logfire.span('inner-middle'):
