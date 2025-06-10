@@ -346,7 +346,11 @@ def configure(  # noqa: D417
             Defaults to `True` if and only if the Python version is at least 3.11.
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
-        add_baggage_to_attributes: if True, any OpenTelemetry Baggage will be added to spans as attributes
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+            Set to `'direct'` to directly add each Baggage value as a separate span attribute with the same name.
+            Set to `'json'` to add Baggage as a single span attribute named `logfire.baggage` with a JSON string value
+            (this is the default).
+            See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
