@@ -58,7 +58,7 @@ from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
 
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor, JsonBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -269,6 +269,9 @@ class CodeSource:
     """
 
 
+BaggageMode = Literal['direct', 'json', False]
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -290,7 +293,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
-    add_baggage_to_attributes: bool = False,
+    add_baggage_to_attributes: BaggageMode = 'json',
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
@@ -535,6 +538,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
+    add_baggage_to_attributes: BaggageMode
+    """Whether to add OpenTelemetry Baggage to span attributes, and how."""
+
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
@@ -562,7 +568,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
-        add_baggage_to_attributes: bool,
+        add_baggage_to_attributes: BaggageMode,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -579,6 +585,7 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
+        self.add_baggage_to_attributes = add_baggage_to_attributes
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
@@ -633,12 +640,6 @@ class _LogfireConfigData:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
 
-        if add_baggage_to_attributes:
-            additional_span_processors = [
-                *(additional_span_processors or []),
-                DirectBaggageAttributesSpanProcessor(),
-            ]
-
         self.additional_span_processors = additional_span_processors
 
         if metrics is None:
@@ -670,7 +671,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
-        add_baggage_to_attributes: bool = False,
+        add_baggage_to_attributes: BaggageMode = False,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -735,7 +736,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
-        add_baggage_to_attributes: bool,
+        add_baggage_to_attributes: BaggageMode,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -860,6 +861,13 @@ class LogfireConfig(_LogfireConfigData):
                 )
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
+
+            if self.add_baggage_to_attributes:
+                add_span_processor(
+                    DirectBaggageAttributesSpanProcessor()
+                    if self.add_baggage_to_attributes == 'direct'
+                    else JsonBaggageAttributesSpanProcessor()
+                )
 
             if self.additional_span_processors is not None:
                 for processor in self.additional_span_processors:

@@ -44,7 +44,7 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import JsonBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -850,7 +850,6 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
-        add_baggage_to_attributes=True,
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -866,9 +865,6 @@ def test_config_serializable():
     serialized2 = serialize_config()
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
-        additional_span_processors = s.pop('additional_span_processors')
-        assert len(additional_span_processors) == 1
-        assert isinstance(additional_span_processors[0], DirectBaggageAttributesSpanProcessor)
         for value in s.values():
             assert not dataclasses.is_dataclass(value)
         return s
@@ -1766,7 +1762,9 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     assert isinstance(root.processor, MainSpanProcessorWrapper)
     assert isinstance(root.processor.processor, SynchronousMultiSpanProcessor)
 
-    return root.processor.processor._span_processors  # type: ignore
+    result = list(root.processor.processor._span_processors)  # type: ignore
+    assert isinstance(result[0], JsonBaggageAttributesSpanProcessor)
+    return result[1:]
 
 
 def get_metric_readers() -> Iterable[SpanProcessor]:

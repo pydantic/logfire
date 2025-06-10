@@ -67,4 +67,4 @@ class JsonBaggageAttributesSpanProcessor(SpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         attrs = baggage.get_all(parent_context)
         if attrs:
-            span.set_attribute('logfire.baggage', json.dumps(attrs))
+            span.set_attribute('logfire.baggage', json.dumps(dict(attrs)))
