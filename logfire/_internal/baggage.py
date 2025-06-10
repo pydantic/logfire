@@ -58,12 +58,22 @@ def set_baggage(**bag: str) -> Iterator[None]:
         context.detach(token)
 
 
-class DirectBaggageAttributesSpanProcessor(SpanProcessor):
+class NoForceFlushSpanProcessor(SpanProcessor):
+    # The default SpanProcessor.force_flush returns None,
+    # which gets interpreted as False by the OTel SDK, meaning that the spans did not export successfully.
+    # Then SynchronousMultiSpanProcessor stops looping through processors and doesn't force flush the next one.
+    # OTel is dumb.
+    # This base class just means there's nothing to flush.
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
+class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         span.set_attributes(baggage.get_all(parent_context))  # type: ignore
 
 
-class JsonBaggageAttributesSpanProcessor(SpanProcessor):
+class JsonBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         attrs = baggage.get_all(parent_context)
         if attrs:
