@@ -19,23 +19,16 @@ get_baggage = baggage.get_all
 
 
 @contextmanager
-def set_baggage(**bag: str) -> Iterator[None]:
+def set_baggage(**values: str) -> Iterator[None]:
     """Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
 
-    All values in `bag` must be strings, as OpenTelemetry baggage only supports string values.
+    See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
 
-    OpenTelemetry baggage is a way to propagate metadata across service boundaries in a distributed system, and is
-    included in headers of outgoing requests for which context propagation is configured.
-    This is intended to be used to propagate arbitrary context (like user ids, task ids, etc.) down to all nested spans.
-
-    Baggage is not _automatically_ converted into attributes on descendant spans, but this is a common usage pattern.
-    If you want baggage to be converted into attributes, use `logfire.configure(add_baggage_to_attributes=True)`.
-
-    Note: this function should always be used as a context manager; if you try to open and close it manually you may
+    Note: this function should always be used in a `with` statement; if you try to open and close it manually you may
     run into surprises because OpenTelemetry Baggage is stored in the same contextvar as the current span.
 
     Args:
-        bag: The key/value pairs to attach to baggage.
+        values: The key/value pairs to attach to baggage. These should not be large or sensitive.
 
     Example usage:
 
@@ -50,7 +43,7 @@ def set_baggage(**bag: str) -> Iterator[None]:
     ```
     """
     current_context = context.get_current()
-    for key, value in bag.items():
+    for key, value in values.items():
         current_context = baggage.set_baggage(key, value, current_context)
     token = context.attach(current_context)
     try:
