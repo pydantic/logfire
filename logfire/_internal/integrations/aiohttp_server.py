@@ -1,5 +1,11 @@
 from typing import Any
+import warnings
 
+warnings.filterwarnings(
+    "ignore",
+    message="Inheritance class _InstrumentedApplication from web.Application is discouraged",
+    category=DeprecationWarning,
+)
 try:
     from opentelemetry.instrumentation.aiohttp_server import AioHttpServerInstrumentor
 except ImportError:
@@ -16,10 +22,4 @@ def instrument_aiohttp_server(logfire_instance: Logfire, **kwargs: Any):
 
     See the `Logfire.instrument_aiohttp_server` method for details.
     """
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="Inheritance class _InstrumentedApplication from web.Application is discouraged",
-            category=DeprecationWarning
-        )
-        AioHttpServerInstrumentor().instrument(**kwargs)
+    AioHttpServerInstrumentor().instrument(**kwargs)
