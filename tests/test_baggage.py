@@ -38,6 +38,11 @@ def test_baggage_overwrites():
     assert otel_baggage.get_all() == {}
 
 
+class BadRepr:
+    def __repr__(self):
+        raise ValueError('bad repr')
+
+
 @pytest.mark.parametrize(
     'add_baggage_to_attributes,expected',
     [
@@ -45,8 +50,8 @@ def test_baggage_overwrites():
             'direct',
             snapshot(
                 [
-                    {'attributes': {'a': '1'}, 'name': 'outer'},
-                    {'attributes': {'a': '1', 'b': '2'}, 'name': 'outer-middle'},
+                    {'attributes': {'a': '<BadRepr object>'}, 'name': 'outer'},
+                    {'attributes': {'a': '<BadRepr object>', 'b': '2'}, 'name': 'outer-middle'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner-middle'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'info'},
@@ -57,11 +62,14 @@ def test_baggage_overwrites():
             'json',
             snapshot(
                 [
-                    {'attributes': {}, 'name': 'outer'},
-                    {'attributes': {}, 'name': 'outer-middle'},
-                    {'attributes': {}, 'name': 'inner-middle'},
-                    {'attributes': {'a': '4'}, 'name': 'inner'},
-                    {'attributes': {}, 'name': 'info'},
+                    {'attributes': {'logfire.baggage': '{"a": "<BadRepr object>"}'}, 'name': 'outer'},
+                    {'attributes': {'logfire.baggage': '{"a": "<BadRepr object>", "b": "2"}'}, 'name': 'outer-middle'},
+                    {'attributes': {'logfire.baggage': '{"a": "3", "b": "2"}'}, 'name': 'inner-middle'},
+                    {
+                        'attributes': {'a': '4', 'logfire.baggage': '{"a": "3", "b": "2"}'},
+                        'name': 'inner',
+                    },
+                    {'attributes': {'logfire.baggage': '{"a": "3", "b": "2"}'}, 'name': 'info'},
                 ]
             ),
         ),
@@ -87,9 +95,9 @@ def test_baggage_goes_to_span_attributes(
 ):
     config_kwargs['add_baggage_to_attributes'] = add_baggage_to_attributes
     logfire.configure(**config_kwargs)
-    with logfire.set_baggage(a='1'):
+    with logfire.set_baggage(a=BadRepr()):  # type: ignore  # test non-str values
         with logfire.span('outer'):
-            with logfire.set_baggage(b=2):  # type: ignore  # test non-str values
+            with logfire.set_baggage(b='2'):
                 with logfire.span('outer-middle'):
                     with logfire.set_baggage(a='3'):
                         with logfire.span('inner-middle'):
@@ -104,7 +112,11 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
     return [
         {
             'name': span['name'],
-            'attributes': {k: v for k, v in span['attributes'].items() if not k.startswith(('code.', 'logfire.'))},
+            'attributes': {
+                k: v
+                for k, v in span['attributes'].items()
+                if not k.startswith(('code.', 'logfire.')) or k == 'logfire.baggage'
+            },
         }
         for span in exporter.exported_spans_as_dict()
     ]

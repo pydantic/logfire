@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
@@ -86,4 +87,14 @@ def _get_baggage_attrs(parent_context: context.Context | None = None) -> dict[st
     to different services, e.g. through HTTP headers.
     This way the value will be consistent between services.
     """
-    return {k: str(v) for k, v in baggage.get_all(parent_context).items()}
+    return {k: _safe_str(v) for k, v in baggage.get_all(parent_context).items()}
+
+
+def _safe_str(obj: Any) -> str:
+    try:
+        return str(obj)
+    except Exception:
+        try:
+            return f'<{type(obj).__name__} object>'
+        except Exception:  # pragma: no cover
+            return '<unknown (repr failed)>'
