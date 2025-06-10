@@ -675,7 +675,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
-        add_baggage_to_attributes: BaggageMode = False,
+        add_baggage_to_attributes: BaggageMode = 'json',
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
