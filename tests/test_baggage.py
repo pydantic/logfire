@@ -53,7 +53,7 @@ class BadRepr:
                     {'attributes': {'a': '<BadRepr object>'}, 'name': 'outer'},
                     {'attributes': {'a': '<BadRepr object>', 'b': '2'}, 'name': 'outer-middle'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner-middle'},
-                    {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner'},
+                    {'attributes': {'a': '4', 'b': '2'}, 'name': 'inner'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'info'},
                 ]
             ),

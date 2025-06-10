@@ -71,7 +71,8 @@ class NoForceFlushSpanProcessor(SpanProcessor):
 
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        span.set_attributes(_get_baggage_attrs(parent_context))
+        existing_attrs = span.attributes or {}
+        span.set_attributes({k: v for k, v in _get_baggage_attrs(parent_context).items() if k not in existing_attrs})
 
 
 class JsonBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
