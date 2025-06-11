@@ -16,7 +16,8 @@ import logfire
 client = openai.Client()
 
 logfire.configure()
-logfire.instrument_openai(client)  # (1)!
+logfire.instrument_openai()  # instrument all OpenAI clients globally
+# or logfire.instrument_openai(client) to instrument a specific client instance
 
 response = client.chat.completions.create(
     model='gpt-4',
@@ -27,10 +28,6 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message)
 ```
-
-1. If you don't have access to the client instance, you can pass a class (e.g. `logfire.instrument_openai(openai.Client)`), or just pass no arguments (i.e. `logfire.instrument_openai()`) to instrument both the `openai.Client` and `openai.AsyncClient` classes.
-
-_For more information, see the [`instrument_openai()` API reference][logfire.Logfire.instrument_openai]._
 
 With that you get:
 
