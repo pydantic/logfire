@@ -114,6 +114,7 @@ dev = [
     "attrs >= 23.1.0",
     "openai >= 1.58.1",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
+    "opentelemetry-instrumentation-aiohttp-server>=0.55b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
     "opentelemetry-instrumentation-wsgi>=0.42b0",
     "opentelemetry-instrumentation-fastapi>=0.42b0",
