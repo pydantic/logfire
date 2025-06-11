@@ -91,4 +91,4 @@ def _safe_str(obj: Any) -> str:
         try:
             return f'<{type(obj).__name__} object>'
         except Exception:  # pragma: no cover
-            return '<unknown (repr failed)>'
+            return '<unknown (str failed)>'
