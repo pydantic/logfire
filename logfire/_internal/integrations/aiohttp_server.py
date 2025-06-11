@@ -1,8 +1,8 @@
-from typing import Any
 import warnings
+from typing import Any
 
 with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
+    warnings.simplefilter('ignore')
     try:
         from opentelemetry.instrumentation.aiohttp_server import AioHttpServerInstrumentor
     except ImportError:  # pragma: no cover
@@ -17,5 +17,4 @@ with warnings.catch_warnings():
 
         See the `Logfire.instrument_aiohttp_server` method for details.
         """
-
         AioHttpServerInstrumentor().instrument(**kwargs)
