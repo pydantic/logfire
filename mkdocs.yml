@@ -227,7 +227,7 @@ plugins:
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
             - url: https://faststream.airt.ai/latest/objects.inv
-            - url: https://redis-py.readthedocs.io/en/stable/objects.inv
+            - url: https://redis.readthedocs.io/en/stable/objects.inv
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
