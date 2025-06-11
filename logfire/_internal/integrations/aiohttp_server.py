@@ -7,8 +7,8 @@ with warnings.catch_warnings():
         from opentelemetry.instrumentation.aiohttp_server import AioHttpServerInstrumentor
     except ImportError:  # pragma: no cover
         raise RuntimeError(
-            "`logfire.instrument_aiohttp_server()` requires the `opentelemetry-instrumentation-aiohttp-server` package.\n"
-            "You can install this with:\n"
+            '`logfire.instrument_aiohttp_server()` requires the `opentelemetry-instrumentation-aiohttp-server` package.\n'
+            'You can install this with:\n'
             "    pip install 'logfire[aiohttp-server]'"
         )
 
