@@ -3,6 +3,7 @@ from unittest import mock
 
 import opentelemetry.instrumentation.flask
 import pytest
+from dirty_equals import IsFloat, IsInt
 from flask import Flask
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
@@ -38,7 +39,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'outside request handler',
@@ -140,6 +141,42 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                     'logfire.msg_template': 'outside request handler',
                     'logfire.msg': 'outside request handler',
                     'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'localhost',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'localhost',
+                                        'http.status_code': 200,
+                                        'http.target': '/',
+                                        'net.host.name': 'localhost',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsInt(),
+                                }
+                            ],
+                            'total': IsInt(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'http.route': '/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                    },
                 },
             },
         ]

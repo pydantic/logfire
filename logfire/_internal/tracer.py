@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 import sys
 import traceback
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, cast
-from weakref import WeakKeyDictionary, WeakSet
+from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
 from opentelemetry import context as context_api
@@ -43,7 +45,7 @@ except ImportError:  # pragma: no cover
     ValidationError = None
 
 
-OPEN_SPANS: WeakSet[_LogfireWrappedSpan] = WeakSet()
+OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan] = WeakValueDictionary()
 
 
 @dataclass
@@ -112,6 +114,23 @@ class ProxyTracerProvider(TracerProvider):
             return True  # pragma: no cover
 
 
+@dataclass
+class SpanMetric:
+    details: dict[tuple[tuple[str, otel_types.AttributeValue], ...], float] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+
+    def dump(self):
+        return {
+            'details': [{'attributes': dict(attributes), 'total': total} for attributes, total in self.details.items()],
+            'total': sum(total for total in self.details.values()),
+        }
+
+    def increment(self, attributes: Mapping[str, otel_types.AttributeValue], value: float):
+        key = tuple(sorted(attributes.items()))
+        self.details[key] += value
+
+
 @dataclass(eq=False)
 class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """A span that wraps another span and overrides some behaviors in a logfire-specific way.
@@ -124,13 +143,23 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    record_metrics: bool
+    metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
 
     def __post_init__(self):
-        OPEN_SPANS.add(self)
+        OPEN_SPANS[self._open_spans_key()] = self
 
     def end(self, end_time: int | None = None) -> None:
-        OPEN_SPANS.discard(self)
+        with handle_internal_errors:
+            OPEN_SPANS.pop(self._open_spans_key(), None)
+            if self.metrics:
+                self.span.set_attribute(
+                    'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
+                )
         self.span.end(end_time or self.ns_timestamp_generator())
+
+    def _open_spans_key(self):
+        return _open_spans_key(self.span.get_span_context())
 
     def get_span_context(self) -> SpanContext:
         return self.span.get_span_context()
@@ -175,6 +204,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         timestamp = timestamp or self.ns_timestamp_generator()
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
+    def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
+        if not self.is_recording() or not self.record_metrics:
+            return
+
+        self.metrics[name].increment(attributes, value)
+        if self.parent and (parent := OPEN_SPANS.get(_open_spans_key(self.parent))):
+            parent.increment_metric(name, attributes, value)
+
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self.is_recording():
             if isinstance(exc_value, BaseException):
@@ -185,6 +222,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         # for ReadableSpan
         def __getattr__(self, name: str) -> Any:
             return getattr(self.span, name)
+
+
+def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
+    return ctx.trace_id, ctx.span_id
 
 
 @dataclass
@@ -216,7 +257,11 @@ class _ProxyTracer(Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
     ) -> Span:
-        start_time = start_time or self.provider.config.advanced.ns_timestamp_generator()
+        config = self.provider.config
+        ns_timestamp_generator = config.advanced.ns_timestamp_generator
+        record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
+
+        start_time = start_time or ns_timestamp_generator()
 
         # Make a copy of the attributes since this method can be called by arbitrary external code,
         # e.g. third party instrumentation.
@@ -241,7 +286,8 @@ class _ProxyTracer(Tracer):
             )
         return _LogfireWrappedSpan(
             span,
-            ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
+            ns_timestamp_generator=ns_timestamp_generator,
+            record_metrics=record_metrics,
         )
 
     # This means that `with start_as_current_span(...):`

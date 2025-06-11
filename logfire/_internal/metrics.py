@@ -21,7 +21,11 @@ from opentelemetry.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
+from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
+
+from .tracer import _LogfireWrappedSpan  # type: ignore
+from .utils import handle_internal_errors
 
 try:
     # This only exists in opentelemetry-sdk>=1.23.0
@@ -247,6 +251,12 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def _create_real_instrument(self, meter: Meter) -> InstrumentT:
         """Create an instance of the real instrument. Implement this."""
 
+    @handle_internal_errors
+    def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
+        span = get_current_span()
+        if isinstance(span, _LogfireWrappedSpan):
+            span.increment_metric(self._name, attributes or {}, amount)
+
 
 class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
     def __init__(
@@ -271,6 +281,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        self._increment_span_metric(amount, attributes)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
@@ -285,6 +296,7 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        self._increment_span_metric(amount, attributes)
         self._instrument.record(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
