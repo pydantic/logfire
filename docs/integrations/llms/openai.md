@@ -6,8 +6,7 @@ We support instrumenting both the [standard OpenAI SDK](https://github.com/opena
 
 ## OpenAI SDK
 
-Logfire supports instrumenting calls to OpenAI with one extra line of code, here's an example of instrumenting
-the OpenAI SDK:
+**Logfire** supports instrumenting calls to OpenAI with the [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] method, for example:
 
 ```python hl_lines="7"
 import openai
