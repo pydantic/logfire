@@ -1629,6 +1629,12 @@ dependencies = [
 aiohttp = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
 ]
+aiohttp-client = [
+    { name = "opentelemetry-instrumentation-aiohttp-client" },
+]
+aiohttp-server = [
+    { name = "opentelemetry-instrumentation-aiohttp-server" },
+]
 asgi = [
     { name = "opentelemetry-instrumentation-asgi" },
 ]
@@ -1725,6 +1731,7 @@ dev = [
     { name = "openai" },
     { name = "openai-agents", extra = ["voice"] },
     { name = "opentelemetry-instrumentation-aiohttp-client" },
+    { name = "opentelemetry-instrumentation-aiohttp-server" },
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
     { name = "opentelemetry-instrumentation-aws-lambda" },
@@ -1789,6 +1796,8 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0,<1.35.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp-client'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aiohttp-server", marker = "extra == 'aiohttp-server'", specifier = ">=0.55b0" },
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'asgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
@@ -1817,7 +1826,7 @@ requires-dist = [
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
 ]
-provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda"]
+provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1851,6 +1860,7 @@ dev = [
     { name = "openai", specifier = ">=1.58.1" },
     { name = "openai-agents", extras = ["voice"], specifier = ">=0.0.7" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aiohttp-server", specifier = ">=0.55b0" },
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
@@ -2756,6 +2766,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ad/91/ec37663100b39af0ab1548db57e8703adad50fe7383d0a6ed7459c4d6d08/opentelemetry_instrumentation_aiohttp_client-0.55b1.tar.gz", hash = "sha256:d1f21eb41fac54a5ece4592e82921cb1ec97ad04d714e073a4dac2dad3b5af5c", size = 15013, upload-time = "2025-06-10T08:58:16.529Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/22/20/a65ca5591507eb4bafebe90e0dd0368669ca25c9f49f577cabc42d3bcc72/opentelemetry_instrumentation_aiohttp_client-0.55b1-py3-none-any.whl", hash = "sha256:d2b3300b50362561b90a92d768c3599e7b1110fa2b5977ea193cb46260699753", size = 12378, upload-time = "2025-06-10T08:57:16.631Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-aiohttp-server"
+version = "0.55b1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/ca/04e0b00648bafb43ebe3536d8085862cdb333bce10ee4fe8deab0a435312/opentelemetry_instrumentation_aiohttp_server-0.55b1.tar.gz", hash = "sha256:c24c6d5fa394c884ce913bdda4836fd973e75d76a917490b2cbb132ac1d6763a", size = 5848, upload-time = "2025-06-10T08:58:17.133Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/e8/59b4022227c4a9f50da2dd353ae73b1a3ffd36f532ba4d73d7fa71160c74/opentelemetry_instrumentation_aiohttp_server-0.55b1-py3-none-any.whl", hash = "sha256:644aacb7b4c88fc02ddd1d54a5a0b2071e45e07e02c2374ce1387ed149bce5dd", size = 6568, upload-time = "2025-06-10T08:57:17.933Z" },
 ]
 
 [[package]]
