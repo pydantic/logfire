@@ -6,7 +6,7 @@ except ImportError:
     raise RuntimeError(
         '`logfire.instrument_aiohttp_client()` requires the `opentelemetry-instrumentation-aiohttp-client` package.\n'
         'You can install this with:\n'
-        "    pip install 'logfire[aiohttp]'"
+        "    pip install 'logfire[aiohttp-client]'"
     )
 from logfire import Logfire
 
