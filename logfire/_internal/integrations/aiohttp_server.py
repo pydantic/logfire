@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
         "    pip install 'logfire[aiohttp-server]'"
     )
 
+
 def instrument_aiohttp_server(**kwargs: Any):
     """Instrument the `aiohttp` module so that spans are automatically created for each server request.
 
