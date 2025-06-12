@@ -21,9 +21,7 @@ async def test_instrument_aiohttp_server():
 
 
 def test_missing_opentelemetry_dependency() -> None:
-    with mock.patch.dict(
-        'sys.modules', {'opentelemetry.instrumentation.aiohttp_server': None}
-    ):
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_server': None}):
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.aiohttp_server)
         assert str(exc_info.value) == snapshot(
