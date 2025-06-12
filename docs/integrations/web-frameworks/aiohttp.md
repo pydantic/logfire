@@ -49,7 +49,6 @@ if __name__ == "__main__":
 
 You can run this server with `python server.py` and then make requests to `http://localhost:8080/` or `http://localhost:8080/users/123` to see the spans created for each request.
 
-The keyword arguments of `logfire.instrument_aiohttp_server()` are passed to the `AioHttpServerInstrumentor().instrument()` method of the OpenTelemetry aiohttp server Instrumentation package.
+The keyword arguments of [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] are passed to the `AioHttpServerInstrumentor().instrument()` method of the [OpenTelemetry AIOHTTP server instrumentation package](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html).
 
 [aiohttp]: https://docs.aiohttp.org/en/stable/
-[opentelemetry-aiohttp-server]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_server.html
