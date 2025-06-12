@@ -12,9 +12,9 @@ For AIOHTTP server instrumentation, see [here](../web-frameworks/aiohttp.md).
 
 ## Installation
 
-Install `logfire` with the `aiohttp` extra:
+Install `logfire` with the `aiohttp-client`:
 
-{{ install_logfire(extras=['aiohttp']) }}
+{{ install_logfire(extras=['aiohttp-client']) }}
 
 ## Usage
 
