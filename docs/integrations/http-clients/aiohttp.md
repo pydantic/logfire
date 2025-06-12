@@ -8,7 +8,7 @@ integration: otel
 
 The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method will create a span for every request made by your AIOHTTP clients.
 
-For AIOHTTP server instrumentation, see the [AIOHTTP Server documentation](../web-frameworks/aiohttp.md).
+For AIOHTTP server instrumentation, see [here](../web-frameworks/aiohttp.md).
 
 ## Installation
 
