@@ -23,12 +23,13 @@ from opentelemetry import trace
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
-from ..version import VERSION
-from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
-from .config import REGIONS, LogfireCredentials, get_base_url_from_token
-from .config_params import ParamManager
-from .tracer import SDKTracerProvider
-from .utils import read_toml_file
+from ...version import VERSION
+from ..auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
+from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
+from ..config_params import ParamManager
+from ..tracer import SDKTracerProvider
+from ..utils import read_toml_file
+from .run import parse_run
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -480,6 +481,13 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_info = subparsers.add_parser('info', help=parse_info.__doc__)
     cmd_info.set_defaults(func=parse_info)
+
+    cmd_run = subparsers.add_parser('run', help='Run Python scripts/modules with Logfire instrumentation')
+    run_group = cmd_run.add_mutually_exclusive_group(required=True)
+    run_group.add_argument('-m', '--module', help='Run module as script')
+    run_group.add_argument('script', nargs='?', help='Script path to run')
+    cmd_run.add_argument('args', nargs='*', help='Arguments to pass to the script/module')
+    cmd_run.set_defaults(func=parse_run)
 
     namespace = parser.parse_args(args)
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
