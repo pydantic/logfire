@@ -156,6 +156,7 @@ otel_docs = {
     'starlette': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
     'asgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
     'wsgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
+    'aiohttp': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
 }
 
 
