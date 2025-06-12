@@ -30,6 +30,7 @@ def instrument_pydantic_ai(
             **kwargs,
         )
     except TypeError:  # pragma: no cover
+        # Handle older pydantic-ai versions that do not support meter_provider.
         settings = InstrumentationSettings(
             **kwargs,
         )
