@@ -26,10 +26,10 @@ def instrument_pydantic_ai(
     )
     try:
         settings = InstrumentationSettings(
-            meter_provider=logfire_instance.config.get_meter_provider(),  # type: ignore
+            meter_provider=logfire_instance.config.get_meter_provider(),
             **kwargs,
         )
-    except TypeError:
+    except TypeError:  # pragma: no cover
         settings = InstrumentationSettings(
             **kwargs,
         )
