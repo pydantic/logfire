@@ -94,6 +94,8 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
                 )
                 v = truncate_string(v, max_length=MAX_BAGGAGE_VALUE_LENGTH)
             if k in existing_attrs:
+                if existing_attrs[k] == v:
+                    continue
                 k = 'baggage_conflict.' + k
             attrs[k] = v
         span.set_attributes(attrs)

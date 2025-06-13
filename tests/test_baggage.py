@@ -89,7 +89,7 @@ def test_set_baggage_long_string():
                 [
                     {'attributes': {}, 'name': 'outer'},
                     {'attributes': {}, 'name': 'outer-middle'},
-                    {'attributes': {}, 'name': 'inner-middle'},
+                    {'attributes': {'a': '3'}, 'name': 'inner-middle'},
                     {'attributes': {'a': '4'}, 'name': 'inner'},
                     {'attributes': {}, 'name': 'info'},
                 ]
@@ -110,8 +110,9 @@ def test_baggage_goes_to_span_attributes(
             with logfire.set_baggage(b='2'):
                 with logfire.span('outer-middle'):
                     with logfire.set_baggage(a='3'):
-                        with logfire.span('inner-middle'):
-                            # confirm the behavior of attributes that conflict with baggage:
+                        # attribute with the same key and same value, nothing happens:
+                        with logfire.span('inner-middle', a='3'):
+                            # attribute with the same key but different value, baggage key gets renamed:
                             with logfire.span('inner', a='4'):
                                 logfire.info('info')
 
