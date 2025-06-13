@@ -59,7 +59,8 @@ def set_baggage(**values: str) -> Iterator[None]:
     for key, value in values.items():
         if not isinstance(value, str):  # type: ignore
             warnings.warn(
-                f'Baggage value for key "{key}" is a {type(value).__name__}. Converting to string.', stacklevel=3
+                f'Baggage value for key "{key}" is of type "{type(value).__name__}". Converting to string.',
+                stacklevel=3,
             )
             value = logfire_json_dumps(value)
         if len(value) > MAX_BAGGAGE_VALUE_LENGTH:

@@ -15,9 +15,9 @@ def test_baggage_sets_and_restores():
     with logfire.set_baggage(foo='bar'):
         assert logfire.get_baggage() == {'foo': 'bar'}
         assert otel_baggage.get_all() == {'foo': 'bar'}
-        with logfire.set_baggage(baz=3):  # type: ignore  # testing non-strings don't cause errors
-            assert logfire.get_baggage() == {'foo': 'bar', 'baz': 3}
-            assert otel_baggage.get_all() == {'foo': 'bar', 'baz': 3}
+        with logfire.set_baggage(baz='3'):
+            assert logfire.get_baggage() == {'foo': 'bar', 'baz': '3'}
+            assert otel_baggage.get_all() == {'foo': 'bar', 'baz': '3'}
         assert logfire.get_baggage() == {'foo': 'bar'}
         assert otel_baggage.get_all() == {'foo': 'bar'}
     assert logfire.get_baggage() == {}
@@ -50,11 +50,11 @@ def test_set_baggage_non_string():
             [
                 (
                     __file__,
-                    'UserWarning: Baggage value for key "a" is a BadRepr. Converting to string.',
+                    'UserWarning: Baggage value for key "a" is of type "BadRepr". Converting to string.',
                 ),
                 (
                     __file__,
-                    'UserWarning: Baggage value for key "b" is a list. Converting to string.',
+                    'UserWarning: Baggage value for key "b" is of type "list". Converting to string.',
                 ),
             ]
         ),
