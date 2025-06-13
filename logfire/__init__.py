@@ -43,6 +43,7 @@ instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
 instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
 instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
 instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
+instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
 instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
 instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
@@ -133,6 +134,7 @@ __all__ = (
     'instrument_flask',
     'instrument_starlette',
     'instrument_aiohttp_client',
+    'instrument_aiohttp_server',
     'instrument_sqlalchemy',
     'instrument_sqlite3',
     'instrument_aws_lambda',

@@ -10,6 +10,7 @@ If you're using one of the following libraries, check out the integration docs:
 - [Starlette](../web-frameworks/starlette.md)
 - [Django](../web-frameworks/django.md)
 - [Flask](../web-frameworks/flask.md)
+- [AIOHTTP](../web-frameworks/aiohttp.md)
 
 Otherwise, check if your server uses [WSGI](../web-frameworks/wsgi.md) or [ASGI](../web-frameworks/asgi.md) and check the corresponding integration.
 

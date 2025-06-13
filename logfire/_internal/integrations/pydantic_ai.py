@@ -18,12 +18,22 @@ def instrument_pydantic_ai(
 ) -> None | InstrumentedModel:
     if event_mode is None:
         event_mode = InstrumentationSettings.event_mode
-    settings = InstrumentationSettings(
+    kwargs = dict(
         tracer_provider=logfire_instance.config.get_tracer_provider(),
         event_logger_provider=logfire_instance.config.get_event_logger_provider(),
         event_mode=event_mode,
         **kwargs,
     )
+    try:
+        settings = InstrumentationSettings(
+            meter_provider=logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        )
+    except TypeError:  # pragma: no cover
+        # Handle older pydantic-ai versions that do not support meter_provider.
+        settings = InstrumentationSettings(
+            **kwargs,
+        )
     if isinstance(obj, Agent):
         obj.instrument = settings
     elif isinstance(obj, Model):

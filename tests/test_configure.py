@@ -576,9 +576,9 @@ def test_logfire_config_console_options() -> None:
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
+        exporter = processor.span_exporter
+    except AttributeError:  # pragma: no cover
         exporter = processor._batch_processor._exporter  # type: ignore
-    except AttributeError:
-        exporter = processor.span_exporter  # type: ignore
     return exporter  # type: ignore
 
 
