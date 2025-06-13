@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -63,12 +62,6 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         existing_attrs = span.attributes or {}
         span.set_attributes({k: v for k, v in _get_baggage_attrs(parent_context).items() if k not in existing_attrs})
-
-
-class JsonBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
-    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        if attrs := _get_baggage_attrs(parent_context):
-            span.set_attribute('logfire.baggage', json.dumps(attrs))
 
 
 def _get_baggage_attrs(parent_context: context.Context | None = None) -> dict[str, str]:

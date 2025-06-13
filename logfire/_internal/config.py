@@ -58,7 +58,7 @@ from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from typing_extensions import Self, Unpack
 
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor, JsonBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -867,11 +867,7 @@ class LogfireConfig(_LogfireConfigData):
                     processors_with_pending_spans.append(span_processor)
 
             if self.add_baggage_to_attributes:
-                add_span_processor(
-                    DirectBaggageAttributesSpanProcessor()
-                    if self.add_baggage_to_attributes == 'direct'
-                    else JsonBaggageAttributesSpanProcessor()
-                )
+                add_span_processor(DirectBaggageAttributesSpanProcessor())
 
             if self.additional_span_processors is not None:
                 for processor in self.additional_span_processors:

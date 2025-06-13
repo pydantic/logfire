@@ -59,21 +59,6 @@ class BadRepr:
             ),
         ),
         (
-            'json',
-            snapshot(
-                [
-                    {'attributes': {'logfire.baggage': '{"a": "<BadRepr object>"}'}, 'name': 'outer'},
-                    {'attributes': {'logfire.baggage': '{"a": "<BadRepr object>", "b": "2"}'}, 'name': 'outer-middle'},
-                    {'attributes': {'logfire.baggage': '{"a": "3", "b": "2"}'}, 'name': 'inner-middle'},
-                    {
-                        'attributes': {'a': '4', 'logfire.baggage': '{"a": "3", "b": "2"}'},
-                        'name': 'inner',
-                    },
-                    {'attributes': {'logfire.baggage': '{"a": "3", "b": "2"}'}, 'name': 'info'},
-                ]
-            ),
-        ),
-        (
             False,
             snapshot(
                 [
@@ -123,7 +108,7 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
 
 
 def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter):
-    config_kwargs['add_baggage_to_attributes'] = 'json'
+    config_kwargs['add_baggage_to_attributes'] = 'direct'
     logfire.configure(**config_kwargs)
     with logfire.set_baggage(a='3', secret='foo', bar='my_password'):
         with logfire.span('span'):
@@ -144,15 +129,13 @@ def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter)
                     'logfire.msg_template': 'span',
                     'logfire.msg': 'span',
                     'logfire.span_type': 'pending_span',
-                    'logfire.baggage': {
-                        'a': '3',
-                        'secret': "[Scrubbed due to 'secret']",
-                        'bar': "[Scrubbed due to 'password']",
-                    },
+                    'a': '3',
+                    'secret': "[Scrubbed due to 'secret']",
+                    'bar': "[Scrubbed due to 'password']",
                     'logfire.pending_parent_id': '0000000000000000',
                     'logfire.scrubbed': [
-                        {'path': ['attributes', 'logfire.baggage', 'secret'], 'matched_substring': 'secret'},
-                        {'path': ['attributes', 'logfire.baggage', 'bar'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'bar'], 'matched_substring': 'password'},
                     ],
                 },
             },
@@ -169,14 +152,12 @@ def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter)
                     'logfire.msg_template': 'span',
                     'logfire.msg': 'span',
                     'logfire.span_type': 'span',
-                    'logfire.baggage': {
-                        'a': '3',
-                        'secret': "[Scrubbed due to 'secret']",
-                        'bar': "[Scrubbed due to 'password']",
-                    },
+                    'a': '3',
+                    'secret': "[Scrubbed due to 'secret']",
+                    'bar': "[Scrubbed due to 'password']",
                     'logfire.scrubbed': [
-                        {'path': ['attributes', 'logfire.baggage', 'secret'], 'matched_substring': 'secret'},
-                        {'path': ['attributes', 'logfire.baggage', 'bar'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'bar'], 'matched_substring': 'password'},
                     ],
                 },
             },
