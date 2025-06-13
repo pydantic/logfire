@@ -219,10 +219,16 @@ def test_raw_baggage_non_string_attribute(config_kwargs: dict[str, Any], exporte
     logfire.configure(**config_kwargs)
     current_context = otel_baggage.set_baggage('a', 'b')
     current_context = otel_baggage.set_baggage('c', 2, current_context)
+    current_context = otel_baggage.set_baggage('d', 'e' * 2000, current_context)
     token = context.attach(current_context)
     try:
         with warns(
-            snapshot(['UserWarning: Baggage value for key "c" is of type "int", skipping setting as attribute.']),
+            snapshot(
+                [
+                    'UserWarning: Baggage value for key "c" is of type "int", skipping setting as attribute.',
+                    'UserWarning: Baggage value for key "d" is too long. Truncating to 1000 characters before setting as attribute.',
+                ]
+            ),
         ):
             logfire.info('hi')
     finally:
@@ -245,6 +251,7 @@ def test_raw_baggage_non_string_attribute(config_kwargs: dict[str, Any], exporte
                     'code.function': 'test_raw_baggage_non_string_attribute',
                     'code.lineno': 123,
                     'a': 'b',
+                    'd': 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee...eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
                 },
             }
         ]

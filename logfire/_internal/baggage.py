@@ -82,9 +82,17 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
             if k in existing_attrs:
                 continue  # TODO
             if not isinstance(v, str):
+                # Since this happens for every span, don't try converting to string, which could be expensive.
                 warnings.warn(
                     f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.'
                 )
                 continue
+            if len(v) > MAX_BAGGAGE_VALUE_LENGTH:
+                # Truncating is cheap though.
+                warnings.warn(
+                    f'Baggage value for key "{k}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters before setting as attribute.',
+                )
+                v = truncate_string(v, max_length=MAX_BAGGAGE_VALUE_LENGTH)
+
             attrs[k] = v
         span.set_attributes(attrs)
