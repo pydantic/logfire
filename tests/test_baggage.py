@@ -3,7 +3,7 @@ from typing import Any, Literal
 import pytest
 from inline_snapshot import snapshot
 from inline_snapshot.extra import warns
-from opentelemetry import baggage as otel_baggage
+from opentelemetry import baggage as otel_baggage, context
 
 import logfire
 from logfire.testing import TestExporter
@@ -210,5 +210,42 @@ def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter)
                     ],
                 },
             },
+        ]
+    )
+
+
+def test_raw_baggage_non_string_attribute(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    current_context = otel_baggage.set_baggage('a', 'b')
+    current_context = otel_baggage.set_baggage('c', 2, current_context)
+    token = context.attach(current_context)
+    try:
+        with warns(
+            snapshot(['UserWarning: Baggage value for key "c" is of type "int", skipping setting as attribute.']),
+        ):
+            logfire.info('hi')
+    finally:
+        context.detach(token)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_baggage.py',
+                    'code.function': 'test_raw_baggage_non_string_attribute',
+                    'code.lineno': 123,
+                    'a': 'b',
+                },
+            }
         ]
     )

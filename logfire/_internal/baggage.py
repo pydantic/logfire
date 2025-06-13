@@ -3,7 +3,6 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
 
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
@@ -78,24 +77,14 @@ class NoForceFlushSpanProcessor(SpanProcessor):
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         existing_attrs = span.attributes or {}
-        span.set_attributes({k: v for k, v in _get_baggage_attrs(parent_context).items() if k not in existing_attrs})
-
-
-def _get_baggage_attrs(parent_context: context.Context | None = None) -> dict[str, str]:
-    """Get baggage as a dict of strings to set as attributes on a span.
-
-    The values are converted to strings because that's what happens when baggage is propagated
-    to different services, e.g. through HTTP headers.
-    This way the value will be consistent between services.
-    """
-    return {k: _safe_str(v) for k, v in baggage.get_all(parent_context).items()}
-
-
-def _safe_str(obj: Any) -> str:
-    try:
-        return str(obj)
-    except Exception:
-        try:
-            return f'<{type(obj).__name__} object>'
-        except Exception:  # pragma: no cover
-            return '<unknown (str failed)>'
+        attrs: dict[str, str] = {}
+        for k, v in baggage.get_all(parent_context).items():
+            if k in existing_attrs:
+                continue  # TODO
+            if not isinstance(v, str):
+                warnings.warn(
+                    f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.'
+                )
+                continue
+            attrs[k] = v
+        span.set_attributes(attrs)
