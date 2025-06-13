@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
+
+from .json_encoder import logfire_json_dumps
 
 __all__ = (
     'get_baggage',
@@ -43,6 +46,11 @@ def set_baggage(**values: str) -> Iterator[None]:
     """
     current_context = context.get_current()
     for key, value in values.items():
+        if not isinstance(value, str):  # type: ignore
+            warnings.warn(
+                f'Baggage value for key "{key}" is a {type(value).__name__}. Converting to string.', stacklevel=3
+            )
+            value = logfire_json_dumps(value)
         current_context = baggage.set_baggage(key, value, current_context)
     token = context.attach(current_context)
     try:

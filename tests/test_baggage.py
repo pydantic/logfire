@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 import pytest
 from inline_snapshot import snapshot
+from inline_snapshot.extra import warns
 from opentelemetry import baggage as otel_baggage
 
 import logfire
@@ -43,6 +44,30 @@ class BadRepr:
         raise ValueError('bad repr')
 
 
+def test_set_baggage_non_string():
+    with warns(
+        snapshot(
+            [
+                (
+                    __file__,
+                    'UserWarning: Baggage value for key "a" is a BadRepr. Converting to string.',
+                ),
+                (
+                    __file__,
+                    'UserWarning: Baggage value for key "b" is a list. Converting to string.',
+                ),
+            ]
+        ),
+        include_file=True,
+    ):
+        with logfire.set_baggage(a=BadRepr(), b=[{'c': 'd'}]):  # type: ignore
+            assert (
+                logfire.get_baggage()
+                == otel_baggage.get_all()
+                == snapshot({'a': '"<BadRepr object>"', 'b': '[{"c":"d"}]'})
+            )
+
+
 @pytest.mark.parametrize(
     'add_baggage_to_attributes,expected',
     [
@@ -50,8 +75,8 @@ class BadRepr:
             True,
             snapshot(
                 [
-                    {'attributes': {'a': '<BadRepr object>'}, 'name': 'outer'},
-                    {'attributes': {'a': '<BadRepr object>', 'b': '2'}, 'name': 'outer-middle'},
+                    {'attributes': {'a': '1'}, 'name': 'outer'},
+                    {'attributes': {'a': '1', 'b': '2'}, 'name': 'outer-middle'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner-middle'},
                     {'attributes': {'a': '4', 'b': '2'}, 'name': 'inner'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'info'},
@@ -80,7 +105,7 @@ def test_baggage_goes_to_span_attributes(
 ):
     config_kwargs['add_baggage_to_attributes'] = add_baggage_to_attributes
     logfire.configure(**config_kwargs)
-    with logfire.set_baggage(a=BadRepr()):  # type: ignore  # test non-str values
+    with logfire.set_baggage(a='1'):
         with logfire.span('outer'):
             with logfire.set_baggage(b='2'):
                 with logfire.span('outer-middle'):
