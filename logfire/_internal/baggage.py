@@ -17,6 +17,14 @@ from .utils import truncate_string
 get_baggage = baggage.get_all
 """Get all OpenTelemetry baggage for the current context as a mapping of key/value pairs."""
 
+
+# Truncate strings to at most this length.
+# Thoughts behind this number:
+# - Nice and round.
+# - OTel baggage propagation limits total size to 8192 bytes, and each key/value pair is limited to 4096 bytes.
+# - UTF-8 can take up to 4 bytes per character.
+#    (the OTel code seems to actually measure characters, but it looks like it's supposed to be bytes)
+# - We don't want big attributes in every span.
 MAX_BAGGAGE_VALUE_LENGTH = 1000
 
 
