@@ -15,9 +15,9 @@ def test_baggage_sets_and_restores():
     with logfire.set_baggage(foo='bar'):
         assert logfire.get_baggage() == {'foo': 'bar'}
         assert otel_baggage.get_all() == {'foo': 'bar'}
-        with logfire.set_baggage(baz='qux'):
-            assert logfire.get_baggage() == {'foo': 'bar', 'baz': 'qux'}
-            assert otel_baggage.get_all() == {'foo': 'bar', 'baz': 'qux'}
+        with logfire.set_baggage(baz=3):  # type: ignore  # testing non-strings don't cause errors
+            assert logfire.get_baggage() == {'foo': 'bar', 'baz': 3}
+            assert otel_baggage.get_all() == {'foo': 'bar', 'baz': 3}
         assert logfire.get_baggage() == {'foo': 'bar'}
         assert otel_baggage.get_all() == {'foo': 'bar'}
     assert logfire.get_baggage() == {}

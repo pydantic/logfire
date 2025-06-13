@@ -37,20 +37,26 @@ with logfire.set_baggage(user_id='scolvin'):
     #> {'user_id': 'scolvin'}
 
     # All spans opened here (and their descendants)
-    # will have the attribute `logfire.baggage` set to `{"user_id": "scolvin"}`
-    # (or more if you set other baggage values)
+    # will have the attribute `user_id` set to 'scolvin'
+    # (or more attributes if you set other baggage values)
     with logfire.span('inside-baggage-span'):
         ...
 ```
 
 Then you can update your query to
-`duration > 1 AND attributes ? 'db.statement' AND attributes->'logfire.baggage'->>'user_id' = 'scolvin'`.
+`duration > 1 AND attributes ? 'db.statement' AND attributes->>'user_id' = 'scolvin'`.
 
 ## Disabling
 
 If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
 `logfire.configure()` function. This may slightly improve performance.
 The `set_baggage` contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
+
+## Baggage values requirements
+
+While baggage can technically contain any data type, only strings will be set as attributes on spans.
+Additionally, strings longer than 1000 characters will be truncated with a warning,
+in both `logfire.set_baggage` and the span attributes.
 
 ## Using with multiple services
 
@@ -73,7 +79,7 @@ This happens regardless of whether the request is received by a server that can 
 or whether either service sets Baggage as span attributes. So it's important to be careful about what you put in Baggage:
 
 - **Don't put sensitive information in Baggage**, as it may be sent to third party services. While span attributes from baggage are still [scrubbed](../../how-to-guides/scrubbing.md) by default, the Baggage header itself is not scrubbed.
-- **Don't put large values in Baggage**, as this may add bloat to HTTP headers. Large values may also be dropped by servers instead of being propagated.
+- **Don't put large values in Baggage**, as this may add bloat to HTTP headers. Large values may also be dropped by servers instead of being propagated. This is one reason why Logfire truncates Baggage values longer than 1000 characters.
 
 ### With other OpenTelemetry SDKs
 
@@ -82,8 +88,3 @@ so you only need to ensure that context propagation is working.
 
 For other OpenTelemetry SDKs, Baggage will still be propagated automatically, but to set the span attributes requires extra configuration.
 Try searching for `BaggageSpanProcessor` and the name of the language you're using.
-
-These processors will typically set span attributes with the same name as the Baggage key, e.g. if the baggage key is `user_id`, the span attribute will also just be `user_id`.
-This differs from Logfire which puts the values inside the `logfire.baggage` JSON attribute to avoid conflicts with attributes set directly on the span.
-You can make Logfire behave like other SDKs with `logfire.configure(add_baggage_to_attributes='direct')`.
-Then you can query e.g. `attributes->>'user_id' = 'scolvin'` which will work for all spans in the trace regardless of whether they were created by Logfire or another OpenTelemetry SDK.
