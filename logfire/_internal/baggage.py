@@ -7,8 +7,6 @@ from contextlib import contextmanager
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
 
-from .json_encoder import logfire_json_dumps
-
 __all__ = (
     'get_baggage',
     'set_baggage',
@@ -48,17 +46,13 @@ def set_baggage(**values: str) -> Iterator[None]:
     """
     current_context = context.get_current()
     for key, value in values.items():
-        if not isinstance(value, str):  # type: ignore
-            warnings.warn(
-                f'Baggage value for key "{key}" is a {type(value).__name__}. Converting to string.', stacklevel=3
-            )
-            value = logfire_json_dumps(value)
-        if len(value) > MAX_BAGGAGE_VALUE_LENGTH:
-            warnings.warn(
-                f'Baggage value for key "{key}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters.',
-                stacklevel=3,
-            )
-            value = truncate_string(value, max_length=MAX_BAGGAGE_VALUE_LENGTH)
+        if isinstance(value, str):  # type: ignore  # prevent error in line below if user ignores type hints
+            if len(value) > MAX_BAGGAGE_VALUE_LENGTH:
+                warnings.warn(
+                    f'Baggage value for key "{key}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters.',
+                    stacklevel=3,
+                )
+                value = truncate_string(value, max_length=MAX_BAGGAGE_VALUE_LENGTH)
         current_context = baggage.set_baggage(key, value, current_context)
     token = context.attach(current_context)
     try:
@@ -80,9 +74,8 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
         attrs: dict[str, str] = {}
         for k, v in baggage.get_all(parent_context).items():
             if not isinstance(v, str):
-                # Since this happens for every span, don't try converting to string, which could be expensive.
                 warnings.warn(
-                    f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.'
+                    f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.',
                 )
                 continue
             if len(v) > MAX_BAGGAGE_VALUE_LENGTH:

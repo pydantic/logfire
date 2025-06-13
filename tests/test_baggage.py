@@ -44,30 +44,6 @@ class BadRepr:
         raise ValueError('bad repr')
 
 
-def test_set_baggage_non_string():
-    with warns(
-        snapshot(
-            [
-                (
-                    __file__,
-                    'UserWarning: Baggage value for key "a" is a BadRepr. Converting to string.',
-                ),
-                (
-                    __file__,
-                    'UserWarning: Baggage value for key "b" is a list. Converting to string.',
-                ),
-            ]
-        ),
-        include_file=True,
-    ):
-        with logfire.set_baggage(a=BadRepr(), b=[{'c': 'd'}]):  # type: ignore
-            assert (
-                logfire.get_baggage()
-                == otel_baggage.get_all()
-                == snapshot({'a': '"<BadRepr object>"', 'b': '[{"c":"d"}]'})
-            )
-
-
 def test_set_baggage_long_string():
     with warns(
         snapshot(
