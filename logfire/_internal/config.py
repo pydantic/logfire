@@ -269,9 +269,6 @@ class CodeSource:
     """
 
 
-BaggageMode = Literal['direct', 'json', False]
-
-
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -293,7 +290,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
-    add_baggage_to_attributes: BaggageMode = 'direct',
+    add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
@@ -347,9 +344,6 @@ def configure(  # noqa: D417
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
-            Set to `'direct'` to directly add each Baggage value as a separate span attribute with the same name.
-            Set to `'json'` to add Baggage as a single span attribute named `logfire.baggage` with a JSON string value
-            (this is the default).
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
@@ -542,7 +536,7 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
-    add_baggage_to_attributes: BaggageMode
+    add_baggage_to_attributes: bool
     """Whether to add OpenTelemetry Baggage to span attributes, and how."""
 
     code_source: CodeSource | None
@@ -572,7 +566,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
-        add_baggage_to_attributes: BaggageMode,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -675,7 +669,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
-        add_baggage_to_attributes: BaggageMode = 'direct',
+        add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -740,7 +734,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
-        add_baggage_to_attributes: BaggageMode,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
