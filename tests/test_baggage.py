@@ -47,7 +47,7 @@ class BadRepr:
     'add_baggage_to_attributes,expected',
     [
         (
-            'direct',
+            True,
             snapshot(
                 [
                     {'attributes': {'a': '<BadRepr object>'}, 'name': 'outer'},
@@ -75,7 +75,7 @@ class BadRepr:
 def test_baggage_goes_to_span_attributes(
     config_kwargs: dict[str, Any],
     exporter: TestExporter,
-    add_baggage_to_attributes: Literal[False, 'direct', 'json'],
+    add_baggage_to_attributes: Literal[False, True, 'json'],
     expected: list[dict[str, Any]],
 ):
     config_kwargs['add_baggage_to_attributes'] = add_baggage_to_attributes
@@ -108,7 +108,7 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
 
 
 def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter):
-    config_kwargs['add_baggage_to_attributes'] = 'direct'
+    config_kwargs['add_baggage_to_attributes'] = True
     logfire.configure(**config_kwargs)
     with logfire.set_baggage(a='3', secret='foo', bar='my_password'):
         with logfire.span('span'):
