@@ -79,8 +79,6 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
         existing_attrs = span.attributes or {}
         attrs: dict[str, str] = {}
         for k, v in baggage.get_all(parent_context).items():
-            if k in existing_attrs:
-                continue  # TODO
             if not isinstance(v, str):
                 # Since this happens for every span, don't try converting to string, which could be expensive.
                 warnings.warn(
@@ -93,6 +91,7 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
                     f'Baggage value for key "{k}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters before setting as attribute.',
                 )
                 v = truncate_string(v, max_length=MAX_BAGGAGE_VALUE_LENGTH)
-
+            if k in existing_attrs:
+                k = 'baggage_conflict.' + k
             attrs[k] = v
         span.set_attributes(attrs)

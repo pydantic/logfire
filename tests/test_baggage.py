@@ -102,7 +102,7 @@ def test_set_baggage_long_string():
                     {'attributes': {'a': '1'}, 'name': 'outer'},
                     {'attributes': {'a': '1', 'b': '2'}, 'name': 'outer-middle'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'inner-middle'},
-                    {'attributes': {'a': '4', 'b': '2'}, 'name': 'inner'},
+                    {'attributes': {'a': '4', 'baggage_conflict.a': '3', 'b': '2'}, 'name': 'inner'},
                     {'attributes': {'a': '3', 'b': '2'}, 'name': 'info'},
                 ]
             ),
