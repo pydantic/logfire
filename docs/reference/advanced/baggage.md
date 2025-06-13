@@ -49,14 +49,14 @@ Then you can update your query to
 ## Disabling
 
 If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
-`logfire.configure()` function. This may slightly improve performance.
-The `set_baggage` contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
+[`logfire.configure()`][logfire.configure] function. This may slightly improve performance.
+The [`set_baggage`][logfire.set_baggage] contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
 
 ## Baggage values requirements
 
 While baggage can technically contain any data type, only strings will be set as attributes on spans.
 Additionally, strings longer than 1000 characters will be truncated with a warning,
-in both `logfire.set_baggage` and the span attributes.
+in both [`logfire.set_baggage`][logfire.set_baggage] and the span attributes.
 
 ## Using with multiple services
 
@@ -71,7 +71,7 @@ For example, if you:
 2. make an `httpx` request in the context of `with logfire.set_baggage`
 3. to another service that has instrumented [`fastapi`](../../integrations/web-frameworks/fastapi.md)
 
-then the values set in `logfire.set_baggage` in step 2 will be available as Baggage in the `fastapi` service,
+then the values set in [`logfire.set_baggage`][logfire.set_baggage] in step 2 will be available as Baggage in the `fastapi` service,
 and by default those values will be added as attributes to the spans created in that service.
 
 This works by including the values in the `Baggage` HTTP header in the request made by `httpx`.
