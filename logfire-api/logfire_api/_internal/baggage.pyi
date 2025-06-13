@@ -1,29 +1,25 @@
 from _typeshed import Incomplete
 from collections.abc import Iterator
 from contextlib import contextmanager
+from opentelemetry import context
+from opentelemetry.sdk.trace import Span, SpanProcessor
 
 __all__ = ['get_baggage', 'set_baggage']
 
 get_baggage: Incomplete
 
 @contextmanager
-def set_baggage(**bag: str) -> Iterator[None]:
+def set_baggage(**values: str) -> Iterator[None]:
     '''Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
 
-    All values in `bag` must be strings, as OpenTelemetry baggage only supports string values.
+    See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
 
-    OpenTelemetry baggage is a way to propagate metadata across service boundaries in a distributed system, and is
-    included in headers of outgoing requests for which context propagation is configured.
-    This is intended to be used to propagate arbitrary context (like user ids, task ids, etc.) down to all nested spans.
-
-    Baggage is not _automatically_ converted into attributes on descendant spans, but this is a common usage pattern.
-    If you want baggage to be converted into attributes, use `logfire.configure(add_baggage_to_attributes=True)`.
-
-    Note: this function should always be used as a context manager; if you try to open and close it manually you may
+    Note: this function should always be used in a `with` statement; if you try to open and close it manually you may
     run into surprises because OpenTelemetry Baggage is stored in the same contextvar as the current span.
 
     Args:
-        bag: The key/value pairs to attach to baggage.
+        values: The key/value pairs to attach to baggage. These should not be large or sensitive.
+            Strings longer than 1000 characters will be truncated with a warning.
 
     Example usage:
 
@@ -37,3 +33,9 @@ def set_baggage(**bag: str) -> Iterator[None]:
             ...
     ```
     '''
+
+class NoForceFlushSpanProcessor(SpanProcessor):
+    def force_flush(self, timeout_millis: int = 30000) -> bool: ...
+
+class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
+    def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
