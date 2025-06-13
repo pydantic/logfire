@@ -44,7 +44,7 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
-from logfire._internal.baggage import JsonBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -1763,7 +1763,7 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     assert isinstance(root.processor.processor, SynchronousMultiSpanProcessor)
 
     result = list(root.processor.processor._span_processors)  # type: ignore
-    assert isinstance(result[0], JsonBaggageAttributesSpanProcessor)
+    assert isinstance(result[0], DirectBaggageAttributesSpanProcessor)
     return result[1:]
 
 
