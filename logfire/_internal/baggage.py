@@ -39,6 +39,7 @@ def set_baggage(**values: str) -> Iterator[None]:
 
     Args:
         values: The key/value pairs to attach to baggage. These should not be large or sensitive.
+            Strings longer than 1000 characters will be truncated with a warning.
 
     Example usage:
 
