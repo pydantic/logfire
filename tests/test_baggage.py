@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
@@ -124,7 +124,7 @@ def test_set_baggage_long_string():
 def test_baggage_goes_to_span_attributes(
     config_kwargs: dict[str, Any],
     exporter: TestExporter,
-    add_baggage_to_attributes: Literal[False, True, 'json'],
+    add_baggage_to_attributes: bool,
     expected: list[dict[str, Any]],
 ):
     config_kwargs['add_baggage_to_attributes'] = add_baggage_to_attributes
