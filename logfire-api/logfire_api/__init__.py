@@ -47,7 +47,7 @@ except ImportError:
 
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
-            
+
             @property
             def context(self): ...  # pragma: no cover
 
@@ -250,3 +250,8 @@ except ImportError:
         def logfire_info() -> str:
             """Show versions of logfire, OS and related packages."""
             return 'logfire_info() is not implement by logfire-api'
+
+        def get_baggage(*args, **kwargs) -> dict[str, str]:...
+
+        def set_baggage(*args, **kwargs) -> ContextManager[None]:
+            return nullcontext()

@@ -91,6 +91,7 @@ def config_kwargs(
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
         inspect_arguments=True,
         distributed_tracing=True,
+        add_baggage_to_attributes=False,
     )
 
 

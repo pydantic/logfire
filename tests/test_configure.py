@@ -44,6 +44,7 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -1761,7 +1762,9 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     assert isinstance(root.processor, MainSpanProcessorWrapper)
     assert isinstance(root.processor.processor, SynchronousMultiSpanProcessor)
 
-    return root.processor.processor._span_processors  # type: ignore
+    result = list(root.processor.processor._span_processors)  # type: ignore
+    assert isinstance(result[0], DirectBaggageAttributesSpanProcessor)
+    return result[1:]
 
 
 def get_metric_readers() -> Iterable[SpanProcessor]:

@@ -144,6 +144,7 @@ nav:
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
       - Advanced:
+          - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md
