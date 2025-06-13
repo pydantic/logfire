@@ -15,9 +15,12 @@ __all__ = (
     'set_baggage',
 )
 
+from .utils import truncate_string
 
 get_baggage = baggage.get_all
 """Get all OpenTelemetry baggage for the current context as a mapping of key/value pairs."""
+
+MAX_BAGGAGE_VALUE_LENGTH = 1000
 
 
 @contextmanager
@@ -51,6 +54,12 @@ def set_baggage(**values: str) -> Iterator[None]:
                 f'Baggage value for key "{key}" is a {type(value).__name__}. Converting to string.', stacklevel=3
             )
             value = logfire_json_dumps(value)
+        if len(value) > MAX_BAGGAGE_VALUE_LENGTH:
+            warnings.warn(
+                f'Baggage value for key "{key}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters.',
+                stacklevel=3,
+            )
+            value = truncate_string(value, max_length=MAX_BAGGAGE_VALUE_LENGTH)
         current_context = baggage.set_baggage(key, value, current_context)
     token = context.attach(current_context)
     try:
