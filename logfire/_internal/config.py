@@ -537,7 +537,7 @@ class _LogfireConfigData:
     """Sampling options."""
 
     add_baggage_to_attributes: bool
-    """Whether to add OpenTelemetry Baggage to span attributes, and how."""
+    """Whether to add OpenTelemetry Baggage to span attributes."""
 
     code_source: CodeSource | None
     """Settings for the source code of the project."""
