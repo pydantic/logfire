@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import threading
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from time import sleep, time
@@ -44,7 +44,6 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
-from logfire._internal.auth import default_token_collection
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
@@ -79,13 +78,6 @@ PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)
 @pytest.fixture(autouse=True)
 def no_log_on_config(config: None, caplog: pytest.LogCaptureFixture) -> None:
     assert not caplog.messages
-
-
-@pytest.fixture(autouse=True)
-def reset_default_token_collection_cache() -> Generator[None]:
-    default_token_collection.cache_clear()
-    yield
-    default_token_collection.cache_clear()
 
 
 def test_propagate_config_to_tags(exporter: TestExporter) -> None:

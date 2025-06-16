@@ -1437,7 +1437,7 @@ class LogfireCredentials:
                 choices=list(project_choices.keys()),
                 default='1',
             )
-            project_info_tuple = project_choices[selected_project_key]
+            project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
             project_name = project_info_tuple[1]
 

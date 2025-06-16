@@ -58,7 +58,7 @@ def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
     param_manager = ParamManager.create(data_dir)
-    base_url = param_manager.load_param('base_url', args.logfire_url)
+    base_url: str | None = param_manager.load_param('base_url', args.logfire_url)
     token = param_manager.load_param('token')
 
     if token:
@@ -68,12 +68,17 @@ def parse_whoami(args: argparse.Namespace) -> None:
             credentials.print_token_summary()
             return
 
-    current_user = LogfireCredentials.get_current_user(session=args._session, logfire_api_url=base_url)
-    if current_user is None:
+    token_collection = default_token_collection() or UserTokenCollection.empty()
+
+    try:
+        client = LogfireClient.from_url(base_url, token_collection=token_collection)
+    except LogfireConfigError:
         sys.stderr.write('Not logged in. Run `logfire auth` to log in.\n')
     else:
+        current_user = client.get_user_information()
         username = current_user['name']
         sys.stderr.write(f'Logged in as: {username}\n')
+
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
         sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
@@ -207,11 +212,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     """
     logfire_url: str | None = args.logfire_url
 
-    if DEFAULT_FILE.is_file():
-        tokens_collection = default_token_collection()
-    else:
-        tokens_collection = UserTokenCollection.empty()
-
+    tokens_collection = default_token_collection() or UserTokenCollection.empty()
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:

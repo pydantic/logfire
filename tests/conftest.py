@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import logfire
 from logfire import configure
+from logfire._internal.auth import default_token_collection
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
 from logfire.integrations.pydantic import set_pydantic_plugin_config
@@ -40,6 +42,13 @@ def anyio_backend():
 @pytest.fixture(autouse=True)
 def reset_pydantic_plugin_config():
     set_pydantic_plugin_config(None)
+
+
+@pytest.fixture(autouse=True)
+def reset_default_token_collection_cache() -> Generator[None]:
+    default_token_collection.cache_clear()
+    yield
+    default_token_collection.cache_clear()
 
 
 @pytest.fixture

@@ -1,20 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from logfire._internal.auth import UserToken, UserTokenCollection, default_token_collection
+from logfire._internal.auth import UserToken, UserTokenCollection
 from logfire.exceptions import LogfireConfigError
-
-
-@pytest.fixture(autouse=True)
-def reset_default_token_collection_cache() -> Generator[None]:
-    default_token_collection.cache_clear()
-    yield
-    default_token_collection.cache_clear()
 
 
 @pytest.mark.parametrize(

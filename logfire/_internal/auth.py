@@ -174,9 +174,10 @@ class UserTokenCollection:
 
 
 @cache
-def default_token_collection() -> UserTokenCollection:
+def default_token_collection() -> UserTokenCollection | None:
     """The default token collection, created from the `~/.logfire/default.toml` file."""
-    return UserTokenCollection.from_tokens_file(DEFAULT_FILE)
+    if DEFAULT_FILE.is_file():
+        return UserTokenCollection.from_tokens_file(DEFAULT_FILE)
 
 
 class NewDeviceFlow(TypedDict):
