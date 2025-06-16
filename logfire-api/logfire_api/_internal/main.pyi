@@ -727,6 +727,13 @@ class Logfire:
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
+    def instrument_aiohttp_server(self, **kwargs: Any) -> None:
+        """Instrument the `aiohttp` module so that spans are automatically created for each server request.
+
+        Uses the
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
+        library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
     def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 

@@ -114,6 +114,7 @@ nav:
           - Django: integrations/web-frameworks/django.md
           - Flask: integrations/web-frameworks/flask.md
           - Starlette: integrations/web-frameworks/starlette.md
+          - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
       - Databases:
@@ -143,6 +144,7 @@ nav:
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
       - Advanced:
+          - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md
@@ -227,7 +229,7 @@ plugins:
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
             - url: https://faststream.airt.ai/latest/objects.inv
-            - url: https://redis-py.readthedocs.io/en/stable/objects.inv
+            - url: https://redis.readthedocs.io/en/stable/objects.inv
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:

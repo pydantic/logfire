@@ -506,8 +506,8 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log',
-                'context': {'trace_id': 3, 'span_id': 21, 'is_remote': False},
-                'parent': None,
+                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': True},
                 'start_time': 16000000000,
                 'end_time': 16000000000,
                 'attributes': {
@@ -521,8 +521,8 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log from my_logger',
-                'context': {'trace_id': 4, 'span_id': 22, 'is_remote': False},
-                'parent': None,
+                'context': {'trace_id': 2, 'span_id': 22, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': True},
                 'start_time': 17000000000,
                 'end_time': 17000000000,
                 'attributes': {

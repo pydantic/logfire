@@ -2122,3 +2122,15 @@ def test_responses_api(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+@pytest.mark.vcr()
+def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+    with logfire.span('span'):
+        response = client.responses.create(model='gpt-4.1', input='hi')
+    assert response.output_text == snapshot('Hello! How can I help you today? 😊')
+
+    assert exporter.exported_spans_as_dict() == []

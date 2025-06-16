@@ -1,5 +1,18 @@
 # Release Notes
 
+## [v3.20.0] (2025-06-16)
+
+* Add baggage utilities by @dmontagu in [#1128](https://github.com/pydantic/logfire/pull/1128)
+* Handle NonRecordingSpans correctly in OpenAI instrumentation by @alexmojaki in [#1145](https://github.com/pydantic/logfire/pull/1145)
+
+## [v3.19.0] (2025-06-12)
+
+* `logfire.instrument_aiohttp_server()` by @adtyavrdhn in [#1131](https://github.com/pydantic/logfire/pull/1131)
+* Fix handling of `pydantic_core.Url` and `pydantic.AnyUrl` by @dmontagu in [#1130](https://github.com/pydantic/logfire/pull/1130)
+* Correct context for MCP logs by @alexmojaki in [#1138](https://github.com/pydantic/logfire/pull/1138)
+* Check empty tokens before making connection attempt by @nagarajRPoojari in [#1110](https://github.com/pydantic/logfire/pull/1110)
+* Pass meter provider to Pydantic AI by @alexmojaki in [#1136](https://github.com/pydantic/logfire/pull/1136)
+
 ## [v3.18.0] (2025-06-05)
 
 * Upgrade to OpenTelemetry SDK 1.34.0 by @alexmojaki in [#1120](https://github.com/pydantic/logfire/pull/1120)
@@ -727,3 +740,5 @@ First release from new repo!
 [v3.16.2]: https://github.com/pydantic/logfire/compare/v3.16.1...v3.16.2
 [v3.17.0]: https://github.com/pydantic/logfire/compare/v3.16.2...v3.17.0
 [v3.18.0]: https://github.com/pydantic/logfire/compare/v3.17.0...v3.18.0
+[v3.19.0]: https://github.com/pydantic/logfire/compare/v3.18.0...v3.19.0
+[v3.20.0]: https://github.com/pydantic/logfire/compare/v3.19.0...v3.20.0

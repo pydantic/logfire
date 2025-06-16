@@ -33,7 +33,7 @@ def create_transport() -> httpx.MockTransport:
 
 @contextmanager
 def check_traceparent_header():
-    with logfire.span('test span') as span:
+    with logfire.set_baggage(baggage_key='baggage_value'), logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
 
@@ -41,6 +41,7 @@ def check_traceparent_header():
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            assert response.headers['baggage'] == 'baggage_key=baggage_value'
 
         yield checker
 
@@ -439,6 +440,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.header.content-length': (IsStr(),),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
                     'http.target': '/foo',
                 },
             },
@@ -535,6 +537,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.header.content-length': (IsStr(),),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
                     'http.target': '/foo',
                 },
             },
@@ -799,6 +802,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'http.response.header.content-length': ('17',),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
                     'http.target': '/foo',
                 },
             },
