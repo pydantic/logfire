@@ -68,6 +68,7 @@ from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceConte
 from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
+    LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -84,6 +85,7 @@ from .exporters.console import (
 )
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from .exporters.min_log_level import MinLogLevelFilterSpanExporter
 from .exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     OTLPExporterHttpSession,
@@ -290,6 +292,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    send_to_logfire_min_log_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
@@ -342,6 +345,7 @@ def configure(  # noqa: D417
 
             Defaults to `True` if and only if the Python version is at least 3.11.
 
+        send_to_logfire_min_log_level: TODO
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
@@ -478,6 +482,7 @@ def configure(  # noqa: D417
         additional_span_processors=additional_span_processors,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
+        send_to_logfire_min_log_level=send_to_logfire_min_log_level,
         sampling=sampling,
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
@@ -536,6 +541,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
+    send_to_logfire_min_log_level: int | LevelName | None
+    """Minimum log level to send to Logfire."""
+
     add_baggage_to_attributes: bool
     """Whether to add OpenTelemetry Baggage to span attributes."""
 
@@ -566,6 +574,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        send_to_logfire_min_log_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
@@ -623,6 +632,9 @@ class _LogfireConfigData:
             )
         self.sampling = sampling
 
+        # Handle send_to_logfire_min_log_level
+        self.send_to_logfire_min_log_level = send_to_logfire_min_log_level
+
         if isinstance(code_source, dict):
             # This is particularly for deserializing from a dict as in executors.py
             code_source = CodeSource(**code_source)  # type: ignore
@@ -669,6 +681,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        send_to_logfire_min_log_level: int | LevelName | None = None,
         add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
@@ -696,6 +709,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            send_to_logfire_min_log_level=send_to_logfire_min_log_level,
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
@@ -734,6 +748,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        send_to_logfire_min_log_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
@@ -755,6 +770,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                send_to_logfire_min_log_level,
                 add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
@@ -939,6 +955,12 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
+                    send_to_logfire_min_log_level = self.send_to_logfire_min_log_level
+                    if send_to_logfire_min_log_level is not None:
+                        if isinstance(send_to_logfire_min_log_level, str):
+                            send_to_logfire_min_log_level = LEVEL_NUMBERS[send_to_logfire_min_log_level]
+                        assert isinstance(send_to_logfire_min_log_level, int)
+                        span_exporter = MinLogLevelFilterSpanExporter(span_exporter, send_to_logfire_min_log_level)
                     if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
