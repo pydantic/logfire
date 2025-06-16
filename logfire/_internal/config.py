@@ -9,11 +9,12 @@ import re
 import sys
 import time
 import warnings
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -31,7 +32,6 @@ from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogReco
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
-    OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
@@ -54,11 +54,11 @@ from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
-from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -82,6 +82,7 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from .exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
@@ -252,7 +253,7 @@ class CodeSource:
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
     root_path: str = ''
-    """The root path for the source code in the repository.
+    """The path from the root of the repository to the current working directory of the process.
 
     If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
@@ -287,6 +288,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
@@ -339,6 +341,8 @@ def configure(  # noqa: D417
             Defaults to `True` if and only if the Python version is at least 3.11.
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+            See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
@@ -473,6 +477,7 @@ def configure(  # noqa: D417
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
+        add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
@@ -482,13 +487,6 @@ def configure(  # noqa: D417
         return Logfire(config=config)
     else:
         return DEFAULT_LOGFIRE_INSTANCE
-
-
-def _get_int_from_env(env_var: str) -> int | None:
-    value = os.getenv(env_var)
-    if not value:
-        return None
-    return int(value)  # pragma: no cover
 
 
 @dataclasses.dataclass
@@ -536,6 +534,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
+    add_baggage_to_attributes: bool
+    """Whether to add OpenTelemetry Baggage to span attributes."""
+
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
@@ -563,6 +564,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -579,10 +581,7 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
-        if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
-            raise LogfireConfigError(
-                'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
-            )
+        self.add_baggage_to_attributes = add_baggage_to_attributes
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
@@ -668,6 +667,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -694,6 +694,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
@@ -731,6 +732,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -751,6 +753,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
                 advanced,
@@ -770,12 +773,12 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
-                ResourceAttributes.SERVICE_NAME: self.service_name,
-                ResourceAttributes.PROCESS_PID: os.getpid(),
+                'service.name': self.service_name,
+                'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
-                ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
-                ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
+                'process.runtime.name': sys.implementation.name,
+                'process.runtime.version': get_runtime_version(),
+                'process.runtime.description': sys.version,
                 # Having this giant blob of data associated with every span/metric causes various problems so it's
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -790,7 +793,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
-                otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+                otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
@@ -818,7 +821,7 @@ class LogfireConfig(_LogfireConfigData):
             # Currently there's a newer version with some differences here:
             # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
             # Both recommend generating a UUID.
-            resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
+            resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -848,13 +851,15 @@ class LogfireConfig(_LogfireConfigData):
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 main_multiprocessor.add_span_processor(span_processor)
-
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
+
+            if self.add_baggage_to_attributes:
+                add_span_processor(DirectBaggageAttributesSpanProcessor())
 
             if self.additional_span_processors is not None:
                 for processor in self.additional_span_processors:
@@ -890,7 +895,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
-                if self.token is None:
+                if not self.token:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
                     # if we still don't have a token, try initializing a new project and writing a new creds file
@@ -904,7 +909,7 @@ class LogfireConfig(_LogfireConfigData):
                         self.token = credentials.token
                         self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
-                if self.token is not None:
+                if self.token:
 
                     def check_token():
                         assert self.token is not None
@@ -930,14 +935,11 @@ class LogfireConfig(_LogfireConfigData):
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                     if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
                     else:
-                        logfire_processor = BatchSpanProcessor(
-                            span_exporter, schedule_delay_millis=schedule_delay_millis
-                        )
+                        logfire_processor = DynamicBatchSpanProcessor(span_exporter)
                     add_span_processor(logfire_processor)
 
                     # TODO should we warn here if we have metrics but we're in emscripten?
@@ -1020,7 +1022,18 @@ class LogfireConfig(_LogfireConfigData):
                         View(
                             instrument_type=Histogram,
                             aggregation=ExponentialBucketHistogramAggregation(),
-                        )
+                        ),
+                        View(
+                            instrument_type=UpDownCounter,
+                            instrument_name='http.server.active_requests',
+                            attribute_keys={
+                                'url.scheme',
+                                'http.scheme',
+                                'http.flavor',
+                                'http.method',
+                                'http.request.method',
+                            },
+                        ),
                     ],
                 )
             else:
@@ -1030,7 +1043,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
-                        new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
+                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
                         logger_provider._resource = new_resource  # type: ignore

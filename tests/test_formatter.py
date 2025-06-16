@@ -1,8 +1,8 @@
 import contextlib
-import sys
 from collections import ChainMap
+from collections.abc import Mapping
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
@@ -183,7 +183,6 @@ def test_internal_exception_formatting(caplog: pytest.LogCaptureFixture):
     assert str(caplog.records[0].exc_info[1]) == 'bad scrubber'  # type: ignore
 
 
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 @pytest.mark.anyio
 async def test_await_in_fstring(exporter: TestExporter):
     """Test that logfire.info(f'{foo(await bar())}') evaluates the await expression and logs a warning."""

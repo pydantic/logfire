@@ -2,20 +2,13 @@ from __future__ import annotations
 
 import platform
 import re
-import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 from typing import TypedDict, cast
 from urllib.parse import urljoin
-
-if sys.version_info >= (3, 9):
-    from functools import cache
-else:
-    from functools import lru_cache
-
-    cache = lru_cache(maxsize=None)
 
 import requests
 from rich.prompt import IntPrompt

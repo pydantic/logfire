@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
+from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -27,13 +27,9 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 # Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
 
-try:
-    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
-    GLOBAL_TRACE_PROVIDER.shutdown()
-    GLOBAL_TRACE_PROVIDER.set_processors([])
-except ImportError:
-    pass
+GLOBAL_TRACE_PROVIDER.shutdown()
+GLOBAL_TRACE_PROVIDER.set_processors([])
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -92,10 +88,10 @@ def config_kwargs(
             log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        # Ensure that inspect_arguments doesn't break things in most versions
-        # (it's off by default for <3.11) but it's completely forbidden for 3.8.
-        inspect_arguments=sys.version_info[:2] >= (3, 9),
+        # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
+        inspect_arguments=True,
         distributed_tracing=True,
+        add_baggage_to_attributes=False,
     )
 
 

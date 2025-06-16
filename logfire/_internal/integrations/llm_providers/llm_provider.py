@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from contextlib import ExitStack, contextmanager, nullcontext
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, ContextManager, Iterator, cast
+from collections.abc import AsyncIterator, Iterable, Iterator
+from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from ...constants import ONE_SECOND_IN_NANOSECONDS
-from ...utils import is_instrumentation_suppressed, suppress_instrumentation
+from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
@@ -23,7 +23,7 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
-) -> ContextManager[None]:
+) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
     The `client` argument can be:
@@ -80,44 +80,48 @@ def instrument_llm_provider(
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
     def _instrumentation_setup(*args: Any, **kwargs: Any) -> Any:
-        if is_instrumentation_suppressed():
+        try:
+            if is_instrumentation_suppressed():
+                return None, None, kwargs
+
+            options = kwargs.get('options') or args[-1]
+            message_template, span_data, stream_state_cls = get_endpoint_config_fn(options)
+            if not message_template:
+                return None, None, kwargs
+
+            span_data['async'] = is_async
+
+            stream = kwargs['stream']
+
+            if stream and stream_state_cls:
+                stream_cls = kwargs['stream_cls']
+                assert stream_cls is not None, 'Expected `stream_cls` when streaming'
+
+                if is_async:
+
+                    class LogfireInstrumentedAsyncStream(stream_cls):
+                        async def __stream__(self) -> AsyncIterator[Any]:
+                            with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
+                                async for chunk in super().__stream__():  # type: ignore
+                                    record_chunk(chunk)
+                                    yield chunk
+
+                    kwargs['stream_cls'] = LogfireInstrumentedAsyncStream
+                else:
+
+                    class LogfireInstrumentedStream(stream_cls):
+                        def __stream__(self) -> Iterator[Any]:
+                            with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
+                                for chunk in super().__stream__():  # type: ignore
+                                    record_chunk(chunk)
+                                    yield chunk
+
+                    kwargs['stream_cls'] = LogfireInstrumentedStream
+
+            return message_template, span_data, kwargs
+        except Exception:  # pragma: no cover
+            log_internal_error()
             return None, None, kwargs
-
-        options = kwargs.get('options') or args[-1]
-        message_template, span_data, stream_state_cls = get_endpoint_config_fn(options)
-        if not message_template:
-            return None, None, kwargs
-
-        span_data['async'] = is_async
-
-        stream = kwargs['stream']
-
-        if stream and stream_state_cls:
-            stream_cls = kwargs['stream_cls']
-            assert stream_cls is not None, 'Expected `stream_cls` when streaming'
-
-            if is_async:
-
-                class LogfireInstrumentedAsyncStream(stream_cls):
-                    async def __stream__(self) -> AsyncIterator[Any]:
-                        with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
-                            async for chunk in super().__stream__():  # type: ignore
-                                record_chunk(chunk)
-                                yield chunk
-
-                kwargs['stream_cls'] = LogfireInstrumentedAsyncStream
-            else:
-
-                class LogfireInstrumentedStream(stream_cls):
-                    def __stream__(self) -> Iterator[Any]:
-                        with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
-                            for chunk in super().__stream__():  # type: ignore
-                                record_chunk(chunk)
-                                yield chunk
-
-                kwargs['stream_cls'] = LogfireInstrumentedStream
-
-        return message_template, span_data, kwargs
 
     # In these methods, `*args` is only expected to be `(self,)`
     # in the case where we instrument classes rather than client instances.

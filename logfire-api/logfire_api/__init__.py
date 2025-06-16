@@ -47,7 +47,7 @@ except ImportError:
 
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
-            
+
             @property
             def context(self): ...  # pragma: no cover
 
@@ -148,6 +148,8 @@ except ImportError:
 
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
+            def instrument_aiohttp_server(self, *args, **kwargs) -> None: ...
+
             def instrument_system_metrics(self, *args, **kwargs) -> None: ...
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
@@ -189,6 +191,7 @@ except ImportError:
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
+        instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
         instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
         instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
@@ -247,3 +250,8 @@ except ImportError:
         def logfire_info() -> str:
             """Show versions of logfire, OS and related packages."""
             return 'logfire_info() is not implement by logfire-api'
+
+        def get_baggage(*args, **kwargs) -> dict[str, str]:...
+
+        def set_baggage(*args, **kwargs) -> ContextManager[None]:
+            return nullcontext()

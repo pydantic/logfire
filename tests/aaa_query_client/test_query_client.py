@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from datetime import datetime, timezone
 
@@ -19,6 +21,22 @@ pytestmark = [
         'see https://github.com/kevin1024/vcrpy/issues/688.',
     ),
 ]
+
+
+@pytest.mark.parametrize('client_class', [AsyncLogfireQueryClient, LogfireQueryClient])
+@pytest.mark.parametrize(
+    ['token', 'expected'],
+    [
+        ('pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W', 'https://logfire-us.pydantic.dev'),
+        ('pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W', 'https://logfire-eu.pydantic.dev'),
+        ('0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W', 'https://logfire-us.pydantic.dev'),
+    ],
+)
+def test_infers_base_url_from_token(
+    client_class: type[AsyncLogfireQueryClient | LogfireQueryClient], token: str, expected: str
+):
+    client = client_class(read_token=token)
+    assert client.base_url == expected
 
 
 def test_read_sync():

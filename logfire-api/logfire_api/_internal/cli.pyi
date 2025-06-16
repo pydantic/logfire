@@ -1,5 +1,6 @@
 import argparse
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 __all__ = ['main', 'logfire_info']
 

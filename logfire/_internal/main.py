@@ -5,17 +5,17 @@ import inspect
 import json
 import sys
 import warnings
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from contextvars import Token
+from enum import Enum
 from functools import cached_property
 from time import time
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    ContextManager,
-    Iterable,
     Literal,
-    Sequence,
     TypeVar,
     Union,
     overload,
@@ -839,7 +839,7 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -899,12 +899,17 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
-    def instrument_mcp(self) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls."""
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
         from .integrations.mcp import instrument_mcp
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_mcp(self)
+        instrument_mcp(self, propagate_otel_context)
 
     def instrument_pydantic(
         self,
@@ -962,6 +967,8 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] = 'attributes',
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -971,6 +978,8 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] = 'attributes',
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
     ) -> pydantic_ai.models.Model: ...
 
     def instrument_pydantic_ai(
@@ -979,6 +988,8 @@ class Logfire:
         /,
         *,
         event_mode: Literal['attributes', 'logs'] | None = None,
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
         """Instrument PydanticAI.
 
@@ -989,14 +1000,24 @@ class Logfire:
                 If you pass a model, a new instrumented model will be returned.
             event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
                 The default is whatever the default is in your version of PydanticAI.
+            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the events.
+                On by default. Requires PydanticAI 0.2.5 or newer.
+            kwargs: Additional keyword arguments to pass to
+                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                for future compatibility.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
 
         self._warn_if_not_initialized_for_instrumentation()
+
+        if include_binary_content is not None:
+            kwargs['include_binary_content'] = include_binary_content
+
         return instrument_pydantic_ai(
             self,
             obj=obj,
             event_mode=event_mode,
+            **kwargs,
         )
 
     def instrument_fastapi(
@@ -1015,7 +1036,7 @@ class Logfire:
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -1079,7 +1100,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -1174,7 +1195,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -1689,6 +1710,18 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(self, **kwargs)
 
+    def instrument_aiohttp_server(self, **kwargs: Any) -> None:
+        """Instrument the `aiohttp` module so that spans are automatically created for each server request.
+
+        Uses the
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
+        library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.aiohttp_server import instrument_aiohttp_server
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_aiohttp_server(**kwargs)
+
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
@@ -2014,6 +2047,8 @@ class Logfire:
     ) -> None:
         """Create a counter metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
@@ -2056,6 +2091,8 @@ class Logfire:
     ) -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
 
         ```py
@@ -2095,6 +2132,8 @@ class Logfire:
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
     ) -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
+
+        The callback is called every 60 seconds in a background thread.
 
         The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
         down.
@@ -2428,7 +2467,9 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
-    if isinstance(value, int):
+    if isinstance(value, Enum):
+        return logfire_json_dumps(value)
+    elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
                 f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '

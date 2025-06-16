@@ -179,7 +179,7 @@ class ChunksFormatter(Formatter):
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
-                value: str = node_value.value
+                value: str = node_value.value  # type: ignore
                 result.append({'v': value, 't': 'lit'})
                 new_template += value
             else:
@@ -394,7 +394,6 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     This happens sometimes due to Python bugs (especially for older Python versions)
     in the source positions of AST nodes inside f-strings.
     """
-    # ast.unparse is not available in Python 3.8, which is why inspect_arguments is forbidden in 3.8.
     source_unparsed = ast.unparse(node)
     source_segment = ast.get_source_segment(ex_source.text, node) or ''
     try:

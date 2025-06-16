@@ -8,14 +8,13 @@ integration: otel
 
 The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method will create a span for every request made by your AIOHTTP clients.
 
-!!! question "What about AIOHTTP Server?"
-    The AIOHTTP server instrumentation is not supported yet. You can track the progress [here][aiohttp-server].
+For AIOHTTP server instrumentation, see [here](../web-frameworks/aiohttp.md).
 
 ## Installation
 
-Install `logfire` with the `aiohttp` extra:
+Install `logfire` with the `aiohttp-client` extra:
 
-{{ install_logfire(extras=['aiohttp']) }}
+{{ install_logfire(extras=['aiohttp-client']) }}
 
 ## Usage
 
@@ -59,5 +58,4 @@ logfire.instrument_aiohttp_client(url_filter=mask_url)
 ```
 
 [aiohttp]: https://docs.aiohttp.org/en/stable/
-[aiohttp-server]: https://github.com/open-telemetry/opentelemetry-python-contrib/issues/501
 [opentelemetry-aiohttp]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html

@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, Set, TypeVar, Union
+from typing import Any, Callable, Literal, TypeVar, Union
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
@@ -88,9 +88,9 @@ CONSOLE_SHOW_PROJECT_LINK = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SHOW_PROJECT_
 """Whether to enable/disable the console exporter."""
 PYDANTIC_PLUGIN_RECORD = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_RECORD'], allow_file_config=True, default='off', tp=PydanticPluginRecordValues)
 """Whether instrument Pydantic validation.."""
-PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=set[str])
 """Set of items that should be included in Logfire Pydantic plugin instrumentation."""
-PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=set[str])
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
 """Head sampling rate for traces."""
@@ -160,7 +160,7 @@ class ParamManager:
         Returns:
             The value of the parameter.
         """
-        if runtime is not None:
+        if runtime is not None and runtime != '':
             return runtime
 
         param = CONFIG_PARAMS[name]

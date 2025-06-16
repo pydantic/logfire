@@ -52,3 +52,36 @@ Each **organization** can have multiple **projects**. On each **project**, you c
 - [X] A **member**: who can only view the project.
 
 If a user is invited to join a project, they become a **member** of the project, but they are a **guest** in the organization.
+
+---
+
+## Organization Types
+
+Logfire has a similar structure to Github in that you have a personal org, and then can create
+and/or belong to many other normal (i.e. non-personal) orgs. Both org types are functionally the same and you
+can invite others to join either type of org. The only difference is that you can't convert a normal
+org to a personal org.
+
+
+|                       | Personal org                      | Normal org |
+|-----------------------|-----------------------------------|---|
+| Admins                | Unlimited                         | Unlimited |
+| Members               | Unlimited                         | Unlimited |
+| Rename / change slug  | ✅                                 | ✅ |
+| Convert to normal org | ✅ (one-way)                       | — |
+
+### Which Org Type Should You Use?
+While you *can* use your personal org for production use-cases (e.g. if you
+are working alone or in a small team), you may wish to switch your personal org to a normal org if you are working
+at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
+to share your personal org's projects (which you may wish to keep private) with any colleagues.
+
+### How Do I Switch from Personal to Normal Org?
+In the personal org settings, you will find a section called "Convert to org", which will take you through a brief series of
+steps where you will:
+
+- Define your new (normal) organization's name and slug
+- Edit the name of your personal org if you wish
+
+After you do this, all projects, members, alerts, dashboards and settings will be migrated to the new org. You will
+be the owner of the new org.
