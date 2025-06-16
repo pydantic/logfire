@@ -122,7 +122,9 @@ class UserTokenCollection:
 
     @classmethod
     def from_file_data(cls, file_data: UserTokensFileData) -> Self:
-        return cls(user_tokens={url: UserToken(base_url=url, **data) for url, data in file_data['tokens'].items()})
+        return cls(
+            user_tokens={url: UserToken(base_url=url, **data) for url, data in file_data.get('tokens', {}).items()}
+        )
 
     @classmethod
     def from_tokens_file(cls, file: Path) -> Self:

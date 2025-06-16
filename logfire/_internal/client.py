@@ -66,7 +66,7 @@ class LogfireClient:
     def get_user_organizations(self) -> list[dict[str, Any]]:
         """Get the organizations of the logged-in user."""
         try:
-            response = self._get('/v1/organizations')
+            response = self._get('/v1/organizations/')
         except UnexpectedResponse as e:
             raise LogfireConfigError('Error retrieving list of organizations') from e
         return response.json()
@@ -82,7 +82,7 @@ class LogfireClient:
     def get_user_projects(self) -> list[dict[str, Any]]:
         """Get the projects of the logged-in user."""
         try:
-            response = self._get('/v1/projects')
+            response = self._get('/v1/projects/')
         except UnexpectedResponse as e:  # pragma: no cover
             raise LogfireConfigError('Error retrieving list of projects') from e
         return response.json()
@@ -114,7 +114,7 @@ class LogfireClient:
     def create_write_token(self, organization: str, project_name: str) -> dict[str, Any]:
         """Create a write token for the given project in the given organization."""
         try:
-            response = self._post(f'/v1/organizations/{organization}/projects/{project_name}/write-tokens')
+            response = self._post(f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/')
         except UnexpectedResponse as e:
             raise LogfireConfigError('Error creating project write token') from e
         return response.json()
