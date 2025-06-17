@@ -113,16 +113,19 @@ class _ProxyMeter(Meter):
             for instrument in self._instruments:
                 instrument.on_meter_set(real_meter)
 
+    def _add_proxy_instrument(self, instrument_type: type[_ProxyInstrument[InstrumentT]], **kwargs: Any) -> InstrumentT:
+        with self._lock:
+            proxy = instrument_type(self._meter, **kwargs)
+            self._instruments.add(proxy)
+            return proxy  # type: ignore
+
     def create_counter(
         self,
         name: str,
         unit: str = '',
         description: str = '',
     ) -> Counter:
-        with self._lock:
-            proxy = _ProxyCounter(self._meter, name=name, unit=unit, description=description)
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(_ProxyCounter, name=name, unit=unit, description=description)
 
     def create_up_down_counter(
         self,
@@ -130,10 +133,7 @@ class _ProxyMeter(Meter):
         unit: str = '',
         description: str = '',
     ) -> UpDownCounter:
-        with self._lock:
-            proxy = _ProxyUpDownCounter(self._meter, name=name, unit=unit, description=description)
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(_ProxyUpDownCounter, name=name, unit=unit, description=description)
 
     def create_observable_counter(
         self,
@@ -142,12 +142,9 @@ class _ProxyMeter(Meter):
         unit: str = '',
         description: str = '',
     ) -> ObservableCounter:
-        with self._lock:
-            proxy = _ProxyObservableCounter(
-                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
-            )
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(
+            _ProxyObservableCounter, name=name, unit=unit, description=description, callbacks=callbacks
+        )
 
     def create_histogram(
         self,
@@ -156,10 +153,7 @@ class _ProxyMeter(Meter):
         description: str = '',
         **kwargs: Any,
     ) -> Histogram:
-        with self._lock:
-            proxy = _ProxyHistogram(self._meter, name=name, unit=unit, description=description, **kwargs)
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(_ProxyHistogram, name=name, unit=unit, description=description, **kwargs)
 
     def create_gauge(
         self,
@@ -174,10 +168,7 @@ class _ProxyMeter(Meter):
                 'You should upgrade to 1.23.0 or newer:\n'
                 '   pip install opentelemetry-sdk>=1.23.0'
             )
-        with self._lock:
-            proxy = _ProxyGauge(self._meter, name=name, unit=unit, description=description)
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(_ProxyGauge, name=name, unit=unit, description=description)
 
     def create_observable_gauge(
         self,
@@ -186,12 +177,9 @@ class _ProxyMeter(Meter):
         unit: str = '',
         description: str = '',
     ) -> ObservableGauge:
-        with self._lock:
-            proxy = _ProxyObservableGauge(
-                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
-            )
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(
+            _ProxyObservableGauge, name=name, unit=unit, description=description, callbacks=callbacks
+        )
 
     def create_observable_up_down_counter(
         self,
@@ -200,12 +188,9 @@ class _ProxyMeter(Meter):
         unit: str = '',
         description: str = '',
     ) -> ObservableUpDownCounter:
-        with self._lock:
-            proxy = _ProxyObservableUpDownCounter(
-                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
-            )
-            self._instruments.add(proxy)
-            return proxy
+        return self._add_proxy_instrument(
+            _ProxyObservableUpDownCounter, name=name, unit=unit, description=description, callbacks=callbacks
+        )
 
 
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
