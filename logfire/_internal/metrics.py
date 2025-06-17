@@ -234,10 +234,6 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
             span.increment_metric(self._kwargs['name'], attributes or {}, amount)
 
 
-class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
-    pass
-
-
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
     def add(
         self,
@@ -270,23 +266,17 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         return meter.create_histogram(**self._kwargs)
 
 
-class _ProxyObservableCounter(_ProxyAsynchronousInstrument[ObservableCounter], ObservableCounter):
+class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
         return meter.create_observable_counter(**self._kwargs)
 
 
-class _ProxyObservableGauge(
-    _ProxyAsynchronousInstrument[ObservableGauge],
-    ObservableGauge,
-):
+class _ProxyObservableGauge(_ProxyInstrument[ObservableGauge], ObservableGauge):
     def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
         return meter.create_observable_gauge(**self._kwargs)
 
 
-class _ProxyObservableUpDownCounter(
-    _ProxyAsynchronousInstrument[ObservableUpDownCounter],
-    ObservableUpDownCounter,
-):
+class _ProxyObservableUpDownCounter(_ProxyInstrument[ObservableUpDownCounter], ObservableUpDownCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
         return meter.create_observable_up_down_counter(**self._kwargs)
 
