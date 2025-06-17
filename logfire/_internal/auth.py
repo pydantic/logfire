@@ -135,31 +135,31 @@ class UserTokenCollection:
                 the collection is empty, or the selected token is expired).
         """
         tokens_list = list(self.user_tokens.values())
+
         if base_url is not None:
-            token = next((t for t in tokens_list if t.base_url == base_url), None)
+            token = self.user_tokens.get(base_url)
             if token is None:
                 raise LogfireConfigError(
                     f'No user token was found matching the {base_url} Logfire URL. '
                     'Please run `logfire auth` to authenticate.'
                 )
-        else:
-            if len(tokens_list) == 1:
-                token = tokens_list[0]
-            elif len(tokens_list) >= 2:
-                choices_str = '\n'.join(
-                    f'{i}. {token} ({"expired" if token.is_expired else "valid"})'
-                    for i, token in enumerate(tokens_list, start=1)
-                )
-                int_choice = IntPrompt.ask(
-                    f'Multiple user tokens found. Please select one:\n{choices_str}\n',
-                    choices=[str(i) for i in range(1, len(tokens_list) + 1)],
-                )
-                token = tokens_list[int_choice - 1]
-            else:  # tokens_list == []
-                raise LogfireConfigError('No user tokens are available. Please run `logfire auth` to authenticate.')
+        elif len(tokens_list) == 1:
+            token = tokens_list[0]
+        elif len(tokens_list) >= 2:
+            choices_str = '\n'.join(
+                f'{i}. {token} ({"expired" if token.is_expired else "valid"})'
+                for i, token in enumerate(tokens_list, start=1)
+            )
+            int_choice = IntPrompt.ask(
+                f'Multiple user tokens found. Please select one:\n{choices_str}\n',
+                choices=[str(i) for i in range(1, len(tokens_list) + 1)],
+            )
+            token = tokens_list[int_choice - 1]
+        else:  # tokens_list == []
+            raise LogfireConfigError('No user tokens are available. Please run `logfire auth` to authenticate.')
 
         if token.is_expired:
-            raise LogfireConfigError(f'User token {token} is expired. Pleas run `logfire auth` to authenticate.')
+            raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')
         return token
 
     def is_logged_in(self, base_url: str | None = None) -> bool:
@@ -177,8 +177,7 @@ class UserTokenCollection:
 
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
         """Add a user token to the collection."""
-        user_token = UserToken.from_user_token_data(base_url, token)
-        self.user_tokens[base_url] = UserToken.from_user_token_data(base_url, token)
+        self.user_tokens[base_url] = user_token = UserToken.from_user_token_data(base_url, token)
         return user_token
 
     def dump(self, path: Path) -> None:
@@ -192,10 +191,15 @@ class UserTokenCollection:
 
 
 @cache
-def default_token_collection() -> UserTokenCollection | None:
-    """The default token collection, created from the `~/.logfire/default.toml` file."""
+def default_token_collection() -> UserTokenCollection:
+    """The default token collection, created from the `~/.logfire/default.toml` file.
+
+    If the default file doesn't exist, an empty collection is created.
+    """
     if DEFAULT_FILE.is_file():
         return UserTokenCollection.from_tokens_file(DEFAULT_FILE)
+
+    return UserTokenCollection.empty()
 
 
 class NewDeviceFlow(TypedDict):

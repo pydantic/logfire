@@ -48,9 +48,10 @@ class LogfireClient:
                 the user into selecting a token from the token collection (or, if only one available,
                 use it directly).
             token_collection: The token collection to use when looking for the user token. Defaults
-                to the default token collection from `~/.logfire/default.toml`.
+                to the default token collection from `~/.logfire/default.toml` (or an empty one
+                if no such file exists).
         """
-        token_collection = token_collection or default_token_collection() or UserTokenCollection.empty()
+        token_collection = token_collection or default_token_collection()
         return cls(user_token=token_collection.get_token(base_url))
 
     def _get(self, endpoint: str) -> Response:

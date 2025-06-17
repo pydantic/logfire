@@ -27,7 +27,6 @@ from ..version import VERSION
 from .auth import (
     DEFAULT_FILE,
     HOME_LOGFIRE,
-    UserTokenCollection,
     default_token_collection,
     poll_for_token,
     request_device_code,
@@ -68,10 +67,8 @@ def parse_whoami(args: argparse.Namespace) -> None:
             credentials.print_token_summary()
             return
 
-    token_collection = default_token_collection() or UserTokenCollection.empty()
-
     try:
-        client = LogfireClient.from_url(base_url, token_collection=token_collection)
+        client = LogfireClient.from_url(base_url)
     except LogfireConfigError:
         sys.stderr.write('Not logged in. Run `logfire auth` to log in.\n')
     else:
@@ -212,7 +209,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     """
     logfire_url: str | None = args.logfire_url
 
-    tokens_collection = default_token_collection() or UserTokenCollection.empty()
+    tokens_collection = default_token_collection()
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:
@@ -271,8 +268,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
-    logfire_url: str | None = args.logfire_url
-    client = LogfireClient.from_url(logfire_url)
+    client = LogfireClient.from_url(args.logfire_url)
 
     projects = client.get_user_projects()
     if projects:
@@ -303,8 +299,7 @@ def _write_credentials(project_info: dict[str, Any], data_dir: Path, logfire_api
 def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
-    logfire_url: str | None = args.logfire_url
-    client = LogfireClient.from_url(logfire_url)
+    client = LogfireClient.from_url(args.logfire_url)
 
     project_name = args.project_name
     organization = args.org
@@ -322,8 +317,7 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
 def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
-    logfire_url: str | None = args.logfire_url
-    client = LogfireClient.from_url(logfire_url)
+    client = LogfireClient.from_url(args.logfire_url)
 
     project_name = args.project_name
     organization = args.org
