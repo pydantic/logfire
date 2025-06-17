@@ -488,3 +488,15 @@ def test_metrics_in_non_recording_spans(exporter: TestExporter, config_kwargs: d
             }
         ]
     )
+
+
+def test_reconfigure(caplog: pytest.LogCaptureFixture):
+    for _ in range(3):
+        logfire.configure(send_to_logfire=False, console=False)
+        meter.create_histogram('foo', unit='x', description='bar', explicit_bucket_boundaries_advisory=[1, 2, 3])
+    # Previously a bug caused a warning to be logged when reconfiguring the metrics
+    assert not caplog.messages
+
+    # For comparison, this logs a warning because the advisory is different (unset)
+    meter.create_histogram('foo', unit='x', description='bar')
+    assert caplog.messages
