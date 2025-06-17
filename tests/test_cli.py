@@ -309,7 +309,7 @@ def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixt
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        # Necessary to assert that credentials where written to the `auth_file` (which happens from the `cli` module)
+        # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
         stack.enter_context(patch('logfire._internal.cli.input'))
         webbrowser_open = stack.enter_context(
@@ -415,7 +415,7 @@ def test_auth_no_region_specified(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        # Necessary to assert that credentials where written to the `auth_file` (which happens from the `cli` module)
+        # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
         # 'not_an_int' is used as the first input to test that invalid inputs are supported,
         # '2' will result in the EU region being used:

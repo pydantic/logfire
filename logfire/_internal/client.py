@@ -9,7 +9,7 @@ from typing_extensions import Self
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
-from .auth import UserToken, UserTokenCollection, default_token_collection
+from .auth import UserToken, default_token_collection
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
@@ -40,19 +40,16 @@ class LogfireClient:
         self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
 
     @classmethod
-    def from_url(cls, base_url: str | None, token_collection: UserTokenCollection | None = None) -> Self:
+    def from_url(cls, base_url: str | None) -> Self:
         """Create a client from the provided base URL.
 
         Args:
             base_url: The base URL to use when looking for a user token. If `None`, will prompt
                 the user into selecting a token from the token collection (or, if only one available,
-                use it directly).
-            token_collection: The token collection to use when looking for the user token. Defaults
-                to the default token collection from `~/.logfire/default.toml` (or an empty one
-                if no such file exists).
+                use it directly). The token collection will be created from the `~/.logfire/default.toml`
+                file (or an empty one if no such file exists).
         """
-        token_collection = token_collection or default_token_collection()
-        return cls(user_token=token_collection.get_token(base_url))
+        return cls(user_token=default_token_collection().get_token(base_url))
 
     def _get(self, endpoint: str) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint))

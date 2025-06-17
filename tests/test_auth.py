@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import inline_snapshot.extra
 import pytest
+from inline_snapshot import snapshot
 
 from logfire._internal.auth import UserToken, UserTokenCollection
 from logfire.exceptions import LogfireConfigError
@@ -50,7 +52,11 @@ def test_get_user_token_explicit_url(default_credentials: Path) -> None:
     token = token_collection.get_token(base_url='https://logfire-us.pydantic.dev')
     assert token.base_url == 'https://logfire-us.pydantic.dev'
 
-    with pytest.raises(LogfireConfigError):
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'LogfireConfigError: No user token was found matching the https://logfire-eu.pydantic.dev Logfire URL. Please run `logfire auth` to authenticate.'
+        )
+    ):
         token_collection.get_token(base_url='https://logfire-eu.pydantic.dev')
 
 
@@ -77,14 +83,20 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
     empty_auth_file.touch()
 
     token_collection = UserTokenCollection.from_tokens_file(empty_auth_file)
-    with pytest.raises(LogfireConfigError):
+    with inline_snapshot.extra.raises(
+        snapshot('LogfireConfigError: No user tokens are available. Please run `logfire auth` to authenticate.')
+    ):
         token_collection.get_token()
 
 
 def test_get_user_token_expired_credentials(expired_credentials: Path) -> None:
     token_collection = UserTokenCollection.from_tokens_file(expired_credentials)
 
-    with pytest.raises(LogfireConfigError):
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'LogfireConfigError: User token US (https://logfire-us.pydantic.dev) - pylf_v1_us_0kYhc**** is expired. Please run `logfire auth` to authenticate.'
+        )
+    ):
         # https://logfire-us.pydantic.dev is the URL present in the expired credentials fixture:
         token_collection.get_token(base_url='https://logfire-us.pydantic.dev')
 
