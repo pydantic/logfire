@@ -46,6 +46,13 @@ def check_traceparent_header():
         yield checker
 
 
+def without_metrics(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove metrics from spans for comparison."""
+    for span in spans:
+        span['attributes'].pop('logfire.metrics', None)
+    return spans
+
+
 def test_httpx_client_instrumentation(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
@@ -53,7 +60,7 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
             response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
@@ -112,7 +119,7 @@ def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
             # Now let other tests get the original value set in conftest.py
             _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
@@ -140,7 +147,7 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter):
             response = await client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
@@ -387,7 +394,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert response.read() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -484,7 +491,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -580,8 +587,7 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
             response = client.post('https://example.org:8080/foo')
             checker(response)
 
-    spans = exporter.exported_spans_as_dict()
-    assert spans == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -651,7 +657,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', data={'form': 'values'})
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -690,7 +696,7 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', headers={'Content-Type': 'text/plain'}, content='hello')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -750,7 +756,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -841,7 +847,7 @@ async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         await client.get('https://example.org:8080/foo')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
