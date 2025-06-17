@@ -51,39 +51,39 @@ class LogfireClient:
         """
         return cls(user_token=default_token_collection().get_token(base_url))
 
-    def _get(self, endpoint: str) -> Response:
+    def _get_raw(self, endpoint: str) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint))
         UnexpectedResponse.raise_for_status(response)
         return response
 
-    def _post(self, endpoint: str, body: Any | None = None) -> Response:
+    def _get(self, endpoint: str, *, error_message: str) -> Any:
+        try:
+            return self._get_raw(endpoint).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
+    def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
         response = self._session.post(urljoin(self.base_url, endpoint), json=body)
         UnexpectedResponse.raise_for_status(response)
         return response
 
+    def _post(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
+        try:
+            return self._post_raw(endpoint, body).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
     def get_user_organizations(self) -> list[dict[str, Any]]:
         """Get the organizations of the logged-in user."""
-        try:
-            response = self._get('/v1/organizations/')
-        except UnexpectedResponse as e:
-            raise LogfireConfigError('Error retrieving list of organizations') from e
-        return response.json()
+        return self._get('/v1/organizations/', error_message='Error retrieving list of organizations')
 
     def get_user_information(self) -> dict[str, Any]:
         """Get information about the logged-in user."""
-        try:
-            response = self._get('/v1/account/me')
-        except UnexpectedResponse as e:
-            raise LogfireConfigError('Error retrieving user information') from e
-        return response.json()
+        return self._get('/v1/account/me', error_message='Error retrieving user information')
 
     def get_user_projects(self) -> list[dict[str, Any]]:
         """Get the projects of the logged-in user."""
-        try:
-            response = self._get('/v1/projects/')
-        except UnexpectedResponse as e:  # pragma: no cover
-            raise LogfireConfigError('Error retrieving list of projects') from e
-        return response.json()
+        return self._get('/v1/projects/', error_message='Error retrieving list of projects')
 
     def create_new_project(self, organization: str, project_name: str):
         """Create a new project.
@@ -96,7 +96,7 @@ class LogfireClient:
             The newly created project.
         """
         try:
-            response = self._post(f'/v1/projects/{organization}', body={'project_name': project_name})
+            response = self._post_raw(f'/v1/projects/{organization}', body={'project_name': project_name})
         except UnexpectedResponse as e:
             r = e.response
             if r.status_code == 409:
@@ -111,8 +111,7 @@ class LogfireClient:
 
     def create_write_token(self, organization: str, project_name: str) -> dict[str, Any]:
         """Create a write token for the given project in the given organization."""
-        try:
-            response = self._post(f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/')
-        except UnexpectedResponse as e:
-            raise LogfireConfigError('Error creating project write token') from e
-        return response.json()
+        return self._post(
+            f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
+            error_message='Error creating project write token',
+        )
