@@ -79,7 +79,7 @@ class ProxyMeterProvider(MeterProvider):
             if isinstance(self.provider, SDKMeterProvider):
                 self.provider.shutdown(timeout_millis)
 
-    def force_flush(self, timeout_millis: float = 30_000) -> None:  # pragma: no cover
+    def force_flush(self, timeout_millis: float = 30_000) -> None:
         with self.lock:
             if isinstance(self.provider, SDKMeterProvider):  # pragma: no branch
                 self.provider.force_flush(timeout_millis)
@@ -120,7 +120,7 @@ class _ProxyMeter(Meter):
         description: str = '',
     ) -> Counter:
         with self._lock:
-            proxy = _ProxyCounter(self._meter.create_counter(name, unit, description), name, unit, description)
+            proxy = _ProxyCounter(self._meter, name=name, unit=unit, description=description)
             self._instruments.add(proxy)
             return proxy
 
@@ -131,9 +131,7 @@ class _ProxyMeter(Meter):
         description: str = '',
     ) -> UpDownCounter:
         with self._lock:
-            proxy = _ProxyUpDownCounter(
-                self._meter.create_up_down_counter(name, unit, description), name, unit, description
-            )
+            proxy = _ProxyUpDownCounter(self._meter, name=name, unit=unit, description=description)
             self._instruments.add(proxy)
             return proxy
 
@@ -146,11 +144,7 @@ class _ProxyMeter(Meter):
     ) -> ObservableCounter:
         with self._lock:
             proxy = _ProxyObservableCounter(
-                self._meter.create_observable_counter(name, callbacks, unit, description),
-                name,
-                callbacks,
-                unit,
-                description,
+                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
             )
             self._instruments.add(proxy)
             return proxy
@@ -163,9 +157,7 @@ class _ProxyMeter(Meter):
         **kwargs: Any,
     ) -> Histogram:
         with self._lock:
-            proxy = _ProxyHistogram(
-                self._meter.create_histogram(name, unit, description, **kwargs), name, unit, description
-            )
+            proxy = _ProxyHistogram(self._meter, name=name, unit=unit, description=description, **kwargs)
             self._instruments.add(proxy)
             return proxy
 
@@ -183,7 +175,7 @@ class _ProxyMeter(Meter):
                 '   pip install opentelemetry-sdk>=1.23.0'
             )
         with self._lock:
-            proxy = _ProxyGauge(self._meter.create_gauge(name, unit, description), name, unit, description)
+            proxy = _ProxyGauge(self._meter, name=name, unit=unit, description=description)
             self._instruments.add(proxy)
             return proxy
 
@@ -196,11 +188,7 @@ class _ProxyMeter(Meter):
     ) -> ObservableGauge:
         with self._lock:
             proxy = _ProxyObservableGauge(
-                self._meter.create_observable_gauge(name, callbacks, unit, description),
-                name,
-                callbacks,
-                unit,
-                description,
+                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
             )
             self._instruments.add(proxy)
             return proxy
@@ -214,11 +202,7 @@ class _ProxyMeter(Meter):
     ) -> ObservableUpDownCounter:
         with self._lock:
             proxy = _ProxyObservableUpDownCounter(
-                self._meter.create_observable_up_down_counter(name, callbacks, unit, description),
-                name,
-                callbacks,
-                unit,
-                description,
+                self._meter, name=name, unit=unit, description=description, callbacks=callbacks
             )
             self._instruments.add(proxy)
             return proxy
@@ -228,17 +212,9 @@ InstrumentT = TypeVar('InstrumentT', bound=Instrument)
 
 
 class _ProxyInstrument(ABC, Generic[InstrumentT]):
-    def __init__(
-        self,
-        instrument: InstrumentT,
-        name: str,
-        unit: str,
-        description: str,
-    ) -> None:
-        self._name = name
-        self._unit = unit
-        self._description = description
-        self._instrument = instrument
+    def __init__(self, meter: Meter, **kwargs: Any) -> None:
+        self._kwargs = kwargs
+        self._instrument = self._create_real_instrument(meter)
 
     def on_meter_set(self, meter: Meter) -> None:
         """Called when a real meter is set on the creating _ProxyMeter."""
@@ -255,20 +231,11 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
         span = get_current_span()
         if isinstance(span, _LogfireWrappedSpan):
-            span.increment_metric(self._name, attributes or {}, amount)
+            span.increment_metric(self._kwargs['name'], attributes or {}, amount)
 
 
 class _ProxyAsynchronousInstrument(_ProxyInstrument[InstrumentT], ABC):
-    def __init__(
-        self,
-        instrument: InstrumentT,
-        name: str,
-        callbacks: Sequence[CallbackT] | None,
-        unit: str,
-        description: str,
-    ) -> None:
-        super().__init__(instrument, name, unit, description)
-        self._callbacks = callbacks
+    pass
 
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
@@ -285,7 +252,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
-        return meter.create_counter(self._name, self._unit, self._description)
+        return meter.create_counter(**self._kwargs)
 
 
 class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
@@ -300,28 +267,28 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         self._instrument.record(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
-        return meter.create_histogram(self._name, self._unit, self._description)
+        return meter.create_histogram(**self._kwargs)
 
 
 class _ProxyObservableCounter(_ProxyAsynchronousInstrument[ObservableCounter], ObservableCounter):
-    def _create_real_instrument(self, meter: Meter) -> ObservableCounter:  # pragma: no cover
-        return meter.create_observable_counter(self._name, self._callbacks, self._unit, self._description)
+    def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
+        return meter.create_observable_counter(**self._kwargs)
 
 
 class _ProxyObservableGauge(
     _ProxyAsynchronousInstrument[ObservableGauge],
     ObservableGauge,
 ):
-    def _create_real_instrument(self, meter: Meter) -> ObservableGauge:  # pragma: no cover
-        return meter.create_observable_gauge(self._name, self._callbacks, self._unit, self._description)
+    def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
+        return meter.create_observable_gauge(**self._kwargs)
 
 
 class _ProxyObservableUpDownCounter(
     _ProxyAsynchronousInstrument[ObservableUpDownCounter],
     ObservableUpDownCounter,
 ):
-    def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:  # pragma: no cover
-        return meter.create_observable_up_down_counter(self._name, self._callbacks, self._unit, self._description)
+    def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
+        return meter.create_observable_up_down_counter(**self._kwargs)
 
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
@@ -335,7 +302,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
-        return meter.create_up_down_counter(self._name, self._unit, self._description)
+        return meter.create_up_down_counter(**self._kwargs)
 
 
 if Gauge is not None:  # pragma: no branch
@@ -347,10 +314,10 @@ if Gauge is not None:  # pragma: no branch
             attributes: Attributes | None = None,
             *args: Any,
             **kwargs: Any,
-        ) -> None:  # pragma: no cover
+        ) -> None:
             self._instrument.set(amount, attributes, *args, **kwargs)
 
-        def _create_real_instrument(self, meter: Meter):  # pragma: no cover
-            return meter.create_gauge(self._name, self._unit, self._description)
+        def _create_real_instrument(self, meter: Meter):
+            return meter.create_gauge(**self._kwargs)
 else:  # pragma: no cover
     _ProxyGauge = None  # type: ignore
