@@ -58,6 +58,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
@@ -120,9 +121,6 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
-PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
-    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
-)
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -136,24 +134,6 @@ METRICS_PREFERRED_TEMPORALITY = {
 This should be passed as the `preferred_temporality` argument of metric readers and exporters
 which send to the Logfire backend.
 """
-
-
-class _RegionData(TypedDict):
-    base_url: str
-    gcp_region: str
-
-
-REGIONS: dict[str, _RegionData] = {
-    'us': {
-        'base_url': 'https://logfire-us.pydantic.dev',
-        'gcp_region': 'us-east4',
-    },
-    'eu': {
-        'base_url': 'https://logfire-eu.pydantic.dev',
-        'gcp_region': 'europe-west4',
-    },
-}
-"""The existing Logfire regions."""
 
 
 @dataclass

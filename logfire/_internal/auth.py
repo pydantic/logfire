@@ -78,14 +78,12 @@ class UserToken:
 
     @property
     def is_expired(self) -> bool:
+        """Whether the token is expired."""
         return datetime.now(tz=timezone.utc) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(
             tzinfo=timezone.utc
         )
 
     def __str__(self) -> str:
-        # TODO define in this module?
-        from .config import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
-
         region = 'us'
         if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
             region = match.group('region')
@@ -124,6 +122,18 @@ class UserTokenCollection:
         return cls.from_file_data(cast(UserTokensFileData, read_toml_file(file)))
 
     def get_token(self, base_url: str | None = None) -> UserToken:
+        """Get a user token from the collection.
+
+        Args:
+            base_url: Only look for user tokens valid for this base URL. If not provided,
+                all the tokens of the collection will be considered: if only one token is
+                available, it will be used, otherwise the user will be prompted to choose
+                a token.
+
+        Raises:
+            LogfireConfigError: If no user token is found (no token matched the base URL,
+                the collection is empty, or the selected token is expired).
+        """
         tokens_list = list(self.user_tokens.values())
         if base_url is not None:
             token = next((t for t in tokens_list if t.base_url == base_url), None)
@@ -153,6 +163,12 @@ class UserTokenCollection:
         return token
 
     def is_logged_in(self, base_url: str | None = None) -> bool:
+        """Check whether the user token collection contains at least one valid user token.
+
+        Args:
+            base_url: Only check for user tokens valid for this base URL. If not provided,
+                all the tokens of the collection will be considered.
+        """
         if base_url is not None:
             tokens = (t for t in self.user_tokens.values() if t.base_url == base_url)
         else:
@@ -160,11 +176,13 @@ class UserTokenCollection:
         return any(not t.is_expired for t in tokens)
 
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
+        """Add a user token to the collection."""
         user_token = UserToken.from_user_token_data(base_url, token)
         self.user_tokens[base_url] = UserToken.from_user_token_data(base_url, token)
         return user_token
 
     def dump(self, path: Path) -> None:
+        """Dump the user token collection as TOML to the provided path."""
         # There's no standard library package to write TOML files, so we'll write it manually.
         with path.open('w') as f:
             for base_url, user_token in self.user_tokens.items():

@@ -33,7 +33,7 @@ class LogfireClient:
 
     def __init__(self, user_token: UserToken) -> None:
         if user_token.is_expired:
-            raise RuntimeError
+            raise RuntimeError('The provided user token is expired')
         self.base_url = user_token.base_url
         self._token = user_token.token
         self._session = Session()
