@@ -5,7 +5,6 @@ import re
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from functools import cache
 from pathlib import Path
 from typing import TypedDict, cast
 from urllib.parse import urljoin
@@ -190,7 +189,6 @@ class UserTokenCollection:
                 f.write(f'expiration = "{user_token.expiration}"\n')
 
 
-@cache
 def default_token_collection() -> UserTokenCollection:
     """The default token collection, created from the `~/.logfire/default.toml` file.
 
