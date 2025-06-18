@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.21.1] (2025-06-18)
+
+* Fix for new OpenAI Agents SDK by @alexmojaki in [#1152](https://github.com/pydantic/logfire/pull/1152)
+
 ## [v3.21.0] (2025-06-17)
 
 * Add up counter/histogram metrics in spans by @alexmojaki in [#1099](https://github.com/pydantic/logfire/pull/1099)
@@ -748,3 +752,4 @@ First release from new repo!
 [v3.19.0]: https://github.com/pydantic/logfire/compare/v3.18.0...v3.19.0
 [v3.20.0]: https://github.com/pydantic/logfire/compare/v3.19.0...v3.20.0
 [v3.21.0]: https://github.com/pydantic/logfire/compare/v3.20.0...v3.21.0
+[v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
