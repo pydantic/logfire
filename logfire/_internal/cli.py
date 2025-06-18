@@ -261,8 +261,6 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     tokens_collection.add_token(logfire_url, poll_for_token(args._session, device_code, logfire_url))
     sys.stderr.write('Successfully authenticated!\n')
-
-    tokens_collection.dump(DEFAULT_FILE)
     sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
 
 

@@ -46,7 +46,7 @@ def test_user_token_str(base_url: str, token: str, expected: str) -> None:
 
 
 def test_get_user_token_explicit_url(default_credentials: Path) -> None:
-    token_collection = UserTokenCollection.from_tokens_file(default_credentials)
+    token_collection = UserTokenCollection(default_credentials)
 
     # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
     token = token_collection.get_token(base_url='https://logfire-us.pydantic.dev')
@@ -61,7 +61,7 @@ def test_get_user_token_explicit_url(default_credentials: Path) -> None:
 
 
 def test_get_user_token_no_explicit_url(default_credentials: Path) -> None:
-    token_collection = UserTokenCollection.from_tokens_file(default_credentials)
+    token_collection = UserTokenCollection(default_credentials)
 
     token = token_collection.get_token(base_url=None)
 
@@ -70,7 +70,7 @@ def test_get_user_token_no_explicit_url(default_credentials: Path) -> None:
 
 
 def test_get_user_token_input_choice(multiple_credentials: Path) -> None:
-    token_collection = UserTokenCollection.from_tokens_file(multiple_credentials)
+    token_collection = UserTokenCollection(multiple_credentials)
 
     with patch('rich.prompt.IntPrompt.ask', side_effect=[1]):
         token = token_collection.get_token(base_url=None)
@@ -82,7 +82,7 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
     empty_auth_file = tmp_path / 'default.toml'
     empty_auth_file.touch()
 
-    token_collection = UserTokenCollection.from_tokens_file(empty_auth_file)
+    token_collection = UserTokenCollection(empty_auth_file)
     with inline_snapshot.extra.raises(
         snapshot('LogfireConfigError: No user tokens are available. Please run `logfire auth` to authenticate.')
     ):
@@ -90,7 +90,7 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
 
 
 def test_get_user_token_expired_credentials(expired_credentials: Path) -> None:
-    token_collection = UserTokenCollection.from_tokens_file(expired_credentials)
+    token_collection = UserTokenCollection(expired_credentials)
 
     with inline_snapshot.extra.raises(
         snapshot(
@@ -102,7 +102,7 @@ def test_get_user_token_expired_credentials(expired_credentials: Path) -> None:
 
 
 def test_get_user_token_not_authenticated(default_credentials: Path) -> None:
-    token_collection = UserTokenCollection.from_tokens_file(default_credentials)
+    token_collection = UserTokenCollection(default_credentials)
 
     with pytest.raises(
         LogfireConfigError,

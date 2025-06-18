@@ -100,25 +100,30 @@ class UserToken:
 
 @dataclass
 class UserTokenCollection:
-    """A collection of user tokens."""
+    """A collection of user tokens, read from a user tokens file."""
 
     user_tokens: dict[str, UserToken]
     """A mapping between base URLs and user tokens."""
 
-    @classmethod
-    def empty(cls) -> Self:
-        """Create an empty user token collection."""
-        return cls(user_tokens={})
+    path: Path
+    """The path where the user tokens are stored."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        data = cast(UserTokensFileData, read_toml_file(path))
+        self.user_tokens = {url: UserToken(base_url=url, **data) for url, data in data.get('tokens', {}).items()}
 
     @classmethod
-    def from_file_data(cls, file_data: UserTokensFileData) -> Self:
-        return cls(
-            user_tokens={url: UserToken(base_url=url, **data) for url, data in file_data.get('tokens', {}).items()}
-        )
+    def empty(cls, path: Path) -> Self:
+        """Create an empty user token collection.
 
-    @classmethod
-    def from_tokens_file(cls, file: Path) -> Self:
-        return cls.from_file_data(cast(UserTokensFileData, read_toml_file(file)))
+        Args:
+            path: The path where the user tokens will be stored.
+        """
+        inst = cls.__new__(cls)
+        inst.user_tokens = {}
+        inst.path = path
+        return inst
 
     def get_token(self, base_url: str | None = None) -> UserToken:
         """Get a user token from the collection.
@@ -177,12 +182,13 @@ class UserTokenCollection:
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
         """Add a user token to the collection."""
         self.user_tokens[base_url] = user_token = UserToken.from_user_token_data(base_url, token)
+        self._dump()
         return user_token
 
-    def dump(self, path: Path) -> None:
+    def _dump(self) -> None:
         """Dump the user token collection as TOML to the provided path."""
         # There's no standard library package to write TOML files, so we'll write it manually.
-        with path.open('w') as f:
+        with self.path.open('w') as f:
             for base_url, user_token in self.user_tokens.items():
                 f.write(f'[tokens."{base_url}"]\n')
                 f.write(f'token = "{user_token.token}"\n')
@@ -195,9 +201,9 @@ def default_token_collection() -> UserTokenCollection:
     If the default file doesn't exist, an empty collection is created.
     """
     if DEFAULT_FILE.is_file():
-        return UserTokenCollection.from_tokens_file(DEFAULT_FILE)
+        return UserTokenCollection(DEFAULT_FILE)
 
-    return UserTokenCollection.empty()
+    return UserTokenCollection.empty(DEFAULT_FILE)
 
 
 class NewDeviceFlow(TypedDict):
