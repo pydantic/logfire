@@ -7,7 +7,7 @@ from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
-from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+from agents.tracing import get_trace_provider
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -28,8 +28,8 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 os.environ['LOGFIRE_TOKEN'] = ''
 
 
-GLOBAL_TRACE_PROVIDER.shutdown()
-GLOBAL_TRACE_PROVIDER.set_processors([])
+get_trace_provider().shutdown()
+get_trace_provider().set_processors([])
 
 
 @pytest.fixture(scope='session', autouse=True)

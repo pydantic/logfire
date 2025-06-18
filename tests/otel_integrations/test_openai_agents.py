@@ -30,6 +30,7 @@ from agents import (
     input_guardrail,
     trace,
 )
+from agents.tracing import get_trace_provider
 from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
@@ -1073,8 +1074,6 @@ def all_subclasses(cls: type) -> list[type]:
 def test_unknown_span(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
-    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
-
     class MySpanData(SpanData):
         def export(self):
             return {'foo': 'bar', 'type': self.type}
@@ -1085,7 +1084,7 @@ def test_unknown_span(exporter: TestExporter):
 
     with trace('my_trace', trace_id='trace_123', group_id='456') as t:
         assert t.name == 'my_trace'
-        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData(), span_id='span_789') as s:
+        with get_trace_provider().create_span(span_data=MySpanData(), span_id='span_789') as s:
             assert s.trace_id == 'trace_123'
             assert s.span_id == 'span_789'
             assert s.parent_id is None
