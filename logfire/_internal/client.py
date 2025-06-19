@@ -9,7 +9,7 @@ from typing_extensions import Self
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
-from .auth import UserToken, default_token_collection
+from .auth import UserToken, UserTokenCollection
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
@@ -49,7 +49,7 @@ class LogfireClient:
                 use it directly). The token collection will be created from the `~/.logfire/default.toml`
                 file (or an empty one if no such file exists).
         """
-        return cls(user_token=default_token_collection().get_token(base_url))
+        return cls(user_token=UserTokenCollection().get_token(base_url))
 
     def _get_raw(self, endpoint: str) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint))

@@ -53,7 +53,7 @@ class UserTokenData(TypedDict):
     expiration: str
 
 
-class UserTokensFileData(TypedDict):
+class UserTokensFileData(TypedDict, total=False):
     """Content of the file containing the user tokens."""
 
     tokens: dict[str, UserTokenData]
@@ -100,7 +100,12 @@ class UserToken:
 
 @dataclass
 class UserTokenCollection:
-    """A collection of user tokens, read from a user tokens file."""
+    """A collection of user tokens, read from a user tokens file.
+
+    Args:
+        path: The path where the user tokens will be stored. If the path doesn't exist,
+            an empty collection is created. Defaults to `~/.logfire/default.toml`.
+    """
 
     user_tokens: dict[str, UserToken]
     """A mapping between base URLs and user tokens."""
@@ -108,22 +113,13 @@ class UserTokenCollection:
     path: Path
     """The path where the user tokens are stored."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path = DEFAULT_FILE) -> None:
         self.path = path
-        data = cast(UserTokensFileData, read_toml_file(path))
+        try:
+            data = cast(UserTokensFileData, read_toml_file(path))
+        except FileNotFoundError:
+            data: UserTokensFileData = {}
         self.user_tokens = {url: UserToken(base_url=url, **data) for url, data in data.get('tokens', {}).items()}
-
-    @classmethod
-    def empty(cls, path: Path) -> Self:
-        """Create an empty user token collection.
-
-        Args:
-            path: The path where the user tokens will be stored.
-        """
-        inst = cls.__new__(cls)
-        inst.user_tokens = {}
-        inst.path = path
-        return inst
 
     def get_token(self, base_url: str | None = None) -> UserToken:
         """Get a user token from the collection.
@@ -193,17 +189,6 @@ class UserTokenCollection:
                 f.write(f'[tokens."{base_url}"]\n')
                 f.write(f'token = "{user_token.token}"\n')
                 f.write(f'expiration = "{user_token.expiration}"\n')
-
-
-def default_token_collection() -> UserTokenCollection:
-    """The default token collection, created from the `~/.logfire/default.toml` file.
-
-    If the default file doesn't exist, an empty collection is created.
-    """
-    if DEFAULT_FILE.is_file():
-        return UserTokenCollection(DEFAULT_FILE)
-
-    return UserTokenCollection.empty(DEFAULT_FILE)
 
 
 class NewDeviceFlow(TypedDict):

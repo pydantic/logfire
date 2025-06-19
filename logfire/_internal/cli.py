@@ -27,7 +27,7 @@ from ..version import VERSION
 from .auth import (
     DEFAULT_FILE,
     HOME_LOGFIRE,
-    default_token_collection,
+    UserTokenCollection,
     poll_for_token,
     request_device_code,
 )
@@ -209,7 +209,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     """
     logfire_url: str | None = args.logfire_url
 
-    tokens_collection = default_token_collection()
+    tokens_collection = UserTokenCollection()
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:
