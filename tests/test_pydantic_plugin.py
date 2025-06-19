@@ -348,15 +348,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
-                            'exemplars': [
-                                {
-                                    'filtered_attributes': {},
-                                    'value': 1,
-                                    'time_unix_nano': IsInt(),
-                                    'span_id': 1,
-                                    'trace_id': 1,
-                                }
-                            ],
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -799,6 +791,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'result': '{"m":{"x":10}}',
                     'success': True,
                     'logfire.level_num': 9,
+                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": true, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
                 },
             },
             {
@@ -845,6 +838,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["m","x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"y"}]',
                     'logfire.level_num': 13,
+                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": false, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
                 },
             },
         ]
