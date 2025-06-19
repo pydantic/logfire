@@ -2323,7 +2323,7 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 
     exporter = QuietSpanExporter(ConnectionErrorExporter())
 
-    assert exporter.export([]) == SpanExportResult.FAILURE
+    assert exporter.export([ReadableSpan('foo')]) == SpanExportResult.FAILURE
     assert not caplog.messages
 
 

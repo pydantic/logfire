@@ -593,6 +593,7 @@ class _LogfireConfigData:
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         self.add_baggage_to_attributes = add_baggage_to_attributes
+        self.send_to_logfire_min_log_level = send_to_logfire_min_log_level
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
@@ -631,9 +632,6 @@ class _LogfireConfigData:
                 head=param_manager.load_param('trace_sample_rate'),
             )
         self.sampling = sampling
-
-        # Handle send_to_logfire_min_log_level
-        self.send_to_logfire_min_log_level = send_to_logfire_min_log_level
 
         if isinstance(code_source, dict):
             # This is particularly for deserializing from a dict as in executors.py
