@@ -43,7 +43,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
-from logfire import configure, propagate
+from logfire import LevelName, configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
@@ -1581,13 +1581,9 @@ def test_send_to_logfire_under_pytest():
 
 
 @pytest.mark.parametrize('min_log_level', [None, 9, 'INFO'])
-def test_default_exporters(monkeypatch: pytest.MonkeyPatch, min_log_level: int | None | str):
+def test_default_exporters(monkeypatch: pytest.MonkeyPatch, min_log_level: int | None | LevelName):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
-    logfire.configure(
-        send_to_logfire=True,
-        token='foo',
-        send_to_logfire_min_log_level=min_log_level,  # type: ignore
-    )
+    logfire.configure(send_to_logfire=True, token='foo', send_to_logfire_min_log_level=min_log_level)
     wait_for_check_token_thread()
 
     [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()

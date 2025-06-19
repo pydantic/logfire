@@ -965,7 +965,9 @@ class LogfireConfig(_LogfireConfigData):
                     send_to_logfire_min_log_level = self.send_to_logfire_min_log_level
                     if send_to_logfire_min_log_level is not None:
                         if isinstance(send_to_logfire_min_log_level, str):
-                            send_to_logfire_min_log_level = LEVEL_NUMBERS[send_to_logfire_min_log_level.lower()]  # type: ignore
+                            send_to_logfire_min_log_level = LEVEL_NUMBERS[
+                                cast(LevelName, send_to_logfire_min_log_level.lower())
+                            ]
                         assert isinstance(send_to_logfire_min_log_level, int)
                         span_exporter = MinLogLevelFilterSpanExporter(span_exporter, send_to_logfire_min_log_level)
 
