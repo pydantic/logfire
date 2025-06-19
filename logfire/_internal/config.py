@@ -345,7 +345,13 @@ def configure(  # noqa: D417
 
             Defaults to `True` if and only if the Python version is at least 3.11.
 
-        send_to_logfire_min_log_level: TODO
+        send_to_logfire_min_log_level:
+            Minimum log level for logs to be sent to Logfire. By default, all logs are sent to Logfire.
+            For example, set to 'info' to only send logs with level 'info' or higher,
+            thus filtering out debug logs.
+            This won't affect spans, only logs.
+            It also won't affect exporting to the console or other processors/exporters.
+            If set to `None`, uses the `LOGFIRE_SEND_TO_LOGFIRE_MIN_LOG_LEVEL` environment variable.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
@@ -542,7 +548,7 @@ class _LogfireConfigData:
     """Sampling options."""
 
     send_to_logfire_min_log_level: int | LevelName | None
-    """Minimum log level to send to Logfire."""
+    """Minimum log level for logs to be sent to Logfire."""
 
     add_baggage_to_attributes: bool
     """Whether to add OpenTelemetry Baggage to span attributes."""
