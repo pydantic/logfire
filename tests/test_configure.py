@@ -58,7 +58,7 @@ from logfire._internal.config import (
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
-from logfire._internal.exporters.min_log_level import MinLogLevelFilterSpanExporter
+from logfire._internal.exporters.min_log_level import MinLogLevelFilterLogExporter, MinLogLevelFilterSpanExporter
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
@@ -1622,7 +1622,12 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch, min_log_level: int |
 
     exporter = get_batch_log_exporter(logfire_log_processor)
     assert isinstance(exporter, QuietLogExporter)
-    assert isinstance(exporter.exporter, OTLPLogExporter)
+    if min_log_level is None:
+        assert isinstance(exporter.exporter, OTLPLogExporter)
+    else:
+        assert isinstance(exporter.exporter, MinLogLevelFilterLogExporter)
+        assert exporter.exporter.level_num == 9
+        assert isinstance(exporter.exporter.exporter, OTLPLogExporter)
 
 
 def test_custom_exporters():

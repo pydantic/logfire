@@ -85,7 +85,7 @@ from .exporters.console import (
 )
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
-from .exporters.min_log_level import MinLogLevelFilterSpanExporter
+from .exporters.min_log_level import MinLogLevelFilterLogExporter, MinLogLevelFilterSpanExporter
 from .exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     OTLPExporterHttpSession,
@@ -996,6 +996,9 @@ class LogfireConfig(_LogfireConfigData):
                         session=session,
                         compression=Compression.Gzip,
                     )
+                    if send_to_logfire_min_log_level:
+                        log_exporter = MinLogLevelFilterLogExporter(log_exporter, send_to_logfire_min_log_level)
+
                     log_exporter = QuietLogExporter(log_exporter)
 
                     if emscripten:  # pragma: no cover
