@@ -58,6 +58,7 @@ from logfire._internal.config import (
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from logfire._internal.exporters.min_log_level import MinLogLevelFilterSpanExporter
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
@@ -1577,9 +1578,14 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
-def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize('min_log_level', [None, 9, 'INFO'])
+def test_default_exporters(monkeypatch: pytest.MonkeyPatch, min_log_level: int | None | str):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
-    logfire.configure(send_to_logfire=True, token='foo')
+    logfire.configure(
+        send_to_logfire=True,
+        token='foo',
+        send_to_logfire_min_log_level=min_log_level,  # type: ignore
+    )
     wait_for_check_token_thread()
 
     [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
@@ -1589,6 +1595,12 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    inner_exporter = send_to_logfire_processor.span_exporter.exporter
+    if min_log_level is None:
+        assert not isinstance(inner_exporter, MinLogLevelFilterSpanExporter)
+    else:
+        assert isinstance(inner_exporter, MinLogLevelFilterSpanExporter)
+        assert inner_exporter.level_num == 9
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)

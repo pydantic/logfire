@@ -950,15 +950,19 @@ class LogfireConfig(_LogfireConfigData):
                         session=session,
                         compression=Compression.Gzip,
                     )
+
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                    span_exporter = RemovePendingSpansExporter(span_exporter)
+
                     send_to_logfire_min_log_level = self.send_to_logfire_min_log_level
                     if send_to_logfire_min_log_level is not None:
                         if isinstance(send_to_logfire_min_log_level, str):
-                            send_to_logfire_min_log_level = LEVEL_NUMBERS[send_to_logfire_min_log_level]
+                            send_to_logfire_min_log_level = LEVEL_NUMBERS[send_to_logfire_min_log_level.lower()]  # type: ignore
                         assert isinstance(send_to_logfire_min_log_level, int)
                         span_exporter = MinLogLevelFilterSpanExporter(span_exporter, send_to_logfire_min_log_level)
+
+                    span_exporter = RemovePendingSpansExporter(span_exporter)
+
                     if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
