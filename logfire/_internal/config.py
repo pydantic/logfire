@@ -592,8 +592,10 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
+        self.send_to_logfire_min_log_level = param_manager.load_param(
+            'send_to_logfire_min_log_level', send_to_logfire_min_log_level
+        )
         self.add_baggage_to_attributes = add_baggage_to_attributes
-        self.send_to_logfire_min_log_level = send_to_logfire_min_log_level
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
