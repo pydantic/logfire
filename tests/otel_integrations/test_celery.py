@@ -1,8 +1,10 @@
 import importlib
 import logging
-from collections.abc import Generator, Iterator
+import warnings
+from collections.abc import Iterator
 from unittest import mock
 
+import fakeredis
 import pytest
 from celery import Celery
 from celery.contrib.testing.worker import start_worker
@@ -10,7 +12,6 @@ from celery.worker.worker import WorkController
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
-from testcontainers.redis import RedisContainer
 
 import logfire
 import logfire._internal.integrations.celery
@@ -28,26 +29,31 @@ You can install this with:
 """)
 
 
-@pytest.fixture(scope='module', autouse=True)
-def redis_container() -> Generator[RedisContainer, None, None]:
-    with RedisContainer('redis:latest') as redis:
-        yield redis
-
-
 @pytest.fixture
-def celery_app(redis_container: RedisContainer) -> Iterator[Celery]:
-    redis_uri = f'redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0'
-    app = Celery('tasks', broker=redis_uri, backend=redis_uri)
+def celery_app() -> Iterator[Celery]:
+    # Create a fake Redis instance, suppressing the deprecation warning
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        fake_redis = fakeredis.FakeStrictRedis()
+    app = Celery('tasks')
+    app.conf.update(  # type: ignore[attr-defined]
+        broker_url='memory://',
+        result_backend='redis://',
+        broker_transport_options={'client': fake_redis},
+        result_backend_transport_options={'client': fake_redis},
+    )
 
     @app.task(name='tasks.say_hello')  # type: ignore
     def say_hello():  # type: ignore
         return 'hello'
 
-    logfire.instrument_celery()
-    try:
-        yield app
-    finally:
-        CeleryInstrumentor().uninstrument()
+    # Monkey patch Redis connection to use our fake Redis
+    with mock.patch('redis.StrictRedis', return_value=fake_redis):
+        logfire.instrument_celery()
+        try:
+            yield app
+        finally:
+            CeleryInstrumentor().uninstrument()
 
 
 @pytest.fixture(autouse=True)

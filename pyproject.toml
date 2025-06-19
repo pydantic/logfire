@@ -154,6 +154,7 @@ dev = [
     "mypy>=1.10.0",
     "celery>=5.4.0",
     "testcontainers>3.7.1",
+    "fakeredis>=2.30.0",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",

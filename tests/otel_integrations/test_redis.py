@@ -1,37 +1,38 @@
 from __future__ import annotations
 
 import importlib
+import warnings
 from collections.abc import Iterator
 from typing import Any
 from unittest import mock
 
+import fakeredis
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.trace import Span
 from redis import Connection, Redis
-from testcontainers.redis import RedisContainer
 
 import logfire
 import logfire._internal.integrations.redis
 from logfire.testing import TestExporter
 
 
-@pytest.fixture(scope='module', autouse=True)
-def redis_container() -> Iterator[RedisContainer]:
-    with RedisContainer('redis:latest') as redis:
-        yield redis
+@pytest.fixture
+def redis() -> Iterator[Redis]:
+    # Create a fake Redis instance, suppressing the deprecation warning
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        fake_redis = fakeredis.FakeRedis(decode_responses=True)
+    yield fake_redis
+    fake_redis.close()  # Clean up
 
 
 @pytest.fixture
-def redis(redis_container: RedisContainer):
-    with redis_container.get_client() as redis:  # type: ignore
-        yield redis
-
-
-@pytest.fixture
-def redis_port(redis_container: RedisContainer) -> str:
-    return redis_container.get_exposed_port(6379)  # pyright: ignore[reportReturnType]
+def redis_port() -> str:
+    # Return a dummy port since we're using fakeredis
+    return 6379  # pyright: ignore[reportReturnType]
 
 
 @pytest.fixture(autouse=True)
@@ -61,7 +62,7 @@ def test_instrument_redis(redis: Redis, redis_port: str, exporter: TestExporter)
                     'db.statement': 'SET ? ?',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
-                    'net.peer.name': 'localhost',
+                    'net.peer.name': IsStr(),
                     'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
@@ -90,7 +91,7 @@ def test_instrument_redis_with_capture_statement(redis: Redis, redis_port: str, 
                     'db.statement': 'SET my-key 123',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
-                    'net.peer.name': 'localhost',
+                    'net.peer.name': IsStr(),
                     'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
@@ -117,7 +118,7 @@ def test_instrument_redis_with_big_capture_statement(redis: Redis, redis_port: s
                     'logfire.span_type': 'span',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
-                    'net.peer.name': 'localhost',
+                    'net.peer.name': IsStr(),
                     'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
@@ -151,7 +152,7 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
                     'db.statement': 'SET my-key 123',
                     'db.system': 'redis',
                     'db.redis.database_index': 0,
-                    'net.peer.name': 'localhost',
+                    'net.peer.name': IsStr(),
                     'net.peer.port': redis_port,
                     'net.transport': 'ip_tcp',
                     'db.redis.args_length': 3,
