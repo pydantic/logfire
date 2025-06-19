@@ -6,6 +6,10 @@ integration: logfire
 
 Instrumenting an Express application with Logfire is straightforward. You can use the `logfire` package to set up logging and monitoring for your Express routes.
 
+!!!info
+    The [@opentelemetry/instrumentation-express](https://www.npmjs.com/package/@opentelemetry/instrumentation-express) NPM package lists the following Express version requirements:
+    > `express` version >=4.0.0 <5
+
 ```ts title="app.ts"
 import express, type { Express } from 'express';
 
@@ -52,7 +56,6 @@ The `logfire.configure` call should happen before importing the actual Express m
 ```json title="package.json"
 "scripts": {
   "start": "npx ts-node --require ./instrumentation.ts app.ts"
-A complete working example can be found in [examples/express](https://github.com/pydantic/logfire-js/tree/main/examples/express).
 ```
 
 A working example can be found in the [examples/express](https://github.com/pydantic/logfire-js/tree/main/examples/express) directory of the `pydantic/logfire-js` repository.

@@ -33,7 +33,7 @@ logfire.info("Hello from Node.js", {
 });
 ```
 
-Run the script with `node hello.js`, and you should see the log entry appear in
+Run the script with `node hello.js`, and you should see the span appear in
 the live view of your Logfire project.
 
 A working example can be found in the [examples/node](https://github.com/pydantic/logfire-js/tree/main/examples/node) directory of the logfire-js repository.
