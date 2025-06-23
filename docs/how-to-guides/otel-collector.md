@@ -283,6 +283,7 @@ Apply this configuration via `kubectl apply -f otel-collector.yaml`.
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
 
 ## Sink data into AWS S3
+
 If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
 
 Before you can do this, you'll need to set up two things:
