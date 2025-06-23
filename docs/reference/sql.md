@@ -146,6 +146,35 @@ To filter down to a specific record, use a combination of `trace_id` and `span_i
 
 Technically the span ID is a 64-bit (8 byte) integer, but in the database it's represented as a 16-character hexadecimal string, similar to the trace ID, but shorter.
 
+#### `parent_span_id`
+
+All spans in a trace are structured as a tree, where each span can have zero or more child spans, and all spans except the root span have a single parent span identified by `parent_span_id`.
+
+To filter down to only root spans, use `WHERE parent_span_id IS NULL`.
+
+If you need to work with data that's spread across pairs of parent/child spans, use a `JOIN` on the `records` table that checks both `trace_id` and `parent_span_id`, e.g.:
+
+```sql
+SELECT
+    parent_records.message AS parent_message,
+    child_records.message  AS child_message
+FROM records parent_records
+JOIN records child_records
+    ON  child_records.trace_id       = parent_records.trace_id
+    AND child_records.parent_span_id = parent_records.span_id
+```
+
+For example this code:
+
+```python
+with logfire.span('parent'):
+    logfire.info('child')
+```
+
+with the above query will return a single row with `parent_message` set to `'parent'` and `child_message` set to `'child'`.
+
+If you find yourself needing to do this, consider using [Baggage](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) instead.
+
 ### Timestamps
 
 #### `start_timestamp`
