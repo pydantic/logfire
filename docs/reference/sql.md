@@ -322,3 +322,9 @@ This is equivalent to `otel_resource_attributes->>'service.instance.id'`.
 This should be a unique identifier for the instance of the service that's running.
 
 In the **Logfire** Python SDK, a random UUID is generated when `logfire.configure()` is called. You can override this by setting the `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.instance.id=my-unique-id-1234`.
+
+#### `process_pid`
+
+This is equivalent to `otel_resource_attributes->>'process.pid'`.
+
+The **Logfire** Python SDK sets this to `os.getpid()` when `logfire.configure()` is called **or when the process gets forked**. This is the only resource attribute that is automatically updated when the process is forked. So while `service_instance_id` is usually unique for different processes, if you also want to distinguish between different forks of the same process, use a combination of `service_instance_id` and `process_pid`. However, beware that [some components of the OpenTelemetry SDK which **Logfire** uses are not fork-safe](https://github.com/open-telemetry/opentelemetry-python/issues/3307).
