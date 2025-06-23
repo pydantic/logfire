@@ -251,3 +251,42 @@ This is derived from the `exception.message` attribute of the `exception` span e
 This is the fully formatted traceback of the exception, usually a long multiline string. It can be very useful to look at, but isn't great for querying.
 
 This is derived from the `exception.stacktrace` attribute of the `exception` span event.
+
+### Resource attributes
+
+#### `otel_resource_attributes`
+
+This is a JSON object containing the [resource attributes](https://opentelemetry.io/docs/concepts/resources/) of the span/log. Typically, all spans/logs produced by a single process will have the same resource attributes.
+
+You can query it using the `->>` operator, similar to the [`attributes`](#attributes) column.
+
+Technically, each call to `logfire.configure()` can create a different set of resource attributes, so it should only be called once if possible.
+
+In **Logfire** and other OpenTelemetry SDKs, you can set arbitrary resource attributes by setting the `OTEL_RESOURCE_ATTRIBUTES` environment variable to a comma-separated list of key-value pairs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
+
+Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
+
+All other columns in this section are just convenient aliases for some resource attributes.
+
+#### `deployment_environment`
+
+This represents the environment in which the service is running, e.g. `production`, `staging`, or `development`. See the [Environments guide](../how-to-guides/environments.md) for more details.
+
+This is set to `otel_resource_attributes->>'deployment.environment.name'` if present, falling back to `otel_resource_attributes->>'deployment.environment'` otherwise to accommodate older versions of the OpenTelemetry semantic conventions.
+
+#### `service_name`
+
+This is equivalent to `otel_resource_attributes->>'service.name'`.
+
+This is an optional label identifying the type of service/application that's being run, e.g. `web-api` or `background-worker`. If you run the same code and command over many processes (horizontal scaling) then they should all have the same `service_name`, whereas two processes doing completely different things should ideally have different service names.
+
+In the Live view, this is shown as a colored bubble next to the record's timestamp in the list of records. In the details panel, clicking the `service_name` bubble offers options to copy or filter by that service name.
+
+!!! tip
+    Adding a `service_name` filter where possible is a good way to speed up SQL queries.
+
+In the **Logfire** Python SDK, you can set this by passing the `service_name` argument to `logfire.configure()`. Alternatively you can set the `LOGFIRE_SERVICE_NAME` environment variable, or set `service_name` in the `pyproject.toml` file.
+
+For other OpenTelemetry SDKs, use the `OTEL_RESOURCE_ATTRIBUTES` environment variable as described [above](#otel_resource_attributes).
+
+If it's not configured, it will usually be set to `unknown_service` as required by the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/#service-name), in which case no bubble will be shown in the Live view. However some SDKs might add the process executable name after `unknown_service`, e.g. `unknown_service:python`, in which case the bubble will be shown. In this case we recommend setting a proper `service_name` to avoid confusion, or just setting it to `unknown_service` explicitly to hide the bubble if you only have one kind of service.
