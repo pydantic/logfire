@@ -102,6 +102,42 @@ The numerical values are based on the [OpenTelemetry spec](https://opentelemetry
 
 OpenTelemetry _logs_ have a native severity level, but _spans_ do not. Spans with a status code of `ERROR` will have a level of `error`, otherwise the level is set to `info`. To set a custom value for the `level` column when using other OpenTelemetry SDKs, set the attribute `logfire.level_num`. This will not be kept in the `attributes` column.
 
+### Span tree
+
+#### `trace_id`
+
+This is a unique identifier for the trace that this span/log belongs to.
+
+A trace is a collection of one or more records that share the same `trace_id`, structured as a tree. It typically represents one high level operation such as an HTTP server request or a batch job.
+
+If you query individual records in the explore view, dashboard tables, or alerts, we recommend including `trace_id` in the `SELECT` clause. The values will become clickable links in the UI that will take you to the Live view filtered by that trace, making it easy to explore a record in context. For alerts sent as slack messages, note that this doesn't apply to the slack message itself, but the title of the slack message will link to the alert run results in the UI, and the table there will have clickable `trace_id` links.
+
+Technically the trace ID is a 128-bit (16 byte) integer, but in the database it's represented as a 32-character hexadecimal string. For example, the following code:
+
+```python
+from opentelemetry.trace import format_trace_id
+
+import logfire
+
+logfire.configure()
+
+with logfire.span('foo') as span:
+    trace_id = span.get_span_context().trace_id
+    print(trace_id)
+    print(format_trace_id(trace_id))
+```
+
+will print something like:
+
+```
+2116451560797328055476200846428238844
+01979d1e4e4325335569dba4459473fc
+```
+
+The second line is what you'll see in the database and UI.
+
+Most OpenTelemetry SDKs generate trace IDs that are completely random. However, the Python **Logfire** SDK generates trace IDs where the first few characters are based on the current time. This means that if you want to quickly check at a glance if two records are part of the same trace, it's better to look at the _last_ characters.
+
 ### Timestamps
 
 #### `start_timestamp`
