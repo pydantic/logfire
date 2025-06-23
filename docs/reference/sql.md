@@ -287,6 +287,30 @@ In the Live view, this is shown as a colored bubble next to the record's timesta
 
 In the **Logfire** Python SDK, you can set this by passing the `service_name` argument to `logfire.configure()`. Alternatively you can set the `LOGFIRE_SERVICE_NAME` environment variable, or set `service_name` in the `pyproject.toml` file.
 
-For other OpenTelemetry SDKs, use the `OTEL_RESOURCE_ATTRIBUTES` environment variable as described [above](#otel_resource_attributes).
+For other OpenTelemetry SDKs, use the `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name`.
 
 If it's not configured, it will usually be set to `unknown_service` as required by the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/#service-name), in which case no bubble will be shown in the Live view. However some SDKs might add the process executable name after `unknown_service`, e.g. `unknown_service:python`, in which case the bubble will be shown. In this case we recommend setting a proper `service_name` to avoid confusion, or just setting it to `unknown_service` explicitly to hide the bubble if you only have one kind of service.
+
+#### `service_version`
+
+This is equivalent to `otel_resource_attributes->>'service.version'`.
+
+This is an optional label identifying the version of the service/application that's being run, e.g. `1.2.3` or a git commit hash.
+
+In the **Logfire** Python SDK, you can set this by passing the `service_version` argument to `logfire.configure()`. Alternatively you can set the `LOGFIRE_SERVICE_VERSION` environment variable, or set `service_version` in the `pyproject.toml` file. If it's not set, it will try running the `git rev-parse HEAD` command to get the current git commit hash.
+
+For other OpenTelemetry SDKs, use the `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.version=1.2.3`.
+
+In the Live view, if the service name is set, then hovering over the service name bubble will show the service version in a tooltip. For example, this code:
+
+```python
+import logfire
+
+logfire.configure(service_name='my-service', service_version='1.2.3')
+
+logfire.info('hello')
+```
+
+will show this:
+
+![Service name and version in the Live view](../images/sql-reference/service-name-version-live.png)
