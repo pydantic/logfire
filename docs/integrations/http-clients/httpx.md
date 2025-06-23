@@ -71,9 +71,9 @@ Let's see a minimal example below. You can run it with `python main.py`:
 **OpenTelemetry HTTPX Instrumentation** package,
 which you can find more information about [here][opentelemetry-httpx].
 
-## Fine Tuning
+## Configuration
 
-The `logfire.instrument_httpx()` method accepts different parameters to fine-tune the instrumentation.
+The `logfire.instrument_httpx()` method accepts various parameters to configure the instrumentation.
 
 ### Capture HTTP Headers
 
@@ -150,37 +150,23 @@ You can also use the hooks to filter headers or modify them before capturing the
 
 By default, **Logfire** doesn't capture HTTP bodies.
 
-#### Capture Request Body
-
-You can enable capturing the request body by setting the `capture_request_body` parameter to `True`.
+To capture bodies, you can set the `capture_request_body` and `capture_response_body` parameters to `True`.
 
 ```py
 import httpx
 import logfire
 
 logfire.configure()
-logfire.instrument_httpx(capture_request_body=True)
+logfire.instrument_httpx(
+    capture_request_body=True,
+    capture_response_body=True,
+)
 
 client = httpx.Client()
 client.post("https://httpbin.org/post", data="Hello, World!")
 ```
 
-#### Capture Response Body
-
-You can enable capturing the response body by setting the `capture_response_body` parameter to `True`.
-
-```py
-import httpx
-import logfire
-
-logfire.configure()
-logfire.instrument_httpx(capture_response_body=True)
-
-client = httpx.Client()
-client.get("https://httpbin.org/get")
-```
-
-### Capture All Information
+### Capture Everything
 
 You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
 
@@ -190,9 +176,7 @@ import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_all=True)
-
-client = httpx.Client()
-client.post("https://httpbin.org/post", data="Hello, World!")
+client.post("https://httpbin.org/post", json={"key": "value"})
 ```
 
 [httpx]: https://www.python-httpx.org/
