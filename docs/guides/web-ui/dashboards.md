@@ -1,111 +1,128 @@
 # Dashboards
 
-This guide illustrates how to create and customize dashboards within the **Logfire UI**, thereby enabling effective
-monitoring of services and system metrics.
+This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards let you define custom visualizations using SQL queries.
 
-![Logfire Dashboard](../../images/guide/browser-dashboard.png)
+---
 
-## Get started
+## Overview
 
-**Logfire** provides several pre-built dashboards as a convenient starting point.
+There are two types of dashboards:
 
-## Web Server Metrics
+* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable them in your project, but you can't modify them directly.
+* **Custom dashboards**: Dashboards created by you. Fully editable and customizable using the UI. You can define queries, layout, chart types, and variables.
 
-This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail.
-It relies on the standard OpenTelemetry `http.server.duration` metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. Each chart is both a timeline and a breakdown by endpoint. Hover over each chart to see the most impactful endpoint at the top of the tooltip. The charts show:
+The easiest way to get started with dashboards is to enable a standard one.
 
-- **Total duration:** Endpoints which need to either be optimized or called less often.
-- **Average duration:** Endpoints which are slow on average and need to be optimized.
-- **2xx request count:** Number of successful requests (HTTP status code between 200 and 299) per endpoint.
-- **5xx request count:** Number of server errors (HTTP status code of 500 or greater) per endpoint.
-- **4xx request count:** Number of bad requests (HTTP status code between 400 and 499) per endpoint.
+---
 
-## Basic System Metrics
+## Enabling a Standard Dashboard
 
-This dashboard shows essential system resource utilization metrics. It comes in two variants:
+To enable a standard dashboard:
 
-- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md).
-- **Basic System Metrics (OpenTelemetry):** Uses data exported by any OpenTelemetry-based instrumentation following the standard semantic conventions.
+1. Go to the **Dashboards** tab in the top navigation bar.
+2. Click the **+ Dashboard** button.
+3. Browse the list of available dashboards under the "Standard" tab.
+4. Click **Enable dashboard** to activate one in your project.
 
-Both variants include the following metrics:
+You can view and interact with standard dashboards, but you cannot edit them. These dashboards may change over time as we improve the performance of the panels inside them.
 
-* **Number of Processes:** Total number of running processes on the system.
-* **System CPU usage %:** Percentage of total available processing power utilized by the whole system, i.e. the average across all CPU cores.
-* **Process CPU usage %:** CPU used by a single process, where e.g. using 2 CPU cores to full capacity would result in a value of 200%.
-* **Memory Usage %:** Percentage of memory currently in use by the system.
-* **Swap Usage %:** Percentage of swap space currently in use by the system.
+### Using a Standard Dashboard as a Template
 
-## Custom Dashboards
+You can export any standard dashboard and import it using the "Import JSON" feature to use the standard dashboard as a template:
 
-To create a custom dashboard, follow these steps:
+1. Within a standard dashboard view, click **Download dashboard as code** on the toolbar below the dashboard name (it's the second icon from right to left).
+2. Select the **Custom** tab and then select the **Import JSON** sub-tab.
+3. Import the file you just downloaded, and you will be able to modify this dashboard.
 
-1. From the dashboard page, click on the "Start From Scratch" button.
-3. Once your dashboard is created, you can start rename it and adding charts and blocks to it.
-4. To add a chart, click on the "Add Chart" button.
-5. Choose the type of block you want to add.
-6. Configure the block by providing the necessary data and settings (check the next section).
-7. Repeat steps 4-6 to add more blocks to your dashboard.
-8. To rearrange the blocks, enable the "Edit Mode" in the dashboard setting and simply drag and drop them to the desired position.
+---
 
-Feel free to experiment with different block types and configurations to create a dashboard that suits your monitoring needs.
+## Creating and Editing Custom Dashboards
 
-## Choosing and Configuring Dashboard's Charts
+To create a dashboard:
 
-When creating a custom dashboard or modifying them in Logfire, you can choose from different chart types to visualize your data.
+1. Click the **+ Dashboard** button.
+2. Select the **Custom** tab.
+3. After creating your dashboard you can start adding panels. by clicking the **Panel** button on the top right.
 
-![Logfire Dashboard chart types](../../images/guide/browser-dashboard-chart-types.png)
+You can rearrange and resize panels using drag-and-drop after clicking the **Edit layout** button
 
-### Define Your Query
-In the second step of creating a chart, you need to input your SQL query. The Logfire dashboard's charts grab data based on this query. You can see the live result of the query on the table behind your query input. You can use the full power of PostgreSQL to retrieve your records.
+### Chart Types
 
-![Logfire Dashboard chart query](../../images/guide/browser-dashboard-chart-sql-query.png)
+Logfire supports these chart types:
 
-### Chart Preview and configuration
+| Chart Type  | Query Type         | Description                          |
+| ----------- | ------------------ | ------------------------------------ |
+| Time Series | TimeSeriesQuery    | Line charts over time                |
+| Gauge       | TimeSeriesQuery    | Shows current value as a gauge       |
+| Table       | NonTimeSeriesQuery | Tabular data with rows and columns   |
+| Bar Chart   | NonTimeSeriesQuery | Comparisons across categories        |
+| Pie Chart   | NonTimeSeriesQuery | Distribution as segments of a circle |
+| Values      | NonTimeSeriesQuery | Key metrics displayed as value tiles |
 
-Based on your need and query, you need to configure the chart to visualize and display your data:
+To configure a chart:
 
-#### Time Series Chart
+1. Choose the type.
+2. Write your SQL query.
+3. Customize formatting, labels, and appearance.
 
-A time series chart displays data points over a specific time period.
+---
 
-#### Pie Chart
+## Writing Queries
 
-A pie chart represents data as slices of a circle, where each slice represents a category or value.
+Logfire uses SQL to define dashboard queries.
 
-#### Table
+If you're not sure what tables or columns are available, refer to the [Records schema reference](INSERT_LINK_HERE) and [Metrics schema reference](LINK).
 
-A table displays data in rows and columns, allowing you to present tabular data.
+### Variable Usage
 
-#### Values
+You can reference dashboard variables inside SQL using `$variable` syntax:
 
-A values chart displays a single value or multiple values as a card or panel.
+```sql
+SELECT * FROM records WHERE service = $service_name
+```
 
-#### Categories
+Only SQL queries can use variables. You can't use them in chart titles or elsewhere.
 
-A categories chart represents data as categories or groups, allowing you to compare different groups.
+### Resolution Variable
 
-## Tips and Tricks
+All dashboards have access to a special special variable called `$resolution` into your query. This value is dynamically selected based on the dashboard's duration to ensure optimal performance and data density. You can use it for time bucketing:
 
-### Enhanced Viewing with Synchronized Tooltips and Zoom
+```sql
+SELECT
+  time_bucket($resolution, start_timestamp) AS x,
+  count(1) as count
+FROM records
+GROUP BY x;
+```
 
-For dashboards containing multiple time-series charts, consider enabling "Sync Tooltip and Zoom." This powerful feature provides a more cohesive viewing experience:
+---
 
-**Hover in Sync:** When you hover over a data point on any time-series chart, corresponding data points on all synchronized charts will be highlighted simultaneously. This allows you to easily compare values across different metrics at the same time point.
-**Zooming Together:** Zooming in or out on a single chart will automatically apply the same zoom level to all synchronized charts. This helps you maintain focus on a specific time range across all metrics, ensuring a consistent analysis.
-Activating Sync
+## Variables
 
-To enable synchronized tooltips and zoom for your dashboard:
+You can define variables to make dashboards dynamic.
 
-* Open your dashboard in Logfire.
-* Click on Dashboard Setting
-* activate "Sync Tooltip and Zoom" option.
+### Types
 
-### Customizing Your Charts
+* **Text variable**: User enters any string
+* **List variable**: User picks from a static list of values
 
-**Logfire** empowers you to personalize the appearance and behavior of your charts to better suit your needs.
-Here's an overview of the available options:
+To add variables:
 
-* **Rename Chart:** Assign a clear and descriptive title to your chart for improved readability.
-* **Edit Chart**: Change the chart query to better represent your data.
-* **Duplicate Chart:** Quickly create a copy of an existing chart for further modifications, saving you time and effort.
-* **Delete Chart:** Remove a chart from your dashboard if it's no longer relevant.
+1. Open a custom dashboard
+2. Click **Variables** on the top right to open the variables settings
+3. Click **+ Add variable**
+4. Add and configure your variables
+
+Once declared, they are available for use in SQL as `$your_variable_name`
+
+---
+
+## Layout, Duration, and Refresh
+
+Each dashboard can define:
+
+* **Layout**: Panels are arranged in a grid. Drag to resize and move.
+* **Duration**: Controls the time range for the data shown (e.g., 1h, 6h, 24h)
+* **Refresh Interval**: Set how often the dashboard should auto-refresh
+
+Duration and refresh settings are available in the top-right corner of the dashboard view.
