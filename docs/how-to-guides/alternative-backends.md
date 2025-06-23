@@ -54,6 +54,13 @@ with logfire.span('This is a span'):
 
 Finally open [http://localhost:16686/search?service=my_logfire_service](http://localhost:16686/search?service=my_logfire_service) to see the traces in the Jaeger UI.
 
+![Jaeger traces view](../images/guide/jaeger-traces-view.png)
+
+You can click on a specific trace to get a more detailed view:
+![Jager trace details](../images/guide/jaeger-trace-details.png)
+
+And this is how a more "complex" trace would look like:
+![Jager complete trace](../images/guide/jaeger-complete-trace-view.png)
 ## Other environment variables
 
 If `OTEL_TRACES_EXPORTER` and/or `OTEL_METRICS_EXPORTER` are set to any non-empty value other than `otlp`, then **Logfire** will ignore the corresponding `OTEL_EXPORTER_OTLP_*` variables. This is because **Logfire** doesn't support other exporters, so we assume that the environment variables are intended to be used by something else. Normally you don't need to worry about this, and you don't need to set these variables at all unless you want to prevent **Logfire** from setting up these exporters.
