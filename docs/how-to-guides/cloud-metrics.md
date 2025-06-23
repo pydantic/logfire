@@ -118,7 +118,7 @@ service:
 Authentication to Google Cloud via [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials).
 If you are running on Kubernetes you will have to set up [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) to allow the OpenTelemetry Collector to access Google Cloud resources.
 If you are running on Cloud Run or other GCP services, the default service account will be used automatically.
-You can either give the default service account the necessary permissions (in which case you can skip creating the service account above) or create a new service account and configure the workfload running the OpenTelemetry Collector to use this service account.
+You can either give the default service account the necessary permissions (in which case you can skip creating the service account above) or create a new service account and configure the workload running the OpenTelemetry Collector to use this service account.
 The latter is advisable from a security perspective, as it allows you to limit the permissions of the service account to only what is necessary for the OpenTelemetry Collector.
 
 Authentication to Logfire must happen via a write token.
