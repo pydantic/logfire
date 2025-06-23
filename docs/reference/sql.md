@@ -61,3 +61,13 @@ In database query spans from the Python **Logfire** SDK, this is usually a _summ
 It's usually faster and more correct to use `span_name` in queries. `message` is primarily for human readability and is more likely to change over time. But if you want to query it, you probably want to use the `LIKE` (or `ILIKE` for case-insensitive) SQL operator, e.g. `WHERE message LIKE '%bad%'` to find all records where `message` contains the substring `bad`.
 
 OpenTelemetry doesn't have a native 'message' concept. To set a value for the `message` column when using other OpenTelemetry SDKs, set the attribute `logfire.msg`. This will not be kept in the `attributes` column.
+
+### `attributes`
+
+This is a JSON object containing arbitrary additional structured data about the record. It can vary widely between records and even be empty.
+
+You can query it using the `->>` operator, e.g. above `attributes->>'thing' = 'bad'` (note the single quotes, `"thing"` or `"bad"` would look for SQL columns with those names and fail) would match our record because of the `thing='bad'` argument in the `logfire.warn()` call. For nested JSON, you can chain multiple `->>` operators, e.g. `attributes->>'nested'->>'key'`. You can also use `->` which is mostly interchangeable, but if you get weird errors about types, try using `->>` instead.
+
+See the [manual tracing docs on attributes](../guides/onboarding-checklist/add-manual-tracing.md#attributes) for more information about setting attributes in the **Logfire** SDK.
+
+Note that arguments passed directly to the **Logfire** SDK methods are shown under 'Arguments' in the Live view details panel, but they are still stored in the same `attributes` column.
